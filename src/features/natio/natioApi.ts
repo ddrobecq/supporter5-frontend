@@ -2,6 +2,17 @@ import { env } from '../../config/env';
 import { http } from '../../lib/http';
 import type { NatioRow, PaginatedResponse } from './types';
 
+export interface IntegrityConstraint {
+  table: string;
+  count: number;
+  description: string;
+}
+
+export interface CanDeleteResponse {
+  canDelete: boolean;
+  constraints: IntegrityConstraint[];
+}
+
 export async function fetchNatio(search: string, signal?: AbortSignal): Promise<PaginatedResponse<NatioRow>> {
   const baseParams = {
     limit: 200,
@@ -52,6 +63,13 @@ export async function fetchNatio(search: string, signal?: AbortSignal): Promise<
 
 export async function fetchNatioById(id: string | number): Promise<NatioRow> {
   const { data } = await http.get<NatioRow>(`${env.natioPublicResource}/${id}`);
+  return data;
+}
+
+export async function canDeleteNatio(id: string | number): Promise<CanDeleteResponse> {
+  const { data } = await http.get<CanDeleteResponse>(
+    `${env.natioAdminResource}/${id}/can-delete`,
+  );
   return data;
 }
 

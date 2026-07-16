@@ -3,6 +3,7 @@ import EventNoteRoundedIcon from '@mui/icons-material/EventNoteRounded';
 import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
+import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import PeopleRoundedIcon from '@mui/icons-material/PeopleRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
@@ -40,6 +41,7 @@ export function AdminLayout() {
   const [compactSearchAction, setCompactSearchAction] = useState(false);
   const isHomeActive = location.pathname === '/admin/home' || location.pathname === '/accueil';
   const isNatioActive = location.pathname === '/admin/natio' || location.pathname === '/natio';
+  const isVilleActive = location.pathname === '/admin/ville' || location.pathname === '/ville';
 
   useEffect(() => {
     const row = navButtonsRowRef.current;
@@ -168,6 +170,24 @@ export function AdminLayout() {
                 onClick={() => navigate('/natio')}
               >
                 {compactNavButtons ? <FlagRoundedIcon /> : 'Pays'}
+              </Button>
+            </Tooltip>
+
+            <Tooltip title="Villes" disableHoverListener={!compactNavButtons}>
+              <Button
+                size="small"
+                variant={isVilleActive ? 'contained' : 'outlined'}
+                color={isVilleActive ? 'primary' : 'inherit'}
+                startIcon={compactNavButtons ? undefined : <LocationCityRoundedIcon />}
+                sx={{
+                  minWidth: 36,
+                  px: compactNavButtons ? 1 : 1.25,
+                  '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
+                }}
+                aria-label="Villes"
+                onClick={() => navigate('/ville')}
+              >
+                {compactNavButtons ? <LocationCityRoundedIcon /> : 'Villes'}
               </Button>
             </Tooltip>
 

@@ -24,14 +24,16 @@ import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { createNatio, deleteNatio, fetchNatio, fetchNatioById, updateNatio, canDeleteNatio } from './natioApi';
-import { NatioFormDialog } from './NatioFormDialog';
-import type { NatioRow } from './types';
-import type { IntegrityConstraint } from './natioApi';
+import { createVille, deleteVille, fetchVille, fetchVilleById, updateVille, canDeleteVille } from './villeApi';
+import { fetchNatio } from '../natio/natioApi';
+import { VilleFormDialog } from './VilleFormDialog';
+import type { VilleRow } from './types';
+import type { NatioRow } from '../natio/types';
+import type { IntegrityConstraint } from './villeApi';
 
-const PK_CANDIDATES = ['IDNATIO', 'NATIO', 'ID', 'id', 'CODE'];
+const PK_CANDIDATES = ['VICLEUNIK', 'VILLEID', 'ID', 'id'];
 
-function detectPrimaryKey(rows: NatioRow[]): string | undefined {
+function detectPrimaryKey(rows: VilleRow[]): string | undefined {
   const firstRow = rows[0];
   if (!firstRow) return undefined;
 
@@ -45,14 +47,15 @@ function toErrorMessage(error: unknown): string {
     const apiMessage = (error.response?.data as { message?: string } | undefined)?.message;
     if (apiMessage) return apiMessage;
     if (error.response?.status === 401) return 'Session expiree. Reconnectez-vous.';
-    if (error.response?.status === 404) return 'Ressource introuvable. Verifiez la route NATIO backend.';
+    if (error.response?.status === 404) return 'Ressource introuvable. Verifiez la route VILLE backend.';
     if (error.response?.status === 409) return 'Suppression impossible: des enregistrements dependants existent.';
   }
   return 'Une erreur est survenue.';
 }
 
-export function NatioPage() {
-  const [rows, setRows] = useState<NatioRow[]>([]);
+export function VillePage() {
+  const [rows, setRows] = useState<VilleRow[]>([]);
+  const [natioDatas, setNatioDatas] = useState<NatioRow[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -63,7 +66,7 @@ export function NatioPage() {
   const [selection, setSelection] = useState<GridRowId[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
-  const [activeRow, setActiveRow] = useState<NatioRow | undefined>(undefined);
+  const [activeRow, setActiveRow] = useState<VilleRow | undefined>(undefined);
 
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleteConstraints, setDeleteConstraints] = useState<IntegrityConstraint[]>([]);
@@ -73,45 +76,51 @@ export function NatioPage() {
 
   const primaryKey = useMemo(() => detectPrimaryKey(rows), [rows]);
 
+  const natioMap = useMemo(() => {
+    const map = new Map<string | number | unknown, string>();
+    for (const natio of natioDatas) {
+      const idnatio = natio.IDNATIO ?? natio.ID;
+      const pays = natio.PAYS ?? natio.NOM;
+      if (idnatio && pays) {
+        map.set(idnatio, String(pays));
+      }
+    }
+    return map;
+  }, [natioDatas]);
+
   const columns = useMemo<GridColDef[]>(() => {
-    const first = rows[0];
-    if (!first) return [];
-
-    const allFields = Object.keys(first);
-
-    const codeField = allFields.find((f) => ['IDNATIO', 'NATIO', 'CODE'].includes(f));
-    const nameField = allFields.find((f) => ['PAYS', 'NOM', 'NATIO_NOM'].includes(f));
-
-    const visibleFields = allFields.filter((field) => field !== 'NALOCAL' && field !== 'NAT_DRAPEAU');
-    const orderedFields = [codeField, nameField, ...visibleFields].filter(
-      (field, index, array): field is string => Boolean(field) && array.indexOf(field) === index,
-    );
-
-    return orderedFields.map((field, index) => {
-      const isFirstColumn = index === 0;
-      const isSecondColumn = index === 1;
-
-      return {
-        field,
-        headerName: field === codeField ? 'Code' : field === nameField ? 'Nom' : field,
-        width: isFirstColumn ? 80 : undefined,
-        minWidth: isFirstColumn ? 80 : isSecondColumn ? 220 : 140,
-        maxWidth: isFirstColumn ? 80 : undefined,
-        flex: isSecondColumn ? 1 : undefined,
+    return [
+      {
+        field: 'NOM',
+        headerName: 'Nom',
+        minWidth: 200,
+        flex: 1,
         sortable: true,
-      };
-    });
-  }, [rows]);
+      },
+      {
+        field: 'IDNATIO',
+        headerName: 'Pays',
+        minWidth: 80,
+        maxWidth: 220,
+        width: 120,
+        renderCell: (params) => {
+          const countryName = natioMap.get(params.value);
+          const display = countryName || String(params.value || '');
+          const ellipsized = display.length > 22 ? `${display.substring(0, 19)}...` : display;
+          return ellipsized;
+        },
+        sortable: true,
+      },
+    ];
+  }, [natioMap]);
 
   const formFields = useMemo<string[]>(() => {
     const source = activeRow ?? rows[0];
     const sourceFields = source ? Object.keys(source) : [];
-    const withRequired = [...sourceFields, 'NALOCAL', 'NAT_DRAPEAU'];
-
-    return withRequired.filter((field, index, array) => array.indexOf(field) === index);
+    return sourceFields.filter((field, index, array) => array.indexOf(field) === index);
   }, [activeRow, rows]);
 
-  const getRowId = (row: NatioRow): GridRowId => {
+  const getRowId = (row: VilleRow): GridRowId => {
     if (primaryKey && (typeof row[primaryKey] === 'string' || typeof row[primaryKey] === 'number')) {
       return row[primaryKey] as GridRowId;
     }
@@ -125,7 +134,7 @@ export function NatioPage() {
 
     setLoading(true);
     try {
-      const result = await fetchNatio(query.trim(), controller.signal);
+      const result = await fetchVille(query.trim(), controller.signal);
       if (controller.signal.aborted) return;
       setRows(result.data ?? []);
     } catch (error) {
@@ -148,12 +157,12 @@ export function NatioPage() {
   const openEditDialog = async (rowId?: GridRowId) => {
     const selectedId = rowId ?? selection.at(0);
     if (selectedId === undefined || selectedId === null) {
-      setSnackbar({ severity: 'error', message: 'Selectionnez un pays a ouvrir.' });
+      setSnackbar({ severity: 'error', message: 'Selectionnez une ville a ouvrir.' });
       return;
     }
 
     try {
-      const row = await fetchNatioById(selectedId as string | number);
+      const row = await fetchVilleById(selectedId as string | number);
       setDialogMode('edit');
       setActiveRow(row);
       setSelection([selectedId]);
@@ -163,19 +172,19 @@ export function NatioPage() {
     }
   };
 
-  const handleFormSubmit = async (payload: NatioRow) => {
+  const handleFormSubmit = async (payload: VilleRow) => {
     try {
       if (dialogMode === 'create') {
-        await createNatio(payload);
-        setSnackbar({ severity: 'success', message: 'Pays cree.' });
+        await createVille(payload);
+        setSnackbar({ severity: 'success', message: 'Ville creee.' });
       } else {
         const selectedId = selection.at(0);
         if (!selectedId) {
-          setSnackbar({ severity: 'error', message: 'Aucun pays selectionne.' });
+          setSnackbar({ severity: 'error', message: 'Aucune ville selectionnee.' });
           return;
         }
-        await updateNatio(selectedId as string | number, payload);
-        setSnackbar({ severity: 'success', message: 'Pays mis a jour.' });
+        await updateVille(selectedId as string | number, payload);
+        setSnackbar({ severity: 'success', message: 'Ville mise a jour.' });
       }
 
       setDialogOpen(false);
@@ -188,13 +197,13 @@ export function NatioPage() {
   const handleDelete = async () => {
     const selectedId = selection.at(0);
     if (!selectedId) {
-      setSnackbar({ severity: 'error', message: 'Selectionnez un pays a supprimer.' });
+      setSnackbar({ severity: 'error', message: 'Selectionnez une ville a supprimer.' });
       return;
     }
 
     try {
-      await deleteNatio(selectedId as string | number);
-      setSnackbar({ severity: 'success', message: 'Pays supprime.' });
+      await deleteVille(selectedId as string | number);
+      setSnackbar({ severity: 'success', message: 'Ville supprimee.' });
       setConfirmDeleteOpen(false);
       setDeleteConstraints([]);
       setSelection([]);
@@ -204,7 +213,7 @@ export function NatioPage() {
       if (message.toLowerCase().includes('constraint') || message.toLowerCase().includes('foreign key')) {
         setSnackbar({
           severity: 'error',
-          message: 'Suppression impossible: ce pays est reference dans d\'autres donnees.',
+          message: 'Suppression impossible: cette ville est reference dans d\'autres donnees.',
         });
       } else {
         setSnackbar({ severity: 'error', message });
@@ -217,21 +226,26 @@ export function NatioPage() {
   const handleOpenDeleteConfirm = async () => {
     const selectedId = selection.at(0);
     if (!selectedId) {
-      setSnackbar({ severity: 'error', message: 'Selectionnez un pays a supprimer.' });
+      setSnackbar({ severity: 'error', message: 'Selectionnez une ville a supprimer.' });
       return;
     }
 
     try {
-      const result = await canDeleteNatio(selectedId as string | number);
+      const result = await canDeleteVille(selectedId as string | number);
       setDeleteConstraints(result.constraints);
       setConfirmDeleteOpen(true);
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+      setConfirmDeleteOpen(false);
     }
   };
 
   useEffect(() => {
-    // DataGrid can grab keyboard focus after data load; restore it once to the search input.
+    void loadData('');
+    fetchNatio('').then((result) => setNatioDatas(result.data ?? [])).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (!loading && !didFocusSearchRef.current) {
       searchInputRef.current?.focus();
       didFocusSearchRef.current = true;
@@ -244,19 +258,12 @@ export function NatioPage() {
     }, 320);
 
     return () => window.clearTimeout(handle);
-    // Debounce search requests while typing
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
-
-  useEffect(() => () => {
-    activeRequestRef.current?.abort();
-  }, []);
 
   useEffect(() => {
     const row = actionButtonsRowRef.current;
     if (!row) return;
 
-    // Collapse labels only when each button cannot reasonably fit icon + text.
     const updateCompactState = () => {
       const spacingPx = 8;
       const totalSpacing = spacingPx * 2;
@@ -271,9 +278,13 @@ export function NatioPage() {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => () => {
+    activeRequestRef.current?.abort();
+  }, []);
+
   return (
     <Stack spacing={2}>
-      <Typography variant="h5" sx={{ fontWeight: 700 }}>Pays</Typography>
+      <Typography variant="h5" sx={{ fontWeight: 700 }}>Villes</Typography>
 
       <Card>
         <CardContent>
@@ -284,7 +295,7 @@ export function NatioPage() {
           >
             <TextField
               size="small"
-              label="Rechercher un pays"
+              label="Rechercher une ville"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               inputRef={searchInputRef}
@@ -368,12 +379,13 @@ export function NatioPage() {
         </CardContent>
       </Card>
 
-      <NatioFormDialog
+      <VilleFormDialog
         open={dialogOpen}
         mode={dialogMode}
         fields={formFields}
         primaryKey={primaryKey}
         initialData={activeRow}
+        natioDatas={natioDatas}
         onClose={() => setDialogOpen(false)}
         onSubmit={handleFormSubmit}
       />
@@ -386,12 +398,12 @@ export function NatioPage() {
         <DialogContent>
           {deleteConstraints.length === 0 ? (
             <DialogContentText>
-              Cette action est irreversible. Verifiez que ce pays n'est pas utilise dans d'autres enregistrements.
+              Cette action est irreversible. Verifiez que cette ville n'est pas utilisee dans d'autres enregistrements.
             </DialogContentText>
           ) : (
             <Stack spacing={1.5}>
               <DialogContentText>
-                <strong>Suppression impossible.</strong> Ce pays est utilise dans d'autres donnees:
+                <strong>Suppression impossible.</strong> Cette ville est utilisee dans d'autres donnees:
               </DialogContentText>
               <Stack spacing={0.75} sx={{ ml: 2 }}>
                 {deleteConstraints.map((constraint) => (
