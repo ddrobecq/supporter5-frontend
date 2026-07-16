@@ -4,4 +4,6 @@ export const env = {
   natioAdminResource: import.meta.env.VITE_NATIO_ADMIN_RESOURCE ?? '/api/admin/natio',
   villePublicResource: import.meta.env.VITE_VILLE_PUBLIC_RESOURCE ?? '/api/ville',
   villeAdminResource: import.meta.env.VITE_VILLE_ADMIN_RESOURCE ?? '/api/admin/ville',
+  arbitrePublicResource: import.meta.env.VITE_ARBITRE_PUBLIC_RESOURCE ?? '/api/arbitre',
+  arbitreAdminResource: import.meta.env.VITE_ARBITRE_ADMIN_RESOURCE ?? '/api/admin/arbitre',
 };

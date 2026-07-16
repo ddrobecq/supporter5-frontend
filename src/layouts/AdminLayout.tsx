@@ -4,11 +4,12 @@ import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
-import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import PeopleRoundedIcon from '@mui/icons-material/PeopleRounded';
+import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
+import SportsIcon from '@mui/icons-material/Sports';
 import {
   AppBar,
   Box,
@@ -42,6 +43,7 @@ export function AdminLayout() {
   const isHomeActive = location.pathname === '/admin/home' || location.pathname === '/accueil';
   const isNatioActive = location.pathname === '/admin/natio' || location.pathname === '/natio';
   const isVilleActive = location.pathname === '/admin/ville' || location.pathname === '/ville';
+  const isArbitreActive = location.pathname === '/admin/arbitre' || location.pathname === '/arbitre';
 
   useEffect(() => {
     const row = navButtonsRowRef.current;
@@ -188,6 +190,24 @@ export function AdminLayout() {
                 onClick={() => navigate('/ville')}
               >
                 {compactNavButtons ? <LocationCityRoundedIcon /> : 'Villes'}
+              </Button>
+            </Tooltip>
+
+            <Tooltip title="Arbitres" disableHoverListener={!compactNavButtons}>
+              <Button
+                size="small"
+                variant={isArbitreActive ? 'contained' : 'outlined'}
+                color={isArbitreActive ? 'primary' : 'inherit'}
+                startIcon={compactNavButtons ? undefined : <SportsIcon />}
+                sx={{
+                  minWidth: 36,
+                  px: compactNavButtons ? 1 : 1.25,
+                  '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
+                }}
+                aria-label="Arbitres"
+                onClick={() => navigate('/arbitre')}
+              >
+                {compactNavButtons ? <SportsIcon /> : 'Arbitres'}
               </Button>
             </Tooltip>
 

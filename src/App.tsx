@@ -4,6 +4,7 @@ import { LoginPage } from './features/auth/LoginPage';
 import { HomePage } from './features/home/HomePage';
 import { NatioPage } from './features/natio/NatioPage';
 import { VillePage } from './features/ville/VillePage';
+import { ArbitrePage } from './features/arbitre/ArbitrePage';
 import { AdminLayout } from './layouts/AdminLayout';
 
 function App() {
@@ -19,6 +20,8 @@ function App() {
           <Route path="/admin/natio" element={<NatioPage />} />
           <Route path="/ville" element={<Navigate to="/admin/ville" replace />} />
           <Route path="/admin/ville" element={<VillePage />} />
+          <Route path="/arbitre" element={<Navigate to="/admin/arbitre" replace />} />
+          <Route path="/admin/arbitre" element={<ArbitrePage />} />
         </Route>
       </Route>
 
