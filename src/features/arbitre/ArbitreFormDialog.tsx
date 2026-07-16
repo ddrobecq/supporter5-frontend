@@ -224,29 +224,34 @@ export function ArbitreFormDialog({
                     position: 'relative',
                   }}
                 >
-                  {photoLoading && <CircularProgress size={40} />}
-                  {!photoLoading && values[photoField] ? (
+                  {/* Spinner : upload local en cours ou chargement depuis API */}
+                  {(photoLoading || existingPhoto.loading) && <CircularProgress size={40} />}
+
+                  {/* Photo affichée : nouvelle upload prioritaire, sinon photo existante depuis API */}
+                  {!photoLoading && !existingPhoto.loading && (newPhotoDataUrl ?? existingPhoto.src) ? (
                     <Box
                       component="img"
-                      src={asImageSrc(values[photoField])}
+                      src={(newPhotoDataUrl ?? existingPhoto.src) as string}
                       sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
                   ) : (
-                    <Box
-                      sx={{
-                        width: '100%',
-                        height: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexDirection: 'column',
-                        gap: 0.5,
-                        color: 'text.disabled',
-                      }}
-                    >
-                      <AccountCircleOutlinedIcon sx={{ fontSize: 64 }} />
-                      <Box sx={{ fontSize: '0.7rem' }}>Portrait</Box>
-                    </Box>
+                    !photoLoading && !existingPhoto.loading && (
+                      <Box
+                        sx={{
+                          width: '100%',
+                          height: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexDirection: 'column',
+                          gap: 0.5,
+                          color: 'text.disabled',
+                        }}
+                      >
+                        <AccountCircleOutlinedIcon sx={{ fontSize: 64 }} />
+                        <Box sx={{ fontSize: '0.7rem' }}>Portrait</Box>
+                      </Box>
+                    )
                   )}
 
                   <IconButton
