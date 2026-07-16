@@ -14,6 +14,7 @@ import {
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEntityImage } from '../../lib/useEntityImage';
 import type { ArbitreRow } from './types';
 import type { NatioRow } from '../natio/types';
 
@@ -37,20 +38,6 @@ function imageToDataUrl(file: File): Promise<string> {
   });
 }
 
-function asImageSrc(value: unknown): string {
-  if (!value) return '';
-  if (typeof value === 'string') {
-    if (value.startsWith('data:')) return value;
-    if (value.startsWith('/')) return value;
-    try {
-      return `data:image/jpeg;base64,${value}`;
-    } catch {
-      return '';
-    }
-  }
-  return '';
-}
-
 function capitalizeFirstLetter(value: string): string {
   if (!value) return '';
   return value.charAt(0).toUpperCase() + value.slice(1);
@@ -69,8 +56,13 @@ export function ArbitreFormDialog({
   const [values, setValues] = useState<ArbitreRow>({});
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [newPhotoDataUrl, setNewPhotoDataUrl] = useState<string | null>(null);
   const [photoLoading, setPhotoLoading] = useState(false);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
+
+  // ID de l'arbitre en cours d'édition — utilisé pour charger la photo existante de façon asynchrone
+  const editId = mode === 'edit' ? (initialData?.IDARBITRE as string | number | undefined) : undefined;
+  const existingPhoto = useEntityImage('arbitre', editId);
 
   const labelsByField: Record<string, string> = {
     IDARBITRE: 'Code',
@@ -125,20 +117,23 @@ export function ArbitreFormDialog({
 
   useEffect(() => {
     if (!open) {
+      setNewPhotoDataUrl(null);
       return;
     }
     const initial: ArbitreRow = {};
     for (const field of resolvedFields) {
+      // Ne pas stocker ARB_PHOTO dans l'état du formulaire : chargé séparément via le hook
+      if (field === 'ARB_PHOTO') continue;
       initial[field] = (initialData?.[field] as string | number | null | undefined) ?? '';
     }
     setValues(initial);
+    setNewPhotoDataUrl(null);
   }, [open, resolvedFields, initialData]);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Valider type MIME
     if (!file.type.startsWith('image/')) {
       setErrors((prev) => ({ ...prev, photo: 'Seulement les images (JPEG/PNG)' }));
       return;
@@ -147,10 +142,10 @@ export function ArbitreFormDialog({
     setPhotoLoading(true);
     try {
       const dataUrl = await imageToDataUrl(file);
-      setValues((prev) => ({ ...prev, [photoField!]: dataUrl }));
+      setNewPhotoDataUrl(dataUrl);
       setErrors((prev) => ({ ...prev, photo: '' }));
     } catch {
-      setErrors((prev) => ({ ...prev, photo: 'Erreur lors du chargement de l\'image' }));
+      setErrors((prev) => ({ ...prev, photo: "Erreur lors du chargement de l'image" }));
     } finally {
       setPhotoLoading(false);
     }
@@ -191,6 +186,10 @@ export function ArbitreFormDialog({
         if (value !== '' && value !== null) {
           cleanedValues[key] = value;
         }
+      }
+      // N'inclure ARB_PHOTO dans le payload que si l'utilisateur a uploadé une nouvelle photo
+      if (photoField && newPhotoDataUrl) {
+        cleanedValues[photoField] = newPhotoDataUrl;
       }
       await onSubmit(cleanedValues);
       setErrors({});
