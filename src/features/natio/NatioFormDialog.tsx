@@ -302,8 +302,6 @@ export function NatioFormDialog({
                   disabled={mode === 'edit' && primaryKey === codeField}
                   size="small"
                   fullWidth
-                  inputProps={{ maxLength: 3 }}
-                  InputLabelProps={{ shrink: true }}
                 />
               ) : null}
 

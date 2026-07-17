@@ -5,6 +5,7 @@ import { HomePage } from './features/home/HomePage';
 import { NatioPage } from './features/natio/NatioPage';
 import { VillePage } from './features/ville/VillePage';
 import { ArbitrePage } from './features/arbitre/ArbitrePage';
+import { TerrainPage } from './features/terrain/TerrainPage';
 import { AdminLayout } from './layouts/AdminLayout';
 
 function App() {
@@ -22,6 +23,8 @@ function App() {
           <Route path="/admin/ville" element={<VillePage />} />
           <Route path="/arbitre" element={<Navigate to="/admin/arbitre" replace />} />
           <Route path="/admin/arbitre" element={<ArbitrePage />} />
+          <Route path="/terrain" element={<Navigate to="/admin/terrain" replace />} />
+          <Route path="/admin/terrain" element={<TerrainPage />} />
         </Route>
       </Route>
 

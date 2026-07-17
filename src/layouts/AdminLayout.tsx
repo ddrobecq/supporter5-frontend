@@ -4,6 +4,7 @@ import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
+import PlaceRoundedIcon from '@mui/icons-material/PlaceRounded';
 import PeopleRoundedIcon from '@mui/icons-material/PeopleRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
@@ -44,6 +45,7 @@ export function AdminLayout() {
   const isNatioActive = location.pathname === '/admin/natio' || location.pathname === '/natio';
   const isVilleActive = location.pathname === '/admin/ville' || location.pathname === '/ville';
   const isArbitreActive = location.pathname === '/admin/arbitre' || location.pathname === '/arbitre';
+  const isTerrainActive = location.pathname === '/admin/terrain' || location.pathname === '/terrain';
 
   useEffect(() => {
     const row = navButtonsRowRef.current;
@@ -208,6 +210,24 @@ export function AdminLayout() {
                 onClick={() => navigate('/arbitre')}
               >
                 {compactNavButtons ? <SportsIcon /> : 'Arbitres'}
+              </Button>
+            </Tooltip>
+
+            <Tooltip title="Stades" disableHoverListener={!compactNavButtons}>
+              <Button
+                size="small"
+                variant={isTerrainActive ? 'contained' : 'outlined'}
+                color={isTerrainActive ? 'primary' : 'inherit'}
+                startIcon={compactNavButtons ? undefined : <PlaceRoundedIcon />}
+                sx={{
+                  minWidth: 36,
+                  px: compactNavButtons ? 1 : 1.25,
+                  '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
+                }}
+                aria-label="Stades"
+                onClick={() => navigate('/terrain')}
+              >
+                {compactNavButtons ? <PlaceRoundedIcon /> : 'Stades'}
               </Button>
             </Tooltip>
 

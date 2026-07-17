@@ -1,6 +1,7 @@
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import {
   Alert,
   Box,
@@ -12,27 +13,25 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  InputAdornment,
   Snackbar,
   Stack,
+  TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
+import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { createVille, deleteVille, fetchVille, fetchVilleById, updateVille, canDeleteVille } from './villeApi';
-import { fetchNatio } from '../natio/natioApi';
-import { VilleFormDialog } from './VilleFormDialog';
-import { VilleDataGrid } from './VilleDataGrid';
-import { VilleSearchBar } from './VilleSearchBar';
-import { createVilleColumns, createNatioMap } from './villeColumnsHelper';
-import type { VilleRow } from './types';
-import type { NatioRow } from '../natio/types';
-import type { IntegrityConstraint } from './villeApi';
+import { createTerrain, deleteTerrain, fetchTerrain, fetchTerrainById, updateTerrain, canDeleteTerrain } from './terrainApi';
+import { TerrainFormDialog } from './TerrainFormDialog';
+import type { TerrainRow } from './types';
+import type { IntegrityConstraint } from './terrainApi';
 
-const PK_CANDIDATES = ['VICLEUNIK', 'VILLEID', 'ID', 'id'];
+const PK_CANDIDATES = ['TECLEUNIK', 'ID', 'id', 'CODE'];
 
-function detectPrimaryKey(rows: VilleRow[]): string | undefined {
+function detectPrimaryKey(rows: TerrainRow[]): string | undefined {
   const firstRow = rows[0];
   if (!firstRow) return undefined;
 
@@ -46,15 +45,14 @@ function toErrorMessage(error: unknown): string {
     const apiMessage = (error.response?.data as { message?: string } | undefined)?.message;
     if (apiMessage) return apiMessage;
     if (error.response?.status === 401) return 'Session expiree. Reconnectez-vous.';
-    if (error.response?.status === 404) return 'Ressource introuvable. Verifiez la route VILLE backend.';
+    if (error.response?.status === 404) return 'Ressource introuvable. Verifiez la route TERRAIN backend.';
     if (error.response?.status === 409) return 'Suppression impossible: des enregistrements dependants existent.';
   }
   return 'Une erreur est survenue.';
 }
 
-export function VillePage() {
-  const [rows, setRows] = useState<VilleRow[]>([]);
-  const [natioDatas, setNatioDatas] = useState<NatioRow[]>([]);
+export function TerrainPage() {
+  const [rows, setRows] = useState<TerrainRow[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -65,7 +63,7 @@ export function VillePage() {
   const [selection, setSelection] = useState<GridRowId[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
-  const [activeRow, setActiveRow] = useState<VilleRow | undefined>(undefined);
+  const [activeRow, setActiveRow] = useState<TerrainRow | undefined>(undefined);
 
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleteConstraints, setDeleteConstraints] = useState<IntegrityConstraint[]>([]);
@@ -75,16 +73,53 @@ export function VillePage() {
 
   const primaryKey = useMemo(() => detectPrimaryKey(rows), [rows]);
 
-  const natioMap = useMemo(() => createNatioMap(natioDatas), [natioDatas]);
-  const columns = useMemo<GridColDef[]>(() => createVilleColumns(natioMap), [natioMap]);
+  const columns = useMemo<GridColDef[]>(() => {
+    const first = rows[0];
+    
+    const headerLabels: Record<string, string> = {
+      STADE: 'Stade',
+      VILLE_NOM: 'Ville',
+    };
+    
+    // Default columns if no data yet
+    if (!first) {
+      return [
+        { field: 'STADE', headerName: 'Stade', flex: 1, minWidth: 220, sortable: true },
+        { field: 'VILLE_NOM', headerName: 'Ville', flex: 0.8, minWidth: 150, sortable: true },
+      ];
+    }
+
+    const allFields = Object.keys(first);
+
+    const nameField = allFields.find((f) => ['STADE', 'NOM'].includes(f));
+
+    const visibleFields = allFields.filter((field) => !['TERRAIN_LOGO', 'TECLEUNIK', 'IDVILLE'].includes(field));
+    const orderedFields = [nameField, ...visibleFields].filter(
+      (field, index, array): field is string => Boolean(field) && array.indexOf(field) === index,
+    );
+
+    return orderedFields.map((field, index) => {
+      const isFirstColumn = index === 0;
+
+      return {
+        field,
+        headerName: headerLabels[field] || field,
+        flex: isFirstColumn ? 1 : undefined,
+        minWidth: isFirstColumn ? 220 : 150,
+        sortable: true,
+      };
+    });
+  }, [rows]);
 
   const formFields = useMemo<string[]>(() => {
     const source = activeRow ?? rows[0];
     const sourceFields = source ? Object.keys(source) : [];
-    return sourceFields.filter((field, index, array) => array.indexOf(field) === index);
+    const withRequired = [...sourceFields, 'TERRAIN_LOGO'];
+
+    return withRequired.filter((field, index, array) => array.indexOf(field) === index);
   }, [activeRow, rows]);
 
-  const getRowId = (row: VilleRow): GridRowId => {
+  const getRowId = (row: TerrainRow): GridRowId => {
     if (primaryKey && (typeof row[primaryKey] === 'string' || typeof row[primaryKey] === 'number')) {
       return row[primaryKey] as GridRowId;
     }
@@ -98,7 +133,7 @@ export function VillePage() {
 
     setLoading(true);
     try {
-      const result = await fetchVille(query.trim(), controller.signal);
+      const result = await fetchTerrain(query.trim(), controller.signal);
       if (controller.signal.aborted) return;
       setRows(result.data ?? []);
     } catch (error) {
@@ -121,12 +156,12 @@ export function VillePage() {
   const openEditDialog = async (rowId?: GridRowId) => {
     const selectedId = rowId ?? selection.at(0);
     if (selectedId === undefined || selectedId === null) {
-      setSnackbar({ severity: 'error', message: 'Selectionnez une ville a ouvrir.' });
+      setSnackbar({ severity: 'error', message: 'Selectionnez un terrain a ouvrir.' });
       return;
     }
 
     try {
-      const row = await fetchVilleById(selectedId as string | number);
+      const row = await fetchTerrainById(selectedId as string | number);
       setDialogMode('edit');
       setActiveRow(row);
       setSelection([selectedId]);
@@ -136,19 +171,19 @@ export function VillePage() {
     }
   };
 
-  const handleFormSubmit = async (payload: VilleRow) => {
+  const handleFormSubmit = async (payload: TerrainRow) => {
     try {
       if (dialogMode === 'create') {
-        await createVille(payload);
-        setSnackbar({ severity: 'success', message: 'Ville creee.' });
+        await createTerrain(payload);
+        setSnackbar({ severity: 'success', message: 'Terrain cree.' });
       } else {
         const selectedId = selection.at(0);
         if (!selectedId) {
-          setSnackbar({ severity: 'error', message: 'Aucune ville selectionnee.' });
+          setSnackbar({ severity: 'error', message: 'Aucun terrain selectionne.' });
           return;
         }
-        await updateVille(selectedId as string | number, payload);
-        setSnackbar({ severity: 'success', message: 'Ville mise a jour.' });
+        await updateTerrain(selectedId as string | number, payload);
+        setSnackbar({ severity: 'success', message: 'Terrain mis a jour.' });
       }
 
       setDialogOpen(false);
@@ -161,13 +196,13 @@ export function VillePage() {
   const handleDelete = async () => {
     const selectedId = selection.at(0);
     if (!selectedId) {
-      setSnackbar({ severity: 'error', message: 'Selectionnez une ville a supprimer.' });
+      setSnackbar({ severity: 'error', message: 'Selectionnez un terrain a supprimer.' });
       return;
     }
 
     try {
-      await deleteVille(selectedId as string | number);
-      setSnackbar({ severity: 'success', message: 'Ville supprimee.' });
+      await deleteTerrain(selectedId as string | number);
+      setSnackbar({ severity: 'success', message: 'Terrain supprime.' });
       setConfirmDeleteOpen(false);
       setDeleteConstraints([]);
       setSelection([]);
@@ -177,7 +212,7 @@ export function VillePage() {
       if (message.toLowerCase().includes('constraint') || message.toLowerCase().includes('foreign key')) {
         setSnackbar({
           severity: 'error',
-          message: 'Suppression impossible: cette ville est reference dans d\'autres donnees.',
+          message: 'Suppression impossible: ce terrain est reference dans d\'autres donnees.',
         });
       } else {
         setSnackbar({ severity: 'error', message });
@@ -190,26 +225,21 @@ export function VillePage() {
   const handleOpenDeleteConfirm = async () => {
     const selectedId = selection.at(0);
     if (!selectedId) {
-      setSnackbar({ severity: 'error', message: 'Selectionnez une ville a supprimer.' });
+      setSnackbar({ severity: 'error', message: 'Selectionnez un terrain a supprimer.' });
       return;
     }
 
     try {
-      const result = await canDeleteVille(selectedId as string | number);
+      const result = await canDeleteTerrain(selectedId as string | number);
       setDeleteConstraints(result.constraints);
       setConfirmDeleteOpen(true);
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
-      setConfirmDeleteOpen(false);
     }
   };
 
   useEffect(() => {
-    void loadData('');
-    fetchNatio('').then((result) => setNatioDatas(result.data ?? [])).catch(() => {});
-  }, []);
-
-  useEffect(() => {
+    // DataGrid can grab keyboard focus after data load; restore it once to the search input.
     if (!loading && !didFocusSearchRef.current) {
       searchInputRef.current?.focus();
       didFocusSearchRef.current = true;
@@ -222,12 +252,19 @@ export function VillePage() {
     }, 320);
 
     return () => window.clearTimeout(handle);
+    // Debounce search requests while typing
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
+
+  useEffect(() => () => {
+    activeRequestRef.current?.abort();
+  }, []);
 
   useEffect(() => {
     const row = actionButtonsRowRef.current;
     if (!row) return;
 
+    // Collapse labels only when each button cannot reasonably fit icon + text.
     const updateCompactState = () => {
       const spacingPx = 8;
       const totalSpacing = spacingPx * 2;
@@ -242,13 +279,9 @@ export function VillePage() {
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => () => {
-    activeRequestRef.current?.abort();
-  }, []);
-
   return (
     <Stack spacing={2}>
-      <Typography variant="h5" sx={{ fontWeight: 700 }}>Villes</Typography>
+      <Typography variant="h5" sx={{ fontWeight: 700 }}>Stades</Typography>
 
       <Card>
         <CardContent>
@@ -257,11 +290,23 @@ export function VillePage() {
             spacing={1.5}
             sx={{ alignItems: { xs: 'stretch', md: 'center' } }}
           >
-            <VilleSearchBar
+            <TextField
+              size="small"
+              label="Rechercher un terrain"
               value={search}
-              onChange={setSearch}
+              onChange={(e) => setSearch(e.target.value)}
               inputRef={searchInputRef}
               autoFocus
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchRoundedIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+              sx={{ minWidth: 280 }}
             />
             <Box sx={{ flex: 1, minWidth: { xs: '100%', md: 420 } }}>
               <Stack
@@ -313,26 +358,30 @@ export function VillePage() {
           </Stack>
 
           <Box sx={{ mt: 2, height: 'calc(100vh - 270px)', minHeight: 420 }}>
-            <VilleDataGrid
+            <DataGrid
               rows={rows}
               columns={columns}
               loading={loading}
-              primaryKey={primaryKey}
-              onRowClick={(rowId) => setSelection([rowId])}
-              onRowDoubleClick={(rowId) => void openEditDialog(rowId)}
               getRowId={getRowId}
+              rowSelectionModel={{ type: 'include', ids: new Set(selection) }}
+              onRowSelectionModelChange={(model) => setSelection(model.ids.size > 0 ? [Array.from(model.ids)[0]] : [])}
+              pageSizeOptions={[25, 50, 100]}
+              onRowDoubleClick={(params) => void openEditDialog(params.id)}
+              onRowClick={(params) => setSelection([params.id])}
+              density="compact"
+              disableColumnMenu
+              sx={{ '& .MuiDataGrid-cell': { cursor: 'default' } }}
             />
           </Box>
         </CardContent>
       </Card>
 
-      <VilleFormDialog
+      <TerrainFormDialog
         open={dialogOpen}
         mode={dialogMode}
         fields={formFields}
         primaryKey={primaryKey}
         initialData={activeRow}
-        natioDatas={natioDatas}
         onClose={() => setDialogOpen(false)}
         onSubmit={handleFormSubmit}
       />
@@ -345,12 +394,12 @@ export function VillePage() {
         <DialogContent>
           {deleteConstraints.length === 0 ? (
             <DialogContentText>
-              Cette action est irreversible. Verifiez que cette ville n'est pas utilisee dans d'autres enregistrements.
+              Cette action est irreversible. Verifiez que ce terrain n'est pas utilise dans d'autres enregistrements.
             </DialogContentText>
           ) : (
             <Stack spacing={1.5}>
               <DialogContentText>
-                <strong>Suppression impossible.</strong> Cette ville est utilisee dans d'autres donnees:
+                <strong>Suppression impossible.</strong> Ce terrain est utilise dans d'autres donnees:
               </DialogContentText>
               <Stack spacing={0.75} sx={{ ml: 2 }}>
                 {deleteConstraints.map((constraint) => (
