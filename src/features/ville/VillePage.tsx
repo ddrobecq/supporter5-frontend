@@ -21,9 +21,9 @@ import axios from 'axios';
 import { createVille, deleteVille, fetchVille, fetchVilleById, updateVille, canDeleteVille } from './villeApi';
 import { fetchNatio } from '../natio/natioApi';
 import { VilleFormDialog } from './VilleFormDialog';
-import { VilleDataGrid } from './VilleDataGrid';
-import { VilleSearchBar } from './VilleSearchBar';
 import { createVilleColumns, createNatioMap } from './villeColumnsHelper';
+import { EntityDataGrid } from '../../components/EntityDataGrid';
+import { EntitySearchBar } from '../../components/EntitySearchBar';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { VilleRow } from './types';
 import type { NatioRow } from '../natio/types';
@@ -256,7 +256,8 @@ export function VillePage() {
             spacing={1.5}
             sx={{ alignItems: { xs: 'stretch', md: 'center' } }}
           >
-            <VilleSearchBar
+            <EntitySearchBar
+              label="Rechercher une ville"
               value={search}
               onChange={setSearch}
               inputRef={searchInputRef}
@@ -312,11 +313,12 @@ export function VillePage() {
           </Stack>
 
           <Box sx={{ mt: 2, height: 'calc(100vh - 270px)', minHeight: 420 }}>
-            <VilleDataGrid
+            <EntityDataGrid
               rows={rows}
               columns={columns}
               loading={loading}
-              primaryKey={primaryKey}
+              selection={selection}
+              onSelectionChange={setSelection}
               onRowClick={(rowId) => setSelection([rowId])}
               onRowDoubleClick={(rowId) => void openEditDialog(rowId)}
               getRowId={getRowId}

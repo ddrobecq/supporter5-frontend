@@ -1,7 +1,6 @@
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
-import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import {
   Box,
   Button,
@@ -12,19 +11,18 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  InputAdornment,
   Stack,
-  TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
-import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { createArbitre, deleteArbitre, fetchArbitre, fetchArbitreById, updateArbitre, canDeleteArbitre } from './arbitreApi';
 import { fetchNatio } from '../natio/natioApi';
 import { ArbitreFormDialog } from './ArbitreFormDialog';
+import { EntityDataGrid } from '../../components/EntityDataGrid';
+import { EntitySearchBar } from '../../components/EntitySearchBar';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { ArbitreRow } from './types';
 import type { NatioRow } from '../natio/types';
@@ -271,23 +269,12 @@ export function ArbitrePage() {
             spacing={1.5}
             sx={{ alignItems: { xs: 'stretch', md: 'center' } }}
           >
-            <TextField
-              size="small"
+            <EntitySearchBar
               label="Rechercher un arbitre"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={setSearch}
               inputRef={searchInputRef}
               autoFocus
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchRoundedIcon fontSize="small" />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={{ minWidth: 280 }}
             />
             <Box sx={{ flex: 1, minWidth: { xs: '100%', md: 420 } }}>
               <Stack
@@ -339,19 +326,15 @@ export function ArbitrePage() {
           </Stack>
 
           <Box sx={{ mt: 2, height: 'calc(100vh - 270px)', minHeight: 420 }}>
-            <DataGrid
+            <EntityDataGrid
               rows={rows}
               columns={columns}
               loading={loading}
               getRowId={getRowId}
-              rowSelectionModel={{ type: 'include', ids: new Set(selection) }}
-              onRowSelectionModelChange={(model) => setSelection(model.ids.size > 0 ? [Array.from(model.ids)[0]] : [])}
-              pageSizeOptions={[25, 50, 100]}
-              onRowDoubleClick={(params) => void openEditDialog(params.id)}
-              onRowClick={(params) => setSelection([params.id])}
-              density="compact"
-              disableColumnMenu
-              sx={{ '& .MuiDataGrid-cell': { cursor: 'default' } }}
+              selection={selection}
+              onSelectionChange={setSelection}
+              onRowDoubleClick={(rowId) => void openEditDialog(rowId)}
+              onRowClick={(rowId) => setSelection([rowId])}
             />
           </Box>
         </CardContent>

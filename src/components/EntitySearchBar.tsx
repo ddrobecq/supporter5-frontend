@@ -1,16 +1,17 @@
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import { InputAdornment, TextField, type TextFieldProps } from '@mui/material';
 
-interface VilleSearchBarProps extends Omit<TextFieldProps, 'type' | 'variant' | 'value' | 'onChange'> {
+interface EntitySearchBarProps extends Omit<TextFieldProps, 'type' | 'variant' | 'value' | 'onChange'> {
+  label: string;
   value: string;
   onChange: (value: string) => void;
 }
 
-export function VilleSearchBar({ value, onChange, inputRef, autoFocus = false, ...props }: VilleSearchBarProps) {
+export function EntitySearchBar({ label, value, onChange, inputRef, autoFocus = false, ...props }: EntitySearchBarProps) {
   return (
     <TextField
       size="small"
-      label="Rechercher une ville"
+      label={label}
       type="text"
       value={value}
       onChange={(e) => onChange(e.target.value)}

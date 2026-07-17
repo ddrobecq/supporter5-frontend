@@ -1,11 +1,6 @@
 import {
   Autocomplete,
   Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Stack,
   TextField,
   IconButton,
@@ -15,6 +10,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEntityImage } from '../../lib/useEntityImage';
+import { EntityFormDialog } from '../../components/EntityFormDialog';
 import type { ArbitreRow } from './types';
 import type { NatioRow } from '../natio/types';
 
@@ -199,11 +195,13 @@ export function ArbitreFormDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>{mode === 'create' ? 'Nouvel Arbitre' : 'Modifier un Arbitre'}</DialogTitle>
-      <DialogContent sx={{ p: 0, overflowX: 'hidden' }}>
-        <Box sx={{ px: 3, pt: 1.5, pb: 1.5 }}>
-          <Stack spacing={2} sx={{ width: '100%' }}>
+    <EntityFormDialog
+      open={open}
+      onClose={onClose}
+      title={mode === 'create' ? 'Nouvel Arbitre' : 'Modifier un Arbitre'}
+      saving={saving}
+      onSave={() => void handleSave()}
+    >
             {/* Photo + Code en grille */}
             <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start' }}>
               {/* Photo portrait */}
@@ -387,15 +385,6 @@ export function ArbitreFormDialog({
                 size="small"
               />
             ))}
-          </Stack>
-        </Box>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2, pt: 1, justifyContent: 'flex-end' }}>
-        <Button onClick={onClose} color="inherit">Annuler</Button>
-        <Button onClick={handleSave} variant="contained" disabled={saving}>
-          {saving ? 'Enregistrement...' : 'OK'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+    </EntityFormDialog>
   );
 }

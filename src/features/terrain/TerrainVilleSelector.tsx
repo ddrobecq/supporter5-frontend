@@ -4,8 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { fetchVille } from '../ville/villeApi';
 import { fetchNatio } from '../natio/natioApi';
-import { VilleDataGrid } from '../ville/VilleDataGrid';
-import { VilleSearchBar } from '../ville/VilleSearchBar';
+import { EntityDataGrid } from '../../components/EntityDataGrid';
+import { EntitySearchBar } from '../../components/EntitySearchBar';
 import { createVilleColumns, createNatioMap } from '../ville/villeColumnsHelper';
 import type { VilleRow } from '../ville/types';
 import type { NatioRow } from '../natio/types';
@@ -30,9 +30,12 @@ interface TerrainVilleSelectorProps {
 export function TerrainVilleSelector({ open, onClose, onSelect }: TerrainVilleSelectorProps) {
   const [rows, setRows] = useState<VilleRow[]>([]);
   const [natioDatas, setNatioDatas] = useState<NatioRow[]>([]);
+  const [selection, setSelection] = useState<GridRowId[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const didFocusSearchRef = useRef(false);
   const activeRequestRef = useRef<AbortController | null>(null);
 
   const primaryKey = useMemo(() => detectPrimaryKey(rows), [rows]);
@@ -99,9 +102,21 @@ export function TerrainVilleSelector({ open, onClose, onSelect }: TerrainVilleSe
       return;
     }
 
+    didFocusSearchRef.current = false;
+    setSelection([]);
     void loadData('');
     fetchNatio('').then((result) => setNatioDatas(result.data ?? [])).catch(() => {});
   }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    if (!loading && !didFocusSearchRef.current) {
+      searchInputRef.current?.focus();
+      didFocusSearchRef.current = true;
+    }
+  }, [open, loading]);
 
   useEffect(() => () => {
     activeRequestRef.current?.abort();
@@ -112,9 +127,11 @@ export function TerrainVilleSelector({ open, onClose, onSelect }: TerrainVilleSe
       <DialogTitle>Sélectionner une Ville</DialogTitle>
       <DialogContent sx={{ p: 2, pt: '16px !important' }}>
         <Stack spacing={2} sx={{ height: 'calc(100vh - 280px)', minHeight: 400 }}>
-          <VilleSearchBar
+          <EntitySearchBar
+            label="Rechercher une ville"
             value={search}
             onChange={setSearch}
+            inputRef={searchInputRef}
             autoFocus
           />
           <Box sx={{ flex: 1, overflow: 'hidden' }}>
@@ -127,11 +144,12 @@ export function TerrainVilleSelector({ open, onClose, onSelect }: TerrainVilleSe
                 <CircularProgress />
               </Box>
             ) : (
-              <VilleDataGrid
+              <EntityDataGrid
                 rows={rows}
                 columns={columns}
                 loading={loading}
-                primaryKey={primaryKey}
+                selection={selection}
+                onSelectionChange={setSelection}
                 onRowDoubleClick={handleRowDoubleClick}
                 disableRowSelectionOnClick
                 getRowId={getRowId}

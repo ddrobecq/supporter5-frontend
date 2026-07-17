@@ -1,10 +1,5 @@
 import {
   Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControlLabel,
   IconButton,
   Stack,
@@ -13,6 +8,7 @@ import {
 } from '@mui/material';
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
 import { useEffect, useMemo, useState } from 'react';
+import { EntityFormDialog } from '../../components/EntityFormDialog';
 import type { NatioRow } from './types';
 
 function svgToDataUrl(svg: string): string {
@@ -204,12 +200,14 @@ export function NatioFormDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>{mode === 'create' ? 'Nouveau Pays' : 'Modifier un Pays'}</DialogTitle>
-      <DialogContent sx={{ p: 0, overflowX: 'hidden' }}>
-        <Box sx={{ px: 3, pt: 1.5, pb: 1.5 }}>
-          <Stack spacing={2} sx={{ width: '100%' }}>
-            <Box
+    <EntityFormDialog
+      open={open}
+      onClose={onClose}
+      title={mode === 'create' ? 'Nouveau Pays' : 'Modifier un Pays'}
+      saving={saving}
+      onSave={() => void handleSave()}
+    >
+      <Box
               sx={{
                 display: 'grid',
                 gridTemplateColumns: 'minmax(140px, 180px) minmax(0, 1fr)',
@@ -218,7 +216,7 @@ export function NatioFormDialog({
                 alignItems: 'start',
                 width: '100%',
               }}
-            >
+      >
             <Box
               sx={{
                 width: 180,
@@ -331,26 +329,17 @@ export function NatioFormDialog({
             ) : null}
             </Box>
 
-            {resolvedFields.filter((field) => !customFields.has(field)).map((field) => (
-              <TextField
-                key={field}
-                label={labelsByField[field] ?? field}
-                value={(values[field] as string | number | undefined) ?? ''}
-                onChange={(e) => setValues((prev) => ({ ...prev, [field]: e.target.value }))}
-                disabled={mode === 'edit' && primaryKey === field}
-                fullWidth
-                size="small"
-              />
-            ))}
-          </Stack>
-        </Box>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2, pt: 1, justifyContent: 'flex-end' }}>
-        <Button onClick={onClose} color="inherit">Annuler</Button>
-        <Button onClick={handleSave} variant="contained" disabled={saving}>
-          {saving ? 'Enregistrement...' : 'OK'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+      {resolvedFields.filter((field) => !customFields.has(field)).map((field) => (
+        <TextField
+          key={field}
+          label={labelsByField[field] ?? field}
+          value={(values[field] as string | number | undefined) ?? ''}
+          onChange={(e) => setValues((prev) => ({ ...prev, [field]: e.target.value }))}
+          disabled={mode === 'edit' && primaryKey === field}
+          fullWidth
+          size="small"
+        />
+      ))}
+    </EntityFormDialog>
   );
 }

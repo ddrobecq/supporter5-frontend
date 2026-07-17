@@ -1,16 +1,11 @@
 import {
-  Box,
   Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   InputAdornment,
-  Stack,
   TextField,
 } from '@mui/material';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import { useEffect, useMemo, useState } from 'react';
+import { EntityFormDialog } from '../../components/EntityFormDialog';
 import type { TerrainRow } from './types';
 import { TerrainVilleSelector } from './TerrainVilleSelector';
 
@@ -106,90 +101,85 @@ export function TerrainFormDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>{mode === 'create' ? 'Nouveau Stade' : 'Modifier un Stade'}</DialogTitle>
-      <DialogContent sx={{ p: 0, overflowX: 'hidden' }}>
-        <Box sx={{ px: 3, pt: 1.5, pb: 1.5 }}>
-          <Stack spacing={2} sx={{ width: '100%' }}>
-            {codeField ? (
-              <TextField
-                label={labelsByField[codeField] ?? codeField}
-                value={String(values[codeField] ?? '')}
-                onChange={(e) => {
-                  setValues((prev) => ({ ...prev, [codeField]: e.target.value }));
-                }}
-                disabled={mode === 'edit' && primaryKey === codeField}
-                size="small"
-                fullWidth
-              />
-            ) : null}
+    <>
+      <EntityFormDialog
+        open={open}
+        onClose={onClose}
+        title={mode === 'create' ? 'Nouveau Stade' : 'Modifier un Stade'}
+        saving={saving}
+        onSave={() => void handleSave()}
+      >
+        {codeField ? (
+          <TextField
+            label={labelsByField[codeField] ?? codeField}
+            value={String(values[codeField] ?? '')}
+            onChange={(e) => {
+              setValues((prev) => ({ ...prev, [codeField]: e.target.value }));
+            }}
+            disabled={mode === 'edit' && primaryKey === codeField}
+            size="small"
+            fullWidth
+          />
+        ) : null}
 
-            {nameField ? (
-              <TextField
-                label={labelsByField[nameField] ?? nameField}
-                value={(values[nameField] as string | number | undefined) ?? ''}
-                onChange={(e) => setValues((prev) => ({ ...prev, [nameField]: e.target.value }))}
-                fullWidth
-                size="small"
-              />
-            ) : null}
+        {nameField ? (
+          <TextField
+            label={labelsByField[nameField] ?? nameField}
+            value={(values[nameField] as string | number | undefined) ?? ''}
+            onChange={(e) => setValues((prev) => ({ ...prev, [nameField]: e.target.value }))}
+            fullWidth
+            size="small"
+          />
+        ) : null}
 
-            {resolvedFields.includes(villeField) ? (
-              <TextField
-                label={labelsByField[villeField]}
-                value={(values[villeField] as string | number | undefined) ?? ''}
-                fullWidth
-                size="small"
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  setVilleSelectorOpen(true);
-                }}
-                slotProps={{
-                  input: {
-                    readOnly: true,
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <Button
-                          size="small"
-                          variant="text"
-                          onClick={() => setVilleSelectorOpen(true)}
-                          sx={{ minWidth: 36, p: 0 }}
-                        >
-                          <EditRoundedIcon fontSize="small" />
-                        </Button>
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-            ) : null}
+        {resolvedFields.includes(villeField) ? (
+          <TextField
+            label={labelsByField[villeField]}
+            value={(values[villeField] as string | number | undefined) ?? ''}
+            fullWidth
+            size="small"
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setVilleSelectorOpen(true);
+            }}
+            slotProps={{
+              input: {
+                readOnly: true,
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <Button
+                      size="small"
+                      variant="text"
+                      onClick={() => setVilleSelectorOpen(true)}
+                      sx={{ minWidth: 36, p: 0 }}
+                    >
+                      <EditRoundedIcon fontSize="small" />
+                    </Button>
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+        ) : null}
 
-            {resolvedFields.filter((field) => !customFields.has(field)).map((field) => (
-              <TextField
-                key={field}
-                label={labelsByField[field] ?? field}
-                value={(values[field] as string | number | undefined) ?? ''}
-                onChange={(e) => setValues((prev) => ({ ...prev, [field]: e.target.value }))}
-                disabled={mode === 'edit' && primaryKey === field}
-                fullWidth
-                size="small"
-              />
-            ))}
-          </Stack>
-        </Box>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2, pt: 1, justifyContent: 'flex-end' }}>
-        <Button onClick={onClose} color="inherit">Annuler</Button>
-        <Button onClick={handleSave} variant="contained" disabled={saving}>
-          {saving ? 'Enregistrement...' : 'OK'}
-        </Button>
-      </DialogActions>
+        {resolvedFields.filter((field) => !customFields.has(field)).map((field) => (
+          <TextField
+            key={field}
+            label={labelsByField[field] ?? field}
+            value={(values[field] as string | number | undefined) ?? ''}
+            onChange={(e) => setValues((prev) => ({ ...prev, [field]: e.target.value }))}
+            disabled={mode === 'edit' && primaryKey === field}
+            fullWidth
+            size="small"
+          />
+        ))}
+      </EntityFormDialog>
 
       <TerrainVilleSelector
         open={villeSelectorOpen}
         onClose={() => setVilleSelectorOpen(false)}
         onSelect={handleVilleSelect}
       />
-    </Dialog>
+    </>
   );
 }

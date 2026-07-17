@@ -1,15 +1,9 @@
 import {
   Autocomplete,
-  Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Stack,
   TextField,
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
+import { EntityFormDialog } from '../../components/EntityFormDialog';
 import type { VilleRow } from './types';
 import type { NatioRow } from '../natio/types';
 
@@ -134,93 +128,86 @@ export function VilleFormDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>{mode === 'create' ? 'Nouvelle Ville' : 'Modifier une Ville'}</DialogTitle>
-      <DialogContent sx={{ p: 0, overflowX: 'hidden' }}>
-        <Box sx={{ px: 3, pt: 1.5, pb: 1.5 }}>
-          <Stack spacing={2} sx={{ width: '100%' }}>
-            {codeField ? (
-              <TextField
-                label={labelsByField[codeField] ?? codeField}
-                value={String(values[codeField] ?? '')}
-                disabled
-                placeholder={mode === 'create' ? '(généré automatiquement)' : ''}
-                helperText={mode === 'create' ? 'Code généré automatiquement à la création' : ''}
-                fullWidth
-                size="small"
-                sx={{
-                  '& .MuiInputBase-input.Mui-disabled': {
-                    WebkitTextFillColor: 'rgba(0, 0, 0, 0.38)',
-                    backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                  },
-                }}
-              />
-            ) : null}
+    <EntityFormDialog
+      open={open}
+      onClose={onClose}
+      title={mode === 'create' ? 'Nouvelle Ville' : 'Modifier une Ville'}
+      saving={saving}
+      onSave={() => void handleSave()}
+    >
+      {codeField ? (
+        <TextField
+          label={labelsByField[codeField] ?? codeField}
+          value={String(values[codeField] ?? '')}
+          disabled
+          placeholder={mode === 'create' ? '(généré automatiquement)' : ''}
+          helperText={mode === 'create' ? 'Code généré automatiquement à la création' : ''}
+          fullWidth
+          size="small"
+          sx={{
+            '& .MuiInputBase-input.Mui-disabled': {
+              WebkitTextFillColor: 'rgba(0, 0, 0, 0.38)',
+              backgroundColor: 'rgba(0, 0, 0, 0.04)',
+            },
+          }}
+        />
+      ) : null}
 
-            {nameField ? (
-              <TextField
-                label={labelsByField[nameField] ?? nameField}
-                value={(values[nameField] as string | number | undefined) ?? ''}
-                onChange={(e) => {
-                  setValues((prev) => ({ ...prev, [nameField]: e.target.value }));
-                  setErrors((prev) => ({ ...prev, nom: '' }));
-                }}
-                error={!!errors.nom}
-                helperText={errors.nom}
-                fullWidth
-                size="small"
-                required
-              />
-            ) : null}
+      {nameField ? (
+        <TextField
+          label={labelsByField[nameField] ?? nameField}
+          value={(values[nameField] as string | number | undefined) ?? ''}
+          onChange={(e) => {
+            setValues((prev) => ({ ...prev, [nameField]: e.target.value }));
+            setErrors((prev) => ({ ...prev, nom: '' }));
+          }}
+          error={!!errors.nom}
+          helperText={errors.nom}
+          fullWidth
+          size="small"
+          required
+        />
+      ) : null}
 
-            {natioField ? (
-              <Autocomplete
-                options={countryOptions}
-                getOptionLabel={(option) => option.label}
-                value={
-                  countryOptions.find((opt) => opt.id === values[natioField]) || null
-                }
-                onChange={(_, option) => {
-                  setValues((prev) => ({
-                    ...prev,
-                    [natioField]: option?.id ?? '',
-                  }));
-                  setErrors((prev) => ({ ...prev, pays: '' }));
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label={labelsByField[natioField] ?? natioField}
-                    error={!!errors.pays}
-                    helperText={errors.pays}
-                    size="small"
-                    required
-                  />
-                )}
-                size="small"
-              />
-            ) : null}
+      {natioField ? (
+        <Autocomplete
+          options={countryOptions}
+          getOptionLabel={(option) => option.label}
+          value={
+            countryOptions.find((opt) => opt.id === values[natioField]) || null
+          }
+          onChange={(_, option) => {
+            setValues((prev) => ({
+              ...prev,
+              [natioField]: option?.id ?? '',
+            }));
+            setErrors((prev) => ({ ...prev, pays: '' }));
+          }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label={labelsByField[natioField] ?? natioField}
+              error={!!errors.pays}
+              helperText={errors.pays}
+              size="small"
+              required
+            />
+          )}
+          size="small"
+        />
+      ) : null}
 
-            {resolvedFields.filter((field) => !customFields.has(field)).map((field) => (
-              <TextField
-                key={field}
-                label={labelsByField[field] ?? field}
-                value={(values[field] as string | number | undefined) ?? ''}
-                onChange={(e) => setValues((prev) => ({ ...prev, [field]: e.target.value }))}
-                disabled={mode === 'edit' && primaryKey === field}
-                fullWidth
-                size="small"
-              />
-            ))}
-          </Stack>
-        </Box>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2, pt: 1, justifyContent: 'flex-end' }}>
-        <Button onClick={onClose} color="inherit">Annuler</Button>
-        <Button onClick={handleSave} variant="contained" disabled={saving}>
-          {saving ? 'Enregistrement...' : 'OK'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+      {resolvedFields.filter((field) => !customFields.has(field)).map((field) => (
+        <TextField
+          key={field}
+          label={labelsByField[field] ?? field}
+          value={(values[field] as string | number | undefined) ?? ''}
+          onChange={(e) => setValues((prev) => ({ ...prev, [field]: e.target.value }))}
+          disabled={mode === 'edit' && primaryKey === field}
+          fullWidth
+          size="small"
+        />
+      ))}
+    </EntityFormDialog>
   );
 }
