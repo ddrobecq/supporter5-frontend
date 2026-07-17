@@ -5,6 +5,7 @@ import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
 import PlaceRoundedIcon from '@mui/icons-material/PlaceRounded';
+import EuroRoundedIcon from '@mui/icons-material/EuroRounded';
 import PeopleRoundedIcon from '@mui/icons-material/PeopleRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
@@ -46,6 +47,7 @@ export function AdminLayout() {
   const isVilleActive = location.pathname === '/admin/ville' || location.pathname === '/ville';
   const isArbitreActive = location.pathname === '/admin/arbitre' || location.pathname === '/arbitre';
   const isTerrainActive = location.pathname === '/admin/terrain' || location.pathname === '/terrain';
+  const isDeviseActive = location.pathname === '/admin/devise' || location.pathname === '/devise';
 
   useEffect(() => {
     const row = navButtonsRowRef.current;
@@ -228,6 +230,24 @@ export function AdminLayout() {
                 onClick={() => navigate('/terrain')}
               >
                 {compactNavButtons ? <PlaceRoundedIcon /> : 'Stades'}
+              </Button>
+            </Tooltip>
+
+            <Tooltip title="Devises" disableHoverListener={!compactNavButtons}>
+              <Button
+                size="small"
+                variant={isDeviseActive ? 'contained' : 'outlined'}
+                color={isDeviseActive ? 'primary' : 'inherit'}
+                startIcon={compactNavButtons ? undefined : <EuroRoundedIcon />}
+                sx={{
+                  minWidth: 36,
+                  px: compactNavButtons ? 1 : 1.25,
+                  '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
+                }}
+                aria-label="Devises"
+                onClick={() => navigate('/devise')}
+              >
+                {compactNavButtons ? <EuroRoundedIcon /> : 'Devises'}
               </Button>
             </Tooltip>
 

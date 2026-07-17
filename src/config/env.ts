@@ -8,4 +8,6 @@ export const env = {
   arbitreAdminResource: import.meta.env.VITE_ARBITRE_ADMIN_RESOURCE ?? '/api/admin/arbitre',
   terrainPublicResource: import.meta.env.VITE_TERRAIN_PUBLIC_RESOURCE ?? '/api/terrains',
   terrainAdminResource: import.meta.env.VITE_TERRAIN_ADMIN_RESOURCE ?? '/api/admin/terrains',
+  devisePublicResource: import.meta.env.VITE_DEVISE_PUBLIC_RESOURCE ?? '/api/devises',
+  deviseAdminResource: import.meta.env.VITE_DEVISE_ADMIN_RESOURCE ?? '/api/admin/devises',
 };

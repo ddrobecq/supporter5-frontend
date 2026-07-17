@@ -6,6 +6,7 @@ import { NatioPage } from './features/natio/NatioPage';
 import { VillePage } from './features/ville/VillePage';
 import { ArbitrePage } from './features/arbitre/ArbitrePage';
 import { TerrainPage } from './features/terrain/TerrainPage';
+import { DevisePage } from './features/devise/DevisePage';
 import { AdminLayout } from './layouts/AdminLayout';
 
 function App() {
@@ -25,6 +26,8 @@ function App() {
           <Route path="/admin/arbitre" element={<ArbitrePage />} />
           <Route path="/terrain" element={<Navigate to="/admin/terrain" replace />} />
           <Route path="/admin/terrain" element={<TerrainPage />} />
+          <Route path="/devise" element={<Navigate to="/admin/devise" replace />} />
+          <Route path="/admin/devise" element={<DevisePage />} />
         </Route>
       </Route>
 
