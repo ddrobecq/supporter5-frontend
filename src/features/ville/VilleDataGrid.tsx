@@ -6,11 +6,12 @@ interface VilleDataGridProps {
   columns: GridColDef[];
   loading: boolean;
   primaryKey?: string;
-  onRowClick: (rowId: GridRowId) => void;
+  onRowClick?: (rowId: GridRowId) => void;
   onRowDoubleClick?: (rowId: GridRowId) => void;
   getRowId: (row: VilleRow) => GridRowId;
   density?: 'comfortable' | 'standard' | 'compact';
   pageSizeOptions?: number[];
+  disableRowSelectionOnClick?: boolean;
 }
 
 export function VilleDataGrid({
@@ -22,6 +23,7 @@ export function VilleDataGrid({
   getRowId,
   density = 'compact',
   pageSizeOptions = [25, 50, 100],
+  disableRowSelectionOnClick = false,
 }: VilleDataGridProps) {
   return (
     <DataGrid
@@ -30,8 +32,9 @@ export function VilleDataGrid({
       loading={loading}
       getRowId={getRowId}
       pageSizeOptions={pageSizeOptions}
-      onRowClick={(params) => onRowClick(params.id)}
+      onRowClick={(params) => onRowClick?.(params.id)}
       onRowDoubleClick={(params) => onRowDoubleClick?.(params.id)}
+      disableRowSelectionOnClick={disableRowSelectionOnClick}
       density={density}
       disableColumnMenu
       sx={{ '& .MuiDataGrid-cell': { cursor: 'default' } }}

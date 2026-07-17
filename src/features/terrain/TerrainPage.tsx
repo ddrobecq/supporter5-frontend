@@ -3,7 +3,6 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import {
-  Alert,
   Box,
   Button,
   Card,
@@ -14,7 +13,6 @@ import {
   DialogContentText,
   DialogTitle,
   InputAdornment,
-  Snackbar,
   Stack,
   TextField,
   Tooltip,
@@ -26,6 +24,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { createTerrain, deleteTerrain, fetchTerrain, fetchTerrainById, updateTerrain, canDeleteTerrain } from './terrainApi';
 import { TerrainFormDialog } from './TerrainFormDialog';
+import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { TerrainRow } from './types';
 import type { IntegrityConstraint } from './terrainApi';
 
@@ -430,14 +429,7 @@ export function TerrainPage() {
         </DialogActions>
       </Dialog>
 
-      <Snackbar
-        open={Boolean(snackbar)}
-        autoHideDuration={3500}
-        onClose={() => setSnackbar(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        {snackbar ? <Alert severity={snackbar.severity}>{snackbar.message}</Alert> : <span />}
-      </Snackbar>
+      <AppFeedbackSnackbar value={snackbar} onClose={() => setSnackbar(null)} />
     </Stack>
   );
 }

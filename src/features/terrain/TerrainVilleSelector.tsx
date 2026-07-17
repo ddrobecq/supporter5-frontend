@@ -47,7 +47,7 @@ export function TerrainVilleSelector({ open, onClose, onSelect }: TerrainVilleSe
     return JSON.stringify(row);
   };
 
-  const handleRowClick = (rowId: GridRowId) => {
+  const handleRowDoubleClick = (rowId: GridRowId) => {
     const selectedRow = rows.find((row) => {
       if (primaryKey && (typeof row[primaryKey] === 'string' || typeof row[primaryKey] === 'number')) {
         return row[primaryKey] === rowId;
@@ -132,7 +132,8 @@ export function TerrainVilleSelector({ open, onClose, onSelect }: TerrainVilleSe
                 columns={columns}
                 loading={loading}
                 primaryKey={primaryKey}
-                onRowClick={handleRowClick}
+                onRowDoubleClick={handleRowDoubleClick}
+                disableRowSelectionOnClick
                 getRowId={getRowId}
               />
             )}

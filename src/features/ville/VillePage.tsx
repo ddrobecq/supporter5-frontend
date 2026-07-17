@@ -2,7 +2,6 @@ import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
 import {
-  Alert,
   Box,
   Button,
   Card,
@@ -12,7 +11,6 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  Snackbar,
   Stack,
   Tooltip,
   Typography,
@@ -26,6 +24,7 @@ import { VilleFormDialog } from './VilleFormDialog';
 import { VilleDataGrid } from './VilleDataGrid';
 import { VilleSearchBar } from './VilleSearchBar';
 import { createVilleColumns, createNatioMap } from './villeColumnsHelper';
+import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { VilleRow } from './types';
 import type { NatioRow } from '../natio/types';
 import type { IntegrityConstraint } from './villeApi';
@@ -381,14 +380,7 @@ export function VillePage() {
         </DialogActions>
       </Dialog>
 
-      <Snackbar
-        open={Boolean(snackbar)}
-        autoHideDuration={3500}
-        onClose={() => setSnackbar(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        {snackbar ? <Alert severity={snackbar.severity}>{snackbar.message}</Alert> : <span />}
-      </Snackbar>
+      <AppFeedbackSnackbar value={snackbar} onClose={() => setSnackbar(null)} />
     </Stack>
   );
 }

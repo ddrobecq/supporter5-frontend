@@ -3,7 +3,6 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import {
-  Alert,
   Box,
   Button,
   Card,
@@ -14,7 +13,6 @@ import {
   DialogContentText,
   DialogTitle,
   InputAdornment,
-  Snackbar,
   Stack,
   TextField,
   Tooltip,
@@ -27,6 +25,7 @@ import axios from 'axios';
 import { createArbitre, deleteArbitre, fetchArbitre, fetchArbitreById, updateArbitre, canDeleteArbitre } from './arbitreApi';
 import { fetchNatio } from '../natio/natioApi';
 import { ArbitreFormDialog } from './ArbitreFormDialog';
+import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { ArbitreRow } from './types';
 import type { NatioRow } from '../natio/types';
 import type { IntegrityConstraint } from './arbitreApi';
@@ -413,14 +412,7 @@ export function ArbitrePage() {
         </DialogActions>
       </Dialog>
 
-      <Snackbar
-        open={Boolean(snackbar)}
-        autoHideDuration={3500}
-        onClose={() => setSnackbar(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        {snackbar ? <Alert severity={snackbar.severity}>{snackbar.message}</Alert> : <span />}
-      </Snackbar>
+      <AppFeedbackSnackbar value={snackbar} onClose={() => setSnackbar(null)} />
     </Stack>
   );
 }
