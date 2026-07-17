@@ -1,112 +1,71 @@
-import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Stack,
-  Tooltip,
-  Typography,
-} from '@mui/material';
-import type { GridColDef, GridRowId } from '@mui/x-data-grid';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import axios from 'axios';
+﻿import type { GridColDef, GridRowId } from '@mui/x-data-grid';
+import { useMemo } from 'react';
 import { createNatio, deleteNatio, fetchNatio, fetchNatioById, updateNatio, canDeleteNatio } from './natioApi';
 import { NatioFormDialog } from './NatioFormDialog';
-import { EntityDataGrid } from '../../components/EntityDataGrid';
-import { EntitySearchBar } from '../../components/EntitySearchBar';
-import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
+import { EntityPageLayout } from '../../components/EntityPageLayout';
+import { useEntityPage } from '../../components/useEntityPage';
 import type { NatioRow } from './types';
-import type { IntegrityConstraint } from './natioApi';
 
 const PK_CANDIDATES = ['IDNATIO', 'NATIO', 'ID', 'id', 'CODE'];
 
 function detectPrimaryKey(rows: NatioRow[]): string | undefined {
   const firstRow = rows[0];
   if (!firstRow) return undefined;
-
   const keys = Object.keys(firstRow);
   const candidate = PK_CANDIDATES.find((pk) => keys.includes(pk));
   return candidate ?? keys[0];
 }
 
-function toErrorMessage(error: unknown): string {
-  if (axios.isAxiosError(error)) {
-    const apiMessage = (error.response?.data as { message?: string } | undefined)?.message;
-    if (apiMessage) return apiMessage;
-    if (error.response?.status === 401) return 'Session expiree. Reconnectez-vous.';
-    if (error.response?.status === 404) return 'Ressource introuvable. Verifiez la route NATIO backend.';
-    if (error.response?.status === 409) return 'Suppression impossible: des enregistrements dependants existent.';
-  }
-  return 'Une erreur est survenue.';
-}
-
 export function NatioPage() {
-  const [rows, setRows] = useState<NatioRow[]>([]);
-  const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(false);
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const didFocusSearchRef = useRef(false);
-  const actionButtonsRowRef = useRef<HTMLDivElement | null>(null);
-  const activeRequestRef = useRef<AbortController | null>(null);
+  const page = useEntityPage<NatioRow>(
+    {
+      fetchAll: fetchNatio,
+      fetchById: fetchNatioById,
+      create: createNatio,
+      update: updateNatio,
+      remove: deleteNatio,
+      canDelete: canDeleteNatio,
+    },
+    {
+      singular: 'pays',
+      singularArticle: 'ce pays',
+      created: 'Pays cree.',
+      updated: 'Pays mis a jour.',
+      deleted: 'Pays supprime.',
+      selectToOpen: 'Selectionnez un pays a ouvrir.',
+      selectToDelete: 'Selectionnez un pays a supprimer.',
+      noneSelected: 'Aucun pays selectionne.',
+    },
+  );
 
-  const [selection, setSelection] = useState<GridRowId[]>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
-  const [activeRow, setActiveRow] = useState<NatioRow | undefined>(undefined);
-
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  const [deleteConstraints, setDeleteConstraints] = useState<IntegrityConstraint[]>([]);
-
-  const [snackbar, setSnackbar] = useState<{ severity: 'success' | 'error'; message: string } | null>(null);
-  const [compactActionButtons, setCompactActionButtons] = useState(false);
-
-  const primaryKey = useMemo(() => detectPrimaryKey(rows), [rows]);
+  const primaryKey = useMemo(() => detectPrimaryKey(page.rows), [page.rows]);
 
   const columns = useMemo<GridColDef[]>(() => {
-    const first = rows[0];
+    const first = page.rows[0];
     if (!first) return [];
-
     const allFields = Object.keys(first);
-
     const codeField = allFields.find((f) => ['IDNATIO', 'NATIO', 'CODE'].includes(f));
     const nameField = allFields.find((f) => ['PAYS', 'NOM', 'NATIO_NOM'].includes(f));
-
     const visibleFields = allFields.filter((field) => field !== 'NALOCAL' && field !== 'NAT_DRAPEAU');
     const orderedFields = [codeField, nameField, ...visibleFields].filter(
       (field, index, array): field is string => Boolean(field) && array.indexOf(field) === index,
     );
-
-    return orderedFields.map((field, index) => {
-      const isFirstColumn = index === 0;
-      const isSecondColumn = index === 1;
-
-      return {
-        field,
-        headerName: field === codeField ? 'Code' : field === nameField ? 'Nom' : field,
-        width: isFirstColumn ? 80 : undefined,
-        minWidth: isFirstColumn ? 80 : isSecondColumn ? 220 : 140,
-        maxWidth: isFirstColumn ? 80 : undefined,
-        flex: isSecondColumn ? 1 : undefined,
-        sortable: true,
-      };
-    });
-  }, [rows]);
+    return orderedFields.map((field, index) => ({
+      field,
+      headerName: field === codeField ? 'Code' : field === nameField ? 'Nom' : field,
+      width: index === 0 ? 80 : undefined,
+      minWidth: index === 0 ? 80 : index === 1 ? 220 : 140,
+      maxWidth: index === 0 ? 80 : undefined,
+      flex: index === 1 ? 1 : undefined,
+      sortable: true,
+    }));
+  }, [page.rows]);
 
   const formFields = useMemo<string[]>(() => {
-    const source = activeRow ?? rows[0];
+    const source = page.activeRow ?? page.rows[0];
     const sourceFields = source ? Object.keys(source) : [];
-    const withRequired = [...sourceFields, 'NALOCAL', 'NAT_DRAPEAU'];
-
-    return withRequired.filter((field, index, array) => array.indexOf(field) === index);
-  }, [activeRow, rows]);
+    return [...sourceFields, 'NALOCAL', 'NAT_DRAPEAU'].filter((f, i, a) => a.indexOf(f) === i);
+  }, [page.activeRow, page.rows]);
 
   const getRowId = (row: NatioRow): GridRowId => {
     if (primaryKey && (typeof row[primaryKey] === 'string' || typeof row[primaryKey] === 'number')) {
@@ -115,296 +74,43 @@ export function NatioPage() {
     return JSON.stringify(row);
   };
 
-  const loadData = async (query: string) => {
-    activeRequestRef.current?.abort();
-    const controller = new AbortController();
-    activeRequestRef.current = controller;
-
-    setLoading(true);
-    try {
-      const result = await fetchNatio(query.trim(), controller.signal);
-      if (controller.signal.aborted) return;
-      setRows(result.data ?? []);
-    } catch (error) {
-      if (axios.isAxiosError(error) && error.code === 'ERR_CANCELED') return;
-      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
-    } finally {
-      if (activeRequestRef.current === controller) {
-        setLoading(false);
-        activeRequestRef.current = null;
-      }
-    }
-  };
-
-  const openCreateDialog = () => {
-    setDialogMode('create');
-    setActiveRow(undefined);
-    setDialogOpen(true);
-  };
-
-  const openEditDialog = async (rowId?: GridRowId) => {
-    const selectedId = rowId ?? selection.at(0);
-    if (selectedId === undefined || selectedId === null) {
-      setSnackbar({ severity: 'error', message: 'Selectionnez un pays a ouvrir.' });
-      return;
-    }
-
-    try {
-      const row = await fetchNatioById(selectedId as string | number);
-      setDialogMode('edit');
-      setActiveRow(row);
-      setSelection([selectedId]);
-      setDialogOpen(true);
-    } catch (error) {
-      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
-    }
-  };
-
-  const handleFormSubmit = async (payload: NatioRow) => {
-    try {
-      if (dialogMode === 'create') {
-        await createNatio(payload);
-        setSnackbar({ severity: 'success', message: 'Pays cree.' });
-      } else {
-        const selectedId = selection.at(0);
-        if (!selectedId) {
-          setSnackbar({ severity: 'error', message: 'Aucun pays selectionne.' });
-          return;
-        }
-        await updateNatio(selectedId as string | number, payload);
-        setSnackbar({ severity: 'success', message: 'Pays mis a jour.' });
-      }
-
-      setDialogOpen(false);
-      await loadData(search);
-    } catch (error) {
-      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
-    }
-  };
-
-  const handleDelete = async () => {
-    const selectedId = selection.at(0);
-    if (!selectedId) {
-      setSnackbar({ severity: 'error', message: 'Selectionnez un pays a supprimer.' });
-      return;
-    }
-
-    try {
-      await deleteNatio(selectedId as string | number);
-      setSnackbar({ severity: 'success', message: 'Pays supprime.' });
-      setConfirmDeleteOpen(false);
-      setDeleteConstraints([]);
-      setSelection([]);
-      await loadData(search);
-    } catch (error) {
-      const message = toErrorMessage(error);
-      if (message.toLowerCase().includes('constraint') || message.toLowerCase().includes('foreign key')) {
-        setSnackbar({
-          severity: 'error',
-          message: 'Suppression impossible: ce pays est reference dans d\'autres donnees.',
-        });
-      } else {
-        setSnackbar({ severity: 'error', message });
-      }
-      setConfirmDeleteOpen(false);
-      setDeleteConstraints([]);
-    }
-  };
-
-  const handleOpenDeleteConfirm = async () => {
-    const selectedId = selection.at(0);
-    if (!selectedId) {
-      setSnackbar({ severity: 'error', message: 'Selectionnez un pays a supprimer.' });
-      return;
-    }
-
-    try {
-      const result = await canDeleteNatio(selectedId as string | number);
-      setDeleteConstraints(result.constraints);
-      setConfirmDeleteOpen(true);
-    } catch (error) {
-      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
-    }
-  };
-
-  useEffect(() => {
-    // DataGrid can grab keyboard focus after data load; restore it once to the search input.
-    if (!loading && !didFocusSearchRef.current) {
-      searchInputRef.current?.focus();
-      didFocusSearchRef.current = true;
-    }
-  }, [loading]);
-
-  useEffect(() => {
-    const handle = window.setTimeout(() => {
-      void loadData(search);
-    }, 320);
-
-    return () => window.clearTimeout(handle);
-    // Debounce search requests while typing
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
-
-  useEffect(() => () => {
-    activeRequestRef.current?.abort();
-  }, []);
-
-  useEffect(() => {
-    const row = actionButtonsRowRef.current;
-    if (!row) return;
-
-    // Collapse labels only when each button cannot reasonably fit icon + text.
-    const updateCompactState = () => {
-      const spacingPx = 8;
-      const totalSpacing = spacingPx * 2;
-      const widthPerButton = (row.clientWidth - totalSpacing) / 3;
-      setCompactActionButtons(widthPerButton < 120);
-    };
-
-    updateCompactState();
-    const observer = new ResizeObserver(updateCompactState);
-    observer.observe(row);
-
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <Stack spacing={2}>
-      <Typography variant="h5" sx={{ fontWeight: 700 }}>Pays</Typography>
-
-      <Card>
-        <CardContent>
-          <Stack
-            direction={{ xs: 'column', md: 'row' }}
-            spacing={1.5}
-            sx={{ alignItems: { xs: 'stretch', md: 'center' } }}
-          >
-            <EntitySearchBar
-              label="Rechercher un pays"
-              value={search}
-              onChange={setSearch}
-              inputRef={searchInputRef}
-              autoFocus
-            />
-            <Box sx={{ flex: 1, minWidth: { xs: '100%', md: 420 } }}>
-              <Stack
-                ref={actionButtonsRowRef}
-                direction="row"
-                spacing={1}
-                sx={{
-                  width: '100%',
-                }}
-              >
-                <Tooltip title="Nouveau" disableHoverListener={!compactActionButtons}>
-                  <Button
-                    variant="contained"
-                    startIcon={compactActionButtons ? undefined : <AddCircleOutlinedIcon />}
-                    onClick={openCreateDialog}
-                    aria-label="Nouveau"
-                    sx={{ flex: 1, minWidth: 0 }}
-                  >
-                    {compactActionButtons ? <AddCircleOutlinedIcon /> : 'Nouveau'}
-                  </Button>
-                </Tooltip>
-
-                <Tooltip title="Ouvrir" disableHoverListener={!compactActionButtons}>
-                  <Button
-                    variant="outlined"
-                    startIcon={compactActionButtons ? undefined : <EditOutlinedIcon />}
-                    onClick={() => void openEditDialog()}
-                    aria-label="Ouvrir"
-                    sx={{ flex: 1, minWidth: 0 }}
-                  >
-                    {compactActionButtons ? <EditOutlinedIcon /> : 'Ouvrir'}
-                  </Button>
-                </Tooltip>
-
-                <Tooltip title="Supprimer" disableHoverListener={!compactActionButtons}>
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    startIcon={compactActionButtons ? undefined : <DeleteOutlinedIcon />}
-                    onClick={() => void handleOpenDeleteConfirm()}
-                    aria-label="Supprimer"
-                    sx={{ flex: 1, minWidth: 0 }}
-                  >
-                    {compactActionButtons ? <DeleteOutlinedIcon /> : 'Supprimer'}
-                  </Button>
-                </Tooltip>
-              </Stack>
-            </Box>
-          </Stack>
-
-          <Box sx={{ mt: 2, height: 'calc(100vh - 270px)', minHeight: 420 }}>
-            <EntityDataGrid
-              rows={rows}
-              columns={columns}
-              loading={loading}
-              getRowId={getRowId}
-              selection={selection}
-              onSelectionChange={setSelection}
-              onRowDoubleClick={(rowId) => void openEditDialog(rowId)}
-              onRowClick={(rowId) => setSelection([rowId])}
-            />
-          </Box>
-        </CardContent>
-      </Card>
-
-      <NatioFormDialog
-        open={dialogOpen}
-        mode={dialogMode}
-        fields={formFields}
-        primaryKey={primaryKey}
-        initialData={activeRow}
-        onClose={() => setDialogOpen(false)}
-        onSubmit={handleFormSubmit}
-      />
-
-      <Dialog open={confirmDeleteOpen} onClose={() => {
-        setConfirmDeleteOpen(false);
-        setDeleteConstraints([]);
-      }}>
-        <DialogTitle>Confirmer la suppression</DialogTitle>
-        <DialogContent>
-          {deleteConstraints.length === 0 ? (
-            <DialogContentText>
-              Cette action est irreversible. Verifiez que ce pays n'est pas utilise dans d'autres enregistrements.
-            </DialogContentText>
-          ) : (
-            <Stack spacing={1.5}>
-              <DialogContentText>
-                <strong>Suppression impossible.</strong> Ce pays est utilise dans d'autres donnees:
-              </DialogContentText>
-              <Stack spacing={0.75} sx={{ ml: 2 }}>
-                {deleteConstraints.map((constraint) => (
-                  <Box key={constraint.table} sx={{ fontSize: 0.9 }}>
-                    <strong>• {constraint.table}</strong>: {constraint.description}
-                  </Box>
-                ))}
-              </Stack>
-              <DialogContentText sx={{ mt: 1.5, fontStyle: 'italic', color: 'error.main' }}>
-                Supprimez ou modifiez d'abord les enregistrements dependants, puis reessayez.
-              </DialogContentText>
-            </Stack>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => {
-              setConfirmDeleteOpen(false);
-              setDeleteConstraints([]);
-            }}
-            color="inherit"
-          >
-            {deleteConstraints.length === 0 ? 'Annuler' : 'OK'}
-          </Button>
-          {deleteConstraints.length === 0 && (
-            <Button onClick={() => void handleDelete()} color="error" variant="contained">Supprimer</Button>
-          )}
-        </DialogActions>
-      </Dialog>
-
-      <AppFeedbackSnackbar value={snackbar} onClose={() => setSnackbar(null)} />
-    </Stack>
+    <EntityPageLayout
+      title="Pays"
+      searchLabel="Rechercher un pays"
+      search={page.search}
+      onSearchChange={page.setSearch}
+      searchInputRef={page.searchInputRef}
+      onNew={page.openCreateDialog}
+      onOpen={() => void page.openEditDialog()}
+      onDelete={() => void page.handleOpenDeleteConfirm()}
+      actionButtonsRowRef={page.actionButtonsRowRef}
+      compactActionButtons={page.compactActionButtons}
+      rows={page.rows}
+      columns={columns}
+      loading={page.loading}
+      getRowId={getRowId}
+      selection={page.selection}
+      onSelectionChange={page.setSelection}
+      onRowDoubleClick={(rowId) => void page.openEditDialog(rowId)}
+      confirmDeleteOpen={page.confirmDeleteOpen}
+      deleteConstraints={page.deleteConstraints}
+      entityDescription="ce pays"
+      onConfirmDelete={() => void page.handleDelete()}
+      onCloseDeleteConfirm={page.closeDeleteConfirm}
+      formDialog={
+        <NatioFormDialog
+          open={page.dialogOpen}
+          mode={page.dialogMode}
+          fields={formFields}
+          primaryKey={primaryKey}
+          initialData={page.activeRow}
+          onClose={() => page.setDialogOpen(false)}
+          onSubmit={page.handleFormSubmit}
+        />
+      }
+      snackbar={page.snackbar}
+      onCloseSnackbar={() => page.setSnackbar(null)}
+    />
   );
 }
