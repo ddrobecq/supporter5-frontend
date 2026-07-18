@@ -10,4 +10,6 @@ export const env = {
   terrainAdminResource: import.meta.env.VITE_TERRAIN_ADMIN_RESOURCE ?? '/api/admin/terrains',
   devisePublicResource: import.meta.env.VITE_DEVISE_PUBLIC_RESOURCE ?? '/api/devises',
   deviseAdminResource: import.meta.env.VITE_DEVISE_ADMIN_RESOURCE ?? '/api/admin/devises',
+  circPublicResource: import.meta.env.VITE_CIRC_PUBLIC_RESOURCE ?? '/api/circs',
+  circAdminResource: import.meta.env.VITE_CIRC_ADMIN_RESOURCE ?? '/api/admin/circs',
 };

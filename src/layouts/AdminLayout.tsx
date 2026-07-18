@@ -48,6 +48,7 @@ export function AdminLayout() {
   const isArbitreActive = location.pathname === '/admin/arbitre' || location.pathname === '/arbitre';
   const isTerrainActive = location.pathname === '/admin/terrain' || location.pathname === '/terrain';
   const isDeviseActive = location.pathname === '/admin/devise' || location.pathname === '/devise';
+  const isCircActive = location.pathname === '/admin/circ' || location.pathname === '/circ';
 
   useEffect(() => {
     const row = navButtonsRowRef.current;
@@ -248,6 +249,24 @@ export function AdminLayout() {
                 onClick={() => navigate('/devise')}
               >
                 {compactNavButtons ? <EuroRoundedIcon /> : 'Devises'}
+              </Button>
+            </Tooltip>
+
+            <Tooltip title="Circonstances" disableHoverListener={!compactNavButtons}>
+              <Button
+                size="small"
+                variant={isCircActive ? 'contained' : 'outlined'}
+                color={isCircActive ? 'primary' : 'inherit'}
+                startIcon={compactNavButtons ? undefined : <EventNoteRoundedIcon />}
+                sx={{
+                  minWidth: 36,
+                  px: compactNavButtons ? 1 : 1.25,
+                  '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
+                }}
+                aria-label="Circonstances"
+                onClick={() => navigate('/circ')}
+              >
+                {compactNavButtons ? <EventNoteRoundedIcon /> : 'Circonstances'}
               </Button>
             </Tooltip>
 
