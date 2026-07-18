@@ -8,6 +8,7 @@ import { ArbitrePage } from './features/arbitre/ArbitrePage';
 import { TerrainPage } from './features/terrain/TerrainPage';
 import { DevisePage } from './features/devise/DevisePage';
 import { CircPage } from './features/circ/CircPage';
+import { EpreuvePage } from './features/epreuve/EpreuvePage';
 import { AdminLayout } from './layouts/AdminLayout';
 
 function App() {
@@ -31,6 +32,8 @@ function App() {
           <Route path="/admin/devise" element={<DevisePage />} />
           <Route path="/circ" element={<Navigate to="/admin/circ" replace />} />
           <Route path="/admin/circ" element={<CircPage />} />
+          <Route path="/epreuve" element={<Navigate to="/admin/epreuve" replace />} />
+          <Route path="/admin/epreuve" element={<EpreuvePage />} />
         </Route>
       </Route>
 

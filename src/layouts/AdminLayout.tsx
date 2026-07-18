@@ -6,6 +6,7 @@ import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
 import PlaceRoundedIcon from '@mui/icons-material/PlaceRounded';
 import EuroRoundedIcon from '@mui/icons-material/EuroRounded';
+import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import PeopleRoundedIcon from '@mui/icons-material/PeopleRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
@@ -49,13 +50,14 @@ export function AdminLayout() {
   const isTerrainActive = location.pathname === '/admin/terrain' || location.pathname === '/terrain';
   const isDeviseActive = location.pathname === '/admin/devise' || location.pathname === '/devise';
   const isCircActive = location.pathname === '/admin/circ' || location.pathname === '/circ';
+  const isEpreuveActive = location.pathname === '/admin/epreuve' || location.pathname === '/epreuve';
 
   useEffect(() => {
     const row = navButtonsRowRef.current;
     if (!row) return;
 
     const updateCompactState = () => {
-      const buttonCount = 2 + QUICK_ACTIONS.length;
+      const buttonCount = 7 + QUICK_ACTIONS.length;
       const spacingPx = 8;
       const totalSpacing = spacingPx * Math.max(0, buttonCount - 1);
       const widthPerButton = (Math.max(0, row.clientWidth) - totalSpacing) / buttonCount;
@@ -267,6 +269,24 @@ export function AdminLayout() {
                 onClick={() => navigate('/circ')}
               >
                 {compactNavButtons ? <EventNoteRoundedIcon /> : 'Circonstances'}
+              </Button>
+            </Tooltip>
+
+            <Tooltip title="Epreuves" disableHoverListener={!compactNavButtons}>
+              <Button
+                size="small"
+                variant={isEpreuveActive ? 'contained' : 'outlined'}
+                color={isEpreuveActive ? 'primary' : 'inherit'}
+                startIcon={compactNavButtons ? undefined : <EmojiEventsRoundedIcon />}
+                sx={{
+                  minWidth: 36,
+                  px: compactNavButtons ? 1 : 1.25,
+                  '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
+                }}
+                aria-label="Epreuves"
+                onClick={() => navigate('/epreuve')}
+              >
+                {compactNavButtons ? <EmojiEventsRoundedIcon /> : 'Epreuves'}
               </Button>
             </Tooltip>
 

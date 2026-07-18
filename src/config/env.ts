@@ -12,4 +12,6 @@ export const env = {
   deviseAdminResource: import.meta.env.VITE_DEVISE_ADMIN_RESOURCE ?? '/api/admin/devises',
   circPublicResource: import.meta.env.VITE_CIRC_PUBLIC_RESOURCE ?? '/api/circs',
   circAdminResource: import.meta.env.VITE_CIRC_ADMIN_RESOURCE ?? '/api/admin/circs',
+  epreuvePublicResource: import.meta.env.VITE_EPREUVE_PUBLIC_RESOURCE ?? '/api/epreuves',
+  epreuveAdminResource: import.meta.env.VITE_EPREUVE_ADMIN_RESOURCE ?? '/api/admin/epreuves',
 };
