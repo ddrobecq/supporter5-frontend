@@ -28,7 +28,6 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { authStore } from '../features/auth/authStore';
 
 const QUICK_ACTIONS = [
-  { label: 'Calendrier', icon: <EventNoteRoundedIcon /> },
   { label: 'Joueurs', icon: <PeopleRoundedIcon /> },
   { label: 'Statistiques', icon: <BarChartRoundedIcon /> },
   { label: 'Clubs', icon: <GroupsRoundedIcon /> },
@@ -44,6 +43,7 @@ export function AdminLayout() {
   const [compactNavButtons, setCompactNavButtons] = useState(false);
   const [compactSearchAction, setCompactSearchAction] = useState(false);
   const isHomeActive = location.pathname === '/admin/home' || location.pathname === '/accueil';
+  const isCalendrierActive = location.pathname === '/admin/calendrier' || location.pathname === '/calendrier';
   const isNatioActive = location.pathname === '/admin/natio' || location.pathname === '/natio';
   const isVilleActive = location.pathname === '/admin/ville' || location.pathname === '/ville';
   const isArbitreActive = location.pathname === '/admin/arbitre' || location.pathname === '/arbitre';
@@ -57,7 +57,7 @@ export function AdminLayout() {
     if (!row) return;
 
     const updateCompactState = () => {
-      const buttonCount = 7 + QUICK_ACTIONS.length;
+      const buttonCount = 8 + QUICK_ACTIONS.length;
       const spacingPx = 8;
       const totalSpacing = spacingPx * Math.max(0, buttonCount - 1);
       const widthPerButton = (Math.max(0, row.clientWidth) - totalSpacing) / buttonCount;
@@ -272,7 +272,7 @@ export function AdminLayout() {
               </Button>
             </Tooltip>
 
-            <Tooltip title="Epreuves" disableHoverListener={!compactNavButtons}>
+            <Tooltip title="Épreuves" disableHoverListener={!compactNavButtons}>
               <Button
                 size="small"
                 variant={isEpreuveActive ? 'contained' : 'outlined'}
@@ -283,10 +283,28 @@ export function AdminLayout() {
                   px: compactNavButtons ? 1 : 1.25,
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
-                aria-label="Epreuves"
+                aria-label="Épreuves"
                 onClick={() => navigate('/epreuve')}
               >
-                {compactNavButtons ? <EmojiEventsRoundedIcon /> : 'Epreuves'}
+                {compactNavButtons ? <EmojiEventsRoundedIcon /> : 'Épreuves'}
+              </Button>
+            </Tooltip>
+
+            <Tooltip title="Calendrier" disableHoverListener={!compactNavButtons}>
+              <Button
+                size="small"
+                variant={isCalendrierActive ? 'contained' : 'outlined'}
+                color={isCalendrierActive ? 'primary' : 'inherit'}
+                startIcon={compactNavButtons ? undefined : <EventNoteRoundedIcon />}
+                sx={{
+                  minWidth: 36,
+                  px: compactNavButtons ? 1 : 1.25,
+                  '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
+                }}
+                aria-label="Calendrier"
+                onClick={() => navigate('/calendrier')}
+              >
+                {compactNavButtons ? <EventNoteRoundedIcon /> : 'Calendrier'}
               </Button>
             </Tooltip>
 

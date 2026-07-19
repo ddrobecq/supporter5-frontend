@@ -11,7 +11,7 @@ import {
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useEntityImage } from '../../lib/useEntityImage';
+import { getEntityImageUrl, useEntityImage } from '../../lib/useEntityImage';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import type { EpreuveRow } from './types';
 
@@ -79,7 +79,15 @@ export function EpreuveFormDialog({
 
   const isIdReadOnly = mode === 'edit' && !!primaryKey;
 
-  const trophyPreview = useMemo(() => newVisuelDataUrl ?? existingPhoto.src ?? '', [newVisuelDataUrl, existingPhoto.src]);
+  const directTrophyUrl = useMemo(() => {
+    const hasId = editId !== null && editId !== undefined && String(editId).trim() !== '';
+    return hasId ? getEntityImageUrl('epreuve', editId as string | number) : '';
+  }, [editId]);
+
+  const trophyPreview = useMemo(
+    () => newVisuelDataUrl ?? existingPhoto.src ?? directTrophyUrl,
+    [newVisuelDataUrl, existingPhoto.src, directTrophyUrl],
+  );
 
   const validate = (): boolean => {
     const nextErrors: Record<string, string> = {};
@@ -136,7 +144,7 @@ export function EpreuveFormDialog({
     <EntityFormDialog
       open={open}
       onClose={onClose}
-      title={mode === 'create' ? 'Nouvelle Epreuve' : 'Modifier une Epreuve'}
+      title={mode === 'create' ? 'Nouvelle Épreuve' : 'Modifier une Épreuve'}
       saving={saving}
       onSave={() => void handleSave()}
       maxWidth="lg"
@@ -166,10 +174,10 @@ export function EpreuveFormDialog({
               position: 'relative',
             }}
           >
-            {photoLoading || existingPhoto.loading ? (
-              <EmojiEventsRoundedIcon sx={{ fontSize: 72, color: 'text.disabled' }} />
-            ) : trophyPreview ? (
+            {trophyPreview ? (
               <Box component="img" src={trophyPreview} alt="Visuel de l'épreuve" sx={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            ) : photoLoading || existingPhoto.loading ? (
+              <EmojiEventsRoundedIcon sx={{ fontSize: 72, color: 'text.disabled' }} />
             ) : (
               <Stack spacing={0.5} sx={{ alignItems: 'center', color: 'text.disabled' }}>
                 <EmojiEventsRoundedIcon sx={{ fontSize: 72 }} />
@@ -193,7 +201,7 @@ export function EpreuveFormDialog({
         <Box sx={{ minWidth: 0, gridColumn: '2', gridRow: '1', alignSelf: 'start' }}>
           <Stack spacing={0.5} sx={{ width: 180, maxWidth: '100%' }}>
             <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.2 }}>
-              IDEPREUVE
+              IDÉPREUVE
             </Typography>
             <TextField
               value={String(values.IDEPREUVE ?? '')}
@@ -225,7 +233,7 @@ export function EpreuveFormDialog({
                   onChange={(e) => setValues((prev) => ({ ...prev, OFFICIELLE: e.target.checked ? 1 : 0 }))}
                 />
               }
-              label="Epreuve officielle"
+              label="Épreuve officielle"
             />
             <FormControlLabel
               control={
@@ -234,7 +242,7 @@ export function EpreuveFormDialog({
                   onChange={(e) => setValues((prev) => ({ ...prev, EPR_PAYS: e.target.checked ? 1 : 0 }))}
                 />
               }
-              label="Epreuve réservée aux équipes nationales"
+              label="Épreuve réservée aux équipes nationales"
             />
             <TextField
               select

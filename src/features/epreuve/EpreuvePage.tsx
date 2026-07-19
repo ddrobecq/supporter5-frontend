@@ -20,12 +20,12 @@ export function EpreuvePage() {
     {
       singular: 'épreuve',
       singularArticle: 'cette épreuve',
-      created: 'Epreuve créée.',
-      updated: 'Epreuve mise à jour.',
-      deleted: 'Epreuve supprimée.',
-      selectToOpen: 'Sélectionnez une épreuve à ouvrir.',
-      selectToDelete: 'Sélectionnez une épreuve à supprimer.',
-      noneSelected: 'Aucune épreuve sélectionnée.',
+      created: 'Épreuve créée.',
+      updated: 'Épreuve mise à jour.',
+      deleted: 'Épreuve supprimée.',
+      selectToOpen: 'Sélectionnez une Épreuve à ouvrir.',
+      selectToDelete: 'Sélectionnez une Épreuve à supprimer.',
+      noneSelected: 'Aucune Épreuve sélectionnée.',
     },
   );
 
@@ -39,8 +39,8 @@ export function EpreuvePage() {
 
   return (
     <EntityPageLayout
-      title="Epreuves"
-      searchLabel="Rechercher une épreuve"
+      title="Épreuves"
+      searchLabel="Rechercher une Épreuve"
       search={page.search}
       onSearchChange={page.setSearch}
       searchInputRef={page.searchInputRef}

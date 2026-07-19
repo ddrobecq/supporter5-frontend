@@ -1,11 +1,13 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Alert, Box, Button, Card, CardContent, Stack, TextField, Typography } from '@mui/material';
-import { useState } from 'react';
+import { type BaseSyntheticEvent, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { login } from './authApi';
 import { authStore } from './authStore';
+
+const LAST_USERNAME_KEY = 'supporter_last_username';
 
 const loginSchema = z.object({
   username: z.string().min(1, 'Nom utilisateur requis'),
@@ -20,16 +22,28 @@ export function LoginPage() {
   const setToken = authStore((s) => s.setToken);
   const [error, setError] = useState<string | null>(null);
 
+  const initialUsername = useMemo(() => {
+    const last = localStorage.getItem(LAST_USERNAME_KEY)?.trim();
+    return last ?? '';
+  }, []);
+
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { username: 'admin', password: '' },
+    defaultValues: { username: initialUsername, password: '' },
   });
 
-  const onSubmit = async (values: LoginForm) => {
+  const onSubmit = async (values: LoginForm, event?: BaseSyntheticEvent) => {
     setError(null);
     try {
-      const token = await login(values.username, values.password);
+      // Read actual DOM values to avoid first-submit autofill desync with RHF state.
+      const form = event?.target as HTMLFormElement | undefined;
+      const formData = form ? new FormData(form) : null;
+      const username = String(formData?.get('username') ?? values.username ?? '').trim();
+      const password = String(formData?.get('password') ?? values.password ?? '');
+
+      const token = await login(username, password);
       setToken(token);
+      localStorage.setItem(LAST_USERNAME_KEY, username);
       const redirectTo = (location.state as { from?: string } | undefined)?.from ?? '/admin/natio';
       navigate(redirectTo, { replace: true });
     } catch {
@@ -50,6 +64,7 @@ export function LoginPage() {
             <TextField
               label="Utilisateur"
               {...register('username')}
+              autoComplete="username"
               error={Boolean(errors.username)}
               helperText={errors.username?.message}
             />
@@ -57,6 +72,7 @@ export function LoginPage() {
               label="Mot de passe"
               type="password"
               {...register('password')}
+              autoComplete="current-password"
               error={Boolean(errors.password)}
               helperText={errors.password?.message}
             />

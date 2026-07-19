@@ -92,61 +92,73 @@ export function EntityPageLayout<Row extends GridValidRowModel>({
 }: EntityPageLayoutProps<Row>) {
   return (
     <Stack spacing={2}>
-      <Typography variant="h5" sx={{ fontWeight: 700 }}>{title}</Typography>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{ alignItems: 'center', width: '100%', flexWrap: 'nowrap' }}
+      >
+        <Typography variant="h5" sx={{ fontWeight: 700, flexShrink: 0, whiteSpace: 'nowrap' }}>{title}</Typography>
+        <Box
+          sx={{
+            ml: 'auto',
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+          }}
+        >
+          <EntitySearchBar
+            label={searchLabel}
+            value={search}
+            onChange={onSearchChange}
+            inputRef={searchInputRef}
+            autoFocus
+            sx={{ width: { xs: '52vw', md: '100%' }, minWidth: 120, maxWidth: { xs: 260, md: 560 } }}
+          />
+        </Box>
+      </Stack>
 
       <Card>
         <CardContent>
-          <Stack
-            direction={{ xs: 'column', md: 'row' }}
-            spacing={1.5}
-            sx={{ alignItems: { xs: 'stretch', md: 'center' } }}
-          >
-            <EntitySearchBar
-              label={searchLabel}
-              value={search}
-              onChange={onSearchChange}
-              inputRef={searchInputRef}
-              autoFocus
-            />
-            <Box sx={{ flex: 1, minWidth: { xs: '100%', md: 420 } }}>
-              <Stack ref={actionButtonsRowRef} direction="row" spacing={1} sx={{ width: '100%' }}>
-                <Tooltip title="Nouveau" disableHoverListener={!compactActionButtons}>
-                  <Button
-                    variant="contained"
-                    startIcon={compactActionButtons ? undefined : <AddCircleOutlinedIcon />}
-                    onClick={onNew}
-                    aria-label="Nouveau"
-                    sx={{ flex: 1, minWidth: 0 }}
-                  >
-                    {compactActionButtons ? <AddCircleOutlinedIcon /> : 'Nouveau'}
-                  </Button>
-                </Tooltip>
-                <Tooltip title="Ouvrir" disableHoverListener={!compactActionButtons}>
-                  <Button
-                    variant="outlined"
-                    startIcon={compactActionButtons ? undefined : <EditOutlinedIcon />}
-                    onClick={onOpen}
-                    aria-label="Ouvrir"
-                    sx={{ flex: 1, minWidth: 0 }}
-                  >
-                    {compactActionButtons ? <EditOutlinedIcon /> : 'Ouvrir'}
-                  </Button>
-                </Tooltip>
-                <Tooltip title="Supprimer" disableHoverListener={!compactActionButtons}>
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    startIcon={compactActionButtons ? undefined : <DeleteOutlinedIcon />}
-                    onClick={onDelete}
-                    aria-label="Supprimer"
-                    sx={{ flex: 1, minWidth: 0 }}
-                  >
-                    {compactActionButtons ? <DeleteOutlinedIcon /> : 'Supprimer'}
-                  </Button>
-                </Tooltip>
-              </Stack>
-            </Box>
-          </Stack>
+          <Box sx={{ width: '100%' }}>
+            <Stack ref={actionButtonsRowRef} direction="row" spacing={1} sx={{ width: '100%' }}>
+              <Tooltip title="Nouveau" disableHoverListener={!compactActionButtons}>
+                <Button
+                  variant="contained"
+                  startIcon={compactActionButtons ? undefined : <AddCircleOutlinedIcon />}
+                  onClick={onNew}
+                  aria-label="Nouveau"
+                  sx={{ flex: 1, minWidth: 0 }}
+                >
+                  {compactActionButtons ? <AddCircleOutlinedIcon /> : 'Nouveau'}
+                </Button>
+              </Tooltip>
+              <Tooltip title="Ouvrir" disableHoverListener={!compactActionButtons}>
+                <Button
+                  variant="outlined"
+                  startIcon={compactActionButtons ? undefined : <EditOutlinedIcon />}
+                  onClick={onOpen}
+                  aria-label="Ouvrir"
+                  sx={{ flex: 1, minWidth: 0 }}
+                >
+                  {compactActionButtons ? <EditOutlinedIcon /> : 'Ouvrir'}
+                </Button>
+              </Tooltip>
+              <Tooltip title="Supprimer" disableHoverListener={!compactActionButtons}>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  startIcon={compactActionButtons ? undefined : <DeleteOutlinedIcon />}
+                  onClick={onDelete}
+                  aria-label="Supprimer"
+                  sx={{ flex: 1, minWidth: 0 }}
+                >
+                  {compactActionButtons ? <DeleteOutlinedIcon /> : 'Supprimer'}
+                </Button>
+              </Tooltip>
+            </Stack>
+          </Box>
 
           <Box sx={{ mt: 2, height: 'calc(100vh - 270px)', minHeight: 420 }}>
             <EntityDataGrid

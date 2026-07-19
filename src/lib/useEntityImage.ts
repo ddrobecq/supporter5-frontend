@@ -35,7 +35,8 @@ export function useEntityImage(
   const objectUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!id) {
+    const hasId = id !== null && id !== undefined && String(id).trim() !== '';
+    if (!hasId) {
       setState({ src: null, loading: false, error: false });
       return;
     }
