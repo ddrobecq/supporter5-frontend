@@ -1,16 +1,17 @@
 import BarChartRoundedIcon from '@mui/icons-material/BarChartRounded';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import EventNoteRoundedIcon from '@mui/icons-material/EventNoteRounded';
 import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
-import PlaceRoundedIcon from '@mui/icons-material/PlaceRounded';
 import EuroRoundedIcon from '@mui/icons-material/EuroRounded';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import PeopleRoundedIcon from '@mui/icons-material/PeopleRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
+import StadiumRoundedIcon from '@mui/icons-material/StadiumRounded';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
 import SportsIcon from '@mui/icons-material/Sports';
 import {
@@ -223,7 +224,7 @@ export function AdminLayout() {
                 size="small"
                 variant={isTerrainActive ? 'contained' : 'outlined'}
                 color={isTerrainActive ? 'primary' : 'inherit'}
-                startIcon={compactNavButtons ? undefined : <PlaceRoundedIcon />}
+                startIcon={compactNavButtons ? undefined : <StadiumRoundedIcon />}
                 sx={{
                   minWidth: 36,
                   px: compactNavButtons ? 1 : 1.25,
@@ -232,7 +233,7 @@ export function AdminLayout() {
                 aria-label="Stades"
                 onClick={() => navigate('/terrain')}
               >
-                {compactNavButtons ? <PlaceRoundedIcon /> : 'Stades'}
+                {compactNavButtons ? <StadiumRoundedIcon /> : 'Stades'}
               </Button>
             </Tooltip>
 
@@ -295,7 +296,7 @@ export function AdminLayout() {
                 size="small"
                 variant={isCalendrierActive ? 'contained' : 'outlined'}
                 color={isCalendrierActive ? 'primary' : 'inherit'}
-                startIcon={compactNavButtons ? undefined : <EventNoteRoundedIcon />}
+                startIcon={compactNavButtons ? undefined : <CalendarMonthIcon />}
                 sx={{
                   minWidth: 36,
                   px: compactNavButtons ? 1 : 1.25,
@@ -304,7 +305,7 @@ export function AdminLayout() {
                 aria-label="Calendrier"
                 onClick={() => navigate('/calendrier')}
               >
-                {compactNavButtons ? <EventNoteRoundedIcon /> : 'Calendrier'}
+                {compactNavButtons ? <CalendarMonthIcon /> : 'Calendrier'}
               </Button>
             </Tooltip>
 
