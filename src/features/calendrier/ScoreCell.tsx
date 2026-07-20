@@ -1,5 +1,6 @@
 import { Box, Stack, TextField, Typography } from '@mui/material';
-import type { ReactNode } from 'react';
+import { useRef } from 'react';
+import type { KeyboardEvent, ReactNode, RefObject } from 'react';
 import type { CalendrierRow } from './types';
 
 export interface ScoreDraft {
@@ -16,8 +17,13 @@ interface ScoreCellProps {
   onStartEdit: () => void;
   onDraftChange: (patch: Partial<ScoreDraft>) => void;
   onCommit: () => Promise<void> | void;
+  onCancel: () => void;
   onMoveVertical: (direction: 'up' | 'down') => Promise<void> | void;
 }
+
+type ScoreField = keyof ScoreDraft;
+
+const SCORE_FIELDS: ScoreField[] = ['tabDom', 'butDom', 'butExt', 'tabExt'];
 
 function isWaitingOrProgrammed(etat: number): boolean {
   return etat === 1 || etat === 5;
@@ -34,6 +40,18 @@ function isInProgressOrDone(etat: number): boolean {
 function normalizeScoreValue(value: unknown): number {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function isDigitsOnly(value: string): boolean {
+  return /^\d+$/.test(value);
+}
+
+function isDraftValid(draft: ScoreDraft): boolean {
+  return SCORE_FIELDS.every((field) => isDigitsOnly(draft[field]));
+}
+
+function sanitizeDigits(value: string): string {
+  return value.replace(/\D+/g, '');
 }
 
 function renderScoreDisplay(row: CalendrierRow): ReactNode {
@@ -72,16 +90,80 @@ function renderScoreDisplay(row: CalendrierRow): ReactNode {
   );
 }
 
-export function ScoreCell({ row, isEditing, draft, onStartEdit, onDraftChange, onCommit, onMoveVertical }: ScoreCellProps) {
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+export function ScoreCell({ row, isEditing, draft, onStartEdit, onDraftChange, onCommit, onCancel, onMoveVertical }: ScoreCellProps) {
+  const tabDomRef = useRef<HTMLInputElement | null>(null);
+  const butDomRef = useRef<HTMLInputElement | null>(null);
+  const butExtRef = useRef<HTMLInputElement | null>(null);
+  const tabExtRef = useRef<HTMLInputElement | null>(null);
+
+  const focusField = (field: ScoreField): void => {
+    const refMap: Record<ScoreField, RefObject<HTMLInputElement | null>> = {
+      tabDom: tabDomRef,
+      butDom: butDomRef,
+      butExt: butExtRef,
+      tabExt: tabExtRef,
+    };
+
+    refMap[field].current?.focus();
+  };
+
+  const focusFirstInvalidField = (): void => {
+    const invalidField = SCORE_FIELDS.find((field) => !isDigitsOnly(draft[field]));
+    if (invalidField) {
+      focusField(invalidField);
+    }
+  };
+
+  const handleBlurOutside = (): void => {
+    if (!isDraftValid(draft)) {
+      window.requestAnimationFrame(focusFirstInvalidField);
+      return;
+    }
+
+    void onCommit();
+  };
+
+  const handleInputChange = (field: ScoreField, value: string): void => {
+    onDraftChange({ [field]: sanitizeDigits(value) });
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      onCancel();
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!isDraftValid(draft)) {
+        focusFirstInvalidField();
+        return;
+      }
+      void onCommit();
+      return;
+    }
+
     if (event.key === 'ArrowUp') {
       event.preventDefault();
       event.stopPropagation();
+      if (!isDraftValid(draft)) {
+        focusFirstInvalidField();
+        return;
+      }
       void onMoveVertical('up');
+      return;
     }
+
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       event.stopPropagation();
+      if (!isDraftValid(draft)) {
+        focusFirstInvalidField();
+        return;
+      }
       void onMoveVertical('down');
     }
   };
@@ -112,13 +194,14 @@ export function ScoreCell({ row, isEditing, draft, onStartEdit, onDraftChange, o
         onBlur={(event) => {
           const nextFocused = event.relatedTarget as Node | null;
           if (!event.currentTarget.contains(nextFocused)) {
-            void onCommit();
+            handleBlurOutside();
           }
         }}
       >
         <TextField
+          inputRef={tabDomRef}
           value={draft.tabDom}
-          onChange={(event) => onDraftChange({ tabDom: event.target.value })}
+          onChange={(event) => handleInputChange('tabDom', event.target.value)}
           onFocus={(event) => event.target.select()}
           size="small"
           variant="outlined"
@@ -134,8 +217,9 @@ export function ScoreCell({ row, isEditing, draft, onStartEdit, onDraftChange, o
           onKeyDown={handleKeyDown}
         />
         <TextField
+          inputRef={butDomRef}
           value={draft.butDom}
-          onChange={(event) => onDraftChange({ butDom: event.target.value })}
+          onChange={(event) => handleInputChange('butDom', event.target.value)}
           onFocus={(event) => event.target.select()}
           size="small"
           autoFocus
@@ -153,8 +237,9 @@ export function ScoreCell({ row, isEditing, draft, onStartEdit, onDraftChange, o
         />
         <Typography component="span" sx={{ fontSize: '0.68rem', lineHeight: 1, color: 'text.secondary' }}>-</Typography>
         <TextField
+          inputRef={butExtRef}
           value={draft.butExt}
-          onChange={(event) => onDraftChange({ butExt: event.target.value })}
+          onChange={(event) => handleInputChange('butExt', event.target.value)}
           onFocus={(event) => event.target.select()}
           size="small"
           variant="outlined"
@@ -170,8 +255,9 @@ export function ScoreCell({ row, isEditing, draft, onStartEdit, onDraftChange, o
           onKeyDown={handleKeyDown}
         />
         <TextField
+          inputRef={tabExtRef}
           value={draft.tabExt}
-          onChange={(event) => onDraftChange({ tabExt: event.target.value })}
+          onChange={(event) => handleInputChange('tabExt', event.target.value)}
           onFocus={(event) => event.target.select()}
           size="small"
           variant="outlined"
