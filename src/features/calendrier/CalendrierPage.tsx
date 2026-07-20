@@ -11,11 +11,55 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { DataGrid, type GridColDef } from '@mui/x-data-grid';
+import { DataGrid, type GridColDef, type GridSortModel } from '@mui/x-data-grid';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEntityImage } from '../../lib/useEntityImage';
-import { fetchCalendarByDate } from './calendrierApi';
+import { fetchCalendarByDate, updateCalendarScore } from './calendrierApi';
+import { ScoreCell, type ScoreDraft } from './ScoreCell';
 import type { CalendrierRow } from './types';
+
+const DEFAULT_SORT_MODEL: GridSortModel = [{ field: 'HEURE', sort: 'asc' }];
+
+function compareValues(a: unknown, b: unknown): number {
+  const aNum = Number(a);
+  const bNum = Number(b);
+  const aIsNum = Number.isFinite(aNum);
+  const bIsNum = Number.isFinite(bNum);
+
+  if (aIsNum && bIsNum) {
+    return aNum - bNum;
+  }
+
+  return String(a ?? '').localeCompare(String(b ?? ''), 'fr', { sensitivity: 'base' });
+}
+
+function getSortedRows(rows: CalendrierRow[], sortModel: GridSortModel): CalendrierRow[] {
+  if (!sortModel.length) {
+    return rows;
+  }
+
+  const [{ field, sort }] = sortModel;
+  if (!sort) {
+    return rows;
+  }
+
+  const multiplier = sort === 'asc' ? 1 : -1;
+  const sortableFields = new Set(['ETAT', 'HEURE', 'DOMICILE_NOM', 'EXTERIEUR_NOM']);
+  if (!sortableFields.has(field)) {
+    return rows;
+  }
+
+  return [...rows].sort((left, right) => {
+    const cmp = compareValues(
+      left[field as keyof CalendrierRow],
+      right[field as keyof CalendrierRow],
+    );
+    if (cmp !== 0) {
+      return cmp * multiplier;
+    }
+    return compareValues(left.RECLEUNIK, right.RECLEUNIK);
+  });
+}
 
 function formatInputDate(value: Date): string {
   const year = value.getFullYear();
@@ -48,17 +92,19 @@ function mapStatus(etat: number): string {
   }
 }
 
-function formatScore(row: CalendrierRow): string {
-  const tabDom = Number(row.TABDOM ?? 0);
-  const butDom = Number(row.BUTDOM ?? 0);
-  const butExt = Number(row.BUTEXT ?? 0);
-  const tabExt = Number(row.TABEXT ?? 0);
+function scoreToInputValue(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '';
+  return String(Math.max(0, Math.trunc(numeric)));
+}
 
-  const hasPenalties = tabDom > 0 || tabExt > 0;
-  if (hasPenalties) {
-    return `${tabDom} (${butDom} - ${butExt}) ${tabExt}`;
-  }
-  return `${butDom} - ${butExt}`;
+function parseScoreInputValue(value: string): number {
+  const trimmed = value.trim();
+  if (!trimmed) return 0;
+  const numeric = Number(trimmed);
+  if (!Number.isFinite(numeric) || numeric < 0) return 0;
+  return Math.trunc(numeric);
 }
 
 function formatHeure(value: unknown): string {
@@ -159,7 +205,16 @@ export function CalendrierPage() {
   const [rows, setRows] = useState<CalendrierRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingScoreRowId, setEditingScoreRowId] = useState<string | number | null>(null);
+  const [scoreDraft, setScoreDraft] = useState<ScoreDraft>({ tabDom: '', butDom: '', butExt: '', tabExt: '' });
+  const [sortModel, setSortModel] = useState(DEFAULT_SORT_MODEL);
+  const savingScoreRowIdRef = useRef<string | number | null>(null);
   const dateInputRef = useRef<HTMLInputElement | null>(null);
+
+  const isDefaultHeureSort =
+    sortModel.length === 1 && sortModel[0].field === 'HEURE' && sortModel[0].sort === 'asc';
+
+  const orderedRows = useMemo(() => getSortedRows(rows, sortModel), [rows, sortModel]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -177,12 +232,67 @@ export function CalendrierPage() {
     return () => controller.abort();
   }, [date]);
 
+  const startScoreEdit = (row: CalendrierRow): void => {
+    setEditingScoreRowId(row.RECLEUNIK);
+    setScoreDraft({
+      tabDom: scoreToInputValue(row.TABDOM),
+      butDom: scoreToInputValue(row.BUTDOM),
+      butExt: scoreToInputValue(row.BUTEXT),
+      tabExt: scoreToInputValue(row.TABEXT),
+    });
+  };
+
+  const commitScoreEdit = async (row: CalendrierRow): Promise<void> => {
+    const rowId = row.RECLEUNIK;
+    if (editingScoreRowId !== rowId) return;
+    if (savingScoreRowIdRef.current === rowId) return;
+
+    savingScoreRowIdRef.current = rowId;
+    const payload = {
+      TABDOM: parseScoreInputValue(scoreDraft.tabDom),
+      BUTDOM: parseScoreInputValue(scoreDraft.butDom),
+      BUTEXT: parseScoreInputValue(scoreDraft.butExt),
+      TABEXT: parseScoreInputValue(scoreDraft.tabExt),
+    };
+
+    try {
+      await updateCalendarScore(rowId, payload);
+      setRows((prev) => prev.map((item) => (
+        item.RECLEUNIK === rowId
+          ? { ...item, TABDOM: payload.TABDOM, BUTDOM: payload.BUTDOM, BUTEXT: payload.BUTEXT, TABEXT: payload.TABEXT }
+          : item
+      )));
+    } catch {
+      setError('Impossible d\'enregistrer le score.');
+    } finally {
+      savingScoreRowIdRef.current = null;
+      setEditingScoreRowId((current) => (current === rowId ? null : current));
+    }
+  };
+
+  const moveScoreEditToAdjacentRow = async (row: CalendrierRow, direction: 'up' | 'down'): Promise<void> => {
+    const currentIndex = orderedRows.findIndex((item) => item.RECLEUNIK === row.RECLEUNIK);
+    if (currentIndex < 0) {
+      return;
+    }
+
+    await commitScoreEdit(row);
+
+    const nextIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (nextIndex < 0 || nextIndex >= orderedRows.length) {
+      return;
+    }
+
+    const nextRow = orderedRows[nextIndex];
+    startScoreEdit(nextRow);
+  };
+
   const columns = useMemo<GridColDef<CalendrierRow>[]>(() => [
     {
       field: 'ETAT',
       headerName: 'Statut',
       width: 90,
-      sortable: false,
+      sortable: true,
       renderCell: (params) => mapStatus(Number(params.row.ETAT)),
     },
     {
@@ -191,15 +301,17 @@ export function CalendrierPage() {
       width: 70,
       align: 'center',
       headerAlign: 'center',
-      sortable: false,
+      sortable: true,
       renderCell: (params) => formatHeure(params.row.HEURE),
     },
     {
       field: 'DOMICILE_NOM',
       headerName: 'Domicile',
+      headerAlign: 'right',
       minWidth: 120,
       flex: 1,
-      sortable: false,
+      resizable: false,
+      sortable: true,
       renderCell: (params) => (
         <ClubCell
           clubId={String(params.row.DOMICILE ?? '')}
@@ -211,21 +323,38 @@ export function CalendrierPage() {
     {
       field: 'SCORE',
       headerName: 'Score',
-      width: 160,
+      width: 72,
+      align: 'center',
+      headerAlign: 'center',
       sortable: false,
-      renderCell: (params) => formatScore(params.row),
+      renderCell: (params) => {
+        const row = params.row;
+        const isEditing = editingScoreRowId === row.RECLEUNIK;
+        return (
+          <ScoreCell
+            row={row}
+            isEditing={isEditing}
+            draft={scoreDraft}
+            onStartEdit={() => startScoreEdit(row)}
+            onDraftChange={(patch) => setScoreDraft((prev) => ({ ...prev, ...patch }))}
+            onCommit={() => commitScoreEdit(row)}
+            onMoveVertical={(direction) => moveScoreEditToAdjacentRow(row, direction)}
+          />
+        );
+      },
     },
     {
       field: 'EXTERIEUR_NOM',
       headerName: 'Extérieur',
       minWidth: 120,
       flex: 1,
-      sortable: false,
+      resizable: false,
+      sortable: true,
       renderCell: (params) => (
         <ClubCell clubId={String(params.row.EXTERIEUR ?? '')} clubName={String(params.row.EXTERIEUR_NOM ?? '')} />
       ),
     },
-  ], []);
+  ], [editingScoreRowId, scoreDraft]);
 
   return (
     <Stack spacing={2}>
@@ -286,12 +415,24 @@ export function CalendrierPage() {
               rows={rows}
               columns={columns}
               loading={loading}
+              sortModel={sortModel}
+              onSortModelChange={(model) => setSortModel(model)}
               getRowId={(row) => row.RECLEUNIK}
               disableRowSelectionOnClick
               disableColumnMenu
               density="compact"
               pageSizeOptions={[25, 50, 100]}
-              sx={{ '& .MuiDataGrid-cell': { cursor: 'default' } }}
+              sx={{
+                '& .MuiDataGrid-cell': { cursor: 'default' },
+                ...(isDefaultHeureSort
+                  ? {
+                      '& .MuiDataGrid-columnHeader[data-field="HEURE"] .MuiDataGrid-iconButtonContainer': {
+                        visibility: 'hidden',
+                        width: 0,
+                      },
+                    }
+                  : {}),
+              }}
             />
           </Box>
         </CardContent>

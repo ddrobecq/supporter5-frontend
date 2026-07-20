@@ -12,3 +12,17 @@ export async function fetchCalendarByDate(date: string, signal?: AbortSignal): P
   });
   return data.data ?? [];
 }
+
+interface UpdateScorePayload {
+  TABDOM: number;
+  BUTDOM: number;
+  BUTEXT: number;
+  TABEXT: number;
+}
+
+export async function updateCalendarScore(
+  id: string | number,
+  payload: UpdateScorePayload,
+): Promise<void> {
+  await http.put(`/api/admin/rencontres/${encodeURIComponent(String(id))}`, payload);
+}
