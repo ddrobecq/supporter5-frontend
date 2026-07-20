@@ -17,7 +17,12 @@ import {
 import { DataGrid, type GridColDef, type GridSortModel } from '@mui/x-data-grid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEntityImage } from '../../lib/useEntityImage';
-import { fetchCalendarByDate, updateCalendarHeure, updateCalendarScore } from './calendrierApi';
+import {
+  fetchCalendarByDate,
+  updateCalendarHeure,
+  updateCalendarScore,
+  updateCalendarStatus,
+} from './calendrierApi';
 import {
   HeureCell,
   heureDigitsToApiValue,
@@ -25,6 +30,7 @@ import {
   normalizeHeureDigits,
 } from './HeureCell';
 import { ScoreCell, type ScoreDraft } from './ScoreCell';
+import { StatusCell } from './StatusCell';
 import type { CalendrierRow } from './types';
 
 const DEFAULT_SORT_MODEL: GridSortModel = [{ field: 'HEURE', sort: 'asc' }];
@@ -92,20 +98,20 @@ function shiftDate(date: string, deltaDays: number): string {
   return formatInputDate(base);
 }
 
-function mapStatus(etat: number): string {
+function rowStatusClass(etat: number): string {
   switch (Number(etat)) {
     case 1:
-      return 'En attente';
+      return 'status-en-attente';
     case 2:
-      return 'En cours';
+      return 'status-en-cours';
     case 3:
-      return 'Terminée';
-    case 4:
-      return 'Non jouée';
+      return 'status-terminee';
     case 5:
-      return 'Programmée';
+      return 'status-programmee';
+    case 4:
+      return 'status-non-jouee';
     default:
-      return `État ${etat}`;
+      return 'status-default';
   }
 }
 
@@ -129,6 +135,62 @@ function areScoreDraftsEqual(left: ScoreDraft, right: ScoreDraft): boolean {
     && left.butDom === right.butDom
     && left.butExt === right.butExt
     && left.tabExt === right.tabExt;
+}
+
+function canEditScore(etat: number): boolean {
+  return etat !== 4 && etat !== 5;
+}
+
+function parseRowDateTime(dateValue: string, heureValue: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+    return null;
+  }
+
+  const heureDigits = normalizeHeureDigits(heureValue);
+  if (!/^\d{4}$/.test(heureDigits)) {
+    return null;
+  }
+
+  const year = Number(dateValue.slice(0, 4));
+  const month = Number(dateValue.slice(5, 7));
+  const day = Number(dateValue.slice(8, 10));
+  const hours = Number(heureDigits.slice(0, 2));
+  const minutes = Number(heureDigits.slice(2, 4));
+
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours > 23 || minutes > 59) {
+    return null;
+  }
+
+  return new Date(year, month - 1, day, hours, minutes, 0, 0);
+}
+
+function getStatusAfterScoreEdit(row: CalendrierRow): number {
+  const currentStatus = Number(row.ETAT);
+  if (currentStatus !== 1 && currentStatus !== 2) {
+    return currentStatus;
+  }
+
+  const rowDateTime = parseRowDateTime(String(row.DATE ?? ''), String(row.HEURE ?? ''));
+  if (!rowDateTime) {
+    return currentStatus;
+  }
+
+  const now = new Date();
+  const twoHoursAgo = new Date(now.getTime() - (2 * 60 * 60 * 1000));
+
+  if (rowDateTime <= twoHoursAgo) {
+    return 3;
+  }
+
+  if (rowDateTime <= now) {
+    return 2;
+  }
+
+  if (currentStatus === 2) {
+    return 2;
+  }
+
+  return 1;
 }
 
 function ClubCell({
@@ -211,8 +273,10 @@ export function CalendrierPage() {
   const [rowSaveStatus, setRowSaveStatus] = useState<Record<string, RowSaveStatus>>({});
   const [editingScoreRowId, setEditingScoreRowId] = useState<string | number | null>(null);
   const [editingHeureRowId, setEditingHeureRowId] = useState<string | number | null>(null);
+  const [editingStatusRowId, setEditingStatusRowId] = useState<string | number | null>(null);
   const [scoreDraft, setScoreDraft] = useState<ScoreDraft>({ tabDom: '', butDom: '', butExt: '', tabExt: '' });
   const [heureDraftDigits, setHeureDraftDigits] = useState<string>('');
+  const [statusDraft, setStatusDraft] = useState<number>(5);
   const [rowModified, setRowModified] = useState<Record<string, boolean>>({});
   const [sortModel, setSortModel] = useState(DEFAULT_SORT_MODEL);
   const savingScoreRowIdRef = useRef<string | number | null>(null);
@@ -222,6 +286,7 @@ export function CalendrierPage() {
   const [statusAnchors, setStatusAnchors] = useState<StatusAnchor[]>([]);
   const scoreInitialDraftRef = useRef<ScoreDraft | null>(null);
   const heureInitialDraftRef = useRef<string>('');
+  const statusInitialValueRef = useRef<number | null>(null);
 
   const isDefaultHeureSort =
     sortModel.length === 1 && sortModel[0].field === 'HEURE' && sortModel[0].sort === 'asc';
@@ -344,6 +409,11 @@ export function CalendrierPage() {
   };
 
   const startScoreEdit = (row: CalendrierRow): void => {
+    if (!canEditScore(Number(row.ETAT))) {
+      return;
+    }
+
+    setEditingStatusRowId(null);
     setEditingHeureRowId(null);
     setEditingScoreRowId(row.RECLEUNIK);
     const initialDraft = {
@@ -370,6 +440,7 @@ export function CalendrierPage() {
   };
 
   const startHeureEdit = (row: CalendrierRow): void => {
+    setEditingStatusRowId(null);
     setEditingScoreRowId(null);
     setEditingHeureRowId(row.RECLEUNIK);
     const initialDigits = normalizeHeureDigits(row.HEURE);
@@ -399,6 +470,65 @@ export function CalendrierPage() {
   const updateHeureDraft = (rowId: string | number, digits: string): void => {
     setHeureDraftDigits(digits);
     setRowModifiedFlag(rowId, digits !== heureInitialDraftRef.current);
+  };
+
+  const startStatusEdit = (row: CalendrierRow): void => {
+    setEditingScoreRowId(null);
+    setEditingHeureRowId(null);
+    setEditingStatusRowId(row.RECLEUNIK);
+    const initialValue = Number(row.ETAT);
+    statusInitialValueRef.current = initialValue;
+    setStatusDraft(initialValue);
+    setRowModifiedFlag(row.RECLEUNIK, false);
+  };
+
+  const updateStatusDraft = (rowId: string | number, nextValue: number): void => {
+    setStatusDraft(nextValue);
+    setRowModifiedFlag(rowId, nextValue !== statusInitialValueRef.current);
+  };
+
+  const cancelStatusEdit = (row: CalendrierRow): void => {
+    setStatusDraft(Number(row.ETAT));
+    statusInitialValueRef.current = null;
+    setRowModifiedFlag(row.RECLEUNIK, false);
+    setEditingStatusRowId((current) => (current === row.RECLEUNIK ? null : current));
+  };
+
+  const commitStatusEdit = async (row: CalendrierRow, nextValue?: number): Promise<void> => {
+    const rowId = row.RECLEUNIK;
+    if (editingStatusRowId !== rowId) return;
+    if (savingScoreRowIdRef.current === rowId) return;
+
+    const effectiveStatus = typeof nextValue === 'number' ? nextValue : statusDraft;
+    const isModified = effectiveStatus !== Number(row.ETAT);
+
+    if (!isModified) {
+      statusInitialValueRef.current = null;
+      setRowModifiedFlag(rowId, false);
+      setEditingStatusRowId((current) => (current === rowId ? null : current));
+      return;
+    }
+
+    savingScoreRowIdRef.current = rowId;
+    setRowStatusWithAutoHide(rowId, 'saving');
+
+    try {
+      await updateCalendarStatus(rowId, { ETAT: effectiveStatus });
+      setRows((prev) => prev.map((item) => (
+        item.RECLEUNIK === rowId
+          ? { ...item, ETAT: effectiveStatus }
+          : item
+      )));
+      setRowStatusWithAutoHide(rowId, 'saved');
+    } catch {
+      setError('Impossible d\'enregistrer le statut.');
+      setRowStatusWithAutoHide(rowId, 'failed');
+    } finally {
+      savingScoreRowIdRef.current = null;
+      statusInitialValueRef.current = null;
+      setRowModifiedFlag(rowId, false);
+      setEditingStatusRowId((current) => (current === rowId ? null : current));
+    }
   };
 
   const commitHeureEdit = async (row: CalendrierRow): Promise<void> => {
@@ -465,6 +595,11 @@ export function CalendrierPage() {
     const rowId = row.RECLEUNIK;
     if (editingScoreRowId !== rowId) return;
     if (savingScoreRowIdRef.current === rowId) return;
+    if (!canEditScore(Number(row.ETAT))) {
+      scoreInitialDraftRef.current = null;
+      setEditingScoreRowId((current) => (current === rowId ? null : current));
+      return;
+    }
 
     if (!(rowModified[String(rowId)] ?? false)) {
       scoreInitialDraftRef.current = null;
@@ -478,7 +613,18 @@ export function CalendrierPage() {
       BUTDOM: parseScoreInputValue(scoreDraft.butDom),
       BUTEXT: parseScoreInputValue(scoreDraft.butExt),
       TABEXT: parseScoreInputValue(scoreDraft.tabExt),
+    } as {
+      TABDOM: number;
+      BUTDOM: number;
+      BUTEXT: number;
+      TABEXT: number;
+      ETAT?: number;
     };
+
+    const nextStatus = getStatusAfterScoreEdit(row);
+    if (nextStatus !== Number(row.ETAT)) {
+      payload.ETAT = nextStatus;
+    }
 
     setRowStatusWithAutoHide(rowId, 'saving');
 
@@ -486,7 +632,14 @@ export function CalendrierPage() {
       await updateCalendarScore(rowId, payload);
       setRows((prev) => prev.map((item) => (
         item.RECLEUNIK === rowId
-          ? { ...item, TABDOM: payload.TABDOM, BUTDOM: payload.BUTDOM, BUTEXT: payload.BUTEXT, TABEXT: payload.TABEXT }
+          ? {
+              ...item,
+              TABDOM: payload.TABDOM,
+              BUTDOM: payload.BUTDOM,
+              BUTEXT: payload.BUTEXT,
+              TABEXT: payload.TABEXT,
+              ETAT: payload.ETAT ?? item.ETAT,
+            }
           : item
       )));
       setRowStatusWithAutoHide(rowId, 'saved');
@@ -509,13 +662,15 @@ export function CalendrierPage() {
 
     await commitScoreEdit(row);
 
-    const nextIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-    if (nextIndex < 0 || nextIndex >= orderedRows.length) {
+    const step = direction === 'up' ? -1 : 1;
+    for (let index = currentIndex + step; index >= 0 && index < orderedRows.length; index += step) {
+      const nextRow = orderedRows[index];
+      if (!canEditScore(Number(nextRow.ETAT))) {
+        continue;
+      }
+      startScoreEdit(nextRow);
       return;
     }
-
-    const nextRow = orderedRows[nextIndex];
-    startScoreEdit(nextRow);
   };
 
   const columns = useMemo<GridColDef<CalendrierRow>[]>(() => [
@@ -524,7 +679,21 @@ export function CalendrierPage() {
       headerName: 'Statut',
       width: 90,
       sortable: true,
-      renderCell: (params) => mapStatus(Number(params.row.ETAT)),
+      renderCell: (params) => {
+        const row = params.row;
+        const isEditing = editingStatusRowId === row.RECLEUNIK;
+        return (
+          <StatusCell
+            value={Number(row.ETAT)}
+            isEditing={isEditing}
+            draftValue={statusDraft}
+            onStartEdit={() => startStatusEdit(row)}
+            onDraftChange={(nextValue) => updateStatusDraft(row.RECLEUNIK, nextValue)}
+            onCommit={(nextValue) => commitStatusEdit(row, nextValue)}
+            onCancel={() => cancelStatusEdit(row)}
+          />
+        );
+      },
     },
     {
       field: 'HEURE',
@@ -580,6 +749,7 @@ export function CalendrierPage() {
           <ScoreCell
             row={row}
             isEditing={isEditing}
+            canEdit={canEditScore(Number(row.ETAT))}
             draft={scoreDraft}
             onStartEdit={() => startScoreEdit(row)}
             onDraftChange={(patch) => updateScoreDraft(row.RECLEUNIK, patch)}
@@ -601,7 +771,7 @@ export function CalendrierPage() {
         <ClubCell clubId={String(params.row.EXTERIEUR ?? '')} clubName={String(params.row.EXTERIEUR_NOM ?? '')} />
       ),
     },
-  ], [editingHeureRowId, editingScoreRowId, heureDraftDigits, rowModified, scoreDraft]);
+  ], [editingHeureRowId, editingScoreRowId, editingStatusRowId, heureDraftDigits, rowModified, scoreDraft, statusDraft]);
 
   return (
     <Stack spacing={2}>
@@ -665,6 +835,7 @@ export function CalendrierPage() {
               sortModel={sortModel}
               onSortModelChange={(model) => setSortModel(model)}
               getRowId={(row) => row.RECLEUNIK}
+              getRowClassName={(params) => rowStatusClass(Number(params.row.ETAT))}
               disableRowSelectionOnClick
               disableColumnMenu
               density="compact"
@@ -676,6 +847,11 @@ export function CalendrierPage() {
                   to: { transform: 'rotate(360deg)' },
                 },
                 '& .MuiDataGrid-cell': { cursor: 'default' },
+                '& .MuiDataGrid-row.status-terminee .MuiDataGrid-cell': { color: 'common.black' },
+                '& .MuiDataGrid-row.status-en-cours .MuiDataGrid-cell': { color: 'success.main' },
+                '& .MuiDataGrid-row.status-en-attente .MuiDataGrid-cell': { color: 'text.secondary' },
+                '& .MuiDataGrid-row.status-programmee .MuiDataGrid-cell': { color: 'text.secondary' },
+                '& .MuiDataGrid-row.status-non-jouee .MuiDataGrid-cell': { color: 'text.disabled' },
                 ...(isDefaultHeureSort
                   ? {
                       '& .MuiDataGrid-columnHeader[data-field="HEURE"] .MuiDataGrid-iconButtonContainer': {

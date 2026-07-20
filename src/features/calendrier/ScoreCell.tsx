@@ -13,6 +13,7 @@ export interface ScoreDraft {
 interface ScoreCellProps {
   row: CalendrierRow;
   isEditing: boolean;
+  canEdit: boolean;
   draft: ScoreDraft;
   onStartEdit: () => void;
   onDraftChange: (patch: Partial<ScoreDraft>) => void;
@@ -90,7 +91,7 @@ function renderScoreDisplay(row: CalendrierRow): ReactNode {
   );
 }
 
-export function ScoreCell({ row, isEditing, draft, onStartEdit, onDraftChange, onCommit, onCancel, onMoveVertical }: ScoreCellProps) {
+export function ScoreCell({ row, isEditing, canEdit, draft, onStartEdit, onDraftChange, onCommit, onCancel, onMoveVertical }: ScoreCellProps) {
   const tabDomRef = useRef<HTMLInputElement | null>(null);
   const butDomRef = useRef<HTMLInputElement | null>(null);
   const butExtRef = useRef<HTMLInputElement | null>(null);
@@ -290,6 +291,9 @@ export function ScoreCell({ row, isEditing, draft, onStartEdit, onDraftChange, o
       }}
       onClick={(event) => {
         event.stopPropagation();
+        if (!canEdit) {
+          return;
+        }
         onStartEdit();
       }}
     >

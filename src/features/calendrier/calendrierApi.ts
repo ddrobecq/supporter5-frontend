@@ -18,6 +18,7 @@ interface UpdateScorePayload {
   BUTDOM: number;
   BUTEXT: number;
   TABEXT: number;
+  ETAT?: number;
 }
 
 export async function updateCalendarScore(
@@ -34,6 +35,17 @@ interface UpdateHeurePayload {
 export async function updateCalendarHeure(
   id: string | number,
   payload: UpdateHeurePayload,
+): Promise<void> {
+  await http.put(`/api/admin/rencontres/${encodeURIComponent(String(id))}`, payload);
+}
+
+interface UpdateStatusPayload {
+  ETAT: number;
+}
+
+export async function updateCalendarStatus(
+  id: string | number,
+  payload: UpdateStatusPayload,
 ): Promise<void> {
   await http.put(`/api/admin/rencontres/${encodeURIComponent(String(id))}`, payload);
 }
