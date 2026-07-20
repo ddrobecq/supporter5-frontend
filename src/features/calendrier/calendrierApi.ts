@@ -26,3 +26,14 @@ export async function updateCalendarScore(
 ): Promise<void> {
   await http.put(`/api/admin/rencontres/${encodeURIComponent(String(id))}`, payload);
 }
+
+interface UpdateHeurePayload {
+  HEURE: string;
+}
+
+export async function updateCalendarHeure(
+  id: string | number,
+  payload: UpdateHeurePayload,
+): Promise<void> {
+  await http.put(`/api/admin/rencontres/${encodeURIComponent(String(id))}`, payload);
+}

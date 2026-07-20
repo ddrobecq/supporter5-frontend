@@ -17,7 +17,13 @@ import {
 import { DataGrid, type GridColDef, type GridSortModel } from '@mui/x-data-grid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEntityImage } from '../../lib/useEntityImage';
-import { fetchCalendarByDate, updateCalendarScore } from './calendrierApi';
+import { fetchCalendarByDate, updateCalendarHeure, updateCalendarScore } from './calendrierApi';
+import {
+  HeureCell,
+  heureDigitsToApiValue,
+  isValidHeureDigits,
+  normalizeHeureDigits,
+} from './HeureCell';
 import { ScoreCell, type ScoreDraft } from './ScoreCell';
 import type { CalendrierRow } from './types';
 
@@ -118,25 +124,11 @@ function parseScoreInputValue(value: string): number {
   return Math.trunc(numeric);
 }
 
-function formatHeure(value: unknown): string {
-  if (value === null || value === undefined) {
-    return '';
-  }
-
-  const raw = String(value ?? '').trim();
-  if (!raw || raw.toLowerCase() === 'null' || raw.toLowerCase() === 'undefined') return '';
-
-  const parts = raw.split(':');
-  const hh = parts[0] ?? '';
-  const mm = parts[1] ?? '';
-
-  if (hh.length === 0 || mm.length === 0) {
-    return raw;
-  }
-
-  const hh2 = hh.padStart(2, '0').slice(-2);
-  const mm2 = mm.padStart(2, '0').slice(0, 2);
-  return `${hh2}h${mm2}`;
+function areScoreDraftsEqual(left: ScoreDraft, right: ScoreDraft): boolean {
+  return left.tabDom === right.tabDom
+    && left.butDom === right.butDom
+    && left.butExt === right.butExt
+    && left.tabExt === right.tabExt;
 }
 
 function ClubCell({
@@ -218,13 +210,18 @@ export function CalendrierPage() {
   const [error, setError] = useState<string | null>(null);
   const [rowSaveStatus, setRowSaveStatus] = useState<Record<string, RowSaveStatus>>({});
   const [editingScoreRowId, setEditingScoreRowId] = useState<string | number | null>(null);
+  const [editingHeureRowId, setEditingHeureRowId] = useState<string | number | null>(null);
   const [scoreDraft, setScoreDraft] = useState<ScoreDraft>({ tabDom: '', butDom: '', butExt: '', tabExt: '' });
+  const [heureDraftDigits, setHeureDraftDigits] = useState<string>('');
+  const [rowModified, setRowModified] = useState<Record<string, boolean>>({});
   const [sortModel, setSortModel] = useState(DEFAULT_SORT_MODEL);
   const savingScoreRowIdRef = useRef<string | number | null>(null);
   const savedIconTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const dateInputRef = useRef<HTMLInputElement | null>(null);
   const gridWrapperRef = useRef<HTMLDivElement | null>(null);
   const [statusAnchors, setStatusAnchors] = useState<StatusAnchor[]>([]);
+  const scoreInitialDraftRef = useRef<ScoreDraft | null>(null);
+  const heureInitialDraftRef = useRef<string>('');
 
   const isDefaultHeureSort =
     sortModel.length === 1 && sortModel[0].field === 'HEURE' && sortModel[0].sort === 'asc';
@@ -336,14 +333,28 @@ export function CalendrierPage() {
     }
   };
 
+  const setRowModifiedFlag = (rowId: string | number, modified: boolean): void => {
+    const key = String(rowId);
+    setRowModified((prev) => {
+      if ((prev[key] ?? false) === modified) {
+        return prev;
+      }
+      return { ...prev, [key]: modified };
+    });
+  };
+
   const startScoreEdit = (row: CalendrierRow): void => {
+    setEditingHeureRowId(null);
     setEditingScoreRowId(row.RECLEUNIK);
-    setScoreDraft({
+    const initialDraft = {
       tabDom: scoreToInputValue(row.TABDOM),
       butDom: scoreToInputValue(row.BUTDOM),
       butExt: scoreToInputValue(row.BUTEXT),
       tabExt: scoreToInputValue(row.TABEXT),
-    });
+    };
+    scoreInitialDraftRef.current = initialDraft;
+    setScoreDraft(initialDraft);
+    setRowModifiedFlag(row.RECLEUNIK, false);
   };
 
   const cancelScoreEdit = (row: CalendrierRow): void => {
@@ -353,13 +364,113 @@ export function CalendrierPage() {
       butExt: scoreToInputValue(row.BUTEXT),
       tabExt: scoreToInputValue(row.TABEXT),
     });
+    scoreInitialDraftRef.current = null;
+    setRowModifiedFlag(row.RECLEUNIK, false);
     setEditingScoreRowId((current) => (current === row.RECLEUNIK ? null : current));
+  };
+
+  const startHeureEdit = (row: CalendrierRow): void => {
+    setEditingScoreRowId(null);
+    setEditingHeureRowId(row.RECLEUNIK);
+    const initialDigits = normalizeHeureDigits(row.HEURE);
+    heureInitialDraftRef.current = initialDigits;
+    setHeureDraftDigits(initialDigits);
+    setRowModifiedFlag(row.RECLEUNIK, false);
+  };
+
+  const cancelHeureEdit = (row: CalendrierRow): void => {
+    const initialDigits = normalizeHeureDigits(row.HEURE);
+    setHeureDraftDigits(initialDigits);
+    heureInitialDraftRef.current = '';
+    setRowModifiedFlag(row.RECLEUNIK, false);
+    setEditingHeureRowId((current) => (current === row.RECLEUNIK ? null : current));
+  };
+
+  const updateScoreDraft = (rowId: string | number, patch: Partial<ScoreDraft>): void => {
+    setScoreDraft((prev) => {
+      const next = { ...prev, ...patch };
+      const initial = scoreInitialDraftRef.current;
+      const modified = initial ? !areScoreDraftsEqual(next, initial) : false;
+      setRowModifiedFlag(rowId, modified);
+      return next;
+    });
+  };
+
+  const updateHeureDraft = (rowId: string | number, digits: string): void => {
+    setHeureDraftDigits(digits);
+    setRowModifiedFlag(rowId, digits !== heureInitialDraftRef.current);
+  };
+
+  const commitHeureEdit = async (row: CalendrierRow): Promise<void> => {
+    const rowId = row.RECLEUNIK;
+    if (editingHeureRowId !== rowId) return;
+    if (savingScoreRowIdRef.current === rowId) return;
+    if (!isValidHeureDigits(heureDraftDigits)) return;
+
+    if (!(rowModified[String(rowId)] ?? false)) {
+      setEditingHeureRowId((current) => (current === rowId ? null : current));
+      heureInitialDraftRef.current = '';
+      return;
+    }
+
+    savingScoreRowIdRef.current = rowId;
+    const heureValue = heureDigitsToApiValue(heureDraftDigits);
+    if (!heureValue) {
+      savingScoreRowIdRef.current = null;
+      return;
+    }
+
+    setRowStatusWithAutoHide(rowId, 'saving');
+
+    try {
+      await updateCalendarHeure(rowId, { HEURE: heureValue });
+      setRows((prev) => prev.map((item) => (
+        item.RECLEUNIK === rowId
+          ? { ...item, HEURE: heureValue }
+          : item
+      )));
+      setRowStatusWithAutoHide(rowId, 'saved');
+    } catch {
+      setError('Impossible d\'enregistrer l\'heure.');
+      setRowStatusWithAutoHide(rowId, 'failed');
+    } finally {
+      savingScoreRowIdRef.current = null;
+      heureInitialDraftRef.current = '';
+      setRowModifiedFlag(rowId, false);
+      setEditingHeureRowId((current) => (current === rowId ? null : current));
+    }
+  };
+
+  const moveHeureEditToAdjacentRow = async (row: CalendrierRow, direction: 'up' | 'down'): Promise<void> => {
+    const currentIndex = orderedRows.findIndex((item) => item.RECLEUNIK === row.RECLEUNIK);
+    if (currentIndex < 0) {
+      return;
+    }
+    if (!isValidHeureDigits(heureDraftDigits)) {
+      return;
+    }
+
+    await commitHeureEdit(row);
+
+    const nextIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (nextIndex < 0 || nextIndex >= orderedRows.length) {
+      return;
+    }
+
+    const nextRow = orderedRows[nextIndex];
+    startHeureEdit(nextRow);
   };
 
   const commitScoreEdit = async (row: CalendrierRow): Promise<void> => {
     const rowId = row.RECLEUNIK;
     if (editingScoreRowId !== rowId) return;
     if (savingScoreRowIdRef.current === rowId) return;
+
+    if (!(rowModified[String(rowId)] ?? false)) {
+      scoreInitialDraftRef.current = null;
+      setEditingScoreRowId((current) => (current === rowId ? null : current));
+      return;
+    }
 
     savingScoreRowIdRef.current = rowId;
     const payload = {
@@ -384,6 +495,8 @@ export function CalendrierPage() {
       setRowStatusWithAutoHide(rowId, 'failed');
     } finally {
       savingScoreRowIdRef.current = null;
+      scoreInitialDraftRef.current = null;
+      setRowModifiedFlag(rowId, false);
       setEditingScoreRowId((current) => (current === rowId ? null : current));
     }
   };
@@ -420,7 +533,22 @@ export function CalendrierPage() {
       align: 'center',
       headerAlign: 'center',
       sortable: true,
-      renderCell: (params) => formatHeure(params.row.HEURE),
+      renderCell: (params) => {
+        const row = params.row;
+        const isEditing = editingHeureRowId === row.RECLEUNIK;
+        return (
+          <HeureCell
+            value={row.HEURE}
+            isEditing={isEditing}
+            draftDigits={heureDraftDigits}
+            onStartEdit={() => startHeureEdit(row)}
+            onDraftChange={(digits) => updateHeureDraft(row.RECLEUNIK, digits)}
+            onCommit={() => commitHeureEdit(row)}
+            onCancel={() => cancelHeureEdit(row)}
+            onMoveVertical={(direction) => moveHeureEditToAdjacentRow(row, direction)}
+          />
+        );
+      },
     },
     {
       field: 'DOMICILE_NOM',
@@ -454,7 +582,7 @@ export function CalendrierPage() {
             isEditing={isEditing}
             draft={scoreDraft}
             onStartEdit={() => startScoreEdit(row)}
-            onDraftChange={(patch) => setScoreDraft((prev) => ({ ...prev, ...patch }))}
+            onDraftChange={(patch) => updateScoreDraft(row.RECLEUNIK, patch)}
             onCommit={() => commitScoreEdit(row)}
             onCancel={() => cancelScoreEdit(row)}
             onMoveVertical={(direction) => moveScoreEditToAdjacentRow(row, direction)}
@@ -473,7 +601,7 @@ export function CalendrierPage() {
         <ClubCell clubId={String(params.row.EXTERIEUR ?? '')} clubName={String(params.row.EXTERIEUR_NOM ?? '')} />
       ),
     },
-  ], [editingScoreRowId, scoreDraft]);
+  ], [editingHeureRowId, editingScoreRowId, heureDraftDigits, rowModified, scoreDraft]);
 
   return (
     <Stack spacing={2}>
