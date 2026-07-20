@@ -1,5 +1,6 @@
 import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
+import TodayRoundedIcon from '@mui/icons-material/TodayRounded';
 import AutorenewRoundedIcon from '@mui/icons-material/AutorenewRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import ErrorOutlineRoundedIcon from '@mui/icons-material/ErrorOutlineRounded';
@@ -810,6 +811,15 @@ export function CalendrierPage() {
               onChange={(event) => setDate(event.target.value)}
               sx={{ width: { xs: '42vw', sm: 160 }, minWidth: 120, maxWidth: 170, flex: '0 0 auto' }}
             />
+
+            <IconButton
+              color="primary"
+              aria-label="Aujourd'hui"
+              onClick={() => setDate(formatInputDate(new Date()))}
+              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, flex: '0 0 auto' }}
+            >
+              <TodayRoundedIcon sx={{ fontSize: 18 }} />
+            </IconButton>
 
             <IconButton
               color="primary"
