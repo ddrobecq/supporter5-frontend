@@ -5,9 +5,9 @@ import type { KeyboardEvent } from 'react';
 const STATUS_OPTIONS = [
   { value: 1, label: 'En attente' },
   { value: 2, label: 'En cours' },
-  { value: 3, label: 'Terminee' },
-  { value: 5, label: 'Programmee' },
-  { value: 4, label: 'Non jouee' },
+  { value: 3, label: 'Terminée' },
+  { value: 5, label: 'Programmée' },
+  { value: 4, label: 'Non jouée' },
 ] as const;
 
 export interface StatusCellProps {
