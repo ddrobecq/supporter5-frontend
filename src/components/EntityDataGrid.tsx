@@ -1,4 +1,4 @@
-import { DataGrid, type GridColDef, type GridRowId, type GridValidRowModel } from '@mui/x-data-grid';
+import { DataGrid, type GridColDef, type GridRowClassNameParams, type GridRowId, type GridValidRowModel } from '@mui/x-data-grid';
 
 interface EntityDataGridProps<RowModel extends GridValidRowModel> {
   rows: RowModel[];
@@ -12,6 +12,7 @@ interface EntityDataGridProps<RowModel extends GridValidRowModel> {
   disableRowSelectionOnClick?: boolean;
   pageSizeOptions?: number[];
   density?: 'comfortable' | 'standard' | 'compact';
+  getRowClassName?: (params: GridRowClassNameParams<RowModel>) => string;
 }
 
 export function EntityDataGrid<RowModel extends GridValidRowModel>({
@@ -26,6 +27,7 @@ export function EntityDataGrid<RowModel extends GridValidRowModel>({
   disableRowSelectionOnClick = false,
   pageSizeOptions = [25, 50, 100],
   density = 'compact',
+  getRowClassName,
 }: EntityDataGridProps<RowModel>) {
   return (
     <DataGrid
@@ -45,6 +47,7 @@ export function EntityDataGrid<RowModel extends GridValidRowModel>({
         }
         onSelectionChange([params.id]);
       }}
+      getRowClassName={getRowClassName}
       density={density}
       disableColumnMenu
       sx={{ '& .MuiDataGrid-cell': { cursor: 'default' } }}

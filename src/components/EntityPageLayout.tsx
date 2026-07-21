@@ -15,7 +15,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import type { GridColDef, GridRowId, GridValidRowModel } from '@mui/x-data-grid';
+import type { GridColDef, GridRowClassNameParams, GridRowId, GridValidRowModel } from '@mui/x-data-grid';
 import type { ReactNode, RefObject } from 'react';
 import { EntityDataGrid } from './EntityDataGrid';
 import { EntitySearchBar } from './EntitySearchBar';
@@ -36,12 +36,14 @@ interface EntityPageLayoutProps<Row extends GridValidRowModel> {
   search: string;
   onSearchChange: (value: string) => void;
   searchInputRef?: RefObject<HTMLInputElement | null>;
+  headerExtra?: ReactNode;
   // Boutons d'action
   onNew: () => void;
   onOpen: () => void;
   onDelete: () => void;
   actionButtonsRowRef?: RefObject<HTMLDivElement | null>;
   compactActionButtons: boolean;
+  showActions?: boolean;
   // DataGrid
   rows: Row[];
   columns: GridColDef<Row>[];
@@ -50,6 +52,7 @@ interface EntityPageLayoutProps<Row extends GridValidRowModel> {
   selection: GridRowId[];
   onSelectionChange: (selection: GridRowId[]) => void;
   onRowDoubleClick: (rowId: GridRowId) => void;
+  getRowClassName?: (params: GridRowClassNameParams<Row>) => string;
   // Dialog suppression
   confirmDeleteOpen: boolean;
   deleteConstraints: IntegrityConstraint[];
@@ -69,11 +72,13 @@ export function EntityPageLayout<Row extends GridValidRowModel>({
   search,
   onSearchChange,
   searchInputRef,
+  headerExtra,
   onNew,
   onOpen,
   onDelete,
   actionButtonsRowRef,
   compactActionButtons,
+  showActions = true,
   rows,
   columns,
   loading,
@@ -81,6 +86,7 @@ export function EntityPageLayout<Row extends GridValidRowModel>({
   selection,
   onSelectionChange,
   onRowDoubleClick,
+  getRowClassName,
   confirmDeleteOpen,
   deleteConstraints,
   entityDescription,
@@ -106,8 +112,10 @@ export function EntityPageLayout<Row extends GridValidRowModel>({
             display: 'flex',
             justifyContent: 'flex-end',
             alignItems: 'center',
+            gap: 1,
           }}
         >
+          {headerExtra}
           <EntitySearchBar
             label={searchLabel}
             value={search}
@@ -121,46 +129,48 @@ export function EntityPageLayout<Row extends GridValidRowModel>({
 
       <Card>
         <CardContent>
-          <Box sx={{ width: '100%' }}>
-            <Stack ref={actionButtonsRowRef} direction="row" spacing={1} sx={{ width: '100%' }}>
-              <Tooltip title="Nouveau" disableHoverListener={!compactActionButtons}>
-                <Button
-                  variant="contained"
-                  startIcon={compactActionButtons ? undefined : <AddCircleOutlinedIcon />}
-                  onClick={onNew}
-                  aria-label="Nouveau"
-                  sx={{ flex: 1, minWidth: 0 }}
-                >
-                  {compactActionButtons ? <AddCircleOutlinedIcon /> : 'Nouveau'}
-                </Button>
-              </Tooltip>
-              <Tooltip title="Ouvrir" disableHoverListener={!compactActionButtons}>
-                <Button
-                  variant="outlined"
-                  startIcon={compactActionButtons ? undefined : <EditOutlinedIcon />}
-                  onClick={onOpen}
-                  aria-label="Ouvrir"
-                  sx={{ flex: 1, minWidth: 0 }}
-                >
-                  {compactActionButtons ? <EditOutlinedIcon /> : 'Ouvrir'}
-                </Button>
-              </Tooltip>
-              <Tooltip title="Supprimer" disableHoverListener={!compactActionButtons}>
-                <Button
-                  variant="outlined"
-                  color="error"
-                  startIcon={compactActionButtons ? undefined : <DeleteOutlinedIcon />}
-                  onClick={onDelete}
-                  aria-label="Supprimer"
-                  sx={{ flex: 1, minWidth: 0 }}
-                >
-                  {compactActionButtons ? <DeleteOutlinedIcon /> : 'Supprimer'}
-                </Button>
-              </Tooltip>
-            </Stack>
-          </Box>
+          {showActions ? (
+            <Box sx={{ width: '100%' }}>
+              <Stack ref={actionButtonsRowRef} direction="row" spacing={1} sx={{ width: '100%' }}>
+                <Tooltip title="Nouveau" disableHoverListener={!compactActionButtons}>
+                  <Button
+                    variant="contained"
+                    startIcon={compactActionButtons ? undefined : <AddCircleOutlinedIcon />}
+                    onClick={onNew}
+                    aria-label="Nouveau"
+                    sx={{ flex: 1, minWidth: 0 }}
+                  >
+                    {compactActionButtons ? <AddCircleOutlinedIcon /> : 'Nouveau'}
+                  </Button>
+                </Tooltip>
+                <Tooltip title="Ouvrir" disableHoverListener={!compactActionButtons}>
+                  <Button
+                    variant="outlined"
+                    startIcon={compactActionButtons ? undefined : <EditOutlinedIcon />}
+                    onClick={onOpen}
+                    aria-label="Ouvrir"
+                    sx={{ flex: 1, minWidth: 0 }}
+                  >
+                    {compactActionButtons ? <EditOutlinedIcon /> : 'Ouvrir'}
+                  </Button>
+                </Tooltip>
+                <Tooltip title="Supprimer" disableHoverListener={!compactActionButtons}>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    startIcon={compactActionButtons ? undefined : <DeleteOutlinedIcon />}
+                    onClick={onDelete}
+                    aria-label="Supprimer"
+                    sx={{ flex: 1, minWidth: 0 }}
+                  >
+                    {compactActionButtons ? <DeleteOutlinedIcon /> : 'Supprimer'}
+                  </Button>
+                </Tooltip>
+              </Stack>
+            </Box>
+          ) : null}
 
-          <Box sx={{ mt: 2, height: 'calc(100vh - 270px)', minHeight: 420 }}>
+          <Box sx={{ mt: 2, height: `calc(100vh - ${showActions ? 270 : 235}px)`, minHeight: 420 }}>
             <EntityDataGrid
               rows={rows}
               columns={columns}
@@ -169,6 +179,7 @@ export function EntityPageLayout<Row extends GridValidRowModel>({
               selection={selection}
               onSelectionChange={onSelectionChange}
               onRowDoubleClick={onRowDoubleClick}
+              getRowClassName={getRowClassName}
               onRowClick={(rowId) => onSelectionChange([rowId])}
             />
           </Box>

@@ -9,6 +9,7 @@ import { TerrainPage } from './features/terrain/TerrainPage';
 import { DevisePage } from './features/devise/DevisePage';
 import { CircPage } from './features/circ/CircPage';
 import { EpreuvePage } from './features/epreuve/EpreuvePage';
+import { JoueurPage } from './features/joueur/JoueurPage';
 import { CalendrierPage } from './features/calendrier/CalendrierPage';
 import { AdminLayout } from './layouts/AdminLayout';
 
@@ -23,6 +24,8 @@ function App() {
           <Route path="/admin/home" element={<HomePage />} />
           <Route path="/calendrier" element={<Navigate to="/admin/calendrier" replace />} />
           <Route path="/admin/calendrier" element={<CalendrierPage />} />
+          <Route path="/joueurs" element={<Navigate to="/admin/joueurs" replace />} />
+          <Route path="/admin/joueurs" element={<JoueurPage />} />
           <Route path="/natio" element={<Navigate to="/admin/natio" replace />} />
           <Route path="/admin/natio" element={<NatioPage />} />
           <Route path="/ville" element={<Navigate to="/admin/ville" replace />} />

@@ -29,7 +29,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { authStore } from '../features/auth/authStore';
 
 const QUICK_ACTIONS = [
-  { label: 'Joueurs', icon: <PeopleRoundedIcon /> },
+  { label: 'Joueurs', icon: <PeopleRoundedIcon />, path: '/joueurs' },
   { label: 'Statistiques', icon: <BarChartRoundedIcon /> },
   { label: 'Clubs', icon: <GroupsRoundedIcon /> },
   { label: 'Matchs', icon: <SportsSoccerRoundedIcon /> },
@@ -45,6 +45,7 @@ export function AdminLayout() {
   const [compactSearchAction, setCompactSearchAction] = useState(false);
   const isHomeActive = location.pathname === '/admin/home' || location.pathname === '/accueil';
   const isCalendrierActive = location.pathname === '/admin/calendrier' || location.pathname === '/calendrier';
+  const isJoueursActive = location.pathname === '/admin/joueurs' || location.pathname === '/joueurs';
   const isNatioActive = location.pathname === '/admin/natio' || location.pathname === '/natio';
   const isVilleActive = location.pathname === '/admin/ville' || location.pathname === '/ville';
   const isArbitreActive = location.pathname === '/admin/arbitre' || location.pathname === '/arbitre';
@@ -313,8 +314,8 @@ export function AdminLayout() {
               <Tooltip key={action.label} title={action.label} disableHoverListener={!compactNavButtons}>
                 <Button
                   size="small"
-                  variant="outlined"
-                  color="inherit"
+                  variant={action.label === 'Joueurs' && isJoueursActive ? 'contained' : 'outlined'}
+                  color={action.label === 'Joueurs' && isJoueursActive ? 'primary' : 'inherit'}
                   startIcon={compactNavButtons ? undefined : action.icon}
                   sx={{
                     minWidth: 36,
@@ -322,6 +323,11 @@ export function AdminLayout() {
                     '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                   }}
                   aria-label={action.label}
+                  onClick={() => {
+                    if (action.path) {
+                      navigate(action.path);
+                    }
+                  }}
                 >
                   {compactNavButtons ? action.icon : action.label}
                 </Button>
