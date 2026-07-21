@@ -3,6 +3,7 @@ import { http } from '../../lib/http';
 import type {
   CanDeleteResponse,
   GridResponse,
+  JoueurHistoryRow,
   JoueurGridRow,
   JoueurRow,
   PaginatedResponse,
@@ -76,6 +77,11 @@ export async function fetchSaisons(signal?: AbortSignal): Promise<SaisonRow[]> {
 export async function fetchJoueurById(id: string | number): Promise<JoueurRow> {
   const { data } = await http.get<JoueurRow>(`${env.joueurPublicResource}/${id}`);
   return data;
+}
+
+export async function fetchJoueurHistory(id: string | number): Promise<JoueurHistoryRow[]> {
+  const { data } = await http.get<GridResponse<JoueurHistoryRow>>(`${env.joueurPublicResource}/${id}/history`);
+  return data.data ?? [];
 }
 
 export async function createJoueur(payload: JoueurRow): Promise<JoueurRow | undefined> {

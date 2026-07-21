@@ -14,13 +14,16 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { TerrainVilleSelector } from '../terrain/TerrainVilleSelector';
 import type { NatioRow } from '../natio/types';
 import { fetchVilleById } from '../ville/villeApi';
-import type { PosteOption, JoueurRow } from './types';
+import { fetchJoueurHistory } from './joueurApi';
+import type { JoueurHistoryRow, PosteOption, JoueurRow } from './types';
 
 interface JoueurFormDialogProps {
   open: boolean;
@@ -123,6 +126,9 @@ export function JoueurFormDialog({
   const [deathVilleName, setDeathVilleName] = useState('');
   const [newPhotoDataUrl, setNewPhotoDataUrl] = useState<string | null>(null);
   const [photoLoading, setPhotoLoading] = useState(false);
+  const [historyRows, setHistoryRows] = useState<JoueurHistoryRow[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historySelection, setHistorySelection] = useState<GridRowId[]>([]);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const birthDatePickerRef = useRef<HTMLInputElement | null>(null);
   const deathDatePickerRef = useRef<HTMLInputElement | null>(null);
@@ -141,6 +147,101 @@ export function JoueurFormDialog({
     () => posteOptions.map((poste) => ({ value: poste.POS_ID, label: poste.POS_NOM })),
     [posteOptions],
   );
+
+  const historyColumns = useMemo<GridColDef<JoueurHistoryRow>[]>(() => [
+    {
+      field: 'SAISON',
+      headerName: 'Saison',
+      minWidth: 110,
+      flex: 0.65,
+    },
+    {
+      field: 'POSTE_NOM',
+      headerName: 'Poste',
+      minWidth: 130,
+      flex: 1,
+    },
+    {
+      field: 'MATCHES',
+      headerName: 'Matches',
+      minWidth: 90,
+      width: 90,
+      maxWidth: 90,
+      flex: 0,
+      sortable: false,
+      renderHeader: () => (
+        <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', pr: 0.5 }}>
+          <Box component="span">Matches</Box>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', width: '100%', columnGap: 0.75 }}>
+            <Box component="span" sx={{ textAlign: 'right', fontSize: '0.7rem', color: 'text.secondary' }}>
+              Tit.
+            </Box>
+            <Box component="span" sx={{ textAlign: 'right', fontSize: '0.7rem', color: 'text.secondary' }}>
+              Remp.
+            </Box>
+          </Box>
+        </Box>
+      ),
+      renderCell: (params) => (
+        <Box sx={{ width: '100%', display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 0.75, pr: 0.5 }}>
+          <Box component="span" sx={{ textAlign: 'right' }}>
+            {Number(params.row.TITULAIRETOTAL ?? 0)}
+          </Box>
+          <Box component="span" sx={{ textAlign: 'right' }}>
+            {Number(params.row.REMPTOTAL ?? 0)}
+          </Box>
+        </Box>
+      ),
+    },
+    {
+      field: 'BUTTOTAL',
+      headerName: 'Buts',
+      type: 'number',
+      minWidth: 90,
+      width: 90,
+      maxWidth: 90,
+      flex: 0,
+      align: 'right',
+      headerAlign: 'right',
+      valueGetter: (value) => Number(value ?? 0),
+    },
+    {
+      field: 'PASSETOTAL',
+      headerName: 'Passes',
+      type: 'number',
+      minWidth: 90,
+      width: 90,
+      maxWidth: 90,
+      flex: 0,
+      align: 'right',
+      headerAlign: 'right',
+      valueGetter: (value) => Number(value ?? 0),
+    },
+    {
+      field: 'JAUNETOTAL',
+      headerName: 'Avert.',
+      type: 'number',
+      minWidth: 90,
+      width: 90,
+      maxWidth: 90,
+      flex: 0,
+      align: 'right',
+      headerAlign: 'right',
+      valueGetter: (value) => Number(value ?? 0),
+    },
+    {
+      field: 'ROUGETOTAL',
+      headerName: 'Exclu.',
+      type: 'number',
+      minWidth: 90,
+      width: 90,
+      maxWidth: 90,
+      flex: 0,
+      align: 'right',
+      headerAlign: 'right',
+      valueGetter: (value) => Number(value ?? 0),
+    },
+  ], []);
 
   const birthDateDisplay = normalizeNullableText(values.NAISSANCE);
   const deathDateDisplay = normalizeNullableText(values.DECES);
@@ -186,6 +287,35 @@ export function JoueurFormDialog({
         .catch(() => {});
     }
   }, [birthVilleName, deathVilleName, open, values.IDVILLE, values.VILLE_DECES]);
+
+  useEffect(() => {
+    if (!open || mode !== 'edit') {
+      setHistoryRows([]);
+      setHistorySelection([]);
+      setHistoryLoading(false);
+      return;
+    }
+
+    const idJoueur = normalizeNullableText(values.IDJOUEUR);
+    if (!idJoueur) {
+      setHistoryRows([]);
+      setHistorySelection([]);
+      setHistoryLoading(false);
+      return;
+    }
+
+    setHistoryLoading(true);
+    void fetchJoueurHistory(idJoueur)
+      .then((rows) => {
+        setHistoryRows(rows);
+        setHistorySelection([]);
+      })
+      .catch(() => {
+        setHistoryRows([]);
+        setHistorySelection([]);
+      })
+      .finally(() => setHistoryLoading(false));
+  }, [mode, open, values.IDJOUEUR]);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -275,9 +405,11 @@ export function JoueurFormDialog({
         title={mode === 'create' ? 'Nouveau Joueur' : 'Modifier un Joueur'}
         saving={saving}
         onSave={() => void handleSave()}
-        maxWidth="md"
+        maxWidth="lg"
       >
-        <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start' }}>
+        <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} sx={{ alignItems: 'stretch' }}>
+          <Stack spacing={2} sx={{ flex: 1, minWidth: 0 }}>
+            <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start' }}>
           <Box
             sx={{
               width: 120,
@@ -361,37 +493,37 @@ export function JoueurFormDialog({
             />
             {errors.photo ? <Typography sx={{ color: 'error.main', fontSize: '0.75rem' }}>{errors.photo}</Typography> : null}
           </Stack>
-        </Stack>
+            </Stack>
 
-        <TextField
-          label="Nom"
-          value={String(values.NOM ?? '')}
-          onChange={(event) => setValues((prev) => ({ ...prev, NOM: upper(event.target.value) }))}
-          error={Boolean(errors.NOM)}
-          helperText={errors.NOM}
-          fullWidth
-          size="small"
-        />
+            <TextField
+              label="Nom"
+              value={String(values.NOM ?? '')}
+              onChange={(event) => setValues((prev) => ({ ...prev, NOM: upper(event.target.value) }))}
+              error={Boolean(errors.NOM)}
+              helperText={errors.NOM}
+              fullWidth
+              size="small"
+            />
 
-        <TextField
-          label="Prénom"
-          value={String(values.PRENOM ?? '')}
-          onChange={(event) => setValues((prev) => ({ ...prev, PRENOM: capitalize(event.target.value) }))}
-          error={Boolean(errors.PRENOM)}
-          helperText={errors.PRENOM}
-          fullWidth
-          size="small"
-        />
+            <TextField
+              label="Prénom"
+              value={String(values.PRENOM ?? '')}
+              onChange={(event) => setValues((prev) => ({ ...prev, PRENOM: capitalize(event.target.value) }))}
+              error={Boolean(errors.PRENOM)}
+              helperText={errors.PRENOM}
+              fullWidth
+              size="small"
+            />
 
-        <TextField
-          label="Alias"
-          value={String(values.SURNOM ?? '')}
-          onChange={(event) => setValues((prev) => ({ ...prev, SURNOM: upper(event.target.value) }))}
-          fullWidth
-          size="small"
-        />
+            <TextField
+              label="Alias"
+              value={String(values.SURNOM ?? '')}
+              onChange={(event) => setValues((prev) => ({ ...prev, SURNOM: upper(event.target.value) }))}
+              fullWidth
+              size="small"
+            />
 
-        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'nowrap', pt: 0.5 }}>
+            <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'nowrap', pt: 0.5 }}>
             <TextField
               label="Né le"
               value={birthDateDisplay}
@@ -446,9 +578,9 @@ export function JoueurFormDialog({
                   </Box>
                 </Button>
               </Tooltip>
-          </Stack>
+            </Stack>
 
-          <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'nowrap', pt: 0.5 }}>
+            <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'nowrap', pt: 0.5 }}>
             <TextField
               label="Décédé le"
               value={deathDateDisplay}
@@ -503,18 +635,18 @@ export function JoueurFormDialog({
                   </Box>
                 </Button>
               </Tooltip>
-          </Stack>
+            </Stack>
 
-        <Autocomplete
-          options={countryOptions}
-          getOptionLabel={(option) => option.label}
-          value={countryOptions.find((option) => option.id === values.IDNATIO) ?? null}
-          onChange={(_, option) => setValues((prev) => ({ ...prev, IDNATIO: option?.id ?? '' }))}
-          renderInput={(params) => <TextField {...params} label="Nationalité" size="small" />}
-          size="small"
-        />
+            <Autocomplete
+              options={countryOptions}
+              getOptionLabel={(option) => option.label}
+              value={countryOptions.find((option) => option.id === values.IDNATIO) ?? null}
+              onChange={(_, option) => setValues((prev) => ({ ...prev, IDNATIO: option?.id ?? '' }))}
+              renderInput={(params) => <TextField {...params} label="Nationalité" size="small" />}
+              size="small"
+            />
 
-        <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
+            <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
           <TextField
             label="Taille"
             value={String(values.HAUTEUR ?? '')}
@@ -547,26 +679,63 @@ export function JoueurFormDialog({
               htmlInput: { inputMode: 'numeric', maxLength: 3 },
             }}
           />
+            </Stack>
+
+            <Autocomplete
+              options={posteSelectOptions}
+              getOptionLabel={(option) => option.label}
+              value={posteSelectOptions.find((option) => Number(option.value) === Number(values.POSTE)) ?? null}
+              onChange={(_, option) => setValues((prev) => ({ ...prev, POSTE: option?.value ?? '' }))}
+              renderInput={(params) => <TextField {...params} label="Poste" size="small" />}
+              size="small"
+            />
+
+            <TextField
+              label="Commentaire"
+              value={String(values.COMMENT ?? '')}
+              onChange={(event) => setValues((prev) => ({ ...prev, COMMENT: event.target.value }))}
+              size="small"
+              fullWidth
+              multiline
+              minRows={3}
+            />
+          </Stack>
+
+          <Box
+            sx={{
+              width: { xs: '100%', lg: 450 },
+              minWidth: { lg: 390 },
+              flexShrink: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1,
+            }}
+          >
+            <Box
+              sx={{
+                height: 340,
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 1,
+                overflow: 'hidden',
+              }}
+            >
+              <EntityDataGrid
+                rows={historyRows}
+                columns={historyColumns}
+                loading={historyLoading}
+                getRowId={(row) => row.JOCLEUNIK}
+                selection={historySelection}
+                onSelectionChange={setHistorySelection}
+                disableRowSelectionOnClick
+                pageSizeOptions={[5, 10, 25]}
+                density="compact"
+                label="Historique du Club"
+                showToolbar
+              />
+            </Box>
+          </Box>
         </Stack>
-
-        <Autocomplete
-          options={posteSelectOptions}
-          getOptionLabel={(option) => option.label}
-          value={posteSelectOptions.find((option) => Number(option.value) === Number(values.POSTE)) ?? null}
-          onChange={(_, option) => setValues((prev) => ({ ...prev, POSTE: option?.value ?? '' }))}
-          renderInput={(params) => <TextField {...params} label="Poste" size="small" />}
-          size="small"
-        />
-
-        <TextField
-          label="Commentaire"
-          value={String(values.COMMENT ?? '')}
-          onChange={(event) => setValues((prev) => ({ ...prev, COMMENT: event.target.value }))}
-          size="small"
-          fullWidth
-          multiline
-          minRows={3}
-        />
       </EntityFormDialog>
 
       <TerrainVilleSelector

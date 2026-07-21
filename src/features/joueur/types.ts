@@ -10,6 +10,19 @@ export interface JoueurGridRow {
   LAST_TRANSAC_TYPE: number | null;
 }
 
+export interface JoueurHistoryRow {
+  JOCLEUNIK: number;
+  SAISON: string;
+  POSTE: number;
+  POSTE_NOM: string;
+  TITULAIRETOTAL: number;
+  REMPTOTAL: number;
+  BUTTOTAL: number;
+  PASSETOTAL: number;
+  JAUNETOTAL: number;
+  ROUGETOTAL: number;
+}
+
 export type JoueurRow = Record<string, unknown>;
 
 export interface PosteOption {

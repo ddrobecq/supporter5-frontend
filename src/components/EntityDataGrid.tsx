@@ -13,6 +13,8 @@ interface EntityDataGridProps<RowModel extends GridValidRowModel> {
   pageSizeOptions?: number[];
   density?: 'comfortable' | 'standard' | 'compact';
   getRowClassName?: (params: GridRowClassNameParams<RowModel>) => string;
+  label?: string;
+  showToolbar?: boolean;
 }
 
 export function EntityDataGrid<RowModel extends GridValidRowModel>({
@@ -28,6 +30,8 @@ export function EntityDataGrid<RowModel extends GridValidRowModel>({
   pageSizeOptions = [25, 50, 100],
   density = 'compact',
   getRowClassName,
+  label,
+  showToolbar = false,
 }: EntityDataGridProps<RowModel>) {
   return (
     <DataGrid
@@ -49,6 +53,8 @@ export function EntityDataGrid<RowModel extends GridValidRowModel>({
       }}
       getRowClassName={getRowClassName}
       density={density}
+      label={label}
+      showToolbar={showToolbar}
       disableColumnMenu
       sx={{ '& .MuiDataGrid-cell': { cursor: 'default' } }}
     />
