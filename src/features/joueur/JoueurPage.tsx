@@ -5,24 +5,53 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
 import { toErrorMessage } from '../../components/useEntityPage';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
-import { fetchJoueursGrid, fetchSaisons } from './joueurApi';
-import type { JoueurGridRow, SaisonRow } from './types';
+import { fetchNatio } from '../natio/natioApi';
+import type { NatioRow } from '../natio/types';
+import {
+  canDeleteJoueur,
+  createJoueur,
+  deleteJoueur,
+  fetchJoueurById,
+  fetchJoueurPostes,
+  fetchJoueursGrid,
+  fetchSaisons,
+  updateJoueur,
+} from './joueurApi';
+import { JoueurFormDialog } from './JoueurFormDialog';
+import type { IntegrityConstraint, JoueurGridRow, JoueurRow, PosteOption, SaisonRow } from './types';
 
-function useCompactButtonsFallback() {
-  const actionButtonsRowRef = useRef<HTMLDivElement | null>(null);
-  return { actionButtonsRowRef, compactActionButtons: false };
+function detectSelectedRow(rows: JoueurGridRow[], selection: GridRowId[]): JoueurGridRow | undefined {
+  const selected = selection.at(0);
+  if (selected === undefined || selected === null) {
+    return undefined;
+  }
+  return rows.find((row) => row.JOCLEUNIK === selected);
 }
 
 export function JoueurPage() {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const { actionButtonsRowRef, compactActionButtons } = useCompactButtonsFallback();
+  const actionButtonsRowRef = useRef<HTMLDivElement | null>(null);
+  const [compactActionButtons, setCompactActionButtons] = useState(false);
+
   const [rows, setRows] = useState<JoueurGridRow[]>([]);
   const [seasons, setSeasons] = useState<SaisonRow[]>([]);
+  const [natioDatas, setNatioDatas] = useState<NatioRow[]>([]);
+  const [posteOptions, setPosteOptions] = useState<PosteOption[]>([]);
   const [selectedSeason, setSelectedSeason] = useState('');
   const [search, setSearch] = useState('');
   const [selection, setSelection] = useState<GridRowId[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
+  const [activeRow, setActiveRow] = useState<JoueurRow | undefined>(undefined);
+
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleteConstraints, setDeleteConstraints] = useState<IntegrityConstraint[]>([]);
+
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
+
+  const selectedGridRow = useMemo(() => detectSelectedRow(rows, selection), [rows, selection]);
 
   const columns = useMemo<GridColDef<JoueurGridRow>[]>(() => [
     {
@@ -61,6 +90,22 @@ export function JoueurPage() {
   };
 
   useEffect(() => {
+    const row = actionButtonsRowRef.current;
+    if (!row) return;
+
+    const update = () => {
+      const widthPerButton = (row.clientWidth - 16) / 3;
+      setCompactActionButtons(widthPerButton < 120);
+    };
+
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(row);
+
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
     const controller = new AbortController();
 
     void fetchSaisons(controller.signal)
@@ -76,6 +121,14 @@ export function JoueurPage() {
         }
         setSnackbar({ severity: 'error', message: toErrorMessage(error) });
       });
+
+    void fetchNatio('', controller.signal)
+      .then((result) => setNatioDatas(result.data ?? []))
+      .catch(() => {});
+
+    void fetchJoueurPostes(controller.signal)
+      .then((result) => setPosteOptions(result))
+      .catch(() => {});
 
     return () => controller.abort();
   }, []);
@@ -109,6 +162,108 @@ export function JoueurPage() {
     };
   }, [search, selectedSeason]);
 
+  const openCreateDialog = () => {
+    setDialogMode('create');
+    setActiveRow(undefined);
+    setDialogOpen(true);
+  };
+
+  const openEditDialog = async (rowId?: GridRowId) => {
+    const selectedId = rowId ?? selection.at(0);
+    if (selectedId === undefined || selectedId === null) {
+      setSnackbar({ severity: 'error', message: 'Selectionnez un joueur a ouvrir.' });
+      return;
+    }
+
+    const row = rows.find((item) => item.JOCLEUNIK === selectedId);
+    if (!row) {
+      setSnackbar({ severity: 'error', message: 'Joueur introuvable dans la grille.' });
+      return;
+    }
+
+    try {
+      const details = await fetchJoueurById(row.IDJOUEUR);
+      setDialogMode('edit');
+      setActiveRow(details);
+      setSelection([selectedId]);
+      setDialogOpen(true);
+    } catch (error) {
+      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+    }
+  };
+
+  const reloadGrid = async () => {
+    if (!selectedSeason) return;
+    setLoading(true);
+    try {
+      const data = await fetchJoueursGrid(selectedSeason, search.trim());
+      setRows(data);
+      setSelection([]);
+    } catch (error) {
+      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFormSubmit = async (payload: JoueurRow) => {
+    try {
+      if (dialogMode === 'create') {
+        await createJoueur(payload);
+        setSnackbar({ severity: 'success', message: 'Joueur cree.' });
+      } else {
+        const row = selectedGridRow;
+        if (!row) {
+          setSnackbar({ severity: 'error', message: 'Aucun joueur selectionne.' });
+          return;
+        }
+        await updateJoueur(row.IDJOUEUR, payload);
+        setSnackbar({ severity: 'success', message: 'Joueur mis a jour.' });
+      }
+
+      setDialogOpen(false);
+      await reloadGrid();
+    } catch (error) {
+      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+    }
+  };
+
+  const handleOpenDeleteConfirm = async () => {
+    const row = selectedGridRow;
+    if (!row) {
+      setSnackbar({ severity: 'error', message: 'Selectionnez un joueur a supprimer.' });
+      return;
+    }
+
+    try {
+      const result = await canDeleteJoueur(row.IDJOUEUR);
+      setDeleteConstraints(result.constraints);
+      setConfirmDeleteOpen(true);
+    } catch (error) {
+      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+    }
+  };
+
+  const handleDelete = async () => {
+    const row = selectedGridRow;
+    if (!row) {
+      setSnackbar({ severity: 'error', message: 'Selectionnez un joueur a supprimer.' });
+      return;
+    }
+
+    try {
+      await deleteJoueur(row.IDJOUEUR);
+      setSnackbar({ severity: 'success', message: 'Joueur supprime.' });
+      setConfirmDeleteOpen(false);
+      setDeleteConstraints([]);
+      await reloadGrid();
+    } catch (error) {
+      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+      setConfirmDeleteOpen(false);
+      setDeleteConstraints([]);
+    }
+  };
+
   const headerExtra = (
     <FormControl size="small" sx={{ width: { xs: 132, md: 170 }, flexShrink: 0 }}>
       <InputLabel id="joueurs-saison-label">Saison</InputLabel>
@@ -136,29 +291,41 @@ export function JoueurPage() {
         onSearchChange={setSearch}
         searchInputRef={searchInputRef}
         headerExtra={headerExtra}
-        onNew={() => undefined}
-        onOpen={() => undefined}
-        onDelete={() => undefined}
+        onNew={openCreateDialog}
+        onOpen={() => void openEditDialog()}
+        onDelete={() => void handleOpenDeleteConfirm()}
         actionButtonsRowRef={actionButtonsRowRef}
         compactActionButtons={compactActionButtons}
-        showActions={false}
+        showActions
         rows={rows}
         columns={columns}
         loading={loading}
         getRowId={(row) => row.JOCLEUNIK}
         selection={selection}
         onSelectionChange={setSelection}
-        onRowDoubleClick={() => undefined}
+        onRowDoubleClick={(rowId) => void openEditDialog(rowId)}
         getRowClassName={getRowClassName}
-        confirmDeleteOpen={false}
-        deleteConstraints={[]}
+        confirmDeleteOpen={confirmDeleteOpen}
+        deleteConstraints={deleteConstraints}
         entityDescription="ce joueur"
-        onConfirmDelete={() => undefined}
-        onCloseDeleteConfirm={() => undefined}
-        formDialog={null}
+        onConfirmDelete={() => void handleDelete()}
+        onCloseDeleteConfirm={() => {
+          setConfirmDeleteOpen(false);
+          setDeleteConstraints([]);
+        }}
+        formDialog={
+          <JoueurFormDialog
+            open={dialogOpen}
+            mode={dialogMode}
+            initialData={activeRow}
+            natioDatas={natioDatas}
+            posteOptions={posteOptions}
+            onClose={() => setDialogOpen(false)}
+            onSubmit={handleFormSubmit}
+          />
+        }
         snackbar={snackbar}
         onCloseSnackbar={() => setSnackbar(null)}
-        
       />
       {!selectedSeason && seasons.length === 0 ? <Alert severity="info">Aucune saison disponible.</Alert> : null}
       <style>

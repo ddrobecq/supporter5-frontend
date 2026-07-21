@@ -10,6 +10,24 @@ export interface JoueurGridRow {
   LAST_TRANSAC_TYPE: number | null;
 }
 
+export type JoueurRow = Record<string, unknown>;
+
+export interface PosteOption {
+  POS_ID: number;
+  POS_NOM: string;
+}
+
+export interface IntegrityConstraint {
+  table: string;
+  count: number;
+  description: string;
+}
+
+export interface CanDeleteResponse {
+  canDelete: boolean;
+  constraints: IntegrityConstraint[];
+}
+
 export interface SaisonRow {
   SAISON: string;
   SA_DEBUT: string;

@@ -1,16 +1,33 @@
+import { env } from '../../config/env';
 import { http } from '../../lib/http';
-import type { GridResponse, JoueurGridRow, PaginatedResponse, SaisonRow } from './types';
+import type {
+  CanDeleteResponse,
+  GridResponse,
+  JoueurGridRow,
+  JoueurRow,
+  PaginatedResponse,
+  PosteOption,
+  SaisonRow,
+} from './types';
 
 export async function fetchJoueursGrid(
   season: string,
   search: string,
   signal?: AbortSignal,
 ): Promise<JoueurGridRow[]> {
-  const { data } = await http.get<GridResponse<JoueurGridRow>>('/api/joueurs/grid', {
+  const { data } = await http.get<GridResponse<JoueurGridRow>>(`${env.joueurPublicResource}/grid`, {
     params: {
       season,
       ...(search ? { search } : {}),
     },
+    signal,
+  });
+
+  return data.data ?? [];
+}
+
+export async function fetchJoueurPostes(signal?: AbortSignal): Promise<PosteOption[]> {
+  const { data } = await http.get<GridResponse<PosteOption>>(`${env.joueurPublicResource}/postes`, {
     signal,
   });
 
@@ -54,4 +71,28 @@ export async function fetchSaisons(signal?: AbortSignal): Promise<SaisonRow[]> {
     ...(firstPage.data ?? []),
     ...remainingPages.flatMap((response) => response.data.data ?? []),
   ];
+}
+
+export async function fetchJoueurById(id: string | number): Promise<JoueurRow> {
+  const { data } = await http.get<JoueurRow>(`${env.joueurPublicResource}/${id}`);
+  return data;
+}
+
+export async function createJoueur(payload: JoueurRow): Promise<JoueurRow | undefined> {
+  const { data } = await http.post<JoueurRow>(env.joueurAdminResource, payload);
+  return data;
+}
+
+export async function updateJoueur(id: string | number, payload: JoueurRow): Promise<JoueurRow | undefined> {
+  const { data } = await http.put<JoueurRow>(`${env.joueurAdminResource}/${id}`, payload);
+  return data;
+}
+
+export async function deleteJoueur(id: string | number): Promise<void> {
+  await http.delete(`${env.joueurAdminResource}/${id}`);
+}
+
+export async function canDeleteJoueur(id: string | number): Promise<CanDeleteResponse> {
+  const { data } = await http.get<CanDeleteResponse>(`${env.joueurAdminResource}/${id}/can-delete`);
+  return data;
 }
