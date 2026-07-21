@@ -46,8 +46,18 @@ export function LoginPage() {
       localStorage.setItem(LAST_USERNAME_KEY, username);
       const redirectTo = (location.state as { from?: string } | undefined)?.from ?? '/admin/natio';
       navigate(redirectTo, { replace: true });
-    } catch {
-      setError('Connexion impossible. Verifiez vos identifiants.');
+    } catch (error) {
+      let message = 'Connexion impossible.';
+      if (error instanceof Error) {
+        if (error.message.includes('timeout')) {
+          message += ' Le serveur prend du temps a demarrer (Render free plan). Reessayez.';
+        } else if (error.message) {
+          message += ` ${error.message}`;
+        } else {
+          message += ' Verifiez vos identifiants.';
+        }
+      }
+      setError(message);
     }
   };
 

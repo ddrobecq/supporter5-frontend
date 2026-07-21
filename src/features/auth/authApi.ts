@@ -5,6 +5,7 @@ interface LoginResponse {
 }
 
 export async function login(username: string, password: string): Promise<string> {
-  const { data } = await http.post<LoginResponse>('/api/auth/login', { username, password });
+  // Longer timeout for login (Render free tier may take time to wake up)
+  const { data } = await http.post<LoginResponse>('/api/auth/login', { username, password }, { timeout: 45000 });
   return data.token;
 }
