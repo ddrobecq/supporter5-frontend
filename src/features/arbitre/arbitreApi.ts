@@ -1,6 +1,6 @@
 import { env } from '../../config/env';
 import { http } from '../../lib/http';
-import type { ArbitreRow, PaginatedResponse } from './types';
+import type { ArbitreCreateWizardPayload, ArbitreRow, ArbitreSuggestionRow, PaginatedResponse } from './types';
 
 export interface IntegrityConstraint {
   table: string;
@@ -66,6 +66,19 @@ export async function fetchArbitreById(id: string | number): Promise<ArbitreRow>
   return data;
 }
 
+export async function fetchArbitreSuggestions(search: string, signal?: AbortSignal): Promise<{ data: ArbitreSuggestionRow[] }> {
+  const params = {
+    search,
+    limit: 12,
+  };
+  const { data } = await http.get<{ data: ArbitreSuggestionRow[] }>(`${env.arbitrePublicResource}/suggest`, {
+    params,
+    signal,
+    timeout: 30000,
+  });
+  return data;
+}
+
 export async function canDeleteArbitre(id: string | number): Promise<CanDeleteResponse> {
   const { data } = await http.get<CanDeleteResponse>(
     `${env.arbitreAdminResource}/${id}/can-delete`,
@@ -75,6 +88,11 @@ export async function canDeleteArbitre(id: string | number): Promise<CanDeleteRe
 
 export async function createArbitre(payload: ArbitreRow): Promise<ArbitreRow | undefined> {
   const { data } = await http.post<ArbitreRow>(env.arbitreAdminResource, payload);
+  return data;
+}
+
+export async function createArbitreWithWizard(payload: ArbitreCreateWizardPayload): Promise<ArbitreRow | undefined> {
+  const { data } = await http.post<ArbitreRow>(`${env.arbitreAdminResource}/wizard-create`, payload);
   return data;
 }
 

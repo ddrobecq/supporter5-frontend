@@ -9,7 +9,7 @@ import { fetchNatio } from '../natio/natioApi';
 import type { NatioRow } from '../natio/types';
 import {
   canDeleteJoueur,
-  createJoueur,
+  createJoueurWithWizard,
   deleteJoueur,
   fetchJoueurById,
   fetchJoueurPostes,
@@ -18,6 +18,7 @@ import {
   updateJoueur,
 } from './joueurApi';
 import { JoueurFormDialog } from './JoueurFormDialog';
+import { JoueurCreateWizardDialog } from './JoueurCreateWizardDialog';
 import type { IntegrityConstraint, JoueurGridRow, JoueurRow, PosteOption, SaisonRow } from './types';
 
 function detectSelectedRow(rows: JoueurGridRow[], selection: GridRowId[]): JoueurGridRow | undefined {
@@ -50,6 +51,7 @@ export function JoueurPage({ variant = 'page', onOpenInTab }: JoueurPageProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
   const [activeRow, setActiveRow] = useState<JoueurRow | undefined>(undefined);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleteConstraints, setDeleteConstraints] = useState<IntegrityConstraint[]>([]);
@@ -179,9 +181,7 @@ export function JoueurPage({ variant = 'page', onOpenInTab }: JoueurPageProps) {
   }, [search, selectedSeason]);
 
   const openCreateDialog = () => {
-    setDialogMode('create');
-    setActiveRow(undefined);
-    setDialogOpen(true);
+    setCreateDialogOpen(true);
   };
 
   const openEditDialog = async (rowId?: GridRowId) => {
@@ -234,10 +234,7 @@ export function JoueurPage({ variant = 'page', onOpenInTab }: JoueurPageProps) {
 
   const handleFormSubmit = async (payload: JoueurRow) => {
     try {
-      if (dialogMode === 'create') {
-        await createJoueur(payload);
-        setSnackbar({ severity: 'success', message: 'Joueur cree.' });
-      } else {
+      if (dialogMode === 'edit') {
         const row = selectedGridRow;
         if (!row) {
           setSnackbar({ severity: 'error', message: 'Aucun joueur selectionne.' });
@@ -251,6 +248,25 @@ export function JoueurPage({ variant = 'page', onOpenInTab }: JoueurPageProps) {
       await reloadGrid();
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+    }
+  };
+
+  const handleCreateJoueur = async (payload: { nom: string; prenom?: string; natioId: string; posteId: number; alias?: string }) => {
+    const created = await createJoueurWithWizard(payload);
+    const rawCreatedId = created?.IDJOUEUR;
+    if (rawCreatedId === undefined || rawCreatedId === null || String(rawCreatedId).trim() === '') {
+      throw new Error('Creation reussie mais identifiant introuvable.');
+    }
+    const createdId = String(rawCreatedId).trim();
+
+    const label = `${String(created?.NOM ?? '').trim().toUpperCase()} ${String(created?.PRENOM ?? '').trim()}`.trim() || String(createdId);
+
+    await reloadGrid();
+    setCreateDialogOpen(false);
+    setSnackbar({ severity: 'success', message: 'Joueur cree.' });
+
+    if (variant === 'modalPicker' && onOpenInTab) {
+      onOpenInTab({ rowId: createdId, label });
     }
   };
 
@@ -342,15 +358,23 @@ export function JoueurPage({ variant = 'page', onOpenInTab }: JoueurPageProps) {
           setDeleteConstraints([]);
         }}
         formDialog={
-          <JoueurFormDialog
-            open={dialogOpen}
-            mode={dialogMode}
-            initialData={activeRow}
-            natioDatas={natioDatas}
-            posteOptions={posteOptions}
-            onClose={() => setDialogOpen(false)}
-            onSubmit={handleFormSubmit}
-          />
+          <>
+            <JoueurFormDialog
+              open={dialogOpen}
+              mode="edit"
+              initialData={activeRow}
+              natioDatas={natioDatas}
+              posteOptions={posteOptions}
+              onClose={() => setDialogOpen(false)}
+              onSubmit={handleFormSubmit}
+            />
+            <JoueurCreateWizardDialog
+              open={createDialogOpen}
+              onClose={() => setCreateDialogOpen(false)}
+              onCreate={handleCreateJoueur}
+              onError={(message) => setSnackbar({ severity: 'error', message })}
+            />
+          </>
         }
         snackbar={snackbar}
         onCloseSnackbar={() => setSnackbar(null)}

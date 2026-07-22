@@ -423,7 +423,7 @@ export function ClubCreateDialog({
             slotProps={{ select: { native: true } }}
             disabled={loadingNatio}
           >
-            <option value="">Selectionner un pays</option>
+            <option value=""></option>
             {countryOptions.map((option) => (
               <option key={option.id} value={option.id}>{`${option.label} (${option.id})`}</option>
             ))}

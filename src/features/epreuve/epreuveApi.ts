@@ -1,6 +1,6 @@
 import { env } from '../../config/env';
 import { http } from '../../lib/http';
-import type { EpreuveRow, PaginatedResponse } from './types';
+import type { EpreuveCreateWizardPayload, EpreuveRow, EpreuveSuggestionRow, PaginatedResponse } from './types';
 
 export interface IntegrityConstraint {
   table: string;
@@ -26,6 +26,15 @@ export async function fetchEpreuveById(id: string | number): Promise<EpreuveRow>
   return data;
 }
 
+export async function fetchEpreuveSuggestions(search: string, signal?: AbortSignal): Promise<{ data: EpreuveSuggestionRow[] }> {
+  const { data } = await http.get<{ data: EpreuveSuggestionRow[] }>(`${env.epreuvePublicResource}/suggest`, {
+    params: { search, limit: 12 },
+    signal,
+    timeout: 30000,
+  });
+  return data;
+}
+
 export async function canDeleteEpreuve(id: string | number): Promise<CanDeleteResponse> {
   const { data } = await http.get<CanDeleteResponse>(`${env.epreuveAdminResource}/${id}/can-delete`);
   return data;
@@ -33,6 +42,11 @@ export async function canDeleteEpreuve(id: string | number): Promise<CanDeleteRe
 
 export async function createEpreuve(payload: EpreuveRow): Promise<EpreuveRow | undefined> {
   const { data } = await http.post<EpreuveRow>(env.epreuveAdminResource, payload);
+  return data;
+}
+
+export async function createEpreuveWithWizard(payload: EpreuveCreateWizardPayload): Promise<EpreuveRow | undefined> {
+  const { data } = await http.post<EpreuveRow>(`${env.epreuveAdminResource}/wizard-create`, payload);
   return data;
 }
 

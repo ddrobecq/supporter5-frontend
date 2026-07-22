@@ -236,6 +236,9 @@ export function useEntityPage<Row extends Record<string, unknown>>(
     compactActionButtons,
     openCreateDialog,
     openEditDialog,
+    reloadData: async () => {
+      await loadData(search);
+    },
     handleFormSubmit,
     handleDelete,
     handleOpenDeleteConfirm,

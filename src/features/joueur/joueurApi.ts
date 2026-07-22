@@ -3,12 +3,14 @@ import { http } from '../../lib/http';
 import type {
   CanDeleteResponse,
   GridResponse,
+  JoueurCreateWizardPayload,
   JoueurHistoryRow,
   JoueurGridRow,
   JoueurRow,
   PaginatedResponse,
   PosteOption,
   SaisonRow,
+  JoueurSuggestionRow,
 } from './types';
 
 export async function fetchJoueursGrid(
@@ -79,6 +81,15 @@ export async function fetchJoueurById(id: string | number): Promise<JoueurRow> {
   return data;
 }
 
+export async function fetchJoueurSuggestions(search: string, signal?: AbortSignal): Promise<GridResponse<JoueurSuggestionRow>> {
+  const { data } = await http.get<GridResponse<JoueurSuggestionRow>>(`${env.joueurPublicResource}/suggest`, {
+    params: { search, limit: 12 },
+    signal,
+    timeout: 30000,
+  });
+  return data;
+}
+
 export async function fetchJoueurHistory(id: string | number): Promise<JoueurHistoryRow[]> {
   const { data } = await http.get<GridResponse<JoueurHistoryRow>>(`${env.joueurPublicResource}/${id}/history`);
   return data.data ?? [];
@@ -86,6 +97,11 @@ export async function fetchJoueurHistory(id: string | number): Promise<JoueurHis
 
 export async function createJoueur(payload: JoueurRow): Promise<JoueurRow | undefined> {
   const { data } = await http.post<JoueurRow>(env.joueurAdminResource, payload);
+  return data;
+}
+
+export async function createJoueurWithWizard(payload: JoueurCreateWizardPayload): Promise<JoueurRow | undefined> {
+  const { data } = await http.post<JoueurRow>(`${env.joueurAdminResource}/wizard-create`, payload);
   return data;
 }
 

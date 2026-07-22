@@ -16,3 +16,13 @@ export interface PaginatedResponse<T> {
   limit: number;
   totalPages: number;
 }
+
+export interface EpreuveSuggestionRow {
+  IDEPREUVE: number;
+  EPREUVE: string;
+  SCORE: number;
+}
+
+export interface EpreuveCreateWizardPayload {
+  name: string;
+}

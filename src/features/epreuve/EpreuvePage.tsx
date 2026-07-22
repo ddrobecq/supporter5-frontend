@@ -1,7 +1,8 @@
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
-import { useMemo } from 'react';
-import { canDeleteEpreuve, createEpreuve, deleteEpreuve, fetchEpreuve, fetchEpreuveById, updateEpreuve } from './epreuveApi';
+import { useMemo, useState } from 'react';
+import { canDeleteEpreuve, deleteEpreuve, fetchEpreuve, fetchEpreuveById, updateEpreuve } from './epreuveApi';
 import { EpreuveFormDialog } from './EpreuveFormDialog';
+import { EpreuveCreateWizardDialog } from './EpreuveCreateWizardDialog';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
 import { useEntityPage } from '../../components/useEntityPage';
 import { createEpreuveColumns } from './epreuveColumnsHelper';
@@ -13,11 +14,13 @@ interface EpreuvePageProps {
 }
 
 export function EpreuvePage({ variant = 'page', onOpenInTab }: EpreuvePageProps) {
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+
   const page = useEntityPage<EpreuveRow>(
     {
       fetchAll: fetchEpreuve,
       fetchById: fetchEpreuveById,
-      create: createEpreuve,
+      create: async () => undefined,
       update: updateEpreuve,
       remove: deleteEpreuve,
       canDelete: canDeleteEpreuve,
@@ -70,6 +73,16 @@ export function EpreuvePage({ variant = 'page', onOpenInTab }: EpreuvePageProps)
     void page.openEditDialog(rowId);
   };
 
+  const handleCreated = async (createdId: string | number, label: string) => {
+    await page.reloadData();
+    setCreateDialogOpen(false);
+    page.setSnackbar({ severity: 'success', message: 'Epreuve creee.' });
+
+    if (variant === 'modalPicker' && onOpenInTab) {
+      onOpenInTab({ rowId: createdId, label });
+    }
+  };
+
   return (
     <EntityPageLayout
       hideTitle={variant === 'modalPicker'}
@@ -79,7 +92,7 @@ export function EpreuvePage({ variant = 'page', onOpenInTab }: EpreuvePageProps)
       search={page.search}
       onSearchChange={page.setSearch}
       searchInputRef={page.searchInputRef}
-      onNew={page.openCreateDialog}
+      onNew={() => setCreateDialogOpen(true)}
       onOpen={handleOpen}
       onDelete={() => void page.handleOpenDeleteConfirm()}
       actionButtonsRowRef={page.actionButtonsRowRef}
@@ -97,14 +110,22 @@ export function EpreuvePage({ variant = 'page', onOpenInTab }: EpreuvePageProps)
       onConfirmDelete={() => void page.handleDelete()}
       onCloseDeleteConfirm={page.closeDeleteConfirm}
       formDialog={
-        <EpreuveFormDialog
-          open={page.dialogOpen}
-          mode={page.dialogMode}
-          primaryKey={primaryKey}
-          initialData={page.activeRow}
-          onClose={() => page.setDialogOpen(false)}
-          onSubmit={page.handleFormSubmit}
-        />
+        <>
+          <EpreuveFormDialog
+            open={page.dialogOpen}
+            mode="edit"
+            primaryKey={primaryKey}
+            initialData={page.activeRow}
+            onClose={() => page.setDialogOpen(false)}
+            onSubmit={page.handleFormSubmit}
+          />
+          <EpreuveCreateWizardDialog
+            open={createDialogOpen}
+            onClose={() => setCreateDialogOpen(false)}
+            onCreated={handleCreated}
+            onError={(message) => page.setSnackbar({ severity: 'error', message })}
+          />
+        </>
       }
       snackbar={page.snackbar}
       onCloseSnackbar={() => page.setSnackbar(null)}

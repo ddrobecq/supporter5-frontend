@@ -1,8 +1,9 @@
 ﻿import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useMemo, useState } from 'react';
-import { createArbitre, deleteArbitre, fetchArbitre, fetchArbitreById, updateArbitre, canDeleteArbitre } from './arbitreApi';
+import { createArbitreWithWizard, deleteArbitre, fetchArbitre, fetchArbitreById, updateArbitre, canDeleteArbitre } from './arbitreApi';
 import { fetchNatio } from '../natio/natioApi';
 import { ArbitreFormDialog } from './ArbitreFormDialog';
+import { ArbitreCreateWizardDialog } from './ArbitreCreateWizardDialog';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
 import { useEntityPage } from '../../components/useEntityPage';
 import type { ArbitreRow } from './types';
@@ -25,12 +26,13 @@ interface ArbitrePageProps {
 
 export function ArbitrePage({ variant = 'page', onOpenInTab }: ArbitrePageProps) {
   const [natioDatas, setNatioDatas] = useState<NatioRow[]>([]);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const page = useEntityPage<ArbitreRow>(
     {
       fetchAll: fetchArbitre,
       fetchById: fetchArbitreById,
-      create: createArbitre,
+      create: async () => undefined,
       update: updateArbitre,
       remove: deleteArbitre,
       canDelete: canDeleteArbitre,
@@ -109,6 +111,25 @@ export function ArbitrePage({ variant = 'page', onOpenInTab }: ArbitrePageProps)
     void page.openEditDialog(rowId);
   };
 
+  const handleCreateArbitre = async (payload: { nom: string; prenom?: string; natioId: string }) => {
+    const created = await createArbitreWithWizard(payload);
+    const rawCreatedId = created?.IDARBITRE;
+    if (rawCreatedId === undefined || rawCreatedId === null || String(rawCreatedId).trim() === '') {
+      throw new Error('Creation reussie mais identifiant introuvable.');
+    }
+    const createdId = String(rawCreatedId).trim();
+
+    const label = `${String(created?.NOM ?? '').trim().toUpperCase()} ${String(created?.PRENOM ?? '').trim()}`.trim() || String(createdId);
+
+    await page.reloadData();
+    setCreateDialogOpen(false);
+    page.setSnackbar({ severity: 'success', message: 'Arbitre cree.' });
+
+    if (variant === 'modalPicker' && onOpenInTab) {
+      onOpenInTab({ rowId: createdId, label });
+    }
+  };
+
   return (
     <EntityPageLayout
       hideTitle={variant === 'modalPicker'}
@@ -118,7 +139,7 @@ export function ArbitrePage({ variant = 'page', onOpenInTab }: ArbitrePageProps)
       search={page.search}
       onSearchChange={page.setSearch}
       searchInputRef={page.searchInputRef}
-      onNew={page.openCreateDialog}
+      onNew={() => setCreateDialogOpen(true)}
       onOpen={handleOpen}
       onDelete={() => void page.handleOpenDeleteConfirm()}
       actionButtonsRowRef={page.actionButtonsRowRef}
@@ -136,16 +157,24 @@ export function ArbitrePage({ variant = 'page', onOpenInTab }: ArbitrePageProps)
       onConfirmDelete={() => void page.handleDelete()}
       onCloseDeleteConfirm={page.closeDeleteConfirm}
       formDialog={
-        <ArbitreFormDialog
-          open={page.dialogOpen}
-          mode={page.dialogMode}
-          fields={formFields}
-          primaryKey={primaryKey}
-          initialData={page.activeRow}
-          natioDatas={natioDatas}
-          onClose={() => page.setDialogOpen(false)}
-          onSubmit={page.handleFormSubmit}
-        />
+        <>
+          <ArbitreFormDialog
+            open={page.dialogOpen}
+            mode="edit"
+            fields={formFields}
+            primaryKey={primaryKey}
+            initialData={page.activeRow}
+            natioDatas={natioDatas}
+            onClose={() => page.setDialogOpen(false)}
+            onSubmit={page.handleFormSubmit}
+          />
+          <ArbitreCreateWizardDialog
+            open={createDialogOpen}
+            onClose={() => setCreateDialogOpen(false)}
+            onCreate={handleCreateArbitre}
+            onError={(message) => page.setSnackbar({ severity: 'error', message })}
+          />
+        </>
       }
       snackbar={page.snackbar}
       onCloseSnackbar={() => page.setSnackbar(null)}

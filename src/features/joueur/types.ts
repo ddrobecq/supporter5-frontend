@@ -51,6 +51,22 @@ export interface GridResponse<T> {
   data: T[];
 }
 
+export interface JoueurSuggestionRow {
+  IDJOUEUR: string;
+  NOM: string;
+  PRENOM: string;
+  IDNATIO: string;
+  SCORE: number;
+}
+
+export interface JoueurCreateWizardPayload {
+  nom: string;
+  prenom?: string;
+  natioId: string;
+  posteId: number;
+  alias?: string;
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   total: number;
