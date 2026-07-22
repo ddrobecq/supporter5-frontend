@@ -14,6 +14,8 @@ import {
   Stack,
   Tooltip,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import type { GridColDef, GridPaginationModel, GridRowClassNameParams, GridRowId, GridValidRowModel } from '@mui/x-data-grid';
 import type { ReactNode, RefObject } from 'react';
@@ -31,6 +33,8 @@ export interface IntegrityConstraint {
 interface EntityPageLayoutProps<Row extends GridValidRowModel> {
   // Titre affiché en haut de la page
   title: string;
+  hideTitle?: boolean;
+  showHeader?: boolean;
   // Barre de recherche
   searchLabel: string;
   search: string;
@@ -44,6 +48,8 @@ interface EntityPageLayoutProps<Row extends GridValidRowModel> {
   actionButtonsRowRef?: RefObject<HTMLDivElement | null>;
   compactActionButtons: boolean;
   showActions?: boolean;
+  actionsInlineWithSearch?: boolean;
+  showGrid?: boolean;
   // DataGrid
   rows: Row[];
   columns: GridColDef<Row>[];
@@ -73,6 +79,8 @@ interface EntityPageLayoutProps<Row extends GridValidRowModel> {
 
 export function EntityPageLayout<Row extends GridValidRowModel>({
   title,
+  hideTitle = false,
+  showHeader = true,
   searchLabel,
   search,
   onSearchChange,
@@ -84,6 +92,8 @@ export function EntityPageLayout<Row extends GridValidRowModel>({
   actionButtonsRowRef,
   compactActionButtons,
   showActions = true,
+  actionsInlineWithSearch = false,
+  showGrid = true,
   rows,
   columns,
   loading,
@@ -106,98 +116,130 @@ export function EntityPageLayout<Row extends GridValidRowModel>({
   snackbar,
   onCloseSnackbar,
 }: EntityPageLayoutProps<Row>) {
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
+  const shouldCompactActionButtons =
+    (actionsInlineWithSearch && !isDesktop)
+    || (compactActionButtons && !(actionsInlineWithSearch && isDesktop));
+  const hasActionRow = showActions && !actionsInlineWithSearch;
+
+  const renderActionButtons = () => (
+    <Stack ref={actionButtonsRowRef} direction="row" spacing={1} sx={{ width: '100%' }}>
+      <Tooltip title="Nouveau" disableHoverListener={!shouldCompactActionButtons}>
+        <Button
+          variant="contained"
+          startIcon={shouldCompactActionButtons ? undefined : <AddCircleOutlinedIcon />}
+          onClick={onNew}
+          aria-label="Nouveau"
+          sx={{ flex: 1, minWidth: 0 }}
+        >
+          {shouldCompactActionButtons ? <AddCircleOutlinedIcon /> : 'Nouveau'}
+        </Button>
+      </Tooltip>
+      <Tooltip title="Ouvrir" disableHoverListener={!shouldCompactActionButtons}>
+        <Button
+          variant="outlined"
+          startIcon={shouldCompactActionButtons ? undefined : <EditOutlinedIcon />}
+          onClick={onOpen}
+          aria-label="Ouvrir"
+          sx={{ flex: 1, minWidth: 0 }}
+        >
+          {shouldCompactActionButtons ? <EditOutlinedIcon /> : 'Ouvrir'}
+        </Button>
+      </Tooltip>
+      <Tooltip title="Supprimer" disableHoverListener={!shouldCompactActionButtons}>
+        <Button
+          variant="outlined"
+          color="error"
+          startIcon={shouldCompactActionButtons ? undefined : <DeleteOutlinedIcon />}
+          onClick={onDelete}
+          aria-label="Supprimer"
+          sx={{ flex: 1, minWidth: 0 }}
+        >
+          {shouldCompactActionButtons ? <DeleteOutlinedIcon /> : 'Supprimer'}
+        </Button>
+      </Tooltip>
+    </Stack>
+  );
+
   return (
     <Stack spacing={2}>
-      <Stack
-        direction="row"
-        spacing={1}
-        sx={{ alignItems: 'center', width: '100%', flexWrap: 'nowrap' }}
-      >
-        <Typography variant="h5" sx={{ fontWeight: 700, flexShrink: 0, whiteSpace: 'nowrap' }}>{title}</Typography>
-        <Box
+      {showHeader ? (
+        <Stack
+          direction="row"
+          spacing={1}
           sx={{
-            ml: 'auto',
-            flex: 1,
-            minWidth: 0,
-            display: 'flex',
-            justifyContent: 'flex-end',
             alignItems: 'center',
-            gap: 1,
+            width: '100%',
+            flexWrap: 'nowrap',
           }}
         >
-          {headerExtra}
-          <EntitySearchBar
-            label={searchLabel}
-            value={search}
-            onChange={onSearchChange}
-            inputRef={searchInputRef}
-            autoFocus
-            sx={{ width: { xs: '52vw', md: '100%' }, minWidth: 120, maxWidth: { xs: 260, md: 560 } }}
-          />
-        </Box>
-      </Stack>
+          {!hideTitle ? (
+            <Typography variant="h5" sx={{ fontWeight: 700, flexShrink: 0, whiteSpace: 'nowrap' }}>{title}</Typography>
+          ) : null}
+          <Box
+            sx={{
+              ml: hideTitle ? 0 : 'auto',
+              flex: 1,
+              minWidth: 0,
+              display: 'flex',
+              justifyContent: hideTitle ? 'flex-start' : 'flex-end',
+              alignItems: 'center',
+              gap: 1,
+              flexWrap: 'nowrap',
+            }}
+          >
+            <EntitySearchBar
+              label={searchLabel}
+              value={search}
+              onChange={onSearchChange}
+              inputRef={searchInputRef}
+              autoFocus
+              sx={{
+                width: actionsInlineWithSearch ? 'auto' : { xs: '52vw', md: '100%' },
+                flex: actionsInlineWithSearch ? '1 1 0px' : undefined,
+                minWidth: actionsInlineWithSearch ? 170 : 120,
+                maxWidth: actionsInlineWithSearch ? 'none' : { xs: 260, md: 560 },
+              }}
+            />
+            {actionsInlineWithSearch && showActions ? (
+              <Box sx={{ width: 'auto', minWidth: 0, flex: '0 0 auto' }}>
+                {renderActionButtons()}
+              </Box>
+            ) : null}
+            {headerExtra}
+          </Box>
+        </Stack>
+      ) : null}
 
       <Card>
         <CardContent>
-          {showActions ? (
+          {hasActionRow ? (
             <Box sx={{ width: '100%' }}>
-              <Stack ref={actionButtonsRowRef} direction="row" spacing={1} sx={{ width: '100%' }}>
-                <Tooltip title="Nouveau" disableHoverListener={!compactActionButtons}>
-                  <Button
-                    variant="contained"
-                    startIcon={compactActionButtons ? undefined : <AddCircleOutlinedIcon />}
-                    onClick={onNew}
-                    aria-label="Nouveau"
-                    sx={{ flex: 1, minWidth: 0 }}
-                  >
-                    {compactActionButtons ? <AddCircleOutlinedIcon /> : 'Nouveau'}
-                  </Button>
-                </Tooltip>
-                <Tooltip title="Ouvrir" disableHoverListener={!compactActionButtons}>
-                  <Button
-                    variant="outlined"
-                    startIcon={compactActionButtons ? undefined : <EditOutlinedIcon />}
-                    onClick={onOpen}
-                    aria-label="Ouvrir"
-                    sx={{ flex: 1, minWidth: 0 }}
-                  >
-                    {compactActionButtons ? <EditOutlinedIcon /> : 'Ouvrir'}
-                  </Button>
-                </Tooltip>
-                <Tooltip title="Supprimer" disableHoverListener={!compactActionButtons}>
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    startIcon={compactActionButtons ? undefined : <DeleteOutlinedIcon />}
-                    onClick={onDelete}
-                    aria-label="Supprimer"
-                    sx={{ flex: 1, minWidth: 0 }}
-                  >
-                    {compactActionButtons ? <DeleteOutlinedIcon /> : 'Supprimer'}
-                  </Button>
-                </Tooltip>
-              </Stack>
+              {renderActionButtons()}
             </Box>
           ) : null}
 
-          <Box sx={{ mt: 2, height: `calc(100vh - ${showActions ? 270 : 235}px)`, minHeight: 420 }}>
-            <EntityDataGrid
-              rows={rows}
-              columns={columns}
-              loading={loading}
-              getRowId={getRowId}
-              selection={selection}
-              onSelectionChange={onSelectionChange}
-              onRowDoubleClick={onRowDoubleClick}
-              getRowClassName={getRowClassName}
-              onRowClick={(rowId) => onSelectionChange([rowId])}
-              paginationMode={paginationMode}
-              paginationModel={paginationModel}
-              onPaginationModelChange={onPaginationModelChange}
-              rowCount={rowCount}
-              pageSizeOptions={pageSizeOptions}
-            />
-          </Box>
+          {showGrid ? (
+            <Box sx={{ mt: 2, height: `calc(100vh - ${hasActionRow ? 270 : 235}px)`, minHeight: 420 }}>
+              <EntityDataGrid
+                rows={rows}
+                columns={columns}
+                loading={loading}
+                getRowId={getRowId}
+                selection={selection}
+                onSelectionChange={onSelectionChange}
+                onRowDoubleClick={onRowDoubleClick}
+                getRowClassName={getRowClassName}
+                onRowClick={(rowId) => onSelectionChange([rowId])}
+                paginationMode={paginationMode}
+                paginationModel={paginationModel}
+                onPaginationModelChange={onPaginationModelChange}
+                rowCount={rowCount}
+                pageSizeOptions={pageSizeOptions}
+              />
+            </Box>
+          ) : null}
         </CardContent>
       </Card>
 

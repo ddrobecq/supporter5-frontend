@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './features/auth/LoginPage';
 import { HomePage } from './features/home/HomePage';
@@ -13,6 +13,12 @@ import { JoueurPage } from './features/joueur/JoueurPage';
 import { CalendrierPage } from './features/calendrier/CalendrierPage';
 import { ClubPage } from './features/club/ClubPage';
 import { AdminLayout } from './layouts/AdminLayout';
+
+function RedirectNatioById() {
+  const { natioId } = useParams<{ natioId: string }>();
+  const resolvedId = natioId ? encodeURIComponent(natioId) : '';
+  return <Navigate to={`/admin/natio/${resolvedId}`} replace />;
+}
 
 function App() {
   return (
@@ -30,7 +36,9 @@ function App() {
           <Route path="/clubs" element={<Navigate to="/admin/clubs" replace />} />
           <Route path="/admin/clubs" element={<ClubPage />} />
           <Route path="/natio" element={<Navigate to="/admin/natio" replace />} />
+          <Route path="/natio/:natioId" element={<RedirectNatioById />} />
           <Route path="/admin/natio" element={<NatioPage />} />
+          <Route path="/admin/natio/:natioId" element={<NatioPage />} />
           <Route path="/ville" element={<Navigate to="/admin/ville" replace />} />
           <Route path="/admin/ville" element={<VillePage />} />
           <Route path="/arbitre" element={<Navigate to="/admin/arbitre" replace />} />

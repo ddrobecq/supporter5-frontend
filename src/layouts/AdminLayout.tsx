@@ -1,5 +1,6 @@
 import BarChartRoundedIcon from '@mui/icons-material/BarChartRounded';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import EventNoteRoundedIcon from '@mui/icons-material/EventNoteRounded';
 import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
@@ -18,15 +19,24 @@ import {
   AppBar,
   Box,
   Button,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
   InputAdornment,
   OutlinedInput,
+  Tab,
+  Tabs,
   Tooltip,
   Toolbar,
   Typography,
 } from '@mui/material';
-import { useEffect, useRef, useState } from 'react';
+import type { GridRowId } from '@mui/x-data-grid';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { authStore } from '../features/auth/authStore';
+import { NatioPage } from '../features/natio/NatioPage';
+import { NatioTabFormPane } from '../features/natio/NatioTabFormPane';
 
 const QUICK_ACTIONS = [
   { label: 'Joueurs', icon: <PeopleRoundedIcon />, path: '/joueurs' },
@@ -34,6 +44,77 @@ const QUICK_ACTIONS = [
   { label: 'Clubs', icon: <ShieldRoundedIcon />, path: '/clubs' },
   { label: 'Matchs', icon: <SportsSoccerRoundedIcon /> },
 ];
+
+interface NavTab {
+  key: string;
+  label: string;
+  path: string;
+  closable: boolean;
+}
+
+interface OpenTabOptions {
+  unique?: boolean;
+  uniqueByPath?: boolean;
+}
+
+interface TabMeta {
+  label: string;
+  icon: ReactNode;
+}
+
+const TAB_META: Record<string, TabMeta> = {
+  '/admin/home': { label: 'Accueil', icon: <HomeRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/natio': { label: 'Pays', icon: <FlagRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/ville': { label: 'Villes', icon: <LocationCityRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/arbitre': { label: 'Arbitres', icon: <SportsIcon sx={{ fontSize: 14 }} /> },
+  '/admin/terrain': { label: 'Stades', icon: <StadiumRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/devise': { label: 'Devises', icon: <EuroRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/circ': { label: 'Circonstances', icon: <EventNoteRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/epreuve': { label: 'Épreuves', icon: <EmojiEventsRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/calendrier': { label: 'Calendrier', icon: <CalendarMonthIcon sx={{ fontSize: 14 }} /> },
+  '/admin/joueurs': { label: 'Joueurs', icon: <PeopleRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/clubs': { label: 'Clubs', icon: <ShieldRoundedIcon sx={{ fontSize: 14 }} /> },
+};
+
+const HOME_TAB_KEY = 'tab-home';
+
+function normalizeRoutePath(path: string): string {
+  const trimmedPath = path.trim();
+  const normalized = trimmedPath.toLowerCase();
+  switch (normalized) {
+    case '/accueil':
+      return '/admin/home';
+    case '/natio':
+      return '/admin/natio';
+    case '/ville':
+      return '/admin/ville';
+    case '/arbitre':
+      return '/admin/arbitre';
+    case '/terrain':
+      return '/admin/terrain';
+    case '/devise':
+      return '/admin/devise';
+    case '/circ':
+      return '/admin/circ';
+    case '/epreuve':
+      return '/admin/epreuve';
+    case '/calendrier':
+      return '/admin/calendrier';
+    case '/joueurs':
+      return '/admin/joueurs';
+    case '/clubs':
+      return '/admin/clubs';
+    default:
+      // Keep original case for dynamic segments like /admin/natio/FRA.
+      return trimmedPath;
+  }
+}
+
+function resolveTabMetaPath(path: string): string {
+  const normalized = normalizeRoutePath(path);
+  if (normalized.startsWith('/admin/natio/')) return '/admin/natio';
+  return normalized;
+}
 
 export function AdminLayout() {
   const navigate = useNavigate();
@@ -43,17 +124,32 @@ export function AdminLayout() {
   const searchAreaRef = useRef<HTMLDivElement | null>(null);
   const [compactNavButtons, setCompactNavButtons] = useState(false);
   const [compactSearchAction, setCompactSearchAction] = useState(false);
+  const [natioModalOpen, setNatioModalOpen] = useState(false);
+  const [dirtyTabsByPath, setDirtyTabsByPath] = useState<Record<string, boolean>>({});
+  const tabCounterRef = useRef(0);
+  const [tabs, setTabs] = useState<NavTab[]>([
+    {
+      key: HOME_TAB_KEY,
+      label: TAB_META['/admin/home'].label,
+      path: '/admin/home',
+      closable: false,
+    },
+  ]);
+  const [activeTabKey, setActiveTabKey] = useState<string | false>(HOME_TAB_KEY);
   const isHomeActive = location.pathname === '/admin/home' || location.pathname === '/accueil';
   const isCalendrierActive = location.pathname === '/admin/calendrier' || location.pathname === '/calendrier';
   const isJoueursActive = location.pathname === '/admin/joueurs' || location.pathname === '/joueurs';
   const isClubsActive = location.pathname === '/admin/clubs' || location.pathname === '/clubs';
-  const isNatioActive = location.pathname === '/admin/natio' || location.pathname === '/natio';
+  const isNatioActive = location.pathname === '/admin/natio' || location.pathname === '/natio' || location.pathname.startsWith('/admin/natio/');
   const isVilleActive = location.pathname === '/admin/ville' || location.pathname === '/ville';
   const isArbitreActive = location.pathname === '/admin/arbitre' || location.pathname === '/arbitre';
   const isTerrainActive = location.pathname === '/admin/terrain' || location.pathname === '/terrain';
   const isDeviseActive = location.pathname === '/admin/devise' || location.pathname === '/devise';
   const isCircActive = location.pathname === '/admin/circ' || location.pathname === '/circ';
   const isEpreuveActive = location.pathname === '/admin/epreuve' || location.pathname === '/epreuve';
+  const activeTab = typeof activeTabKey === 'string' ? tabs.find((tab) => tab.key === activeTabKey) : undefined;
+  const activeTabIsNatioForm = Boolean(activeTab?.path.startsWith('/admin/natio/')) || location.pathname.startsWith('/admin/natio/');
+  const natioFormTabs = tabs.filter((tab) => tab.path.startsWith('/admin/natio/'));
 
   useEffect(() => {
     const row = navButtonsRowRef.current;
@@ -73,6 +169,135 @@ export function AdminLayout() {
 
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    const normalizedPath = normalizeRoutePath(location.pathname);
+    const metaPath = resolveTabMetaPath(normalizedPath);
+    if (metaPath === '/admin/home') {
+      setActiveTabKey(HOME_TAB_KEY);
+      return;
+    }
+
+    setTabs((prev) => {
+      const currentTab = prev.find((tab) => tab.path === normalizedPath);
+      if (currentTab) {
+        setActiveTabKey(currentTab.key);
+        return prev;
+      }
+
+      const label = TAB_META[metaPath]?.label;
+      if (!label) {
+        setActiveTabKey(false);
+        return prev;
+      }
+
+      const fallback = prev.find((tab) => tab.path === normalizedPath);
+      if (fallback) {
+        setActiveTabKey(fallback.key);
+        return prev;
+      }
+      tabCounterRef.current += 1;
+      const key = `tab-${normalizedPath}-${tabCounterRef.current}`;
+      setActiveTabKey(key);
+      return [...prev, { key, label, path: normalizedPath, closable: true }];
+    });
+  }, [location.pathname]);
+
+  const openTab = (path: string, label?: string, options?: OpenTabOptions) => {
+    const normalizedPath = normalizeRoutePath(path);
+    const metaPath = resolveTabMetaPath(normalizedPath);
+    const resolvedLabel = label ?? TAB_META[metaPath]?.label;
+    if (!resolvedLabel) {
+      navigate(normalizedPath);
+      return;
+    }
+
+    if (metaPath === '/admin/home') {
+      setActiveTabKey(HOME_TAB_KEY);
+      navigate('/admin/home');
+      return;
+    }
+
+    setTabs((prev) => {
+      if (options?.unique) {
+        const existing = options.uniqueByPath
+          ? prev.find((tab) => tab.path === normalizedPath)
+          : prev.find((tab) => tab.path === normalizedPath && tab.label === resolvedLabel);
+        if (existing) {
+          setActiveTabKey(existing.key);
+          return prev;
+        }
+      }
+
+      tabCounterRef.current += 1;
+      const key = `tab-${normalizedPath}-${tabCounterRef.current}`;
+      setActiveTabKey(key);
+      return [...prev, { key, label: resolvedLabel, path: normalizedPath, closable: true }];
+    });
+    navigate(normalizedPath);
+  };
+
+  const closeTab = (tabKey: string) => {
+    const tab = tabs.find((item) => item.key === tabKey);
+    if (!tab || !tab.closable) {
+      return;
+    }
+
+    const currentIndex = tabs.findIndex((item) => item.key === tabKey);
+    const fallbackTab = tabs[currentIndex - 1] ?? tabs[currentIndex + 1] ?? tabs.find((item) => item.key === HOME_TAB_KEY);
+
+    setTabs((prev) => prev.filter((item) => item.key !== tabKey));
+    setDirtyTabsByPath((prev) => {
+      const next = { ...prev };
+      delete next[tab.path];
+      return next;
+    });
+
+    if (activeTabKey === tabKey) {
+      if (fallbackTab) {
+        setActiveTabKey(fallbackTab.key);
+        navigate(fallbackTab.path);
+      } else {
+        setActiveTabKey(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<{ path?: string; dirty?: boolean }>;
+      const path = customEvent.detail?.path;
+      const dirty = customEvent.detail?.dirty;
+      if (!path || typeof dirty !== 'boolean') return;
+      const normalizedPath = normalizeRoutePath(path);
+      setDirtyTabsByPath((prev) => {
+        if (prev[normalizedPath] === dirty) return prev;
+        return { ...prev, [normalizedPath]: dirty };
+      });
+    };
+
+    window.addEventListener('supporter:tab-dirty', handler);
+    return () => window.removeEventListener('supporter:tab-dirty', handler);
+  }, []);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<{ path?: string; label?: string }>;
+      const path = customEvent.detail?.path;
+      const label = customEvent.detail?.label;
+      if (!path || !label) return;
+      const normalizedPath = normalizeRoutePath(path);
+      setTabs((prev) => prev.map((tab) => (tab.path === normalizedPath ? { ...tab, label } : tab)));
+    };
+
+    window.addEventListener('supporter:tab-label', handler);
+    return () => window.removeEventListener('supporter:tab-label', handler);
+  }, []);
+
+  const handleOpenNatioInTab = ({ rowId, label }: { rowId: GridRowId; label: string }) => {
+    setNatioModalOpen(false);
+    openTab(`/admin/natio/${encodeURIComponent(String(rowId))}`, label, { unique: true, uniqueByPath: true });
+  };
 
   useEffect(() => {
     const area = searchAreaRef.current;
@@ -161,7 +386,7 @@ export function AdminLayout() {
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Accueil"
-                onClick={() => navigate('/accueil')}
+                onClick={() => openTab('/accueil', 'Accueil', { unique: true })}
               >
                 {compactNavButtons ? <HomeRoundedIcon /> : 'Accueil'}
               </Button>
@@ -179,7 +404,7 @@ export function AdminLayout() {
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Pays"
-                onClick={() => navigate('/natio')}
+                onClick={() => setNatioModalOpen(true)}
               >
                 {compactNavButtons ? <FlagRoundedIcon /> : 'Pays'}
               </Button>
@@ -197,7 +422,7 @@ export function AdminLayout() {
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Villes"
-                onClick={() => navigate('/ville')}
+                onClick={() => openTab('/ville', 'Villes')}
               >
                 {compactNavButtons ? <LocationCityRoundedIcon /> : 'Villes'}
               </Button>
@@ -215,7 +440,7 @@ export function AdminLayout() {
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Arbitres"
-                onClick={() => navigate('/arbitre')}
+                onClick={() => openTab('/arbitre', 'Arbitres')}
               >
                 {compactNavButtons ? <SportsIcon /> : 'Arbitres'}
               </Button>
@@ -233,7 +458,7 @@ export function AdminLayout() {
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Stades"
-                onClick={() => navigate('/terrain')}
+                onClick={() => openTab('/terrain', 'Stades')}
               >
                 {compactNavButtons ? <StadiumRoundedIcon /> : 'Stades'}
               </Button>
@@ -251,7 +476,7 @@ export function AdminLayout() {
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Devises"
-                onClick={() => navigate('/devise')}
+                onClick={() => openTab('/devise', 'Devises')}
               >
                 {compactNavButtons ? <EuroRoundedIcon /> : 'Devises'}
               </Button>
@@ -269,7 +494,7 @@ export function AdminLayout() {
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Circonstances"
-                onClick={() => navigate('/circ')}
+                onClick={() => openTab('/circ', 'Circonstances')}
               >
                 {compactNavButtons ? <EventNoteRoundedIcon /> : 'Circonstances'}
               </Button>
@@ -287,7 +512,7 @@ export function AdminLayout() {
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Épreuves"
-                onClick={() => navigate('/epreuve')}
+                onClick={() => openTab('/epreuve', 'Épreuves')}
               >
                 {compactNavButtons ? <EmojiEventsRoundedIcon /> : 'Épreuves'}
               </Button>
@@ -305,7 +530,7 @@ export function AdminLayout() {
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Calendrier"
-                onClick={() => navigate('/calendrier')}
+                onClick={() => openTab('/calendrier', 'Calendrier')}
               >
                 {compactNavButtons ? <CalendarMonthIcon /> : 'Calendrier'}
               </Button>
@@ -336,7 +561,7 @@ export function AdminLayout() {
                   aria-label={action.label}
                   onClick={() => {
                     if (action.path) {
-                      navigate(action.path);
+                      openTab(action.path, action.label);
                     }
                   }}
                 >
@@ -388,9 +613,101 @@ export function AdminLayout() {
         </Toolbar>
       </Box>
 
-      <Box sx={{ p: { xs: 1.5, md: 2.5 } }}>
-        <Outlet />
+      <Box sx={{ bgcolor: '#ffffff', borderBottom: '1px solid', borderColor: 'divider', px: 1.5 }}>
+        <Tabs
+          value={activeTabKey}
+          variant="scrollable"
+          scrollButtons="auto"
+          onChange={(_event, newValue: string) => {
+            const tab = tabs.find((item) => item.key === newValue);
+            if (!tab) return;
+            setActiveTabKey(tab.key);
+            navigate(tab.path);
+          }}
+        >
+          {tabs.map((tab) => (
+            <Tab
+              key={tab.key}
+              value={tab.key}
+              label={(
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                  <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
+                    {TAB_META[resolveTabMetaPath(tab.path)]?.icon ?? null}
+                  </Box>
+                  <span>{tab.label}</span>
+                  {dirtyTabsByPath[normalizeRoutePath(tab.path)] ? (
+                    <Box
+                      component="span"
+                      aria-label="Modifications non enregistrees"
+                      sx={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        bgcolor: 'warning.main',
+                        display: 'inline-block',
+                        ml: 0.25,
+                      }}
+                    />
+                  ) : null}
+                  {tab.closable ? (
+                    <IconButton
+                      size="small"
+                      aria-label={`Fermer ${tab.label}`}
+                      onMouseDown={(event) => event.stopPropagation()}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        closeTab(tab.key);
+                      }}
+                      sx={{ p: 0.1 }}
+                    >
+                      <CloseRoundedIcon sx={{ fontSize: 14 }} />
+                    </IconButton>
+                  ) : null}
+                </Box>
+              )}
+            />
+          ))}
+        </Tabs>
       </Box>
+
+      <Box sx={{ p: { xs: 1.5, md: 2.5 } }}>
+        {natioFormTabs.map((tab) => {
+          const encodedId = tab.path.slice('/admin/natio/'.length);
+          if (!encodedId) return null;
+          const decodedId = decodeURIComponent(encodedId);
+          return (
+            <NatioTabFormPane
+              key={tab.key}
+              tabPath={tab.path}
+              natioId={decodedId}
+              active={activeTabKey === tab.key}
+            />
+          );
+        })}
+        {!activeTabIsNatioForm ? <Outlet /> : null}
+      </Box>
+
+      <Dialog
+        open={natioModalOpen}
+        onClose={() => setNatioModalOpen(false)}
+        fullWidth
+        maxWidth="xl"
+      >
+        <DialogTitle sx={{ pr: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+              <FlagRoundedIcon sx={{ fontSize: 18 }} />
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>Sélectionner un Pays</Typography>
+            </Box>
+            <IconButton aria-label="Fermer la liste des pays" onClick={() => setNatioModalOpen(false)}>
+              <CloseRoundedIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6' }}>
+          <NatioPage variant="modalPicker" onOpenInTab={handleOpenNatioInTab} />
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 }

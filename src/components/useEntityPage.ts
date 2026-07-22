@@ -87,12 +87,24 @@ export function useEntityPage<Row extends Record<string, unknown>>(
     setDialogOpen(true);
   };
 
-  const openEditDialog = async (rowId?: GridRowId) => {
+  const openEditDialog = async (
+    rowId?: GridRowId,
+    options?: { preloadedRow?: Row },
+  ) => {
     const selectedId = rowId ?? selection.at(0);
     if (selectedId === undefined || selectedId === null) {
       setSnackbar({ severity: 'error', message: labels.selectToOpen });
       return;
     }
+
+    if (options?.preloadedRow) {
+      setDialogMode('edit');
+      setActiveRow(options.preloadedRow);
+      setSelection([selectedId]);
+      setDialogOpen(true);
+      return;
+    }
+
     try {
       const row = await api.fetchById(selectedId as string | number);
       setDialogMode('edit');

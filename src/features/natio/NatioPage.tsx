@@ -16,7 +16,30 @@ function detectPrimaryKey(rows: NatioRow[]): string | undefined {
   return candidate ?? keys[0];
 }
 
-export function NatioPage() {
+interface NatioPageProps {
+  variant?: 'page' | 'modalPicker';
+  onOpenInTab?: (payload: { rowId: GridRowId; label: string }) => void;
+}
+
+function toComparableId(value: unknown): string {
+  return String(value);
+}
+
+function resolveNatioLabel(row: NatioRow): string {
+  const preferred = ['PAYS', 'NOM', 'NATIO_NOM', 'NATIO', 'IDNATIO', 'CODE'];
+  for (const field of preferred) {
+    const value = row[field];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+    if (typeof value === 'number') {
+      return String(value);
+    }
+  }
+  return 'Pays';
+}
+
+export function NatioPage({ variant = 'page', onOpenInTab }: NatioPageProps) {
   const page = useEntityPage<NatioRow>(
     {
       fetchAll: fetchNatio,
@@ -74,15 +97,46 @@ export function NatioPage() {
     return JSON.stringify(row);
   };
 
+  const openInTabFromRowId = (rowId: GridRowId) => {
+    if (!onOpenInTab) return;
+    const selectedRow = page.rows.find((row) => toComparableId(getRowId(row)) === toComparableId(rowId));
+    const label = selectedRow ? resolveNatioLabel(selectedRow) : String(rowId);
+    onOpenInTab({ rowId, label });
+  };
+
+  const handleOpen = () => {
+    if (variant === 'modalPicker' && onOpenInTab) {
+      const selectedId = page.selection.at(0);
+      if (selectedId === undefined || selectedId === null) {
+        page.setSnackbar({ severity: 'error', message: 'Selectionnez un pays a ouvrir.' });
+        return;
+      }
+      openInTabFromRowId(selectedId);
+      return;
+    }
+
+    void page.openEditDialog();
+  };
+
+  const handleRowDoubleClick = (rowId: GridRowId) => {
+    if (variant === 'modalPicker' && onOpenInTab) {
+      openInTabFromRowId(rowId);
+      return;
+    }
+    void page.openEditDialog(rowId);
+  };
+
   return (
     <EntityPageLayout
+      hideTitle={variant === 'modalPicker'}
+      actionsInlineWithSearch={variant === 'modalPicker'}
       title="Pays"
       searchLabel="Rechercher un pays"
       search={page.search}
       onSearchChange={page.setSearch}
       searchInputRef={page.searchInputRef}
       onNew={page.openCreateDialog}
-      onOpen={() => void page.openEditDialog()}
+      onOpen={handleOpen}
       onDelete={() => void page.handleOpenDeleteConfirm()}
       actionButtonsRowRef={page.actionButtonsRowRef}
       compactActionButtons={page.compactActionButtons}
@@ -92,7 +146,7 @@ export function NatioPage() {
       getRowId={getRowId}
       selection={page.selection}
       onSelectionChange={page.setSelection}
-      onRowDoubleClick={(rowId) => void page.openEditDialog(rowId)}
+      onRowDoubleClick={handleRowDoubleClick}
       confirmDeleteOpen={page.confirmDeleteOpen}
       deleteConstraints={page.deleteConstraints}
       entityDescription="ce pays"
@@ -105,7 +159,9 @@ export function NatioPage() {
           fields={formFields}
           primaryKey={primaryKey}
           initialData={page.activeRow}
-          onClose={() => page.setDialogOpen(false)}
+          onClose={() => {
+            page.setDialogOpen(false);
+          }}
           onSubmit={page.handleFormSubmit}
         />
       }

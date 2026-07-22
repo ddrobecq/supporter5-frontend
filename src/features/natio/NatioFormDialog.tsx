@@ -1,4 +1,5 @@
 import {
+  Button,
   Box,
   FormControlLabel,
   IconButton,
@@ -88,9 +89,11 @@ function asPreviewSrc(value: unknown): string {
 interface NatioFormDialogProps {
   open: boolean;
   mode: 'create' | 'edit';
+  embedded?: boolean;
   fields: string[];
   primaryKey?: string;
   initialData?: NatioRow;
+  onDirtyChange?: (dirty: boolean) => void;
   onClose: () => void;
   onSubmit: (payload: NatioRow) => Promise<void>;
 }
@@ -98,9 +101,11 @@ interface NatioFormDialogProps {
 export function NatioFormDialog({
   open,
   mode,
+  embedded = false,
   fields,
   primaryKey,
   initialData,
+  onDirtyChange,
   onClose,
   onSubmit,
 }: NatioFormDialogProps) {
@@ -108,6 +113,7 @@ export function NatioFormDialog({
   const [saving, setSaving] = useState(false);
   const [flagPreview, setFlagPreview] = useState('');
   const [flagSvgContent, setFlagSvgContent] = useState('');
+  const [initialSignature, setInitialSignature] = useState('');
 
   const labelsByField: Record<string, string> = {
     IDNATIO: 'Code',
@@ -158,11 +164,22 @@ export function NatioFormDialog({
     for (const field of resolvedFields) {
       initial[field] = (initialData?.[field] as string | number | null | undefined) ?? '';
     }
-    setValues(initial);
+
     const rawFlagValue = initial.NAT_DRAPEAU;
-    setFlagSvgContent(asSvgText(rawFlagValue));
+    const resolvedSvg = asSvgText(rawFlagValue);
+    setValues(initial);
+    setFlagSvgContent(resolvedSvg);
     setFlagPreview(asPreviewSrc(rawFlagValue));
+
+    const signature = JSON.stringify({ ...initial, NAT_DRAPEAU: resolvedSvg.trim() || '' });
+    setInitialSignature(signature);
   }, [open, resolvedFields, initialData]);
+
+  useEffect(() => {
+    if (!open || !initialSignature) return;
+    const currentSignature = JSON.stringify({ ...values, NAT_DRAPEAU: flagSvgContent.trim() || '' });
+    onDirtyChange?.(currentSignature !== initialSignature);
+  }, [open, initialSignature, values, flagSvgContent, onDirtyChange]);
 
   const handleFlagFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -194,19 +211,14 @@ export function NatioFormDialog({
         }
       }
       await onSubmit(payload);
+      onDirtyChange?.(false);
     } finally {
       setSaving(false);
     }
   };
 
-  return (
-    <EntityFormDialog
-      open={open}
-      onClose={onClose}
-      title={mode === 'create' ? 'Nouveau Pays' : 'Modifier un Pays'}
-      saving={saving}
-      onSave={() => void handleSave()}
-    >
+  const content = (
+    <>
       <Box
               sx={{
                 display: 'grid',
@@ -340,6 +352,35 @@ export function NatioFormDialog({
           size="small"
         />
       ))}
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <Box sx={{ bgcolor: '#ffffff', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+        <Stack spacing={2}>
+          {content}
+          <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+            <Button onClick={onClose} color="inherit">Annuler</Button>
+            <Button onClick={() => void handleSave()} variant="contained" disabled={saving}>
+              {saving ? 'Enregistrement...' : 'Enregistrer'}
+            </Button>
+          </Stack>
+        </Stack>
+      </Box>
+    );
+  }
+
+  return (
+    <EntityFormDialog
+      open={open}
+      onClose={onClose}
+      title={mode === 'create' ? 'Nouveau Pays' : 'Modifier un Pays'}
+      saving={saving}
+      onSave={() => void handleSave()}
+      saveLabel="Enregistrer"
+    >
+      {content}
     </EntityFormDialog>
   );
 }
