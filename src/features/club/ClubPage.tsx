@@ -5,11 +5,16 @@ import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
 import type { IntegrityConstraint } from '../../components/EntityPageLayout';
 import { toErrorMessage } from '../../components/useEntityPage';
-import { canDeleteClub, deleteClub, fetchClubsGrid } from './clubApi';
+import { canDeleteClub, createClubWithWizard, deleteClub, fetchClubsGrid } from './clubApi';
 import { ClubCreateDialog } from './ClubCreateDialog';
-import type { ClubGridRow } from './types';
+import type { ClubCreateWizardPayload, ClubGridRow } from './types';
 
-export function ClubPage() {
+interface ClubPageProps {
+  variant?: 'page' | 'modalPicker';
+  onOpenInTab?: (payload: { rowId: GridRowId; label: string }) => void;
+}
+
+export function ClubPage({ variant = 'page', onOpenInTab }: ClubPageProps) {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const actionButtonsRowRef = useRef<HTMLDivElement | null>(null);
   const [rows, setRows] = useState<ClubGridRow[]>([]);
@@ -87,19 +92,52 @@ export function ClubPage() {
     setSearch(value);
   };
 
+  const openInTabFromRowId = (rowId: GridRowId) => {
+    if (!onOpenInTab) return;
+    const selectedRow = rows.find((row) => String(row.IDCLUB) === String(rowId));
+    const label = selectedRow
+      ? String(selectedRow.CLUB_NOM_COMPLET ?? '').trim() || String(selectedRow.CLUB_ABREGE ?? '').trim() || String(rowId)
+      : String(rowId);
+    onOpenInTab({ rowId, label });
+  };
+
   const handleActionNotImplemented = () => {
+    if (variant === 'modalPicker' && onOpenInTab) {
+      const selectedId = selection.at(0);
+      if (selectedId === undefined || selectedId === null) {
+        setSnackbar({ severity: 'error', message: 'Selectionnez un club a ouvrir.' });
+        return;
+      }
+      openInTabFromRowId(selectedId);
+      return;
+    }
+
     setSnackbar({
       severity: 'error',
       message: 'Action Ouvrir a implementer pour Clubs.',
     });
   };
 
-  const handleNextCreate = (name: string) => {
-    if (!name.trim()) {
-      setSnackbar({ severity: 'error', message: 'Le nom du club est requis.' });
+  const handleCreateClub = async (payload: ClubCreateWizardPayload) => {
+    const created = await createClubWithWizard(payload);
+
+    setLoading(true);
+    try {
+      const result = await fetchClubsGrid(search.trim());
+      setRows(result.data ?? []);
+    } finally {
+      setLoading(false);
+    }
+
+    setSnackbar({ severity: 'success', message: 'Club cree.' });
+
+    if (variant === 'modalPicker' && onOpenInTab) {
+      const label = String(created.CLUB_NOM_COMPLET ?? '').trim() || String(created.CLUB_ABREGE ?? '').trim() || String(created.IDCLUB);
+      onOpenInTab({ rowId: created.IDCLUB, label });
       return;
     }
-    setSnackbar({ severity: 'success', message: 'Etape suivante a venir (bouton Suivant).' });
+
+    setSelection([created.IDCLUB]);
   };
 
   const handleOpenDeleteConfirm = async () => {
@@ -148,6 +186,8 @@ export function ClubPage() {
 
   return (
     <EntityPageLayout
+      hideTitle={variant === 'modalPicker'}
+      actionsInlineWithSearch={variant === 'modalPicker'}
       title="Clubs"
       searchLabel="Rechercher un club"
       search={search}
@@ -165,6 +205,10 @@ export function ClubPage() {
       selection={selection}
       onSelectionChange={setSelection}
       onRowDoubleClick={(rowId) => {
+        if (variant === 'modalPicker' && onOpenInTab) {
+          openInTabFromRowId(rowId);
+          return;
+        }
         const row = rows.find((item) => item.IDCLUB === rowId);
         if (row) {
           setSelection([row.IDCLUB]);
@@ -180,7 +224,15 @@ export function ClubPage() {
         <ClubCreateDialog
           open={createDialogOpen}
           onClose={() => setCreateDialogOpen(false)}
-          onNext={handleNextCreate}
+          onCreate={async (payload) => {
+            try {
+              await handleCreateClub(payload);
+              setCreateDialogOpen(false);
+            } catch (error) {
+              setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+              throw error;
+            }
+          }}
           onError={(message) => setSnackbar({ severity: 'error', message })}
         />
       )}

@@ -45,6 +45,14 @@ import { DevisePage } from '../features/devise/DevisePage';
 import { DeviseTabFormPane } from '../features/devise/DeviseTabFormPane';
 import { CircPage } from '../features/circ/CircPage';
 import { CircTabFormPane } from '../features/circ/CircTabFormPane';
+import { ClubPage } from '../features/club/ClubPage';
+import { ClubTabFormPane } from '../features/club/ClubTabFormPane';
+import { ArbitrePage } from '../features/arbitre/ArbitrePage';
+import { ArbitreTabFormPane } from '../features/arbitre/ArbitreTabFormPane';
+import { EpreuvePage } from '../features/epreuve/EpreuvePage';
+import { EpreuveTabFormPane } from '../features/epreuve/EpreuveTabFormPane';
+import { JoueurPage } from '../features/joueur/JoueurPage';
+import { JoueurTabFormPane } from '../features/joueur/JoueurTabFormPane';
 
 const QUICK_ACTIONS = [
   { label: 'Joueurs', icon: <PeopleRoundedIcon />, path: '/joueurs' },
@@ -120,6 +128,10 @@ function normalizeRoutePath(path: string): string {
 
 function resolveTabMetaPath(path: string): string {
   const normalized = normalizeRoutePath(path);
+  if (normalized.startsWith('/admin/arbitre/')) return '/admin/arbitre';
+  if (normalized.startsWith('/admin/epreuve/')) return '/admin/epreuve';
+  if (normalized.startsWith('/admin/joueurs/')) return '/admin/joueurs';
+  if (normalized.startsWith('/admin/clubs/')) return '/admin/clubs';
   if (normalized.startsWith('/admin/natio/')) return '/admin/natio';
   if (normalized.startsWith('/admin/ville/')) return '/admin/ville';
   if (normalized.startsWith('/admin/terrain/')) return '/admin/terrain';
@@ -141,6 +153,10 @@ export function AdminLayout() {
   const [terrainModalOpen, setTerrainModalOpen] = useState(false);
   const [deviseModalOpen, setDeviseModalOpen] = useState(false);
   const [circModalOpen, setCircModalOpen] = useState(false);
+  const [clubModalOpen, setClubModalOpen] = useState(false);
+  const [arbitreModalOpen, setArbitreModalOpen] = useState(false);
+  const [epreuveModalOpen, setEpreuveModalOpen] = useState(false);
+  const [joueurModalOpen, setJoueurModalOpen] = useState(false);
   const [dirtyTabsByPath, setDirtyTabsByPath] = useState<Record<string, boolean>>({});
   const tabCounterRef = useRef(0);
   const [tabs, setTabs] = useState<NavTab[]>([
@@ -154,21 +170,29 @@ export function AdminLayout() {
   const [activeTabKey, setActiveTabKey] = useState<string | false>(HOME_TAB_KEY);
   const isHomeActive = location.pathname === '/admin/home' || location.pathname === '/accueil';
   const isCalendrierActive = location.pathname === '/admin/calendrier' || location.pathname === '/calendrier';
-  const isJoueursActive = location.pathname === '/admin/joueurs' || location.pathname === '/joueurs';
-  const isClubsActive = location.pathname === '/admin/clubs' || location.pathname === '/clubs';
+  const isJoueursActive = location.pathname === '/admin/joueurs' || location.pathname === '/joueurs' || location.pathname.startsWith('/admin/joueurs/');
+  const isClubsActive = location.pathname === '/admin/clubs' || location.pathname === '/clubs' || location.pathname.startsWith('/admin/clubs/');
   const isNatioActive = location.pathname === '/admin/natio' || location.pathname === '/natio' || location.pathname.startsWith('/admin/natio/');
   const isVilleActive = location.pathname === '/admin/ville' || location.pathname === '/ville' || location.pathname.startsWith('/admin/ville/');
-  const isArbitreActive = location.pathname === '/admin/arbitre' || location.pathname === '/arbitre';
+  const isArbitreActive = location.pathname === '/admin/arbitre' || location.pathname === '/arbitre' || location.pathname.startsWith('/admin/arbitre/');
   const isTerrainActive = location.pathname === '/admin/terrain' || location.pathname === '/terrain' || location.pathname.startsWith('/admin/terrain/');
   const isDeviseActive = location.pathname === '/admin/devise' || location.pathname === '/devise' || location.pathname.startsWith('/admin/devise/');
   const isCircActive = location.pathname === '/admin/circ' || location.pathname === '/circ' || location.pathname.startsWith('/admin/circ/');
-  const isEpreuveActive = location.pathname === '/admin/epreuve' || location.pathname === '/epreuve';
+  const isEpreuveActive = location.pathname === '/admin/epreuve' || location.pathname === '/epreuve' || location.pathname.startsWith('/admin/epreuve/');
   const activeTab = typeof activeTabKey === 'string' ? tabs.find((tab) => tab.key === activeTabKey) : undefined;
   const activeTabIsNatioForm = Boolean(activeTab?.path.startsWith('/admin/natio/')) || location.pathname.startsWith('/admin/natio/');
   const activeTabIsVilleForm = Boolean(activeTab?.path.startsWith('/admin/ville/')) || location.pathname.startsWith('/admin/ville/');
   const activeTabIsTerrainForm = Boolean(activeTab?.path.startsWith('/admin/terrain/')) || location.pathname.startsWith('/admin/terrain/');
   const activeTabIsDeviseForm = Boolean(activeTab?.path.startsWith('/admin/devise/')) || location.pathname.startsWith('/admin/devise/');
   const activeTabIsCircForm = Boolean(activeTab?.path.startsWith('/admin/circ/')) || location.pathname.startsWith('/admin/circ/');
+  const activeTabIsClubForm = Boolean(activeTab?.path.startsWith('/admin/clubs/')) || location.pathname.startsWith('/admin/clubs/');
+  const activeTabIsArbitreForm = Boolean(activeTab?.path.startsWith('/admin/arbitre/')) || location.pathname.startsWith('/admin/arbitre/');
+  const activeTabIsEpreuveForm = Boolean(activeTab?.path.startsWith('/admin/epreuve/')) || location.pathname.startsWith('/admin/epreuve/');
+  const activeTabIsJoueurForm = Boolean(activeTab?.path.startsWith('/admin/joueurs/')) || location.pathname.startsWith('/admin/joueurs/');
+  const arbitreFormTabs = tabs.filter((tab) => tab.path.startsWith('/admin/arbitre/'));
+  const epreuveFormTabs = tabs.filter((tab) => tab.path.startsWith('/admin/epreuve/'));
+  const joueurFormTabs = tabs.filter((tab) => tab.path.startsWith('/admin/joueurs/'));
+  const clubFormTabs = tabs.filter((tab) => tab.path.startsWith('/admin/clubs/'));
   const natioFormTabs = tabs.filter((tab) => tab.path.startsWith('/admin/natio/'));
   const villeFormTabs = tabs.filter((tab) => tab.path.startsWith('/admin/ville/'));
   const terrainFormTabs = tabs.filter((tab) => tab.path.startsWith('/admin/terrain/'));
@@ -337,6 +361,26 @@ export function AdminLayout() {
     openTab(`/admin/circ/${encodeURIComponent(String(rowId))}`, label, { unique: true, uniqueByPath: true });
   };
 
+  const handleOpenClubInTab = ({ rowId, label }: { rowId: GridRowId; label: string }) => {
+    setClubModalOpen(false);
+    openTab(`/admin/clubs/${encodeURIComponent(String(rowId))}`, label, { unique: true, uniqueByPath: true });
+  };
+
+  const handleOpenArbitreInTab = ({ rowId, label }: { rowId: GridRowId; label: string }) => {
+    setArbitreModalOpen(false);
+    openTab(`/admin/arbitre/${encodeURIComponent(String(rowId))}`, label, { unique: true, uniqueByPath: true });
+  };
+
+  const handleOpenEpreuveInTab = ({ rowId, label }: { rowId: GridRowId; label: string }) => {
+    setEpreuveModalOpen(false);
+    openTab(`/admin/epreuve/${encodeURIComponent(String(rowId))}`, label, { unique: true, uniqueByPath: true });
+  };
+
+  const handleOpenJoueurInTab = ({ rowId, label }: { rowId: GridRowId; label: string }) => {
+    setJoueurModalOpen(false);
+    openTab(`/admin/joueurs/${encodeURIComponent(String(rowId))}`, label, { unique: true, uniqueByPath: true });
+  };
+
   useEffect(() => {
     const area = searchAreaRef.current;
     if (!area) return;
@@ -478,7 +522,7 @@ export function AdminLayout() {
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Arbitres"
-                onClick={() => openTab('/arbitre', 'Arbitres')}
+                onClick={() => setArbitreModalOpen(true)}
               >
                 {compactNavButtons ? <SportsIcon /> : 'Arbitres'}
               </Button>
@@ -550,7 +594,7 @@ export function AdminLayout() {
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Épreuves"
-                onClick={() => openTab('/epreuve', 'Épreuves')}
+                onClick={() => setEpreuveModalOpen(true)}
               >
                 {compactNavButtons ? <EmojiEventsRoundedIcon /> : 'Épreuves'}
               </Button>
@@ -599,7 +643,13 @@ export function AdminLayout() {
                   aria-label={action.label}
                   onClick={() => {
                     if (action.path) {
-                      openTab(action.path, action.label);
+                      if (action.path === '/clubs') {
+                        setClubModalOpen(true);
+                      } else if (action.path === '/joueurs') {
+                        setJoueurModalOpen(true);
+                      } else {
+                        openTab(action.path, action.label);
+                      }
                     }
                   }}
                 >
@@ -709,6 +759,58 @@ export function AdminLayout() {
       </Box>
 
       <Box sx={{ p: { xs: 1.5, md: 2.5 } }}>
+        {arbitreFormTabs.map((tab) => {
+          const encodedId = tab.path.slice('/admin/arbitre/'.length);
+          if (!encodedId) return null;
+          const decodedId = decodeURIComponent(encodedId);
+          return (
+            <ArbitreTabFormPane
+              key={tab.key}
+              tabPath={tab.path}
+              arbitreId={decodedId}
+              active={activeTabKey === tab.key}
+            />
+          );
+        })}
+        {epreuveFormTabs.map((tab) => {
+          const encodedId = tab.path.slice('/admin/epreuve/'.length);
+          if (!encodedId) return null;
+          const decodedId = decodeURIComponent(encodedId);
+          return (
+            <EpreuveTabFormPane
+              key={tab.key}
+              tabPath={tab.path}
+              epreuveId={decodedId}
+              active={activeTabKey === tab.key}
+            />
+          );
+        })}
+        {joueurFormTabs.map((tab) => {
+          const encodedId = tab.path.slice('/admin/joueurs/'.length);
+          if (!encodedId) return null;
+          const decodedId = decodeURIComponent(encodedId);
+          return (
+            <JoueurTabFormPane
+              key={tab.key}
+              tabPath={tab.path}
+              joueurId={decodedId}
+              active={activeTabKey === tab.key}
+            />
+          );
+        })}
+        {clubFormTabs.map((tab) => {
+          const encodedId = tab.path.slice('/admin/clubs/'.length);
+          if (!encodedId) return null;
+          const decodedId = decodeURIComponent(encodedId);
+          return (
+            <ClubTabFormPane
+              key={tab.key}
+              tabPath={tab.path}
+              clubId={decodedId}
+              active={activeTabKey === tab.key}
+            />
+          );
+        })}
         {natioFormTabs.map((tab) => {
           const encodedId = tab.path.slice('/admin/natio/'.length);
           if (!encodedId) return null;
@@ -776,12 +878,104 @@ export function AdminLayout() {
         })}
         {!(
           activeTabIsNatioForm
+          || activeTabIsClubForm
+          || activeTabIsArbitreForm
+          || activeTabIsEpreuveForm
+          || activeTabIsJoueurForm
           || activeTabIsVilleForm
           || activeTabIsTerrainForm
           || activeTabIsDeviseForm
           || activeTabIsCircForm
         ) ? <Outlet /> : null}
       </Box>
+
+      <Dialog
+        open={joueurModalOpen}
+        onClose={() => setJoueurModalOpen(false)}
+        fullWidth
+        maxWidth="xl"
+      >
+        <DialogTitle sx={{ pr: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+              <PeopleRoundedIcon sx={{ fontSize: 18 }} />
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>Selectionner un Joueur</Typography>
+            </Box>
+            <IconButton aria-label="Fermer la liste des joueurs" onClick={() => setJoueurModalOpen(false)}>
+              <CloseRoundedIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6' }}>
+          <JoueurPage variant="modalPicker" onOpenInTab={handleOpenJoueurInTab} />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={arbitreModalOpen}
+        onClose={() => setArbitreModalOpen(false)}
+        fullWidth
+        maxWidth="xl"
+      >
+        <DialogTitle sx={{ pr: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+              <SportsIcon sx={{ fontSize: 18 }} />
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>Selectionner un Arbitre</Typography>
+            </Box>
+            <IconButton aria-label="Fermer la liste des arbitres" onClick={() => setArbitreModalOpen(false)}>
+              <CloseRoundedIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6' }}>
+          <ArbitrePage variant="modalPicker" onOpenInTab={handleOpenArbitreInTab} />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={epreuveModalOpen}
+        onClose={() => setEpreuveModalOpen(false)}
+        fullWidth
+        maxWidth="xl"
+      >
+        <DialogTitle sx={{ pr: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+              <EmojiEventsRoundedIcon sx={{ fontSize: 18 }} />
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>Selectionner une Epreuve</Typography>
+            </Box>
+            <IconButton aria-label="Fermer la liste des epreuves" onClick={() => setEpreuveModalOpen(false)}>
+              <CloseRoundedIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6' }}>
+          <EpreuvePage variant="modalPicker" onOpenInTab={handleOpenEpreuveInTab} />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={clubModalOpen}
+        onClose={() => setClubModalOpen(false)}
+        fullWidth
+        maxWidth="xl"
+      >
+        <DialogTitle sx={{ pr: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+              <ShieldRoundedIcon sx={{ fontSize: 18 }} />
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>Selectionner un Club</Typography>
+            </Box>
+            <IconButton aria-label="Fermer la liste des clubs" onClick={() => setClubModalOpen(false)}>
+              <CloseRoundedIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6' }}>
+          <ClubPage variant="modalPicker" onOpenInTab={handleOpenClubInTab} />
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={natioModalOpen}

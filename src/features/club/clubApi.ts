@@ -1,6 +1,6 @@
 import { env } from '../../config/env';
 import { http } from '../../lib/http';
-import type { ClubGridRow, ClubSuggestionRow, GridResponse } from './types';
+import type { ClubCreateWizardPayload, ClubGridRow, ClubSuggestionRow, GridResponse } from './types';
 
 export interface IntegrityConstraint {
   table: string;
@@ -47,6 +47,17 @@ export async function fetchClubsGrid(
   }
 }
 
+export async function fetchClubGridById(
+  id: string,
+  signal?: AbortSignal,
+): Promise<ClubGridRow> {
+  const { data } = await http.get<ClubGridRow>(`${env.clubPublicResource}/grid/${encodeURIComponent(id)}`, {
+    signal,
+    timeout: 30000,
+  });
+  return data;
+}
+
 export async function canDeleteClub(id: string | number): Promise<CanDeleteResponse> {
   const { data } = await http.get<CanDeleteResponse>(`${env.clubAdminResource}/${id}/can-delete`);
   return data;
@@ -70,5 +81,10 @@ export async function fetchClubSuggestions(
     signal,
     timeout: 30000,
   });
+  return data;
+}
+
+export async function createClubWithWizard(payload: ClubCreateWizardPayload): Promise<ClubGridRow> {
+  const { data } = await http.post<ClubGridRow>(`${env.clubAdminResource}/wizard-create`, payload);
   return data;
 }

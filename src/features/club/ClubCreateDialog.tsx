@@ -1,41 +1,62 @@
 import {
   Collapse,
   Box,
+  Button,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControlLabel,
   IconButton,
   List,
   ListItem,
   ListItemButton,
   ListItemText,
   Paper,
+  Switch,
   TextField,
   Typography,
 } from '@mui/material';
+import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import InputAdornment from '@mui/material/InputAdornment';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import RemoveRoundedIcon from '@mui/icons-material/RemoveRounded';
 import axios from 'axios';
 import { useEffect, useRef, useState } from 'react';
-import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { fetchClubSuggestions } from './clubApi';
-import type { ClubSuggestionRow } from './types';
+import { fetchNatio } from '../natio/natioApi';
+import { TerrainVilleSelector } from '../terrain/TerrainVilleSelector';
+import type { NatioRow } from '../natio/types';
+import type { ClubCreateWizardPayload, ClubSuggestionRow } from './types';
 
 interface ClubCreateDialogProps {
   open: boolean;
   onClose: () => void;
-  onNext: (name: string) => void;
+  onCreate: (payload: ClubCreateWizardPayload) => Promise<void>;
   onError: (message: string) => void;
 }
 
 export function ClubCreateDialog({
   open,
   onClose,
-  onNext,
+  onCreate,
   onError,
 }: ClubCreateDialogProps) {
   const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const countryInputRef = useRef<HTMLInputElement | null>(null);
+  const [step, setStep] = useState<1 | 2>(1);
+  const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
+  const [natioId, setNatioId] = useState('');
+  const [isSelection, setIsSelection] = useState(false);
+  const [villeId, setVilleId] = useState('');
+  const [villeName, setVilleName] = useState('');
+  const [villeSelectorOpen, setVilleSelectorOpen] = useState(false);
+  const [natioRows, setNatioRows] = useState<NatioRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingNatio, setLoadingNatio] = useState(false);
   const [suggestions, setSuggestions] = useState<ClubSuggestionRow[]>([]);
   const [expandedClubId, setExpandedClubId] = useState<string | null>(null);
   const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
@@ -51,11 +72,41 @@ export function ClubCreateDialog({
 
   useEffect(() => {
     if (!open) {
+      setStep(1);
+      setSaving(false);
       setName('');
+      setNatioId('');
+      setIsSelection(false);
+      setVilleId('');
+      setVilleName('');
+      setNatioRows([]);
       setSuggestions([]);
       setExpandedClubId(null);
       setSelectedClubId(null);
       setLoading(false);
+      setLoadingNatio(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setLoadingNatio(true);
+    void fetchNatio('', controller.signal)
+      .then((result) => {
+        setNatioRows(result.data ?? []);
+      })
+      .catch((error: unknown) => {
+        if (axios.isAxiosError(error) && error.code === 'ERR_CANCELED') {
+          return;
+        }
+        onError(toErrorMessage(error));
+      })
+      .finally(() => setLoadingNatio(false));
+
+    return () => controller.abort();
+  }, [onError, open]);
+
+  useEffect(() => {
+    if (!open || step !== 1) {
       return;
     }
 
@@ -90,20 +141,103 @@ export function ClubCreateDialog({
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [name, onError, open]);
+  }, [name, onError, open, step]);
+
+  useEffect(() => {
+    if (!open || step !== 2) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      countryInputRef.current?.focus();
+    }, 10);
+    return () => window.clearTimeout(timer);
+  }, [open, step]);
 
   const canGoNext = name.trim().length > 0;
+  const canCreate = name.trim().length > 0 && natioId.trim().length > 0 && (isSelection || villeId.trim().length > 0);
+
+  const handleNext = () => {
+    if (!canGoNext) {
+      onError('Le nom du club est requis.');
+      return;
+    }
+    setStep(2);
+  };
+
+  const handleCreate = async () => {
+    if (!natioId.trim()) {
+      onError('Le pays est requis.');
+      return;
+    }
+    if (!isSelection && !villeId.trim()) {
+      onError('La ville est requise si le club nest pas une selection nationale.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await onCreate({
+        name: name.trim(),
+        natioId: natioId.trim().toUpperCase(),
+        isSelection,
+        villeId: villeId.trim() || undefined,
+      });
+      onClose();
+    } catch (error) {
+      onError(toErrorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePrimaryAction = () => {
+    if (step === 1) {
+      handleNext();
+      return;
+    }
+    void handleCreate();
+  };
+
+  const handleDialogKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!saving) {
+        onClose();
+      }
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === 'textarea') return;
+      event.preventDefault();
+      if (!saving) {
+        handlePrimaryAction();
+      }
+    }
+  };
+
+  const countryOptions = natioRows
+    .map((row) => ({
+      id: String(row.IDNATIO ?? row.ID ?? '').trim(),
+      label: String(row.PAYS ?? row.NOM ?? '').trim(),
+    }))
+    .filter((row) => row.id.length > 0)
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  const selectedCountry = countryOptions.find((option) => option.id === natioId) ?? null;
+
+  const showSuggestions = step === 1;
 
   return (
-    <EntityFormDialog
-      open={open}
-      onClose={onClose}
-      title="Nouveau Club"
-      onSave={() => onNext(name.trim())}
-      saveLabel="Suivant"
-      cancelLabel="Annuler"
-      saving={false}
-    >
+    <>
+      <Dialog open={open} onClose={() => { if (!saving) onClose(); }} fullWidth maxWidth="sm" onKeyDown={handleDialogKeyDown}>
+        <DialogTitle>Nouveau Club</DialogTitle>
+        <DialogContent sx={{ p: 0, overflowX: 'hidden' }}>
+          <Box sx={{ px: 3, pt: 1.5, pb: 1.5 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
       <TextField
         label="Nom"
         value={name}
@@ -114,7 +248,8 @@ export function ClubCreateDialog({
         autoFocus
       />
 
-      <Paper
+      {showSuggestions ? (
+        <Paper
         variant="outlined"
         sx={{
           minHeight: 220,
@@ -275,12 +410,97 @@ export function ClubCreateDialog({
           </List>
         )}
       </Paper>
+      ) : (
+        <>
+          <TextField
+            select
+            label="Pays"
+            value={selectedCountry?.id ?? ''}
+            onChange={(event) => setNatioId(event.target.value)}
+            fullWidth
+            size="small"
+            inputRef={countryInputRef}
+            slotProps={{ select: { native: true } }}
+            disabled={loadingNatio}
+          >
+            <option value="">Selectionner un pays</option>
+            {countryOptions.map((option) => (
+              <option key={option.id} value={option.id}>{`${option.label} (${option.id})`}</option>
+            ))}
+          </TextField>
+
+          <FormControlLabel
+            label="Selection nationale"
+            control={<Switch checked={isSelection} onChange={(_, checked) => setIsSelection(checked)} />}
+            sx={{ ml: 0 }}
+          />
+
+          {!isSelection ? (
+            <TextField
+              label="Ville"
+              value={villeName || villeId}
+              fullWidth
+              size="small"
+              onContextMenu={(event) => {
+                event.preventDefault();
+                setVilleSelectorOpen(true);
+              }}
+              slotProps={{
+                input: {
+                  readOnly: true,
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Button
+                        size="small"
+                        variant="text"
+                        onClick={() => setVilleSelectorOpen(true)}
+                        sx={{ minWidth: 36, p: 0 }}
+                      >
+                        <EditRoundedIcon fontSize="small" />
+                      </Button>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+          ) : null}
+        </>
+      )}
 
       {!canGoNext ? (
         <Typography variant="caption" color="text.secondary">
           Saisissez un nom pour lancer la recherche de clubs approchants.
         </Typography>
       ) : null}
-    </EntityFormDialog>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, pt: 1, justifyContent: 'flex-end' }}>
+          <Button onClick={onClose} color="inherit" disabled={saving}>Annuler</Button>
+          {step === 2 ? (
+            <Button onClick={() => setStep(1)} color="inherit" disabled={saving}>Precedent</Button>
+          ) : null}
+          <Button
+            onClick={handlePrimaryAction}
+            variant="contained"
+            disabled={saving || (step === 1 ? !canGoNext : !canCreate)}
+          >
+            {saving ? 'Enregistrement...' : step === 1 ? 'Suivant' : 'Creer'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <TerrainVilleSelector
+        open={villeSelectorOpen}
+        onClose={() => setVilleSelectorOpen(false)}
+        onSelect={(ville) => {
+          const selectedVilleId = String(ville.VICLEUNIK ?? '').trim();
+          const selectedVilleName = String(ville.NOM ?? '').trim();
+          setVilleId(selectedVilleId);
+          setVilleName(selectedVilleName);
+          setVilleSelectorOpen(false);
+        }}
+      />
+    </>
   );
 }

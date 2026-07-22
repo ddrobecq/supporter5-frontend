@@ -1,5 +1,6 @@
 import {
   Box,
+  Button,
   FormControlLabel,
   IconButton,
   MenuItem,
@@ -25,6 +26,7 @@ const SCOPE_OPTIONS = [
 interface EpreuveFormDialogProps {
   open: boolean;
   mode: 'create' | 'edit';
+  embedded?: boolean;
   primaryKey?: string;
   initialData?: EpreuveRow;
   onClose: () => void;
@@ -43,6 +45,7 @@ function imageToDataUrl(file: File): Promise<string> {
 export function EpreuveFormDialog({
   open,
   mode,
+  embedded = false,
   primaryKey,
   initialData,
   onClose,
@@ -140,15 +143,8 @@ export function EpreuveFormDialog({
     }
   };
 
-  return (
-    <EntityFormDialog
-      open={open}
-      onClose={onClose}
-      title={mode === 'create' ? 'Nouvelle Épreuve' : 'Modifier une Épreuve'}
-      saving={saving}
-      onSave={() => void handleSave()}
-      maxWidth="lg"
-    >
+  const content = (
+    <>
       <Box
         sx={{
           display: 'grid',
@@ -263,6 +259,35 @@ export function EpreuveFormDialog({
           </Stack>
         </Box>
       </Box>
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <Box sx={{ bgcolor: '#ffffff', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+        <Stack spacing={2}>
+          {content}
+          <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+            <Button onClick={onClose} color="inherit">Annuler</Button>
+            <Button onClick={() => void handleSave()} variant="contained" disabled={saving}>
+              {saving ? 'Enregistrement...' : 'Enregistrer'}
+            </Button>
+          </Stack>
+        </Stack>
+      </Box>
+    );
+  }
+
+  return (
+    <EntityFormDialog
+      open={open}
+      onClose={onClose}
+      title={mode === 'create' ? 'Nouvelle Épreuve' : 'Modifier une Épreuve'}
+      saving={saving}
+      onSave={() => void handleSave()}
+      maxWidth="lg"
+    >
+      {content}
     </EntityFormDialog>
   );
 }

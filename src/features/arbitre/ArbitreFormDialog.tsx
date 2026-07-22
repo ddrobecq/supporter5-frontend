@@ -1,6 +1,7 @@
 import {
   Autocomplete,
   Box,
+  Button,
   Stack,
   TextField,
   IconButton,
@@ -17,6 +18,7 @@ import type { NatioRow } from '../natio/types';
 interface ArbitreFormDialogProps {
   open: boolean;
   mode: 'create' | 'edit';
+  embedded?: boolean;
   fields: string[];
   primaryKey?: string;
   initialData?: ArbitreRow;
@@ -42,6 +44,7 @@ function capitalizeFirstLetter(value: string): string {
 export function ArbitreFormDialog({
   open,
   mode,
+  embedded = false,
   fields,
   primaryKey,
   initialData,
@@ -194,14 +197,8 @@ export function ArbitreFormDialog({
     }
   };
 
-  return (
-    <EntityFormDialog
-      open={open}
-      onClose={onClose}
-      title={mode === 'create' ? 'Nouvel Arbitre' : 'Modifier un Arbitre'}
-      saving={saving}
-      onSave={() => void handleSave()}
-    >
+  const content = (
+    <>
             {/* Photo + Code en grille */}
             <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start' }}>
               {/* Photo portrait */}
@@ -385,6 +382,34 @@ export function ArbitreFormDialog({
                 size="small"
               />
             ))}
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <Box sx={{ bgcolor: '#ffffff', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+        <Stack spacing={2}>
+          {content}
+          <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+            <Button onClick={onClose} color="inherit">Annuler</Button>
+            <Button onClick={() => void handleSave()} variant="contained" disabled={saving}>
+              {saving ? 'Enregistrement...' : 'Enregistrer'}
+            </Button>
+          </Stack>
+        </Stack>
+      </Box>
+    );
+  }
+
+  return (
+    <EntityFormDialog
+      open={open}
+      onClose={onClose}
+      title={mode === 'create' ? 'Nouvel Arbitre' : 'Modifier un Arbitre'}
+      saving={saving}
+      onSave={() => void handleSave()}
+    >
+      {content}
     </EntityFormDialog>
   );
 }

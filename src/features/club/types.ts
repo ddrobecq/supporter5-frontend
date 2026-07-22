@@ -13,6 +13,13 @@ export interface ClubSuggestionRow {
   SCORE: number;
 }
 
+export interface ClubCreateWizardPayload {
+  name: string;
+  natioId: string;
+  isSelection: boolean;
+  villeId?: string;
+}
+
 export interface GridResponse<T> {
   data: T[];
 }

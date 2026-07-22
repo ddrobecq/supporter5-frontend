@@ -18,7 +18,12 @@ function detectPrimaryKey(rows: ArbitreRow[]): string | undefined {
   return candidate ?? keys[0];
 }
 
-export function ArbitrePage() {
+interface ArbitrePageProps {
+  variant?: 'page' | 'modalPicker';
+  onOpenInTab?: (payload: { rowId: GridRowId; label: string }) => void;
+}
+
+export function ArbitrePage({ variant = 'page', onOpenInTab }: ArbitrePageProps) {
   const [natioDatas, setNatioDatas] = useState<NatioRow[]>([]);
 
   const page = useEntityPage<ArbitreRow>(
@@ -74,15 +79,47 @@ export function ArbitrePage() {
     return JSON.stringify(row);
   };
 
+  const openInTabFromRowId = (rowId: GridRowId) => {
+    if (!onOpenInTab) return;
+    const selectedRow = page.rows.find((row) => String(getRowId(row)) === String(rowId));
+    const nom = String(selectedRow?.NOM ?? '').trim().toUpperCase();
+    const prenom = String(selectedRow?.PRENOM ?? '').trim();
+    const label = [nom, prenom].filter((part) => part.length > 0).join(' ').trim() || String(rowId);
+    onOpenInTab({ rowId, label });
+  };
+
+  const handleOpen = () => {
+    if (variant === 'modalPicker' && onOpenInTab) {
+      const selectedId = page.selection.at(0);
+      if (selectedId === undefined || selectedId === null) {
+        page.setSnackbar({ severity: 'error', message: 'Selectionnez un arbitre a ouvrir.' });
+        return;
+      }
+      openInTabFromRowId(selectedId);
+      return;
+    }
+    void page.openEditDialog();
+  };
+
+  const handleRowDoubleClick = (rowId: GridRowId) => {
+    if (variant === 'modalPicker' && onOpenInTab) {
+      openInTabFromRowId(rowId);
+      return;
+    }
+    void page.openEditDialog(rowId);
+  };
+
   return (
     <EntityPageLayout
+      hideTitle={variant === 'modalPicker'}
+      actionsInlineWithSearch={variant === 'modalPicker'}
       title="Arbitres"
       searchLabel="Rechercher un arbitre"
       search={page.search}
       onSearchChange={page.setSearch}
       searchInputRef={page.searchInputRef}
       onNew={page.openCreateDialog}
-      onOpen={() => void page.openEditDialog()}
+      onOpen={handleOpen}
       onDelete={() => void page.handleOpenDeleteConfirm()}
       actionButtonsRowRef={page.actionButtonsRowRef}
       compactActionButtons={page.compactActionButtons}
@@ -92,7 +129,7 @@ export function ArbitrePage() {
       getRowId={getRowId}
       selection={page.selection}
       onSelectionChange={page.setSelection}
-      onRowDoubleClick={(rowId) => void page.openEditDialog(rowId)}
+      onRowDoubleClick={handleRowDoubleClick}
       confirmDeleteOpen={page.confirmDeleteOpen}
       deleteConstraints={page.deleteConstraints}
       entityDescription="cet arbitre"

@@ -28,6 +28,7 @@ import type { JoueurHistoryRow, PosteOption, JoueurRow } from './types';
 interface JoueurFormDialogProps {
   open: boolean;
   mode: 'create' | 'edit';
+  embedded?: boolean;
   initialData?: JoueurRow;
   natioDatas: NatioRow[];
   posteOptions: PosteOption[];
@@ -111,6 +112,7 @@ function capitalize(value: string): string {
 export function JoueurFormDialog({
   open,
   mode,
+  embedded = false,
   initialData,
   natioDatas,
   posteOptions,
@@ -397,16 +399,8 @@ export function JoueurFormDialog({
     }
   };
 
-  return (
+  const content = (
     <>
-      <EntityFormDialog
-        open={open}
-        onClose={onClose}
-        title={mode === 'create' ? 'Nouveau Joueur' : 'Modifier un Joueur'}
-        saving={saving}
-        onSave={() => void handleSave()}
-        maxWidth="lg"
-      >
         <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} sx={{ alignItems: 'stretch' }}>
           <Stack spacing={2} sx={{ flex: 1, minWidth: 0 }}>
             <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start' }}>
@@ -736,7 +730,35 @@ export function JoueurFormDialog({
             </Box>
           </Box>
         </Stack>
-      </EntityFormDialog>
+    </>
+  );
+
+  return (
+    <>
+      {embedded ? (
+        <Box sx={{ bgcolor: '#ffffff', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+          <Stack spacing={2}>
+            {content}
+            <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+              <Button onClick={onClose} color="inherit">Annuler</Button>
+              <Button onClick={() => void handleSave()} variant="contained" disabled={saving}>
+                {saving ? 'Enregistrement...' : 'Enregistrer'}
+              </Button>
+            </Stack>
+          </Stack>
+        </Box>
+      ) : (
+        <EntityFormDialog
+          open={open}
+          onClose={onClose}
+          title={mode === 'create' ? 'Nouveau Joueur' : 'Modifier un Joueur'}
+          saving={saving}
+          onSave={() => void handleSave()}
+          maxWidth="lg"
+        >
+          {content}
+        </EntityFormDialog>
+      )}
 
       <TerrainVilleSelector
         open={villeSelectorOpen}

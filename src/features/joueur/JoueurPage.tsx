@@ -28,7 +28,12 @@ function detectSelectedRow(rows: JoueurGridRow[], selection: GridRowId[]): Joueu
   return rows.find((row) => row.JOCLEUNIK === selected);
 }
 
-export function JoueurPage() {
+interface JoueurPageProps {
+  variant?: 'page' | 'modalPicker';
+  onOpenInTab?: (payload: { rowId: GridRowId; label: string }) => void;
+}
+
+export function JoueurPage({ variant = 'page', onOpenInTab }: JoueurPageProps) {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const actionButtonsRowRef = useRef<HTMLDivElement | null>(null);
   const [compactActionButtons, setCompactActionButtons] = useState(false);
@@ -52,6 +57,17 @@ export function JoueurPage() {
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
 
   const selectedGridRow = useMemo(() => detectSelectedRow(rows, selection), [rows, selection]);
+
+  const openInTabFromRowId = (rowId: GridRowId) => {
+    if (!onOpenInTab) return;
+    const row = rows.find((item) => item.JOCLEUNIK === rowId);
+    if (!row) {
+      setSnackbar({ severity: 'error', message: 'Joueur introuvable dans la grille.' });
+      return;
+    }
+    const label = String(row.JOUEUR_NOM ?? '').trim() || String(row.IDJOUEUR);
+    onOpenInTab({ rowId: row.IDJOUEUR, label });
+  };
 
   const columns = useMemo<GridColDef<JoueurGridRow>[]>(() => [
     {
@@ -169,6 +185,16 @@ export function JoueurPage() {
   };
 
   const openEditDialog = async (rowId?: GridRowId) => {
+    if (variant === 'modalPicker' && onOpenInTab) {
+      const selectedId = rowId ?? selection.at(0);
+      if (selectedId === undefined || selectedId === null) {
+        setSnackbar({ severity: 'error', message: 'Selectionnez un joueur a ouvrir.' });
+        return;
+      }
+      openInTabFromRowId(selectedId);
+      return;
+    }
+
     const selectedId = rowId ?? selection.at(0);
     if (selectedId === undefined || selectedId === null) {
       setSnackbar({ severity: 'error', message: 'Selectionnez un joueur a ouvrir.' });
@@ -285,6 +311,8 @@ export function JoueurPage() {
   return (
     <>
       <EntityPageLayout
+        hideTitle={variant === 'modalPicker'}
+        actionsInlineWithSearch={variant === 'modalPicker'}
         title="Joueurs"
         searchLabel="Rechercher un joueur"
         search={search}
