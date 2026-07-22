@@ -1,6 +1,8 @@
 import {
   Button,
+  Box,
   InputAdornment,
+  Stack,
   TextField,
 } from '@mui/material';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
@@ -12,9 +14,11 @@ import { TerrainVilleSelector } from './TerrainVilleSelector';
 interface TerrainFormDialogProps {
   open: boolean;
   mode: 'create' | 'edit';
+  embedded?: boolean;
   fields: string[];
   primaryKey?: string;
   initialData?: TerrainRow;
+  onDirtyChange?: (dirty: boolean) => void;
   onClose: () => void;
   onSubmit: (payload: TerrainRow) => Promise<void>;
 }
@@ -22,15 +26,18 @@ interface TerrainFormDialogProps {
 export function TerrainFormDialog({
   open,
   mode,
+  embedded = false,
   fields,
   primaryKey,
   initialData,
+  onDirtyChange,
   onClose,
   onSubmit,
 }: TerrainFormDialogProps) {
   const [values, setValues] = useState<TerrainRow>({});
   const [saving, setSaving] = useState(false);
   const [villeSelectorOpen, setVilleSelectorOpen] = useState(false);
+  const [initialSignature, setInitialSignature] = useState('');
 
   const labelsByField: Record<string, string> = {
     TECLEUNIK: 'Code',
@@ -78,13 +85,20 @@ export function TerrainFormDialog({
       initial.IDVILLE = initialData.IDVILLE;
     }
     setValues(initial);
+    setInitialSignature(JSON.stringify(initial));
   }, [open, resolvedFields, initialData]);
+
+  useEffect(() => {
+    if (!open || !initialSignature) return;
+    onDirtyChange?.(JSON.stringify(values) !== initialSignature);
+  }, [initialSignature, onDirtyChange, open, values]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
       const payload: TerrainRow = { ...values };
       await onSubmit(payload);
+      onDirtyChange?.(false);
     } finally {
       setSaving(false);
     }
@@ -100,15 +114,8 @@ export function TerrainFormDialog({
     setVilleSelectorOpen(false);
   };
 
-  return (
+  const content = (
     <>
-      <EntityFormDialog
-        open={open}
-        onClose={onClose}
-        title={mode === 'create' ? 'Nouveau Stade' : 'Modifier un Stade'}
-        saving={saving}
-        onSave={() => void handleSave()}
-      >
         {codeField ? (
           <TextField
             label={labelsByField[codeField] ?? codeField}
@@ -173,7 +180,35 @@ export function TerrainFormDialog({
             size="small"
           />
         ))}
-      </EntityFormDialog>
+    </>
+  );
+
+  return (
+    <>
+      {embedded ? (
+        <Box sx={{ bgcolor: '#ffffff', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+          <Stack spacing={2}>
+            {content}
+            <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+              <Button onClick={onClose} color="inherit">Annuler</Button>
+              <Button onClick={() => void handleSave()} variant="contained" disabled={saving}>
+                {saving ? 'Enregistrement...' : 'Enregistrer'}
+              </Button>
+            </Stack>
+          </Stack>
+        </Box>
+      ) : (
+        <EntityFormDialog
+          open={open}
+          onClose={onClose}
+          title={mode === 'create' ? 'Nouveau Stade' : 'Modifier un Stade'}
+          saving={saving}
+          onSave={() => void handleSave()}
+          saveLabel="Enregistrer"
+        >
+          {content}
+        </EntityFormDialog>
+      )}
 
       <TerrainVilleSelector
         open={villeSelectorOpen}

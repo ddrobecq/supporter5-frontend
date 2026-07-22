@@ -37,6 +37,14 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { authStore } from '../features/auth/authStore';
 import { NatioPage } from '../features/natio/NatioPage';
 import { NatioTabFormPane } from '../features/natio/NatioTabFormPane';
+import { VillePage } from '../features/ville/VillePage';
+import { VilleTabFormPane } from '../features/ville/VilleTabFormPane';
+import { TerrainPage } from '../features/terrain/TerrainPage';
+import { TerrainTabFormPane } from '../features/terrain/TerrainTabFormPane';
+import { DevisePage } from '../features/devise/DevisePage';
+import { DeviseTabFormPane } from '../features/devise/DeviseTabFormPane';
+import { CircPage } from '../features/circ/CircPage';
+import { CircTabFormPane } from '../features/circ/CircTabFormPane';
 
 const QUICK_ACTIONS = [
   { label: 'Joueurs', icon: <PeopleRoundedIcon />, path: '/joueurs' },
@@ -113,6 +121,10 @@ function normalizeRoutePath(path: string): string {
 function resolveTabMetaPath(path: string): string {
   const normalized = normalizeRoutePath(path);
   if (normalized.startsWith('/admin/natio/')) return '/admin/natio';
+  if (normalized.startsWith('/admin/ville/')) return '/admin/ville';
+  if (normalized.startsWith('/admin/terrain/')) return '/admin/terrain';
+  if (normalized.startsWith('/admin/devise/')) return '/admin/devise';
+  if (normalized.startsWith('/admin/circ/')) return '/admin/circ';
   return normalized;
 }
 
@@ -125,6 +137,10 @@ export function AdminLayout() {
   const [compactNavButtons, setCompactNavButtons] = useState(false);
   const [compactSearchAction, setCompactSearchAction] = useState(false);
   const [natioModalOpen, setNatioModalOpen] = useState(false);
+  const [villeModalOpen, setVilleModalOpen] = useState(false);
+  const [terrainModalOpen, setTerrainModalOpen] = useState(false);
+  const [deviseModalOpen, setDeviseModalOpen] = useState(false);
+  const [circModalOpen, setCircModalOpen] = useState(false);
   const [dirtyTabsByPath, setDirtyTabsByPath] = useState<Record<string, boolean>>({});
   const tabCounterRef = useRef(0);
   const [tabs, setTabs] = useState<NavTab[]>([
@@ -141,15 +157,23 @@ export function AdminLayout() {
   const isJoueursActive = location.pathname === '/admin/joueurs' || location.pathname === '/joueurs';
   const isClubsActive = location.pathname === '/admin/clubs' || location.pathname === '/clubs';
   const isNatioActive = location.pathname === '/admin/natio' || location.pathname === '/natio' || location.pathname.startsWith('/admin/natio/');
-  const isVilleActive = location.pathname === '/admin/ville' || location.pathname === '/ville';
+  const isVilleActive = location.pathname === '/admin/ville' || location.pathname === '/ville' || location.pathname.startsWith('/admin/ville/');
   const isArbitreActive = location.pathname === '/admin/arbitre' || location.pathname === '/arbitre';
-  const isTerrainActive = location.pathname === '/admin/terrain' || location.pathname === '/terrain';
-  const isDeviseActive = location.pathname === '/admin/devise' || location.pathname === '/devise';
-  const isCircActive = location.pathname === '/admin/circ' || location.pathname === '/circ';
+  const isTerrainActive = location.pathname === '/admin/terrain' || location.pathname === '/terrain' || location.pathname.startsWith('/admin/terrain/');
+  const isDeviseActive = location.pathname === '/admin/devise' || location.pathname === '/devise' || location.pathname.startsWith('/admin/devise/');
+  const isCircActive = location.pathname === '/admin/circ' || location.pathname === '/circ' || location.pathname.startsWith('/admin/circ/');
   const isEpreuveActive = location.pathname === '/admin/epreuve' || location.pathname === '/epreuve';
   const activeTab = typeof activeTabKey === 'string' ? tabs.find((tab) => tab.key === activeTabKey) : undefined;
   const activeTabIsNatioForm = Boolean(activeTab?.path.startsWith('/admin/natio/')) || location.pathname.startsWith('/admin/natio/');
+  const activeTabIsVilleForm = Boolean(activeTab?.path.startsWith('/admin/ville/')) || location.pathname.startsWith('/admin/ville/');
+  const activeTabIsTerrainForm = Boolean(activeTab?.path.startsWith('/admin/terrain/')) || location.pathname.startsWith('/admin/terrain/');
+  const activeTabIsDeviseForm = Boolean(activeTab?.path.startsWith('/admin/devise/')) || location.pathname.startsWith('/admin/devise/');
+  const activeTabIsCircForm = Boolean(activeTab?.path.startsWith('/admin/circ/')) || location.pathname.startsWith('/admin/circ/');
   const natioFormTabs = tabs.filter((tab) => tab.path.startsWith('/admin/natio/'));
+  const villeFormTabs = tabs.filter((tab) => tab.path.startsWith('/admin/ville/'));
+  const terrainFormTabs = tabs.filter((tab) => tab.path.startsWith('/admin/terrain/'));
+  const deviseFormTabs = tabs.filter((tab) => tab.path.startsWith('/admin/devise/'));
+  const circFormTabs = tabs.filter((tab) => tab.path.startsWith('/admin/circ/'));
 
   useEffect(() => {
     const row = navButtonsRowRef.current;
@@ -293,6 +317,26 @@ export function AdminLayout() {
     openTab(`/admin/natio/${encodeURIComponent(String(rowId))}`, label, { unique: true, uniqueByPath: true });
   };
 
+  const handleOpenVilleInTab = ({ rowId, label }: { rowId: GridRowId; label: string }) => {
+    setVilleModalOpen(false);
+    openTab(`/admin/ville/${encodeURIComponent(String(rowId))}`, label, { unique: true, uniqueByPath: true });
+  };
+
+  const handleOpenTerrainInTab = ({ rowId, label }: { rowId: GridRowId; label: string }) => {
+    setTerrainModalOpen(false);
+    openTab(`/admin/terrain/${encodeURIComponent(String(rowId))}`, label, { unique: true, uniqueByPath: true });
+  };
+
+  const handleOpenDeviseInTab = ({ rowId, label }: { rowId: GridRowId; label: string }) => {
+    setDeviseModalOpen(false);
+    openTab(`/admin/devise/${encodeURIComponent(String(rowId))}`, label, { unique: true, uniqueByPath: true });
+  };
+
+  const handleOpenCircInTab = ({ rowId, label }: { rowId: GridRowId; label: string }) => {
+    setCircModalOpen(false);
+    openTab(`/admin/circ/${encodeURIComponent(String(rowId))}`, label, { unique: true, uniqueByPath: true });
+  };
+
   useEffect(() => {
     const area = searchAreaRef.current;
     if (!area) return;
@@ -416,7 +460,7 @@ export function AdminLayout() {
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Villes"
-                onClick={() => openTab('/ville', 'Villes')}
+                onClick={() => setVilleModalOpen(true)}
               >
                 {compactNavButtons ? <LocationCityRoundedIcon /> : 'Villes'}
               </Button>
@@ -452,7 +496,7 @@ export function AdminLayout() {
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Stades"
-                onClick={() => openTab('/terrain', 'Stades')}
+                onClick={() => setTerrainModalOpen(true)}
               >
                 {compactNavButtons ? <StadiumRoundedIcon /> : 'Stades'}
               </Button>
@@ -470,7 +514,7 @@ export function AdminLayout() {
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Devises"
-                onClick={() => openTab('/devise', 'Devises')}
+                onClick={() => setDeviseModalOpen(true)}
               >
                 {compactNavButtons ? <EuroRoundedIcon /> : 'Devises'}
               </Button>
@@ -488,7 +532,7 @@ export function AdminLayout() {
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Circonstances"
-                onClick={() => openTab('/circ', 'Circonstances')}
+                onClick={() => setCircModalOpen(true)}
               >
                 {compactNavButtons ? <EventNoteRoundedIcon /> : 'Circonstances'}
               </Button>
@@ -678,7 +722,65 @@ export function AdminLayout() {
             />
           );
         })}
-        {!activeTabIsNatioForm ? <Outlet /> : null}
+        {villeFormTabs.map((tab) => {
+          const encodedId = tab.path.slice('/admin/ville/'.length);
+          if (!encodedId) return null;
+          const decodedId = decodeURIComponent(encodedId);
+          return (
+            <VilleTabFormPane
+              key={tab.key}
+              tabPath={tab.path}
+              villeId={decodedId}
+              active={activeTabKey === tab.key}
+            />
+          );
+        })}
+        {terrainFormTabs.map((tab) => {
+          const encodedId = tab.path.slice('/admin/terrain/'.length);
+          if (!encodedId) return null;
+          const decodedId = decodeURIComponent(encodedId);
+          return (
+            <TerrainTabFormPane
+              key={tab.key}
+              tabPath={tab.path}
+              terrainId={decodedId}
+              active={activeTabKey === tab.key}
+            />
+          );
+        })}
+        {deviseFormTabs.map((tab) => {
+          const encodedId = tab.path.slice('/admin/devise/'.length);
+          if (!encodedId) return null;
+          const decodedId = decodeURIComponent(encodedId);
+          return (
+            <DeviseTabFormPane
+              key={tab.key}
+              tabPath={tab.path}
+              deviseId={decodedId}
+              active={activeTabKey === tab.key}
+            />
+          );
+        })}
+        {circFormTabs.map((tab) => {
+          const encodedId = tab.path.slice('/admin/circ/'.length);
+          if (!encodedId) return null;
+          const decodedId = decodeURIComponent(encodedId);
+          return (
+            <CircTabFormPane
+              key={tab.key}
+              tabPath={tab.path}
+              circId={decodedId}
+              active={activeTabKey === tab.key}
+            />
+          );
+        })}
+        {!(
+          activeTabIsNatioForm
+          || activeTabIsVilleForm
+          || activeTabIsTerrainForm
+          || activeTabIsDeviseForm
+          || activeTabIsCircForm
+        ) ? <Outlet /> : null}
       </Box>
 
       <Dialog
@@ -700,6 +802,94 @@ export function AdminLayout() {
         </DialogTitle>
         <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6' }}>
           <NatioPage variant="modalPicker" onOpenInTab={handleOpenNatioInTab} />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={villeModalOpen}
+        onClose={() => setVilleModalOpen(false)}
+        fullWidth
+        maxWidth="xl"
+      >
+        <DialogTitle sx={{ pr: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+              <LocationCityRoundedIcon sx={{ fontSize: 18 }} />
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>Sélectionner une Ville</Typography>
+            </Box>
+            <IconButton aria-label="Fermer la liste des villes" onClick={() => setVilleModalOpen(false)}>
+              <CloseRoundedIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6' }}>
+          <VillePage variant="modalPicker" onOpenInTab={handleOpenVilleInTab} />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={terrainModalOpen}
+        onClose={() => setTerrainModalOpen(false)}
+        fullWidth
+        maxWidth="xl"
+      >
+        <DialogTitle sx={{ pr: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+              <StadiumRoundedIcon sx={{ fontSize: 18 }} />
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>Sélectionner un Stade</Typography>
+            </Box>
+            <IconButton aria-label="Fermer la liste des stades" onClick={() => setTerrainModalOpen(false)}>
+              <CloseRoundedIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6' }}>
+          <TerrainPage variant="modalPicker" onOpenInTab={handleOpenTerrainInTab} />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deviseModalOpen}
+        onClose={() => setDeviseModalOpen(false)}
+        fullWidth
+        maxWidth="xl"
+      >
+        <DialogTitle sx={{ pr: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+              <EuroRoundedIcon sx={{ fontSize: 18 }} />
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>Sélectionner une Devise</Typography>
+            </Box>
+            <IconButton aria-label="Fermer la liste des devises" onClick={() => setDeviseModalOpen(false)}>
+              <CloseRoundedIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6' }}>
+          <DevisePage variant="modalPicker" onOpenInTab={handleOpenDeviseInTab} />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={circModalOpen}
+        onClose={() => setCircModalOpen(false)}
+        fullWidth
+        maxWidth="xl"
+      >
+        <DialogTitle sx={{ pr: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+              <EventNoteRoundedIcon sx={{ fontSize: 18 }} />
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>Sélectionner une Circonstance</Typography>
+            </Box>
+            <IconButton aria-label="Fermer la liste des circonstances" onClick={() => setCircModalOpen(false)}>
+              <CloseRoundedIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6' }}>
+          <CircPage variant="modalPicker" onOpenInTab={handleOpenCircInTab} />
         </DialogContent>
       </Dialog>
     </Box>

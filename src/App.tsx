@@ -20,6 +20,30 @@ function RedirectNatioById() {
   return <Navigate to={`/admin/natio/${resolvedId}`} replace />;
 }
 
+function RedirectVilleById() {
+  const { villeId } = useParams<{ villeId: string }>();
+  const resolvedId = villeId ? encodeURIComponent(villeId) : '';
+  return <Navigate to={`/admin/ville/${resolvedId}`} replace />;
+}
+
+function RedirectTerrainById() {
+  const { terrainId } = useParams<{ terrainId: string }>();
+  const resolvedId = terrainId ? encodeURIComponent(terrainId) : '';
+  return <Navigate to={`/admin/terrain/${resolvedId}`} replace />;
+}
+
+function RedirectDeviseById() {
+  const { deviseId } = useParams<{ deviseId: string }>();
+  const resolvedId = deviseId ? encodeURIComponent(deviseId) : '';
+  return <Navigate to={`/admin/devise/${resolvedId}`} replace />;
+}
+
+function RedirectCircById() {
+  const { circId } = useParams<{ circId: string }>();
+  const resolvedId = circId ? encodeURIComponent(circId) : '';
+  return <Navigate to={`/admin/circ/${resolvedId}`} replace />;
+}
+
 function App() {
   return (
     <Routes>
@@ -40,15 +64,23 @@ function App() {
           <Route path="/admin/natio" element={<NatioPage />} />
           <Route path="/admin/natio/:natioId" element={<NatioPage />} />
           <Route path="/ville" element={<Navigate to="/admin/ville" replace />} />
+          <Route path="/ville/:villeId" element={<RedirectVilleById />} />
           <Route path="/admin/ville" element={<VillePage />} />
+          <Route path="/admin/ville/:villeId" element={<VillePage />} />
           <Route path="/arbitre" element={<Navigate to="/admin/arbitre" replace />} />
           <Route path="/admin/arbitre" element={<ArbitrePage />} />
           <Route path="/terrain" element={<Navigate to="/admin/terrain" replace />} />
+          <Route path="/terrain/:terrainId" element={<RedirectTerrainById />} />
           <Route path="/admin/terrain" element={<TerrainPage />} />
+          <Route path="/admin/terrain/:terrainId" element={<TerrainPage />} />
           <Route path="/devise" element={<Navigate to="/admin/devise" replace />} />
+          <Route path="/devise/:deviseId" element={<RedirectDeviseById />} />
           <Route path="/admin/devise" element={<DevisePage />} />
+          <Route path="/admin/devise/:deviseId" element={<DevisePage />} />
           <Route path="/circ" element={<Navigate to="/admin/circ" replace />} />
+          <Route path="/circ/:circId" element={<RedirectCircById />} />
           <Route path="/admin/circ" element={<CircPage />} />
+          <Route path="/admin/circ/:circId" element={<CircPage />} />
           <Route path="/epreuve" element={<Navigate to="/admin/epreuve" replace />} />
           <Route path="/admin/epreuve" element={<EpreuvePage />} />
         </Route>

@@ -24,6 +24,20 @@ export function resolveNatioLabel(row: NatioRow): string {
   return 'Pays';
 }
 
+export function resolveNatioId(row: NatioRow): string | number | undefined {
+  const preferred = ['IDNATIO', 'NATIO', 'CODE', 'ID', 'id'];
+  for (const field of preferred) {
+    const value = row[field];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+    if (typeof value === 'number') {
+      return value;
+    }
+  }
+  return undefined;
+}
+
 export function buildNatioFormFields(source?: NatioRow): string[] {
   const sourceFields = source ? Object.keys(source) : [];
   return [...sourceFields, 'NALOCAL', 'NAT_DRAPEAU'].filter((f, i, a) => a.indexOf(f) === i);

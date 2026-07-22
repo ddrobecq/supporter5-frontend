@@ -3,11 +3,17 @@ import { useMemo } from 'react';
 import { canDeleteCirc, createCirc, deleteCirc, fetchCirc, fetchCircById, updateCirc } from './circApi';
 import { CircFormDialog } from './CircFormDialog';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
-import { useEntityPage } from '../../components/useEntityPage';
+import { toErrorMessage, useEntityPage } from '../../components/useEntityPage';
 import { createCircColumns } from './circColumnsHelper';
 import type { CircRow } from './types';
+import { resolveCircId, resolveCircLabel } from './circUi';
 
-export function CircPage() {
+interface CircPageProps {
+  variant?: 'page' | 'modalPicker';
+  onOpenInTab?: (payload: { rowId: GridRowId; label: string }) => void;
+}
+
+export function CircPage({ variant = 'page', onOpenInTab }: CircPageProps) {
   const page = useEntityPage<CircRow>(
     {
       fetchAll: fetchCirc,
@@ -37,15 +43,67 @@ export function CircPage() {
       ? row.IDCIRC
       : JSON.stringify(row);
 
+  const openInTabFromRowId = (rowId: GridRowId) => {
+    if (!onOpenInTab) return;
+    const selectedRow = page.rows.find((row) => String(getRowId(row)) === String(rowId));
+    const label = selectedRow ? resolveCircLabel(selectedRow) : String(rowId);
+    onOpenInTab({ rowId, label });
+  };
+
+  const handleOpen = () => {
+    if (variant === 'modalPicker' && onOpenInTab) {
+      const selectedId = page.selection.at(0);
+      if (selectedId === undefined || selectedId === null) {
+        page.setSnackbar({ severity: 'error', message: 'Selectionnez une circonstance a ouvrir.' });
+        return;
+      }
+      openInTabFromRowId(selectedId);
+      return;
+    }
+
+    void page.openEditDialog();
+  };
+
+  const handleRowDoubleClick = (rowId: GridRowId) => {
+    if (variant === 'modalPicker' && onOpenInTab) {
+      openInTabFromRowId(rowId);
+      return;
+    }
+    void page.openEditDialog(rowId);
+  };
+
+  const handleFormSubmit = async (payload: CircRow) => {
+    if (variant === 'modalPicker' && onOpenInTab && page.dialogMode === 'create') {
+      try {
+        const created = await createCirc(payload);
+        const createdRow = (created ?? payload) as CircRow;
+        const createdId = resolveCircId(createdRow);
+        if (createdId === undefined || createdId === null || String(createdId).trim() === '') {
+          page.setSnackbar({ severity: 'error', message: 'Creation reussie mais identifiant introuvable.' });
+          return;
+        }
+        page.setDialogOpen(false);
+        onOpenInTab({ rowId: createdId, label: resolveCircLabel(createdRow) });
+      } catch (error) {
+        page.setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+      }
+      return;
+    }
+
+    await page.handleFormSubmit(payload);
+  };
+
   return (
     <EntityPageLayout
+      hideTitle={variant === 'modalPicker'}
+      actionsInlineWithSearch={variant === 'modalPicker'}
       title="Circonstances"
       searchLabel="Rechercher une circonstance"
       search={page.search}
       onSearchChange={page.setSearch}
       searchInputRef={page.searchInputRef}
       onNew={page.openCreateDialog}
-      onOpen={() => void page.openEditDialog()}
+      onOpen={handleOpen}
       onDelete={() => void page.handleOpenDeleteConfirm()}
       actionButtonsRowRef={page.actionButtonsRowRef}
       compactActionButtons={page.compactActionButtons}
@@ -55,7 +113,7 @@ export function CircPage() {
       getRowId={getRowId}
       selection={page.selection}
       onSelectionChange={page.setSelection}
-      onRowDoubleClick={(rowId) => void page.openEditDialog(rowId)}
+      onRowDoubleClick={handleRowDoubleClick}
       confirmDeleteOpen={page.confirmDeleteOpen}
       deleteConstraints={page.deleteConstraints}
       entityDescription="cette circonstance"
@@ -68,7 +126,7 @@ export function CircPage() {
           primaryKey={primaryKey}
           initialData={page.activeRow}
           onClose={() => page.setDialogOpen(false)}
-          onSubmit={page.handleFormSubmit}
+          onSubmit={handleFormSubmit}
         />
       }
       snackbar={page.snackbar}

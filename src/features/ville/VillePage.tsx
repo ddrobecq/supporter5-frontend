@@ -5,21 +5,21 @@ import { fetchNatio } from '../natio/natioApi';
 import { VilleFormDialog } from './VilleFormDialog';
 import { createVilleColumns, createNatioMap } from './villeColumnsHelper';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
-import { useEntityPage } from '../../components/useEntityPage';
+import { toErrorMessage, useEntityPage } from '../../components/useEntityPage';
 import type { VilleRow } from './types';
 import type { NatioRow } from '../natio/types';
+import { buildVilleFormFields, detectVillePrimaryKey, resolveVilleId, resolveVilleLabel } from './villeUi';
 
-const PK_CANDIDATES = ['VICLEUNIK', 'VILLEID', 'ID', 'id'];
-
-function detectPrimaryKey(rows: VilleRow[]): string | undefined {
-  const firstRow = rows[0];
-  if (!firstRow) return undefined;
-  const keys = Object.keys(firstRow);
-  const candidate = PK_CANDIDATES.find((pk) => keys.includes(pk));
-  return candidate ?? keys[0];
+interface VillePageProps {
+  variant?: 'page' | 'modalPicker';
+  onOpenInTab?: (payload: { rowId: GridRowId; label: string }) => void;
 }
 
-export function VillePage() {
+function toComparableId(value: unknown): string {
+  return String(value);
+}
+
+export function VillePage({ variant = 'page', onOpenInTab }: VillePageProps) {
   const [natioDatas, setNatioDatas] = useState<NatioRow[]>([]);
 
   const page = useEntityPage<VilleRow>(
@@ -46,14 +46,13 @@ export function VillePage() {
     },
   );
 
-  const primaryKey = useMemo(() => detectPrimaryKey(page.rows), [page.rows]);
+  const primaryKey = useMemo(() => detectVillePrimaryKey(page.rows), [page.rows]);
   const natioMap = useMemo(() => createNatioMap(natioDatas), [natioDatas]);
   const columns = useMemo<GridColDef[]>(() => createVilleColumns(natioMap), [natioMap]);
 
   const formFields = useMemo<string[]>(() => {
     const source = page.activeRow ?? page.rows[0];
-    const sourceFields = source ? Object.keys(source) : [];
-    return sourceFields.filter((f, i, a) => a.indexOf(f) === i);
+    return buildVilleFormFields(source);
   }, [page.activeRow, page.rows]);
 
   const getRowId = (row: VilleRow): GridRowId => {
@@ -63,15 +62,67 @@ export function VillePage() {
     return JSON.stringify(row);
   };
 
+  const openInTabFromRowId = (rowId: GridRowId) => {
+    if (!onOpenInTab) return;
+    const selectedRow = page.rows.find((row) => toComparableId(getRowId(row)) === toComparableId(rowId));
+    const label = selectedRow ? resolveVilleLabel(selectedRow) : String(rowId);
+    onOpenInTab({ rowId, label });
+  };
+
+  const handleOpen = () => {
+    if (variant === 'modalPicker' && onOpenInTab) {
+      const selectedId = page.selection.at(0);
+      if (selectedId === undefined || selectedId === null) {
+        page.setSnackbar({ severity: 'error', message: 'Selectionnez une ville a ouvrir.' });
+        return;
+      }
+      openInTabFromRowId(selectedId);
+      return;
+    }
+
+    void page.openEditDialog();
+  };
+
+  const handleRowDoubleClick = (rowId: GridRowId) => {
+    if (variant === 'modalPicker' && onOpenInTab) {
+      openInTabFromRowId(rowId);
+      return;
+    }
+    void page.openEditDialog(rowId);
+  };
+
+  const handleFormSubmit = async (payload: VilleRow) => {
+    if (variant === 'modalPicker' && onOpenInTab && page.dialogMode === 'create') {
+      try {
+        const created = await createVille(payload);
+        const createdRow = (created ?? payload) as VilleRow;
+        const createdId = resolveVilleId(createdRow);
+        if (createdId === undefined || createdId === null || String(createdId).trim() === '') {
+          page.setSnackbar({ severity: 'error', message: 'Creation reussie mais identifiant introuvable.' });
+          return;
+        }
+        page.setDialogOpen(false);
+        onOpenInTab({ rowId: createdId, label: resolveVilleLabel(createdRow) });
+      } catch (error) {
+        page.setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+      }
+      return;
+    }
+
+    await page.handleFormSubmit(payload);
+  };
+
   return (
     <EntityPageLayout
+      hideTitle={variant === 'modalPicker'}
+      actionsInlineWithSearch={variant === 'modalPicker'}
       title="Villes"
       searchLabel="Rechercher une ville"
       search={page.search}
       onSearchChange={page.setSearch}
       searchInputRef={page.searchInputRef}
       onNew={page.openCreateDialog}
-      onOpen={() => void page.openEditDialog()}
+      onOpen={handleOpen}
       onDelete={() => void page.handleOpenDeleteConfirm()}
       actionButtonsRowRef={page.actionButtonsRowRef}
       compactActionButtons={page.compactActionButtons}
@@ -81,7 +132,7 @@ export function VillePage() {
       getRowId={getRowId}
       selection={page.selection}
       onSelectionChange={page.setSelection}
-      onRowDoubleClick={(rowId) => void page.openEditDialog(rowId)}
+      onRowDoubleClick={handleRowDoubleClick}
       confirmDeleteOpen={page.confirmDeleteOpen}
       deleteConstraints={page.deleteConstraints}
       entityDescription="cette ville"
@@ -96,7 +147,7 @@ export function VillePage() {
           initialData={page.activeRow}
           natioDatas={natioDatas}
           onClose={() => page.setDialogOpen(false)}
-          onSubmit={page.handleFormSubmit}
+          onSubmit={handleFormSubmit}
         />
       }
       snackbar={page.snackbar}

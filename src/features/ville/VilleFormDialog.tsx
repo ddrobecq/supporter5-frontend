@@ -1,5 +1,8 @@
 import {
   Autocomplete,
+  Box,
+  Button,
+  Stack,
   TextField,
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
@@ -10,10 +13,12 @@ import type { NatioRow } from '../natio/types';
 interface VilleFormDialogProps {
   open: boolean;
   mode: 'create' | 'edit';
+  embedded?: boolean;
   fields: string[];
   primaryKey?: string;
   initialData?: VilleRow;
   natioDatas: NatioRow[];
+  onDirtyChange?: (dirty: boolean) => void;
   onClose: () => void;
   onSubmit: (payload: VilleRow) => Promise<void>;
 }
@@ -21,16 +26,19 @@ interface VilleFormDialogProps {
 export function VilleFormDialog({
   open,
   mode,
+  embedded = false,
   fields,
   primaryKey,
   initialData,
   natioDatas,
+  onDirtyChange,
   onClose,
   onSubmit,
 }: VilleFormDialogProps) {
   const [values, setValues] = useState<VilleRow>({});
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [initialSignature, setInitialSignature] = useState('');
 
   const labelsByField: Record<string, string> = {
     VICLEUNIK: 'Code',
@@ -84,7 +92,14 @@ export function VilleFormDialog({
       initial[field] = (initialData?.[field] as string | number | null | undefined) ?? '';
     }
     setValues(initial);
+    setInitialSignature(JSON.stringify(initial));
+    setErrors({});
   }, [open, resolvedFields, initialData]);
+
+  useEffect(() => {
+    if (!open || !initialSignature) return;
+    onDirtyChange?.(JSON.stringify(values) !== initialSignature);
+  }, [initialSignature, onDirtyChange, open, values]);
 
   const handleSave = async () => {
     // Valider avant envoi
@@ -122,19 +137,14 @@ export function VilleFormDialog({
       }
       await onSubmit(cleanedValues);
       setErrors({});
+      onDirtyChange?.(false);
     } finally {
       setSaving(false);
     }
   };
 
-  return (
-    <EntityFormDialog
-      open={open}
-      onClose={onClose}
-      title={mode === 'create' ? 'Nouvelle Ville' : 'Modifier une Ville'}
-      saving={saving}
-      onSave={() => void handleSave()}
-    >
+  const content = (
+    <>
       {codeField ? (
         <TextField
           label={labelsByField[codeField] ?? codeField}
@@ -208,6 +218,35 @@ export function VilleFormDialog({
           size="small"
         />
       ))}
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <Box sx={{ bgcolor: '#ffffff', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+        <Stack spacing={2}>
+          {content}
+          <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+            <Button onClick={onClose} color="inherit">Annuler</Button>
+            <Button onClick={() => void handleSave()} variant="contained" disabled={saving}>
+              {saving ? 'Enregistrement...' : 'Enregistrer'}
+            </Button>
+          </Stack>
+        </Stack>
+      </Box>
+    );
+  }
+
+  return (
+    <EntityFormDialog
+      open={open}
+      onClose={onClose}
+      title={mode === 'create' ? 'Nouvelle Ville' : 'Modifier une Ville'}
+      saving={saving}
+      onSave={() => void handleSave()}
+      saveLabel="Enregistrer"
+    >
+      {content}
     </EntityFormDialog>
   );
 }

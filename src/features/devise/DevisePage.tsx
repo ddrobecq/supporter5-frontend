@@ -3,11 +3,17 @@ import { useMemo } from 'react';
 import { createDevise, deleteDevise, fetchDevise, fetchDeviseById, updateDevise, canDeleteDevise } from './deviseApi';
 import { DeviseFormDialog } from './DeviseFormDialog';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
-import { useEntityPage } from '../../components/useEntityPage';
+import { toErrorMessage, useEntityPage } from '../../components/useEntityPage';
 import { createDeviseColumns } from './deviseColumnsHelper';
 import type { DeviseRow } from './types';
+import { resolveDeviseId, resolveDeviseLabel } from './deviseUi';
 
-export function DevisePage() {
+interface DevisePageProps {
+  variant?: 'page' | 'modalPicker';
+  onOpenInTab?: (payload: { rowId: GridRowId; label: string }) => void;
+}
+
+export function DevisePage({ variant = 'page', onOpenInTab }: DevisePageProps) {
   const page = useEntityPage<DeviseRow>(
     {
       fetchAll: fetchDevise,
@@ -38,15 +44,67 @@ export function DevisePage() {
       ? row.DVCLEUNIK
       : JSON.stringify(row);
 
+  const openInTabFromRowId = (rowId: GridRowId) => {
+    if (!onOpenInTab) return;
+    const selectedRow = page.rows.find((row) => String(getRowId(row)) === String(rowId));
+    const label = selectedRow ? resolveDeviseLabel(selectedRow) : String(rowId);
+    onOpenInTab({ rowId, label });
+  };
+
+  const handleOpen = () => {
+    if (variant === 'modalPicker' && onOpenInTab) {
+      const selectedId = page.selection.at(0);
+      if (selectedId === undefined || selectedId === null) {
+        page.setSnackbar({ severity: 'error', message: 'Selectionnez une devise a ouvrir.' });
+        return;
+      }
+      openInTabFromRowId(selectedId);
+      return;
+    }
+
+    void page.openEditDialog();
+  };
+
+  const handleRowDoubleClick = (rowId: GridRowId) => {
+    if (variant === 'modalPicker' && onOpenInTab) {
+      openInTabFromRowId(rowId);
+      return;
+    }
+    void page.openEditDialog(rowId);
+  };
+
+  const handleFormSubmit = async (payload: DeviseRow) => {
+    if (variant === 'modalPicker' && onOpenInTab && page.dialogMode === 'create') {
+      try {
+        const created = await createDevise(payload);
+        const createdRow = (created ?? payload) as DeviseRow;
+        const createdId = resolveDeviseId(createdRow);
+        if (createdId === undefined || createdId === null || String(createdId).trim() === '') {
+          page.setSnackbar({ severity: 'error', message: 'Creation reussie mais identifiant introuvable.' });
+          return;
+        }
+        page.setDialogOpen(false);
+        onOpenInTab({ rowId: createdId, label: resolveDeviseLabel(createdRow) });
+      } catch (error) {
+        page.setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+      }
+      return;
+    }
+
+    await page.handleFormSubmit(payload);
+  };
+
   return (
     <EntityPageLayout
+      hideTitle={variant === 'modalPicker'}
+      actionsInlineWithSearch={variant === 'modalPicker'}
       title="Devises"
       searchLabel="Rechercher une devise"
       search={page.search}
       onSearchChange={page.setSearch}
       searchInputRef={page.searchInputRef}
       onNew={page.openCreateDialog}
-      onOpen={() => void page.openEditDialog()}
+      onOpen={handleOpen}
       onDelete={() => void page.handleOpenDeleteConfirm()}
       actionButtonsRowRef={page.actionButtonsRowRef}
       compactActionButtons={page.compactActionButtons}
@@ -56,7 +114,7 @@ export function DevisePage() {
       getRowId={getRowId}
       selection={page.selection}
       onSelectionChange={page.setSelection}
-      onRowDoubleClick={(rowId) => void page.openEditDialog(rowId)}
+      onRowDoubleClick={handleRowDoubleClick}
       confirmDeleteOpen={page.confirmDeleteOpen}
       deleteConstraints={page.deleteConstraints}
       entityDescription="cette devise"
@@ -69,7 +127,7 @@ export function DevisePage() {
           primaryKey={primaryKey}
           initialData={page.activeRow}
           onClose={() => page.setDialogOpen(false)}
-          onSubmit={page.handleFormSubmit}
+          onSubmit={handleFormSubmit}
         />
       }
       snackbar={page.snackbar}

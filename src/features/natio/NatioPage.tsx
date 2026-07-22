@@ -3,9 +3,9 @@ import { useMemo } from 'react';
 import { createNatio, deleteNatio, fetchNatio, fetchNatioById, updateNatio, canDeleteNatio } from './natioApi';
 import { NatioFormDialog } from './NatioFormDialog';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
-import { useEntityPage } from '../../components/useEntityPage';
+import { toErrorMessage, useEntityPage } from '../../components/useEntityPage';
 import type { NatioRow } from './types';
-import { buildNatioFormFields, detectNatioPrimaryKey, resolveNatioLabel } from './natioUi';
+import { buildNatioFormFields, detectNatioPrimaryKey, resolveNatioId, resolveNatioLabel } from './natioUi';
 
 interface NatioPageProps {
   variant?: 'page' | 'modalPicker';
@@ -102,6 +102,27 @@ export function NatioPage({ variant = 'page', onOpenInTab }: NatioPageProps) {
     void page.openEditDialog(rowId);
   };
 
+  const handleFormSubmit = async (payload: NatioRow) => {
+    if (variant === 'modalPicker' && onOpenInTab && page.dialogMode === 'create') {
+      try {
+        const created = await createNatio(payload);
+        const createdRow = (created ?? payload) as NatioRow;
+        const createdId = resolveNatioId(createdRow);
+        if (createdId === undefined || createdId === null || String(createdId).trim() === '') {
+          page.setSnackbar({ severity: 'error', message: 'Creation reussie mais identifiant introuvable.' });
+          return;
+        }
+        page.setDialogOpen(false);
+        onOpenInTab({ rowId: createdId, label: resolveNatioLabel(createdRow) });
+      } catch (error) {
+        page.setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+      }
+      return;
+    }
+
+    await page.handleFormSubmit(payload);
+  };
+
   return (
     <EntityPageLayout
       hideTitle={variant === 'modalPicker'}
@@ -138,7 +159,7 @@ export function NatioPage({ variant = 'page', onOpenInTab }: NatioPageProps) {
           onClose={() => {
             page.setDialogOpen(false);
           }}
-          onSubmit={page.handleFormSubmit}
+          onSubmit={handleFormSubmit}
         />
       }
       snackbar={page.snackbar}

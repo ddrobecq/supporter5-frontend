@@ -1,4 +1,4 @@
-import { FormControlLabel, Switch, TextField } from '@mui/material';
+import { Box, Button, FormControlLabel, Stack, Switch, TextField } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import type { DeviseRow } from './types';
@@ -6,8 +6,10 @@ import type { DeviseRow } from './types';
 interface DeviseFormDialogProps {
   open: boolean;
   mode: 'create' | 'edit';
+  embedded?: boolean;
   primaryKey?: string;
   initialData?: DeviseRow;
+  onDirtyChange?: (dirty: boolean) => void;
   onClose: () => void;
   onSubmit: (payload: DeviseRow) => Promise<void>;
 }
@@ -15,14 +17,17 @@ interface DeviseFormDialogProps {
 export function DeviseFormDialog({
   open,
   mode,
+  embedded = false,
   primaryKey,
   initialData,
+  onDirtyChange,
   onClose,
   onSubmit,
 }: DeviseFormDialogProps) {
   const [values, setValues] = useState<DeviseRow>({});
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [initialSignature, setInitialSignature] = useState('');
 
   useEffect(() => {
     if (!open) return;
@@ -33,8 +38,20 @@ export function DeviseFormDialog({
       CONVERSION: initialData?.CONVERSION ?? '',
       DVDEFAUT: initialData?.DVDEFAUT ?? 0,
     });
+    setInitialSignature(JSON.stringify({
+      DVCLEUNIK: initialData?.DVCLEUNIK ?? '',
+      NOM: initialData?.NOM ?? '',
+      SYMBOLE: initialData?.SYMBOLE ?? '',
+      CONVERSION: initialData?.CONVERSION ?? '',
+      DVDEFAUT: initialData?.DVDEFAUT ?? 0,
+    }));
     setErrors({});
   }, [open, initialData]);
+
+  useEffect(() => {
+    if (!open || !initialSignature) return;
+    onDirtyChange?.(JSON.stringify(values) !== initialSignature);
+  }, [initialSignature, onDirtyChange, open, values]);
 
   const isCodeReadOnly = mode === 'edit' && !!primaryKey;
 
@@ -59,6 +76,7 @@ export function DeviseFormDialog({
         DVDEFAUT: values.DVDEFAUT ? 1 : 0,
       };
       await onSubmit(payload);
+      onDirtyChange?.(false);
     } finally {
       setSaving(false);
     }
@@ -66,8 +84,8 @@ export function DeviseFormDialog({
 
   const title = mode === 'create' ? 'Nouvelle Devise' : 'Modifier une Devise';
 
-  return (
-    <EntityFormDialog open={open} onClose={onClose} title={title} saving={saving} onSave={handleSave}>
+  const content = (
+    <>
       <TextField
         label="Code"
         value={String(values.DVCLEUNIK ?? '')}
@@ -116,6 +134,28 @@ export function DeviseFormDialog({
         }
         label="Devise par défaut"
       />
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <Box sx={{ bgcolor: '#ffffff', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+        <Stack spacing={2}>
+          {content}
+          <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+            <Button onClick={onClose} color="inherit">Annuler</Button>
+            <Button onClick={() => void handleSave()} variant="contained" disabled={saving}>
+              {saving ? 'Enregistrement...' : 'Enregistrer'}
+            </Button>
+          </Stack>
+        </Stack>
+      </Box>
+    );
+  }
+
+  return (
+    <EntityFormDialog open={open} onClose={onClose} title={title} saving={saving} onSave={handleSave} saveLabel="Enregistrer">
+      {content}
     </EntityFormDialog>
   );
 }

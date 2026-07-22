@@ -1,4 +1,4 @@
-import { MenuItem, TextField } from '@mui/material';
+import { Box, Button, MenuItem, Stack, TextField } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { CIRC_TYPE_OPTIONS } from './circColumnsHelper';
@@ -7,16 +7,19 @@ import type { CircRow } from './types';
 interface CircFormDialogProps {
   open: boolean;
   mode: 'create' | 'edit';
+  embedded?: boolean;
   primaryKey?: string;
   initialData?: CircRow;
+  onDirtyChange?: (dirty: boolean) => void;
   onClose: () => void;
   onSubmit: (payload: CircRow) => Promise<void>;
 }
 
-export function CircFormDialog({ open, mode, primaryKey, initialData, onClose, onSubmit }: CircFormDialogProps) {
+export function CircFormDialog({ open, mode, embedded = false, primaryKey, initialData, onDirtyChange, onClose, onSubmit }: CircFormDialogProps) {
   const [values, setValues] = useState<CircRow>({});
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [initialSignature, setInitialSignature] = useState('');
 
   useEffect(() => {
     if (!open) return;
@@ -25,8 +28,18 @@ export function CircFormDialog({ open, mode, primaryKey, initialData, onClose, o
       CIRC: initialData?.CIRC ?? '',
       TYPE_TOUR: Number(initialData?.TYPE_TOUR ?? 1),
     });
+    setInitialSignature(JSON.stringify({
+      IDCIRC: initialData?.IDCIRC ?? '',
+      CIRC: initialData?.CIRC ?? '',
+      TYPE_TOUR: Number(initialData?.TYPE_TOUR ?? 1),
+    }));
     setErrors({});
   }, [open, initialData]);
+
+  useEffect(() => {
+    if (!open || !initialSignature) return;
+    onDirtyChange?.(JSON.stringify(values) !== initialSignature);
+  }, [initialSignature, onDirtyChange, open, values]);
 
   const isCodeReadOnly = mode === 'edit' && !!primaryKey;
 
@@ -54,19 +67,14 @@ export function CircFormDialog({ open, mode, primaryKey, initialData, onClose, o
         CIRC: String(values.CIRC ?? '').trim(),
         TYPE_TOUR: Number(values.TYPE_TOUR),
       });
+      onDirtyChange?.(false);
     } finally {
       setSaving(false);
     }
   };
 
-  return (
-    <EntityFormDialog
-      open={open}
-      onClose={onClose}
-      title={mode === 'create' ? 'Nouvelle Circonstance' : 'Modifier une Circonstance'}
-      saving={saving}
-      onSave={() => void handleSave()}
-    >
+  const content = (
+    <>
       <TextField
         label="Abréviation"
         value={String(values.IDCIRC ?? '')}
@@ -105,6 +113,35 @@ export function CircFormDialog({ open, mode, primaryKey, initialData, onClose, o
           </MenuItem>
         ))}
       </TextField>
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <Box sx={{ bgcolor: '#ffffff', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+        <Stack spacing={2}>
+          {content}
+          <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+            <Button onClick={onClose} color="inherit">Annuler</Button>
+            <Button onClick={() => void handleSave()} variant="contained" disabled={saving}>
+              {saving ? 'Enregistrement...' : 'Enregistrer'}
+            </Button>
+          </Stack>
+        </Stack>
+      </Box>
+    );
+  }
+
+  return (
+    <EntityFormDialog
+      open={open}
+      onClose={onClose}
+      title={mode === 'create' ? 'Nouvelle Circonstance' : 'Modifier une Circonstance'}
+      saving={saving}
+      onSave={() => void handleSave()}
+      saveLabel="Enregistrer"
+    >
+      {content}
     </EntityFormDialog>
   );
 }

@@ -3,20 +3,20 @@ import { useMemo } from 'react';
 import { createTerrain, deleteTerrain, fetchTerrain, fetchTerrainById, updateTerrain, canDeleteTerrain } from './terrainApi';
 import { TerrainFormDialog } from './TerrainFormDialog';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
-import { useEntityPage } from '../../components/useEntityPage';
+import { toErrorMessage, useEntityPage } from '../../components/useEntityPage';
 import type { TerrainRow } from './types';
+import { buildTerrainFormFields, detectTerrainPrimaryKey, resolveTerrainId, resolveTerrainLabel } from './terrainUi';
 
-const PK_CANDIDATES = ['TECLEUNIK', 'ID', 'id', 'CODE'];
-
-function detectPrimaryKey(rows: TerrainRow[]): string | undefined {
-  const firstRow = rows[0];
-  if (!firstRow) return undefined;
-  const keys = Object.keys(firstRow);
-  const candidate = PK_CANDIDATES.find((pk) => keys.includes(pk));
-  return candidate ?? keys[0];
+interface TerrainPageProps {
+  variant?: 'page' | 'modalPicker';
+  onOpenInTab?: (payload: { rowId: GridRowId; label: string }) => void;
 }
 
-export function TerrainPage() {
+function toComparableId(value: unknown): string {
+  return String(value);
+}
+
+export function TerrainPage({ variant = 'page', onOpenInTab }: TerrainPageProps) {
   const page = useEntityPage<TerrainRow>(
     {
       fetchAll: fetchTerrain,
@@ -38,7 +38,7 @@ export function TerrainPage() {
     },
   );
 
-  const primaryKey = useMemo(() => detectPrimaryKey(page.rows), [page.rows]);
+  const primaryKey = useMemo(() => detectTerrainPrimaryKey(page.rows), [page.rows]);
 
   const columns = useMemo<GridColDef[]>(() => {
     const first = page.rows[0];
@@ -66,8 +66,7 @@ export function TerrainPage() {
 
   const formFields = useMemo<string[]>(() => {
     const source = page.activeRow ?? page.rows[0];
-    const sourceFields = source ? Object.keys(source) : [];
-    return [...sourceFields, 'TERRAIN_LOGO'].filter((f, i, a) => a.indexOf(f) === i);
+    return buildTerrainFormFields(source);
   }, [page.activeRow, page.rows]);
 
   const getRowId = (row: TerrainRow): GridRowId => {
@@ -77,15 +76,66 @@ export function TerrainPage() {
     return JSON.stringify(row);
   };
 
+  const openInTabFromRowId = (rowId: GridRowId) => {
+    if (!onOpenInTab) return;
+    const selectedRow = page.rows.find((row) => toComparableId(getRowId(row)) === toComparableId(rowId));
+    const label = selectedRow ? resolveTerrainLabel(selectedRow) : String(rowId);
+    onOpenInTab({ rowId, label });
+  };
+
+  const handleOpen = () => {
+    if (variant === 'modalPicker' && onOpenInTab) {
+      const selectedId = page.selection.at(0);
+      if (selectedId === undefined || selectedId === null) {
+        page.setSnackbar({ severity: 'error', message: 'Selectionnez un terrain a ouvrir.' });
+        return;
+      }
+      openInTabFromRowId(selectedId);
+      return;
+    }
+    void page.openEditDialog();
+  };
+
+  const handleRowDoubleClick = (rowId: GridRowId) => {
+    if (variant === 'modalPicker' && onOpenInTab) {
+      openInTabFromRowId(rowId);
+      return;
+    }
+    void page.openEditDialog(rowId);
+  };
+
+  const handleFormSubmit = async (payload: TerrainRow) => {
+    if (variant === 'modalPicker' && onOpenInTab && page.dialogMode === 'create') {
+      try {
+        const created = await createTerrain(payload);
+        const createdRow = (created ?? payload) as TerrainRow;
+        const createdId = resolveTerrainId(createdRow);
+        if (createdId === undefined || createdId === null || String(createdId).trim() === '') {
+          page.setSnackbar({ severity: 'error', message: 'Creation reussie mais identifiant introuvable.' });
+          return;
+        }
+        page.setDialogOpen(false);
+        onOpenInTab({ rowId: createdId, label: resolveTerrainLabel(createdRow) });
+      } catch (error) {
+        page.setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+      }
+      return;
+    }
+
+    await page.handleFormSubmit(payload);
+  };
+
   return (
     <EntityPageLayout
+      hideTitle={variant === 'modalPicker'}
+      actionsInlineWithSearch={variant === 'modalPicker'}
       title="Stades"
       searchLabel="Rechercher un terrain"
       search={page.search}
       onSearchChange={page.setSearch}
       searchInputRef={page.searchInputRef}
       onNew={page.openCreateDialog}
-      onOpen={() => void page.openEditDialog()}
+      onOpen={handleOpen}
       onDelete={() => void page.handleOpenDeleteConfirm()}
       actionButtonsRowRef={page.actionButtonsRowRef}
       compactActionButtons={page.compactActionButtons}
@@ -95,7 +145,7 @@ export function TerrainPage() {
       getRowId={getRowId}
       selection={page.selection}
       onSelectionChange={page.setSelection}
-      onRowDoubleClick={(rowId) => void page.openEditDialog(rowId)}
+      onRowDoubleClick={handleRowDoubleClick}
       confirmDeleteOpen={page.confirmDeleteOpen}
       deleteConstraints={page.deleteConstraints}
       entityDescription="ce terrain"
@@ -109,7 +159,7 @@ export function TerrainPage() {
           primaryKey={primaryKey}
           initialData={page.activeRow}
           onClose={() => page.setDialogOpen(false)}
-          onSubmit={page.handleFormSubmit}
+          onSubmit={handleFormSubmit}
         />
       }
       snackbar={page.snackbar}
