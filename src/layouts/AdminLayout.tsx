@@ -190,12 +190,6 @@ export function AdminLayout() {
         setActiveTabKey(false);
         return prev;
       }
-
-      const fallback = prev.find((tab) => tab.path === normalizedPath);
-      if (fallback) {
-        setActiveTabKey(fallback.key);
-        return prev;
-      }
       tabCounterRef.current += 1;
       const key = `tab-${normalizedPath}-${tabCounterRef.current}`;
       setActiveTabKey(key);

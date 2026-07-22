@@ -5,16 +5,7 @@ import { NatioFormDialog } from './NatioFormDialog';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
 import { useEntityPage } from '../../components/useEntityPage';
 import type { NatioRow } from './types';
-
-const PK_CANDIDATES = ['IDNATIO', 'NATIO', 'ID', 'id', 'CODE'];
-
-function detectPrimaryKey(rows: NatioRow[]): string | undefined {
-  const firstRow = rows[0];
-  if (!firstRow) return undefined;
-  const keys = Object.keys(firstRow);
-  const candidate = PK_CANDIDATES.find((pk) => keys.includes(pk));
-  return candidate ?? keys[0];
-}
+import { buildNatioFormFields, detectNatioPrimaryKey, resolveNatioLabel } from './natioUi';
 
 interface NatioPageProps {
   variant?: 'page' | 'modalPicker';
@@ -23,20 +14,6 @@ interface NatioPageProps {
 
 function toComparableId(value: unknown): string {
   return String(value);
-}
-
-function resolveNatioLabel(row: NatioRow): string {
-  const preferred = ['PAYS', 'NOM', 'NATIO_NOM', 'NATIO', 'IDNATIO', 'CODE'];
-  for (const field of preferred) {
-    const value = row[field];
-    if (typeof value === 'string' && value.trim().length > 0) {
-      return value.trim();
-    }
-    if (typeof value === 'number') {
-      return String(value);
-    }
-  }
-  return 'Pays';
 }
 
 export function NatioPage({ variant = 'page', onOpenInTab }: NatioPageProps) {
@@ -61,7 +38,7 @@ export function NatioPage({ variant = 'page', onOpenInTab }: NatioPageProps) {
     },
   );
 
-  const primaryKey = useMemo(() => detectPrimaryKey(page.rows), [page.rows]);
+  const primaryKey = useMemo(() => detectNatioPrimaryKey(page.rows), [page.rows]);
 
   const columns = useMemo<GridColDef[]>(() => {
     const first = page.rows[0];
@@ -86,8 +63,7 @@ export function NatioPage({ variant = 'page', onOpenInTab }: NatioPageProps) {
 
   const formFields = useMemo<string[]>(() => {
     const source = page.activeRow ?? page.rows[0];
-    const sourceFields = source ? Object.keys(source) : [];
-    return [...sourceFields, 'NALOCAL', 'NAT_DRAPEAU'].filter((f, i, a) => a.indexOf(f) === i);
+    return buildNatioFormFields(source);
   }, [page.activeRow, page.rows]);
 
   const getRowId = (row: NatioRow): GridRowId => {
