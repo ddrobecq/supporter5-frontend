@@ -1,4 +1,11 @@
-import { DataGrid, type GridColDef, type GridRowClassNameParams, type GridRowId, type GridValidRowModel } from '@mui/x-data-grid';
+import {
+  DataGrid,
+  type GridColDef,
+  type GridPaginationModel,
+  type GridRowClassNameParams,
+  type GridRowId,
+  type GridValidRowModel,
+} from '@mui/x-data-grid';
 
 interface EntityDataGridProps<RowModel extends GridValidRowModel> {
   rows: RowModel[];
@@ -15,6 +22,10 @@ interface EntityDataGridProps<RowModel extends GridValidRowModel> {
   getRowClassName?: (params: GridRowClassNameParams<RowModel>) => string;
   label?: string;
   showToolbar?: boolean;
+  paginationMode?: 'client' | 'server';
+  paginationModel?: GridPaginationModel;
+  onPaginationModelChange?: (model: GridPaginationModel) => void;
+  rowCount?: number;
 }
 
 export function EntityDataGrid<RowModel extends GridValidRowModel>({
@@ -32,6 +43,10 @@ export function EntityDataGrid<RowModel extends GridValidRowModel>({
   getRowClassName,
   label,
   showToolbar = false,
+  paginationMode = 'client',
+  paginationModel,
+  onPaginationModelChange,
+  rowCount,
 }: EntityDataGridProps<RowModel>) {
   return (
     <DataGrid
@@ -44,6 +59,11 @@ export function EntityDataGrid<RowModel extends GridValidRowModel>({
       pageSizeOptions={pageSizeOptions}
       onRowDoubleClick={(params) => onRowDoubleClick?.(params.id)}
       disableRowSelectionOnClick={disableRowSelectionOnClick}
+      pagination
+      paginationMode={paginationMode}
+      paginationModel={paginationModel}
+      onPaginationModelChange={onPaginationModelChange}
+      rowCount={rowCount}
       onRowClick={(params) => {
         if (onRowClick) {
           onRowClick(params.id);

@@ -2,12 +2,12 @@ import BarChartRoundedIcon from '@mui/icons-material/BarChartRounded';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import EventNoteRoundedIcon from '@mui/icons-material/EventNoteRounded';
 import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
-import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
 import EuroRoundedIcon from '@mui/icons-material/EuroRounded';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import PeopleRoundedIcon from '@mui/icons-material/PeopleRounded';
+import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
@@ -31,7 +31,7 @@ import { authStore } from '../features/auth/authStore';
 const QUICK_ACTIONS = [
   { label: 'Joueurs', icon: <PeopleRoundedIcon />, path: '/joueurs' },
   { label: 'Statistiques', icon: <BarChartRoundedIcon /> },
-  { label: 'Clubs', icon: <GroupsRoundedIcon /> },
+  { label: 'Clubs', icon: <ShieldRoundedIcon />, path: '/clubs' },
   { label: 'Matchs', icon: <SportsSoccerRoundedIcon /> },
 ];
 
@@ -46,6 +46,7 @@ export function AdminLayout() {
   const isHomeActive = location.pathname === '/admin/home' || location.pathname === '/accueil';
   const isCalendrierActive = location.pathname === '/admin/calendrier' || location.pathname === '/calendrier';
   const isJoueursActive = location.pathname === '/admin/joueurs' || location.pathname === '/joueurs';
+  const isClubsActive = location.pathname === '/admin/clubs' || location.pathname === '/clubs';
   const isNatioActive = location.pathname === '/admin/natio' || location.pathname === '/natio';
   const isVilleActive = location.pathname === '/admin/ville' || location.pathname === '/ville';
   const isArbitreActive = location.pathname === '/admin/arbitre' || location.pathname === '/arbitre';
@@ -314,8 +315,18 @@ export function AdminLayout() {
               <Tooltip key={action.label} title={action.label} disableHoverListener={!compactNavButtons}>
                 <Button
                   size="small"
-                  variant={action.label === 'Joueurs' && isJoueursActive ? 'contained' : 'outlined'}
-                  color={action.label === 'Joueurs' && isJoueursActive ? 'primary' : 'inherit'}
+                  variant={
+                    (action.label === 'Joueurs' && isJoueursActive)
+                    || (action.label === 'Clubs' && isClubsActive)
+                      ? 'contained'
+                      : 'outlined'
+                  }
+                  color={
+                    (action.label === 'Joueurs' && isJoueursActive)
+                    || (action.label === 'Clubs' && isClubsActive)
+                      ? 'primary'
+                      : 'inherit'
+                  }
                   startIcon={compactNavButtons ? undefined : action.icon}
                   sx={{
                     minWidth: 36,

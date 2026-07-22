@@ -11,6 +11,7 @@ import { CircPage } from './features/circ/CircPage';
 import { EpreuvePage } from './features/epreuve/EpreuvePage';
 import { JoueurPage } from './features/joueur/JoueurPage';
 import { CalendrierPage } from './features/calendrier/CalendrierPage';
+import { ClubPage } from './features/club/ClubPage';
 import { AdminLayout } from './layouts/AdminLayout';
 
 function App() {
@@ -26,6 +27,8 @@ function App() {
           <Route path="/admin/calendrier" element={<CalendrierPage />} />
           <Route path="/joueurs" element={<Navigate to="/admin/joueurs" replace />} />
           <Route path="/admin/joueurs" element={<JoueurPage />} />
+          <Route path="/clubs" element={<Navigate to="/admin/clubs" replace />} />
+          <Route path="/admin/clubs" element={<ClubPage />} />
           <Route path="/natio" element={<Navigate to="/admin/natio" replace />} />
           <Route path="/admin/natio" element={<NatioPage />} />
           <Route path="/ville" element={<Navigate to="/admin/ville" replace />} />
@@ -43,7 +46,7 @@ function App() {
         </Route>
       </Route>
 
-      <Route path="*" element={<Navigate to="/admin/natio" replace />} />
+      <Route path="*" element={<Navigate to="/admin/home" replace />} />
     </Routes>
   );
 }

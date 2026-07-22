@@ -44,7 +44,7 @@ export function LoginPage() {
       const token = await login(username, password);
       setToken(token);
       localStorage.setItem(LAST_USERNAME_KEY, username);
-      const redirectTo = (location.state as { from?: string } | undefined)?.from ?? '/admin/natio';
+      const redirectTo = (location.state as { from?: string } | undefined)?.from ?? '/admin/home';
       navigate(redirectTo, { replace: true });
     } catch (error) {
       let message = 'Connexion impossible.';

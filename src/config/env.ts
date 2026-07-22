@@ -6,6 +6,8 @@ export const env = {
   villeAdminResource: import.meta.env.VITE_VILLE_ADMIN_RESOURCE ?? '/api/admin/ville',
   arbitrePublicResource: import.meta.env.VITE_ARBITRE_PUBLIC_RESOURCE ?? '/api/arbitre',
   arbitreAdminResource: import.meta.env.VITE_ARBITRE_ADMIN_RESOURCE ?? '/api/admin/arbitre',
+  clubPublicResource: import.meta.env.VITE_CLUB_PUBLIC_RESOURCE ?? '/api/clubs',
+  clubAdminResource: import.meta.env.VITE_CLUB_ADMIN_RESOURCE ?? '/api/admin/clubs',
   joueurPublicResource: import.meta.env.VITE_JOUEUR_PUBLIC_RESOURCE ?? '/api/joueurs',
   joueurAdminResource: import.meta.env.VITE_JOUEUR_ADMIN_RESOURCE ?? '/api/admin/joueurs',
   terrainPublicResource: import.meta.env.VITE_TERRAIN_PUBLIC_RESOURCE ?? '/api/terrains',

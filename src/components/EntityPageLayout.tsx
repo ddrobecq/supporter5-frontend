@@ -15,7 +15,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import type { GridColDef, GridRowClassNameParams, GridRowId, GridValidRowModel } from '@mui/x-data-grid';
+import type { GridColDef, GridPaginationModel, GridRowClassNameParams, GridRowId, GridValidRowModel } from '@mui/x-data-grid';
 import type { ReactNode, RefObject } from 'react';
 import { EntityDataGrid } from './EntityDataGrid';
 import { EntitySearchBar } from './EntitySearchBar';
@@ -53,6 +53,11 @@ interface EntityPageLayoutProps<Row extends GridValidRowModel> {
   onSelectionChange: (selection: GridRowId[]) => void;
   onRowDoubleClick: (rowId: GridRowId) => void;
   getRowClassName?: (params: GridRowClassNameParams<Row>) => string;
+  paginationMode?: 'client' | 'server';
+  paginationModel?: GridPaginationModel;
+  onPaginationModelChange?: (model: GridPaginationModel) => void;
+  rowCount?: number;
+  pageSizeOptions?: number[];
   // Dialog suppression
   confirmDeleteOpen: boolean;
   deleteConstraints: IntegrityConstraint[];
@@ -87,6 +92,11 @@ export function EntityPageLayout<Row extends GridValidRowModel>({
   onSelectionChange,
   onRowDoubleClick,
   getRowClassName,
+  paginationMode = 'client',
+  paginationModel,
+  onPaginationModelChange,
+  rowCount,
+  pageSizeOptions,
   confirmDeleteOpen,
   deleteConstraints,
   entityDescription,
@@ -181,6 +191,11 @@ export function EntityPageLayout<Row extends GridValidRowModel>({
               onRowDoubleClick={onRowDoubleClick}
               getRowClassName={getRowClassName}
               onRowClick={(rowId) => onSelectionChange([rowId])}
+              paginationMode={paginationMode}
+              paginationModel={paginationModel}
+              onPaginationModelChange={onPaginationModelChange}
+              rowCount={rowCount}
+              pageSizeOptions={pageSizeOptions}
             />
           </Box>
         </CardContent>
