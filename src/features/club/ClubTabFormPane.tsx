@@ -10,6 +10,11 @@ import {
   Box,
   Button,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   IconButton,
   Stack,
   TextField,
@@ -22,6 +27,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import jerseySvgSource from '../../../img/jersey.svg?raw';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
+import { DateInputField } from '../../components/DateInputField';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { toErrorMessage } from '../../components/useEntityPage';
@@ -30,8 +36,20 @@ import { fetchNatio } from '../natio/natioApi';
 import type { NatioRow } from '../natio/types';
 import { TerrainVilleSelector } from '../terrain/TerrainVilleSelector';
 import type { VilleRow } from '../ville/types';
-import { fetchClubNameHistory, fetchClubProfileById, fetchClubTerrainHistory, updateClubProfile } from './clubApi';
+import {
+  createClubTerrainHistory,
+  createClubNameHistory,
+  deleteClubTerrainHistory,
+  deleteClubNameHistory,
+  fetchClubNameHistory,
+  fetchClubProfileById,
+  fetchClubTerrainHistory,
+  updateClubTerrainHistory,
+  updateClubNameHistory,
+  updateClubProfile,
+} from './clubApi';
 import type { ClubNameHistoryRow, ClubProfileRow, ClubTerrainHistoryRow } from './types';
+import { TerrainSelector } from '../terrain/TerrainSelector';
 
 interface ClubTabFormPaneProps {
   tabPath: string;
@@ -46,6 +64,18 @@ interface ClubProfileDraft {
   villeName: string;
   fond: string;
   texte: string;
+}
+
+interface ClubNameDialogDraft {
+  date: string;
+  eventType: '1' | '2' | '3';
+  name: string;
+}
+
+interface ClubTerrainDialogDraft {
+  date: string;
+  terrainId: string;
+  terrainName: string;
 }
 
 function dispatchDirty(tabPath: string, dirty: boolean) {
@@ -338,6 +368,37 @@ function formatClubDate(value: unknown): string {
   return `${dd}-${mmm}-${year}`;
 }
 
+function formatDateForInput(value: unknown): string {
+  const text = String(value ?? '').trim();
+  const compact = text.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (compact) {
+    return `${compact[3]}/${compact[2]}/${compact[1]}`;
+  }
+  const dashed = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dashed) {
+    return `${dashed[3]}/${dashed[2]}/${dashed[1]}`;
+  }
+  return '';
+}
+
+function formatDateForApi(value: string): string | null {
+  const text = String(value ?? '').trim();
+  if (!text) {
+    return null;
+  }
+
+  const french = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (french) {
+    return `${french[3]}-${french[2]}-${french[1]}`;
+  }
+
+  const dashed = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dashed) {
+    return `${dashed[1]}-${dashed[2]}-${dashed[3]}`;
+  }
+  return text || null;
+}
+
 export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -354,6 +415,21 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
   const [terrainHistorySelection, setTerrainHistorySelection] = useState<GridRowId[]>([]);
   const [villeSelectorOpen, setVilleSelectorOpen] = useState(false);
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
+  const [nameDialogOpen, setNameDialogOpen] = useState(false);
+  const [nameDialogMode, setNameDialogMode] = useState<'create' | 'edit'>('create');
+  const [nameDialogId, setNameDialogId] = useState<number | null>(null);
+  const [nameDialogSaving, setNameDialogSaving] = useState(false);
+  const [nameDialogDraft, setNameDialogDraft] = useState<ClubNameDialogDraft>({ date: '', eventType: '1', name: '' });
+  const [nameDeleteConfirmOpen, setNameDeleteConfirmOpen] = useState(false);
+  const [nameDeleteSaving, setNameDeleteSaving] = useState(false);
+  const [terrainDialogOpen, setTerrainDialogOpen] = useState(false);
+  const [terrainDialogMode, setTerrainDialogMode] = useState<'create' | 'edit'>('create');
+  const [terrainDialogId, setTerrainDialogId] = useState<number | null>(null);
+  const [terrainDialogSaving, setTerrainDialogSaving] = useState(false);
+  const [terrainDialogDraft, setTerrainDialogDraft] = useState<ClubTerrainDialogDraft>({ date: '', terrainId: '', terrainName: '' });
+  const [terrainDeleteConfirmOpen, setTerrainDeleteConfirmOpen] = useState(false);
+  const [terrainDeleteSaving, setTerrainDeleteSaving] = useState(false);
+  const [terrainSelectorOpen, setTerrainSelectorOpen] = useState(false);
   const [clubImageDraft, setClubImageDraft] = useState<string | null | undefined>(undefined);
   const fondColorInputRef = useRef<HTMLInputElement | null>(null);
   const texteColorInputRef = useRef<HTMLInputElement | null>(null);
@@ -560,43 +636,274 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     setVilleSelectorOpen(false);
   };
 
-  const miniActions = (
+  const selectedNameHistoryId = Number(nameHistorySelection[0] ?? 0);
+  const selectedNameHistoryRow = nameHistoryRows.find((historyRow) => Number(historyRow.IDCLUB_NOM) === selectedNameHistoryId);
+  const selectedTerrainHistoryId = Number(terrainHistorySelection[0] ?? 0);
+  const selectedTerrainHistoryRow = terrainHistoryRows.find((historyRow) => Number(historyRow.CT_CLEUNIK) === selectedTerrainHistoryId);
+
+  const openNameCreateDialog = () => {
+    setNameDialogMode('create');
+    setNameDialogId(null);
+    setNameDialogDraft({
+      date: '',
+      eventType: '1',
+      name: String(profileDraft.name ?? '').trim(),
+    });
+    setNameDialogOpen(true);
+  };
+
+  const openNameEditDialog = (historyRow?: ClubNameHistoryRow) => {
+    const rowToEdit = historyRow ?? selectedNameHistoryRow;
+    if (!rowToEdit) {
+      setSnackbar({ severity: 'error', message: 'Selectionnez un nom de club a modifier.' });
+      return;
+    }
+    const eventType = Number(rowToEdit.CN_ACTION ?? 0);
+    setNameDialogMode('edit');
+    setNameDialogId(Number(rowToEdit.IDCLUB_NOM));
+    setNameDialogDraft({
+      date: formatDateForInput(rowToEdit.DATE),
+      eventType: eventType >= 1 && eventType <= 3 ? String(eventType) as '1' | '2' | '3' : '2',
+      name: String(rowToEdit.CN_NOM ?? ''),
+    });
+    setNameDialogOpen(true);
+  };
+
+  const openNameDeleteConfirm = () => {
+    if (!selectedNameHistoryRow) {
+      setSnackbar({ severity: 'error', message: 'Selectionnez un nom de club a supprimer.' });
+      return;
+    }
+    setNameDeleteConfirmOpen(true);
+  };
+
+  const handleNameDialogSave = async () => {
+    const date = formatDateForApi(nameDialogDraft.date);
+    const name = String(nameDialogDraft.name ?? '').trim();
+    const eventType = nameDialogDraft.eventType;
+
+    if (!name) {
+      setSnackbar({ severity: 'error', message: 'Le nom est requis.' });
+      return;
+    }
+
+    setNameDialogSaving(true);
+    try {
+      if (nameDialogMode === 'create') {
+        await createClubNameHistory(clubId, { date, eventType, name });
+      } else {
+        if (!nameDialogId) {
+          setSnackbar({ severity: 'error', message: 'Nom de club invalide.' });
+          return;
+        }
+        await updateClubNameHistory(clubId, nameDialogId, { date, eventType, name });
+      }
+
+      await reloadHistories();
+      setNameDialogOpen(false);
+      setSnackbar({ severity: 'success', message: 'Historique des noms mis a jour.' });
+    } catch (error) {
+      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+    } finally {
+      setNameDialogSaving(false);
+    }
+  };
+
+  const handleNameDeleteConfirm = async () => {
+    if (!selectedNameHistoryRow) {
+      setNameDeleteConfirmOpen(false);
+      return;
+    }
+
+    setNameDeleteSaving(true);
+    try {
+      await deleteClubNameHistory(clubId, selectedNameHistoryRow.IDCLUB_NOM);
+      await reloadHistories();
+      setNameDeleteConfirmOpen(false);
+      setSnackbar({ severity: 'success', message: 'Nom de club supprime.' });
+    } catch (error) {
+      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+    } finally {
+      setNameDeleteSaving(false);
+    }
+  };
+
+  const openTerrainCreateDialog = () => {
+    setTerrainDialogMode('create');
+    setTerrainDialogId(null);
+    setTerrainDialogDraft({ date: '', terrainId: '', terrainName: '' });
+    setTerrainDialogOpen(true);
+  };
+
+  const openTerrainEditDialog = (historyRow?: ClubTerrainHistoryRow) => {
+    const rowToEdit = historyRow ?? selectedTerrainHistoryRow;
+    if (!rowToEdit) {
+      setSnackbar({ severity: 'error', message: 'Selectionnez un stade a modifier.' });
+      return;
+    }
+
+    setTerrainDialogMode('edit');
+    setTerrainDialogId(Number(rowToEdit.CT_CLEUNIK));
+    setTerrainDialogDraft({
+      date: formatDateForInput(rowToEdit.DATE),
+      terrainId: String(rowToEdit.TECLEUNIK ?? ''),
+      terrainName: String(rowToEdit.STADE ?? ''),
+    });
+    setTerrainDialogOpen(true);
+  };
+
+  const openTerrainDeleteConfirm = () => {
+    if (!selectedTerrainHistoryRow) {
+      setSnackbar({ severity: 'error', message: 'Selectionnez un stade a supprimer.' });
+      return;
+    }
+    setTerrainDeleteConfirmOpen(true);
+  };
+
+  const handleTerrainDialogSave = async () => {
+    const date = formatDateForApi(terrainDialogDraft.date);
+    const terrainId = String(terrainDialogDraft.terrainId ?? '').trim();
+
+    if (!terrainId) {
+      setSnackbar({ severity: 'error', message: 'Le stade est requis.' });
+      return;
+    }
+
+    setTerrainDialogSaving(true);
+    try {
+      if (terrainDialogMode === 'create') {
+        await createClubTerrainHistory(clubId, { date, terrainId });
+      } else {
+        if (!terrainDialogId) {
+          setSnackbar({ severity: 'error', message: 'Stade club invalide.' });
+          return;
+        }
+        await updateClubTerrainHistory(clubId, terrainDialogId, { date, terrainId });
+      }
+
+      await reloadHistories();
+      setTerrainDialogOpen(false);
+      setSnackbar({ severity: 'success', message: 'Historique des stades mis a jour.' });
+    } catch (error) {
+      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+    } finally {
+      setTerrainDialogSaving(false);
+    }
+  };
+
+  const handleTerrainDeleteConfirm = async () => {
+    if (!selectedTerrainHistoryRow) {
+      setTerrainDeleteConfirmOpen(false);
+      return;
+    }
+
+    setTerrainDeleteSaving(true);
+    try {
+      await deleteClubTerrainHistory(clubId, selectedTerrainHistoryRow.CT_CLEUNIK);
+      await reloadHistories();
+      setTerrainDeleteConfirmOpen(false);
+      setSnackbar({ severity: 'success', message: 'Stade supprime.' });
+    } catch (error) {
+      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+    } finally {
+      setTerrainDeleteSaving(false);
+    }
+  };
+
+  const handleTerrainSelected = (terrain: { id: string; name: string }) => {
+    setTerrainDialogDraft((prev) => ({ ...prev, terrainId: terrain.id, terrainName: terrain.name }));
+    setTerrainSelectorOpen(false);
+  };
+
+  const nameHistoryActions = (
     <Stack direction="row" spacing={0.5}>
       <Tooltip title="Ajouter">
         {isMobile ? (
-          <IconButton size="small" color="primary" aria-label="Ajouter">
+          <IconButton size="small" color="primary" aria-label="Ajouter" onClick={openNameCreateDialog}>
             <AddCircleOutlineRoundedIcon fontSize="small" />
           </IconButton>
         ) : (
-          <Button size="small" variant="outlined" startIcon={<AddCircleOutlineRoundedIcon />} sx={{ minWidth: 0, px: 1.1 }}>
+          <Button size="small" variant="outlined" startIcon={<AddCircleOutlineRoundedIcon />} sx={{ minWidth: 0, px: 1.1 }} onClick={openNameCreateDialog}>
             Ajouter
           </Button>
         )}
       </Tooltip>
       <Tooltip title="Modifier">
         {isMobile ? (
-          <IconButton size="small" color="primary" aria-label="Modifier">
+          <IconButton size="small" color="primary" aria-label="Modifier" onClick={() => openNameEditDialog()} disabled={!selectedNameHistoryRow}>
             <EditOutlinedIcon fontSize="small" />
           </IconButton>
         ) : (
-          <Button size="small" variant="outlined" startIcon={<EditOutlinedIcon />} sx={{ minWidth: 0, px: 1.1 }}>
+          <Button size="small" variant="outlined" startIcon={<EditOutlinedIcon />} sx={{ minWidth: 0, px: 1.1 }} onClick={() => openNameEditDialog()} disabled={!selectedNameHistoryRow}>
             Modifier
           </Button>
         )}
       </Tooltip>
       <Tooltip title="Supprimer">
         {isMobile ? (
-          <IconButton size="small" color="error" aria-label="Supprimer">
+          <IconButton size="small" color="error" aria-label="Supprimer" onClick={openNameDeleteConfirm} disabled={!selectedNameHistoryRow}>
             <DeleteOutlineRoundedIcon fontSize="small" />
           </IconButton>
         ) : (
-          <Button size="small" color="error" variant="outlined" startIcon={<DeleteOutlineRoundedIcon />} sx={{ minWidth: 0, px: 1.1 }}>
+          <Button size="small" color="error" variant="outlined" startIcon={<DeleteOutlineRoundedIcon />} sx={{ minWidth: 0, px: 1.1 }} onClick={openNameDeleteConfirm} disabled={!selectedNameHistoryRow}>
             Supprimer
           </Button>
         )}
       </Tooltip>
     </Stack>
   );
+
+  const handleNameHistoryRowDoubleClick = (rowId: GridRowId) => {
+    const clicked = nameHistoryRows.find((historyRow) => Number(historyRow.IDCLUB_NOM) === Number(rowId));
+    if (!clicked) return;
+    setNameHistorySelection([clicked.IDCLUB_NOM]);
+    openNameEditDialog(clicked);
+  };
+
+  const terrainHistoryActions = (
+    <Stack direction="row" spacing={0.5}>
+      <Tooltip title="Ajouter">
+        {isMobile ? (
+          <IconButton size="small" color="primary" aria-label="Ajouter" onClick={openTerrainCreateDialog}>
+            <AddCircleOutlineRoundedIcon fontSize="small" />
+          </IconButton>
+        ) : (
+          <Button size="small" variant="outlined" startIcon={<AddCircleOutlineRoundedIcon />} sx={{ minWidth: 0, px: 1.1 }} onClick={openTerrainCreateDialog}>
+            Ajouter
+          </Button>
+        )}
+      </Tooltip>
+      <Tooltip title="Modifier">
+        {isMobile ? (
+          <IconButton size="small" color="primary" aria-label="Modifier" onClick={() => openTerrainEditDialog()} disabled={!selectedTerrainHistoryRow}>
+            <EditOutlinedIcon fontSize="small" />
+          </IconButton>
+        ) : (
+          <Button size="small" variant="outlined" startIcon={<EditOutlinedIcon />} sx={{ minWidth: 0, px: 1.1 }} onClick={() => openTerrainEditDialog()} disabled={!selectedTerrainHistoryRow}>
+            Modifier
+          </Button>
+        )}
+      </Tooltip>
+      <Tooltip title="Supprimer">
+        {isMobile ? (
+          <IconButton size="small" color="error" aria-label="Supprimer" onClick={openTerrainDeleteConfirm} disabled={!selectedTerrainHistoryRow}>
+            <DeleteOutlineRoundedIcon fontSize="small" />
+          </IconButton>
+        ) : (
+          <Button size="small" color="error" variant="outlined" startIcon={<DeleteOutlineRoundedIcon />} sx={{ minWidth: 0, px: 1.1 }} onClick={openTerrainDeleteConfirm} disabled={!selectedTerrainHistoryRow}>
+            Supprimer
+          </Button>
+        )}
+      </Tooltip>
+    </Stack>
+  );
+
+  const handleTerrainHistoryRowDoubleClick = (rowId: GridRowId) => {
+    const clicked = terrainHistoryRows.find((historyRow) => Number(historyRow.CT_CLEUNIK) === Number(rowId));
+    if (!clicked) return;
+    setTerrainHistorySelection([clicked.CT_CLEUNIK]);
+    openTerrainEditDialog(clicked);
+  };
 
   const visualButtons = (
     <Stack
@@ -802,7 +1109,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
             <Stack spacing={0.75}>
               <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>Historique des noms</Typography>
-                {miniActions}
+                {nameHistoryActions}
               </Stack>
               <Box sx={{ height: 220 }}>
                 <EntityDataGrid
@@ -812,6 +1119,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
                   getRowId={(historyRow) => historyRow.IDCLUB_NOM}
                   selection={nameHistorySelection}
                   onSelectionChange={setNameHistorySelection}
+                  onRowDoubleClick={handleNameHistoryRowDoubleClick}
                   pageSizeOptions={[10, 25, 50]}
                 />
               </Box>
@@ -820,7 +1128,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
             <Stack spacing={0.75}>
               <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>Historique des stades</Typography>
-                {miniActions}
+                {terrainHistoryActions}
               </Stack>
               <Box sx={{ height: 220 }}>
                 <EntityDataGrid
@@ -830,6 +1138,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
                   getRowId={(historyRow) => historyRow.CT_CLEUNIK}
                   selection={terrainHistorySelection}
                   onSelectionChange={setTerrainHistorySelection}
+                  onRowDoubleClick={handleTerrainHistoryRowDoubleClick}
                   pageSizeOptions={[10, 25, 50]}
                 />
               </Box>
@@ -857,12 +1166,133 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
         </Box>
       ) : null}
 
+      <Dialog open={nameDialogOpen} onClose={() => { if (!nameDialogSaving) setNameDialogOpen(false); }} fullWidth maxWidth="sm">
+        <DialogTitle>{nameDialogMode === 'create' ? 'Ajouter un nom de club' : 'Modifier un nom de club'}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1.5} sx={{ pt: 0.75 }}>
+            <DateInputField
+              label="Date"
+              value={nameDialogDraft.date}
+              onChange={(nextDate) => setNameDialogDraft((prev) => ({ ...prev, date: nextDate }))}
+              fullWidth
+              calendarAriaLabel="Calendrier date"
+            />
+
+            <TextField
+              select
+              label="Evenement (TYPE)"
+              value={nameDialogDraft.eventType}
+              onChange={(event) => setNameDialogDraft((prev) => ({ ...prev, eventType: event.target.value as '1' | '2' | '3' }))}
+              size="small"
+              fullWidth
+              slotProps={{ inputLabel: { shrink: true }, select: { native: true } }}
+            >
+              <option value="1">Creation</option>
+              <option value="2">Modification</option>
+              <option value="3">Dissolution</option>
+            </TextField>
+
+            <TextField
+              label="Nom"
+              value={nameDialogDraft.name}
+              onChange={(event) => setNameDialogDraft((prev) => ({ ...prev, name: event.target.value }))}
+              size="small"
+              fullWidth
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setNameDialogOpen(false)} disabled={nameDialogSaving}>Annuler</Button>
+          <Button variant="contained" onClick={() => void handleNameDialogSave()} disabled={nameDialogSaving}>OK</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={nameDeleteConfirmOpen} onClose={() => { if (!nameDeleteSaving) setNameDeleteConfirmOpen(false); }}>
+        <DialogTitle>Supprimer un nom de club</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Confirmez-vous la suppression de ce nom de club ?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setNameDeleteConfirmOpen(false)} disabled={nameDeleteSaving}>Annuler</Button>
+          <Button color="error" variant="contained" onClick={() => void handleNameDeleteConfirm()} disabled={nameDeleteSaving}>Supprimer</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={terrainDialogOpen} onClose={() => { if (!terrainDialogSaving) setTerrainDialogOpen(false); }} fullWidth maxWidth="sm">
+        <DialogTitle>{terrainDialogMode === 'create' ? 'Ajouter un stade' : 'Modifier un stade'}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1.5} sx={{ pt: 0.75 }}>
+            <DateInputField
+              label="Date"
+              value={terrainDialogDraft.date}
+              onChange={(nextDate) => setTerrainDialogDraft((prev) => ({ ...prev, date: nextDate }))}
+              fullWidth
+              calendarAriaLabel="Calendrier date"
+            />
+
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+              <TextField
+                label="Nom du stade"
+                value={terrainDialogDraft.terrainName}
+                size="small"
+                fullWidth
+                slotProps={{ input: { readOnly: true } }}
+              />
+              <Tooltip title="Selectionner un stade">
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => setTerrainSelectorOpen(true)}
+                  startIcon={<SportsSoccerRoundedIcon fontSize="small" />}
+                  sx={{
+                    flexShrink: 0,
+                    minWidth: 36,
+                    px: 1,
+                    '.MuiButton-startIcon': { mr: 0 },
+                  }}
+                  aria-label="Selectionner un stade"
+                >
+                  <Box component="span" sx={{ display: 'none' }}>
+                    Stade
+                  </Box>
+                </Button>
+              </Tooltip>
+            </Stack>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTerrainDialogOpen(false)} disabled={terrainDialogSaving}>Annuler</Button>
+          <Button variant="contained" onClick={() => void handleTerrainDialogSave()} disabled={terrainDialogSaving}>OK</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={terrainDeleteConfirmOpen} onClose={() => { if (!terrainDeleteSaving) setTerrainDeleteConfirmOpen(false); }}>
+        <DialogTitle>Supprimer un stade</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Confirmez-vous la suppression de ce stade de l historique ?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTerrainDeleteConfirmOpen(false)} disabled={terrainDeleteSaving}>Annuler</Button>
+          <Button color="error" variant="contained" onClick={() => void handleTerrainDeleteConfirm()} disabled={terrainDeleteSaving}>Supprimer</Button>
+        </DialogActions>
+      </Dialog>
+
       <AppFeedbackSnackbar value={snackbar} onClose={() => setSnackbar(null)} />
 
       <TerrainVilleSelector
         open={villeSelectorOpen}
         onClose={() => setVilleSelectorOpen(false)}
         onSelect={handleVilleSelect}
+      />
+
+      <TerrainSelector
+        open={terrainSelectorOpen}
+        onClose={() => setTerrainSelectorOpen(false)}
+        onSelect={handleTerrainSelected}
       />
     </Box>
   );

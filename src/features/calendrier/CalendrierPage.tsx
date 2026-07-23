@@ -12,11 +12,11 @@ import {
   CardContent,
   IconButton,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material';
 import { DataGrid, type GridColDef, type GridSortModel } from '@mui/x-data-grid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DateInputField, fromInputDateToDisplay, toInputDateFromDisplay } from '../../components/DateInputField';
 import { useEntityImage } from '../../lib/useEntityImage';
 import {
   fetchCalendarByDate,
@@ -268,6 +268,7 @@ function ClubCell({
 
 export function CalendrierPage() {
   const [date, setDate] = useState<string>(() => formatInputDate(new Date()));
+  const [dateDraft, setDateDraft] = useState<string>(() => fromInputDateToDisplay(formatInputDate(new Date())));
   const [rows, setRows] = useState<CalendrierRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -282,7 +283,6 @@ export function CalendrierPage() {
   const [sortModel, setSortModel] = useState(DEFAULT_SORT_MODEL);
   const savingScoreRowIdRef = useRef<string | number | null>(null);
   const savedIconTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const dateInputRef = useRef<HTMLInputElement | null>(null);
   const gridWrapperRef = useRef<HTMLDivElement | null>(null);
   const [statusAnchors, setStatusAnchors] = useState<StatusAnchor[]>([]);
   const scoreInitialDraftRef = useRef<ScoreDraft | null>(null);
@@ -313,6 +313,18 @@ export function CalendrierPage() {
   useEffect(() => () => {
     Object.values(savedIconTimersRef.current).forEach((timer) => clearTimeout(timer));
     savedIconTimersRef.current = {};
+  }, []);
+
+  useEffect(() => {
+    setDateDraft(fromInputDateToDisplay(date));
+  }, [date]);
+
+  const handleDateDraftChange = useCallback((nextDate: string) => {
+    setDateDraft(nextDate);
+    const isoDate = toInputDateFromDisplay(nextDate);
+    if (isoDate) {
+      setDate(isoDate);
+    }
   }, []);
 
   const updateStatusAnchors = useCallback(() => {
@@ -803,13 +815,12 @@ export function CalendrierPage() {
               <ChevronLeftRoundedIcon />
             </IconButton>
 
-            <TextField
-              inputRef={dateInputRef}
-              type="date"
-              size="small"
-              value={date}
-              onChange={(event) => setDate(event.target.value)}
-              sx={{ width: { xs: '42vw', sm: 160 }, minWidth: 120, maxWidth: 170, flex: '0 0 auto' }}
+            <DateInputField
+              label="Date"
+              value={dateDraft}
+              onChange={handleDateDraftChange}
+              calendarAriaLabel="Calendrier"
+              sx={{ width: { xs: 142, sm: 142 }, minWidth: 142, maxWidth: 142, flex: '0 0 auto' }}
             />
 
             <IconButton

@@ -17,14 +17,15 @@ export interface ClubProfileRow {
 
 export interface ClubNameHistoryRow {
   IDCLUB_NOM: number;
-  DATE: string;
+  DATE: string | null;
   CN_ACTION: number;
   CN_NOM: string;
 }
 
 export interface ClubTerrainHistoryRow {
   CT_CLEUNIK: number;
-  DATE: string;
+  TECLEUNIK: number;
+  DATE: string | null;
   STADE: string;
 }
 

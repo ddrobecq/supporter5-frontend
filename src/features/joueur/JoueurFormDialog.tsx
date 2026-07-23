@@ -1,11 +1,9 @@
-import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
 import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import {
   Autocomplete,
   Box,
   Button,
-  IconButton,
   InputAdornment,
   Stack,
   TextField,
@@ -13,7 +11,8 @@ import {
   Typography,
 } from '@mui/material';
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { DateInputField } from '../../components/DateInputField';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
@@ -48,13 +47,6 @@ function normalizeDateDigits(input: string): string {
   return input;
 }
 
-function normalizeDisplayDateInput(input: string): string {
-  const digits = input.replace(/\D+/g, '').slice(0, 8);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-}
-
 function normalizeNullableText(value: unknown): string {
   const text = String(value ?? '').trim();
   if (!text) return '';
@@ -67,27 +59,6 @@ function normalizeNullableCityId(value: unknown): string {
   const text = normalizeNullableText(value);
   if (!text || text === '0') return '';
   return text;
-}
-
-function toInputDate(value: unknown): string {
-  const raw = String(value ?? '').trim();
-  if (!raw) return '';
-
-  if (/^\d{8}$/.test(raw)) {
-    return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
-  }
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
-    return `${raw.slice(6, 10)}-${raw.slice(3, 5)}-${raw.slice(0, 2)}`;
-  }
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-    return raw;
-  }
-  return '';
-}
-
-function fromInputDate(value: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return '';
-  return `${value.slice(8, 10)}/${value.slice(5, 7)}/${value.slice(0, 4)}`;
 }
 
 function upper(value: string): string {
@@ -120,8 +91,6 @@ export function JoueurFormDialog({
   const [historyRows, setHistoryRows] = useState<JoueurHistoryRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historySelection, setHistorySelection] = useState<GridRowId[]>([]);
-  const birthDatePickerRef = useRef<HTMLInputElement | null>(null);
-  const deathDatePickerRef = useRef<HTMLInputElement | null>(null);
 
   const editId = mode === 'edit' ? (initialData?.IDJOUEUR as string | number | undefined) : undefined;
   const existingPhoto = useEntityImage('joueurrg', editId);
@@ -452,33 +421,12 @@ export function JoueurFormDialog({
             />
 
             <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'nowrap', pt: 0.5 }}>
-            <TextField
+            <DateInputField
               label="Né le"
               value={birthDateDisplay}
-              onChange={(event) => setValues((prev) => ({ ...prev, NAISSANCE: normalizeDisplayDateInput(event.target.value) }))}
-              size="small"
-              sx={{ width: 122, flexShrink: 0 }}
-              slotProps={{
-                htmlInput: { maxLength: 10, placeholder: 'DD/MM/YYYY' },
-              }}
-            />
-            <IconButton
-              aria-label="Calendrier naissance"
-              size="small"
-              onClick={() => {
-                birthDatePickerRef.current?.showPicker?.();
-              }}
-              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
-            >
-              <CalendarMonthRoundedIcon fontSize="small" />
-            </IconButton>
-            <input
-              ref={birthDatePickerRef}
-              type="date"
-              value={toInputDate(birthDateDisplay)}
-              onChange={(event) => setValues((prev) => ({ ...prev, NAISSANCE: fromInputDate(event.target.value) }))}
-              style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
-              tabIndex={-1}
+              onChange={(nextDate) => setValues((prev) => ({ ...prev, NAISSANCE: nextDate }))}
+              sx={{ width: 152, flexShrink: 0 }}
+              calendarAriaLabel="Calendrier naissance"
             />
             <TextField
               label="à"
@@ -509,33 +457,12 @@ export function JoueurFormDialog({
             </Stack>
 
             <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'nowrap', pt: 0.5 }}>
-            <TextField
+            <DateInputField
               label="Décédé le"
               value={deathDateDisplay}
-              onChange={(event) => setValues((prev) => ({ ...prev, DECES: normalizeDisplayDateInput(event.target.value) }))}
-              size="small"
-              sx={{ width: 122, flexShrink: 0 }}
-              slotProps={{
-                htmlInput: { maxLength: 10, placeholder: 'DD/MM/YYYY' },
-              }}
-            />
-            <IconButton
-              aria-label="Calendrier décès"
-              size="small"
-              onClick={() => {
-                deathDatePickerRef.current?.showPicker?.();
-              }}
-              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
-            >
-              <CalendarMonthRoundedIcon fontSize="small" />
-            </IconButton>
-            <input
-              ref={deathDatePickerRef}
-              type="date"
-              value={toInputDate(deathDateDisplay)}
-              onChange={(event) => setValues((prev) => ({ ...prev, DECES: fromInputDate(event.target.value) }))}
-              style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
-              tabIndex={-1}
+              onChange={(nextDate) => setValues((prev) => ({ ...prev, DECES: nextDate }))}
+              sx={{ width: 152, flexShrink: 0 }}
+              calendarAriaLabel="Calendrier décès"
             />
             <TextField
               label="à"

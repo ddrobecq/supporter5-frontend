@@ -145,3 +145,51 @@ export async function updateClubProfile(
   const { data } = await http.put<ClubProfileRow>(`${env.clubAdminResource}/${encodeURIComponent(id)}/profile`, payload);
   return data;
 }
+
+export async function createClubNameHistory(
+  id: string,
+  payload: { date?: string | null; eventType: number | string; name: string },
+): Promise<ClubNameHistoryRow> {
+  const { data } = await http.post<ClubNameHistoryRow>(`${env.clubAdminResource}/${encodeURIComponent(id)}/names`, payload);
+  return data;
+}
+
+export async function updateClubNameHistory(
+  id: string,
+  nameId: number | string,
+  payload: { date?: string | null; eventType: number | string; name: string },
+): Promise<ClubNameHistoryRow> {
+  const { data } = await http.put<ClubNameHistoryRow>(`${env.clubAdminResource}/${encodeURIComponent(id)}/names/${encodeURIComponent(String(nameId))}`, payload);
+  return data;
+}
+
+export async function deleteClubNameHistory(
+  id: string,
+  nameId: number | string,
+): Promise<void> {
+  await http.delete(`${env.clubAdminResource}/${encodeURIComponent(id)}/names/${encodeURIComponent(String(nameId))}`);
+}
+
+export async function createClubTerrainHistory(
+  id: string,
+  payload: { date?: string | null; terrainId: string | number },
+): Promise<ClubTerrainHistoryRow> {
+  const { data } = await http.post<ClubTerrainHistoryRow>(`${env.clubAdminResource}/${encodeURIComponent(id)}/terrains`, payload);
+  return data;
+}
+
+export async function updateClubTerrainHistory(
+  id: string,
+  terrainHistoryId: number | string,
+  payload: { date?: string | null; terrainId: string | number },
+): Promise<ClubTerrainHistoryRow> {
+  const { data } = await http.put<ClubTerrainHistoryRow>(`${env.clubAdminResource}/${encodeURIComponent(id)}/terrains/${encodeURIComponent(String(terrainHistoryId))}`, payload);
+  return data;
+}
+
+export async function deleteClubTerrainHistory(
+  id: string,
+  terrainHistoryId: number | string,
+): Promise<void> {
+  await http.delete(`${env.clubAdminResource}/${encodeURIComponent(id)}/terrains/${encodeURIComponent(String(terrainHistoryId))}`);
+}
