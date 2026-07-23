@@ -1,6 +1,7 @@
-import { Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, List, ListItemButton, ListItemText, TextField, Typography } from '@mui/material';
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material';
 import axios from 'axios';
 import { useEffect, useRef, useState } from 'react';
+import { CreateWizardSuggestionPanel } from '../../components/CreateWizardSuggestionPanel';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { createEpreuveWithWizard, fetchEpreuveSuggestions } from './epreuveApi';
 
@@ -117,26 +118,13 @@ export function EpreuveCreateWizardDialog({ open, onClose, onCreated, onError }:
             autoFocus
           />
 
-          <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, minHeight: 220, maxHeight: 220, overflowY: 'auto' }}>
-            {loadingSuggestions ? (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1.25 }}>
-                <CircularProgress size={16} />
-                <Typography variant="body2" color="text.secondary">Recherche en cours...</Typography>
-              </Box>
-            ) : suggestions.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ px: 1.5, py: 1.25 }}>
-                Aucune epreuve approchante trouvee.
-              </Typography>
-            ) : (
-              <List dense disablePadding>
-                {suggestions.map((row) => (
-                  <ListItemButton key={row.IDEPREUVE} sx={{ py: 0.4 }}>
-                    <ListItemText primary={String(row.EPREUVE ?? '')} />
-                  </ListItemButton>
-                ))}
-              </List>
-            )}
-          </Box>
+          <CreateWizardSuggestionPanel
+            loading={loadingSuggestions}
+            rows={suggestions}
+            emptyText="Aucune epreuve approchante trouvee."
+            getKey={(row) => row.IDEPREUVE}
+            getPrimaryText={(row) => String(row.EPREUVE ?? '')}
+          />
         </Box>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2, pt: 1, justifyContent: 'flex-end' }}>

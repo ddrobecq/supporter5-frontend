@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { createTerrain, deleteTerrain, fetchTerrain, fetchTerrainById, updateTerrain, canDeleteTerrain } from './terrainApi';
 import { TerrainFormDialog } from './TerrainFormDialog';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
-import { toErrorMessage, useEntityPage } from '../../components/useEntityPage';
+import { createAndOpenInTab, useEntityPage } from '../../components/useEntityPage';
 import type { TerrainRow } from './types';
 import { buildTerrainFormFields, detectTerrainPrimaryKey, resolveTerrainId, resolveTerrainLabel } from './terrainUi';
 
@@ -106,19 +106,15 @@ export function TerrainPage({ variant = 'page', onOpenInTab }: TerrainPageProps)
 
   const handleFormSubmit = async (payload: TerrainRow) => {
     if (variant === 'modalPicker' && onOpenInTab && page.dialogMode === 'create') {
-      try {
-        const created = await createTerrain(payload);
-        const createdRow = (created ?? payload) as TerrainRow;
-        const createdId = resolveTerrainId(createdRow);
-        if (createdId === undefined || createdId === null || String(createdId).trim() === '') {
-          page.setSnackbar({ severity: 'error', message: 'Creation reussie mais identifiant introuvable.' });
-          return;
-        }
-        page.setDialogOpen(false);
-        onOpenInTab({ rowId: createdId, label: resolveTerrainLabel(createdRow) });
-      } catch (error) {
-        page.setSnackbar({ severity: 'error', message: toErrorMessage(error) });
-      }
+      await createAndOpenInTab({
+        create: createTerrain,
+        payload,
+        resolveId: resolveTerrainId,
+        resolveLabel: resolveTerrainLabel,
+        closeDialog: () => page.setDialogOpen(false),
+        onOpenInTab,
+        setSnackbar: page.setSnackbar,
+      });
       return;
     }
 

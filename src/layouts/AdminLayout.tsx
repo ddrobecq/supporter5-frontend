@@ -78,6 +78,24 @@ interface TabMeta {
   icon: ReactNode;
 }
 
+type PickerEntityKey = 'joueur' | 'arbitre' | 'epreuve' | 'club' | 'natio' | 'ville' | 'terrain' | 'devise' | 'circ';
+
+interface PickerOpenPayload {
+  rowId: GridRowId;
+  label: string;
+}
+
+interface PickerEntityDefinition {
+  key: PickerEntityKey;
+  basePath: string;
+  shortPath: string;
+  modalTitle: string;
+  closeAriaLabel: string;
+  titleIcon: ReactNode;
+  renderPage: (onOpenInTab: (payload: PickerOpenPayload) => void) => ReactNode;
+  renderTabPane: (args: { tab: NavTab; decodedId: string; active: boolean }) => ReactNode;
+}
+
 const TAB_META: Record<string, TabMeta> = {
   '/admin/home': { label: 'Accueil', icon: <HomeRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/natio': { label: 'Pays', icon: <FlagRoundedIcon sx={{ fontSize: 14 }} /> },
@@ -93,6 +111,117 @@ const TAB_META: Record<string, TabMeta> = {
 };
 
 const HOME_TAB_KEY = 'tab-home';
+
+const PICKER_ENTITY_DEFINITIONS: PickerEntityDefinition[] = [
+  {
+    key: 'joueur',
+    basePath: '/admin/joueurs',
+    shortPath: '/joueurs',
+    modalTitle: 'Selectionner un Joueur',
+    closeAriaLabel: 'Fermer la liste des joueurs',
+    titleIcon: <PeopleRoundedIcon sx={{ fontSize: 18 }} />,
+    renderPage: (onOpenInTab) => <JoueurPage variant="modalPicker" onOpenInTab={onOpenInTab} />,
+    renderTabPane: ({ tab, decodedId, active }) => (
+      <JoueurTabFormPane key={tab.key} tabPath={tab.path} joueurId={decodedId} active={active} />
+    ),
+  },
+  {
+    key: 'arbitre',
+    basePath: '/admin/arbitre',
+    shortPath: '/arbitre',
+    modalTitle: 'Selectionner un Arbitre',
+    closeAriaLabel: 'Fermer la liste des arbitres',
+    titleIcon: <SportsIcon sx={{ fontSize: 18 }} />,
+    renderPage: (onOpenInTab) => <ArbitrePage variant="modalPicker" onOpenInTab={onOpenInTab} />,
+    renderTabPane: ({ tab, decodedId, active }) => (
+      <ArbitreTabFormPane key={tab.key} tabPath={tab.path} arbitreId={decodedId} active={active} />
+    ),
+  },
+  {
+    key: 'epreuve',
+    basePath: '/admin/epreuve',
+    shortPath: '/epreuve',
+    modalTitle: 'Selectionner une Epreuve',
+    closeAriaLabel: 'Fermer la liste des epreuves',
+    titleIcon: <EmojiEventsRoundedIcon sx={{ fontSize: 18 }} />,
+    renderPage: (onOpenInTab) => <EpreuvePage variant="modalPicker" onOpenInTab={onOpenInTab} />,
+    renderTabPane: ({ tab, decodedId, active }) => (
+      <EpreuveTabFormPane key={tab.key} tabPath={tab.path} epreuveId={decodedId} active={active} />
+    ),
+  },
+  {
+    key: 'club',
+    basePath: '/admin/clubs',
+    shortPath: '/clubs',
+    modalTitle: 'Selectionner un Club',
+    closeAriaLabel: 'Fermer la liste des clubs',
+    titleIcon: <ShieldRoundedIcon sx={{ fontSize: 18 }} />,
+    renderPage: (onOpenInTab) => <ClubPage variant="modalPicker" onOpenInTab={onOpenInTab} />,
+    renderTabPane: ({ tab, decodedId, active }) => (
+      <ClubTabFormPane key={tab.key} tabPath={tab.path} clubId={decodedId} active={active} />
+    ),
+  },
+  {
+    key: 'natio',
+    basePath: '/admin/natio',
+    shortPath: '/natio',
+    modalTitle: 'Sélectionner un Pays',
+    closeAriaLabel: 'Fermer la liste des pays',
+    titleIcon: <FlagRoundedIcon sx={{ fontSize: 18 }} />,
+    renderPage: (onOpenInTab) => <NatioPage variant="modalPicker" onOpenInTab={onOpenInTab} />,
+    renderTabPane: ({ tab, decodedId, active }) => (
+      <NatioTabFormPane key={tab.key} tabPath={tab.path} natioId={decodedId} active={active} />
+    ),
+  },
+  {
+    key: 'ville',
+    basePath: '/admin/ville',
+    shortPath: '/ville',
+    modalTitle: 'Sélectionner une Ville',
+    closeAriaLabel: 'Fermer la liste des villes',
+    titleIcon: <LocationCityRoundedIcon sx={{ fontSize: 18 }} />,
+    renderPage: (onOpenInTab) => <VillePage variant="modalPicker" onOpenInTab={onOpenInTab} />,
+    renderTabPane: ({ tab, decodedId, active }) => (
+      <VilleTabFormPane key={tab.key} tabPath={tab.path} villeId={decodedId} active={active} />
+    ),
+  },
+  {
+    key: 'terrain',
+    basePath: '/admin/terrain',
+    shortPath: '/terrain',
+    modalTitle: 'Sélectionner un Stade',
+    closeAriaLabel: 'Fermer la liste des stades',
+    titleIcon: <StadiumRoundedIcon sx={{ fontSize: 18 }} />,
+    renderPage: (onOpenInTab) => <TerrainPage variant="modalPicker" onOpenInTab={onOpenInTab} />,
+    renderTabPane: ({ tab, decodedId, active }) => (
+      <TerrainTabFormPane key={tab.key} tabPath={tab.path} terrainId={decodedId} active={active} />
+    ),
+  },
+  {
+    key: 'devise',
+    basePath: '/admin/devise',
+    shortPath: '/devise',
+    modalTitle: 'Sélectionner une Devise',
+    closeAriaLabel: 'Fermer la liste des devises',
+    titleIcon: <EuroRoundedIcon sx={{ fontSize: 18 }} />,
+    renderPage: (onOpenInTab) => <DevisePage variant="modalPicker" onOpenInTab={onOpenInTab} />,
+    renderTabPane: ({ tab, decodedId, active }) => (
+      <DeviseTabFormPane key={tab.key} tabPath={tab.path} deviseId={decodedId} active={active} />
+    ),
+  },
+  {
+    key: 'circ',
+    basePath: '/admin/circ',
+    shortPath: '/circ',
+    modalTitle: 'Sélectionner une Circonstance',
+    closeAriaLabel: 'Fermer la liste des circonstances',
+    titleIcon: <EventNoteRoundedIcon sx={{ fontSize: 18 }} />,
+    renderPage: (onOpenInTab) => <CircPage variant="modalPicker" onOpenInTab={onOpenInTab} />,
+    renderTabPane: ({ tab, decodedId, active }) => (
+      <CircTabFormPane key={tab.key} tabPath={tab.path} circId={decodedId} active={active} />
+    ),
+  },
+];
 
 function normalizeRoutePath(path: string): string {
   const trimmedPath = path.trim();
@@ -128,15 +257,11 @@ function normalizeRoutePath(path: string): string {
 
 function resolveTabMetaPath(path: string): string {
   const normalized = normalizeRoutePath(path);
-  if (normalized.startsWith('/admin/arbitre/')) return '/admin/arbitre';
-  if (normalized.startsWith('/admin/epreuve/')) return '/admin/epreuve';
-  if (normalized.startsWith('/admin/joueurs/')) return '/admin/joueurs';
-  if (normalized.startsWith('/admin/clubs/')) return '/admin/clubs';
-  if (normalized.startsWith('/admin/natio/')) return '/admin/natio';
-  if (normalized.startsWith('/admin/ville/')) return '/admin/ville';
-  if (normalized.startsWith('/admin/terrain/')) return '/admin/terrain';
-  if (normalized.startsWith('/admin/devise/')) return '/admin/devise';
-  if (normalized.startsWith('/admin/circ/')) return '/admin/circ';
+  for (const entity of PICKER_ENTITY_DEFINITIONS) {
+    if (normalized.startsWith(`${entity.basePath}/`)) {
+      return entity.basePath;
+    }
+  }
   return normalized;
 }
 
@@ -148,15 +273,7 @@ export function AdminLayout() {
   const searchAreaRef = useRef<HTMLDivElement | null>(null);
   const [compactNavButtons, setCompactNavButtons] = useState(false);
   const [compactSearchAction, setCompactSearchAction] = useState(false);
-  const [natioModalOpen, setNatioModalOpen] = useState(false);
-  const [villeModalOpen, setVilleModalOpen] = useState(false);
-  const [terrainModalOpen, setTerrainModalOpen] = useState(false);
-  const [deviseModalOpen, setDeviseModalOpen] = useState(false);
-  const [circModalOpen, setCircModalOpen] = useState(false);
-  const [clubModalOpen, setClubModalOpen] = useState(false);
-  const [arbitreModalOpen, setArbitreModalOpen] = useState(false);
-  const [epreuveModalOpen, setEpreuveModalOpen] = useState(false);
-  const [joueurModalOpen, setJoueurModalOpen] = useState(false);
+  const [pickerModal, setPickerModal] = useState<PickerEntityKey | null>(null);
   const [dirtyTabsByPath, setDirtyTabsByPath] = useState<Record<string, boolean>>({});
   const tabCounterRef = useRef(0);
   const [tabs, setTabs] = useState<NavTab[]>([
@@ -168,36 +285,28 @@ export function AdminLayout() {
     },
   ]);
   const [activeTabKey, setActiveTabKey] = useState<string | false>(HOME_TAB_KEY);
+  const pickerDefinitionByKey = new Map(PICKER_ENTITY_DEFINITIONS.map((entity) => [entity.key, entity]));
   const isHomeActive = location.pathname === '/admin/home' || location.pathname === '/accueil';
   const isCalendrierActive = location.pathname === '/admin/calendrier' || location.pathname === '/calendrier';
-  const isJoueursActive = location.pathname === '/admin/joueurs' || location.pathname === '/joueurs' || location.pathname.startsWith('/admin/joueurs/');
-  const isClubsActive = location.pathname === '/admin/clubs' || location.pathname === '/clubs' || location.pathname.startsWith('/admin/clubs/');
-  const isNatioActive = location.pathname === '/admin/natio' || location.pathname === '/natio' || location.pathname.startsWith('/admin/natio/');
-  const isVilleActive = location.pathname === '/admin/ville' || location.pathname === '/ville' || location.pathname.startsWith('/admin/ville/');
-  const isArbitreActive = location.pathname === '/admin/arbitre' || location.pathname === '/arbitre' || location.pathname.startsWith('/admin/arbitre/');
-  const isTerrainActive = location.pathname === '/admin/terrain' || location.pathname === '/terrain' || location.pathname.startsWith('/admin/terrain/');
-  const isDeviseActive = location.pathname === '/admin/devise' || location.pathname === '/devise' || location.pathname.startsWith('/admin/devise/');
-  const isCircActive = location.pathname === '/admin/circ' || location.pathname === '/circ' || location.pathname.startsWith('/admin/circ/');
-  const isEpreuveActive = location.pathname === '/admin/epreuve' || location.pathname === '/epreuve' || location.pathname.startsWith('/admin/epreuve/');
+  const isEntityActive = (entityKey: PickerEntityKey) => {
+    const entity = pickerDefinitionByKey.get(entityKey);
+    if (!entity) return false;
+    return location.pathname === entity.basePath
+      || location.pathname === entity.shortPath
+      || location.pathname.startsWith(`${entity.basePath}/`);
+  };
+  const isJoueursActive = isEntityActive('joueur');
+  const isClubsActive = isEntityActive('club');
+  const isNatioActive = isEntityActive('natio');
+  const isVilleActive = isEntityActive('ville');
+  const isArbitreActive = isEntityActive('arbitre');
+  const isTerrainActive = isEntityActive('terrain');
+  const isDeviseActive = isEntityActive('devise');
+  const isCircActive = isEntityActive('circ');
+  const isEpreuveActive = isEntityActive('epreuve');
   const activeTab = typeof activeTabKey === 'string' ? tabs.find((tab) => tab.key === activeTabKey) : undefined;
-  const activeTabIsNatioForm = Boolean(activeTab?.path.startsWith('/admin/natio/')) || location.pathname.startsWith('/admin/natio/');
-  const activeTabIsVilleForm = Boolean(activeTab?.path.startsWith('/admin/ville/')) || location.pathname.startsWith('/admin/ville/');
-  const activeTabIsTerrainForm = Boolean(activeTab?.path.startsWith('/admin/terrain/')) || location.pathname.startsWith('/admin/terrain/');
-  const activeTabIsDeviseForm = Boolean(activeTab?.path.startsWith('/admin/devise/')) || location.pathname.startsWith('/admin/devise/');
-  const activeTabIsCircForm = Boolean(activeTab?.path.startsWith('/admin/circ/')) || location.pathname.startsWith('/admin/circ/');
-  const activeTabIsClubForm = Boolean(activeTab?.path.startsWith('/admin/clubs/')) || location.pathname.startsWith('/admin/clubs/');
-  const activeTabIsArbitreForm = Boolean(activeTab?.path.startsWith('/admin/arbitre/')) || location.pathname.startsWith('/admin/arbitre/');
-  const activeTabIsEpreuveForm = Boolean(activeTab?.path.startsWith('/admin/epreuve/')) || location.pathname.startsWith('/admin/epreuve/');
-  const activeTabIsJoueurForm = Boolean(activeTab?.path.startsWith('/admin/joueurs/')) || location.pathname.startsWith('/admin/joueurs/');
-  const arbitreFormTabs = tabs.filter((tab) => tab.path.startsWith('/admin/arbitre/'));
-  const epreuveFormTabs = tabs.filter((tab) => tab.path.startsWith('/admin/epreuve/'));
-  const joueurFormTabs = tabs.filter((tab) => tab.path.startsWith('/admin/joueurs/'));
-  const clubFormTabs = tabs.filter((tab) => tab.path.startsWith('/admin/clubs/'));
-  const natioFormTabs = tabs.filter((tab) => tab.path.startsWith('/admin/natio/'));
-  const villeFormTabs = tabs.filter((tab) => tab.path.startsWith('/admin/ville/'));
-  const terrainFormTabs = tabs.filter((tab) => tab.path.startsWith('/admin/terrain/'));
-  const deviseFormTabs = tabs.filter((tab) => tab.path.startsWith('/admin/devise/'));
-  const circFormTabs = tabs.filter((tab) => tab.path.startsWith('/admin/circ/'));
+  const isDynamicFormPath = (path: string) => PICKER_ENTITY_DEFINITIONS.some((entity) => path.startsWith(`${entity.basePath}/`));
+  const activeTabIsDynamicForm = Boolean(activeTab?.path && isDynamicFormPath(activeTab.path)) || isDynamicFormPath(location.pathname);
 
   useEffect(() => {
     const row = navButtonsRowRef.current;
@@ -336,50 +445,14 @@ export function AdminLayout() {
     return () => window.removeEventListener('supporter:tab-label', handler);
   }, []);
 
-  const handleOpenNatioInTab = ({ rowId, label }: { rowId: GridRowId; label: string }) => {
-    setNatioModalOpen(false);
-    openTab(`/admin/natio/${encodeURIComponent(String(rowId))}`, label, { unique: true, uniqueByPath: true });
+  const handleOpenPickerEntityInTab = (entityKey: PickerEntityKey) => ({ rowId, label }: PickerOpenPayload) => {
+    const entity = pickerDefinitionByKey.get(entityKey);
+    if (!entity) return;
+    setPickerModal(null);
+    openTab(`${entity.basePath}/${encodeURIComponent(String(rowId))}`, label, { unique: true, uniqueByPath: true });
   };
 
-  const handleOpenVilleInTab = ({ rowId, label }: { rowId: GridRowId; label: string }) => {
-    setVilleModalOpen(false);
-    openTab(`/admin/ville/${encodeURIComponent(String(rowId))}`, label, { unique: true, uniqueByPath: true });
-  };
-
-  const handleOpenTerrainInTab = ({ rowId, label }: { rowId: GridRowId; label: string }) => {
-    setTerrainModalOpen(false);
-    openTab(`/admin/terrain/${encodeURIComponent(String(rowId))}`, label, { unique: true, uniqueByPath: true });
-  };
-
-  const handleOpenDeviseInTab = ({ rowId, label }: { rowId: GridRowId; label: string }) => {
-    setDeviseModalOpen(false);
-    openTab(`/admin/devise/${encodeURIComponent(String(rowId))}`, label, { unique: true, uniqueByPath: true });
-  };
-
-  const handleOpenCircInTab = ({ rowId, label }: { rowId: GridRowId; label: string }) => {
-    setCircModalOpen(false);
-    openTab(`/admin/circ/${encodeURIComponent(String(rowId))}`, label, { unique: true, uniqueByPath: true });
-  };
-
-  const handleOpenClubInTab = ({ rowId, label }: { rowId: GridRowId; label: string }) => {
-    setClubModalOpen(false);
-    openTab(`/admin/clubs/${encodeURIComponent(String(rowId))}`, label, { unique: true, uniqueByPath: true });
-  };
-
-  const handleOpenArbitreInTab = ({ rowId, label }: { rowId: GridRowId; label: string }) => {
-    setArbitreModalOpen(false);
-    openTab(`/admin/arbitre/${encodeURIComponent(String(rowId))}`, label, { unique: true, uniqueByPath: true });
-  };
-
-  const handleOpenEpreuveInTab = ({ rowId, label }: { rowId: GridRowId; label: string }) => {
-    setEpreuveModalOpen(false);
-    openTab(`/admin/epreuve/${encodeURIComponent(String(rowId))}`, label, { unique: true, uniqueByPath: true });
-  };
-
-  const handleOpenJoueurInTab = ({ rowId, label }: { rowId: GridRowId; label: string }) => {
-    setJoueurModalOpen(false);
-    openTab(`/admin/joueurs/${encodeURIComponent(String(rowId))}`, label, { unique: true, uniqueByPath: true });
-  };
+  const activePickerEntity = pickerModal ? pickerDefinitionByKey.get(pickerModal) ?? null : null;
 
   useEffect(() => {
     const area = searchAreaRef.current;
@@ -486,7 +559,7 @@ export function AdminLayout() {
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Pays"
-                onClick={() => setNatioModalOpen(true)}
+                onClick={() => setPickerModal('natio')}
               >
                 {compactNavButtons ? <FlagRoundedIcon /> : 'Pays'}
               </Button>
@@ -504,7 +577,7 @@ export function AdminLayout() {
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Villes"
-                onClick={() => setVilleModalOpen(true)}
+                onClick={() => setPickerModal('ville')}
               >
                 {compactNavButtons ? <LocationCityRoundedIcon /> : 'Villes'}
               </Button>
@@ -522,7 +595,7 @@ export function AdminLayout() {
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Arbitres"
-                onClick={() => setArbitreModalOpen(true)}
+                onClick={() => setPickerModal('arbitre')}
               >
                 {compactNavButtons ? <SportsIcon /> : 'Arbitres'}
               </Button>
@@ -540,7 +613,7 @@ export function AdminLayout() {
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Stades"
-                onClick={() => setTerrainModalOpen(true)}
+                onClick={() => setPickerModal('terrain')}
               >
                 {compactNavButtons ? <StadiumRoundedIcon /> : 'Stades'}
               </Button>
@@ -558,7 +631,7 @@ export function AdminLayout() {
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Devises"
-                onClick={() => setDeviseModalOpen(true)}
+                onClick={() => setPickerModal('devise')}
               >
                 {compactNavButtons ? <EuroRoundedIcon /> : 'Devises'}
               </Button>
@@ -576,7 +649,7 @@ export function AdminLayout() {
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Circonstances"
-                onClick={() => setCircModalOpen(true)}
+                onClick={() => setPickerModal('circ')}
               >
                 {compactNavButtons ? <EventNoteRoundedIcon /> : 'Circonstances'}
               </Button>
@@ -594,7 +667,7 @@ export function AdminLayout() {
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Épreuves"
-                onClick={() => setEpreuveModalOpen(true)}
+                onClick={() => setPickerModal('epreuve')}
               >
                 {compactNavButtons ? <EmojiEventsRoundedIcon /> : 'Épreuves'}
               </Button>
@@ -644,9 +717,9 @@ export function AdminLayout() {
                   onClick={() => {
                     if (action.path) {
                       if (action.path === '/clubs') {
-                        setClubModalOpen(true);
+                        setPickerModal('club');
                       } else if (action.path === '/joueurs') {
-                        setJoueurModalOpen(true);
+                        setPickerModal('joueur');
                       } else {
                         openTab(action.path, action.label);
                       }
@@ -759,332 +832,41 @@ export function AdminLayout() {
       </Box>
 
       <Box sx={{ p: { xs: 1.5, md: 2.5 } }}>
-        {arbitreFormTabs.map((tab) => {
-          const encodedId = tab.path.slice('/admin/arbitre/'.length);
-          if (!encodedId) return null;
-          const decodedId = decodeURIComponent(encodedId);
-          return (
-            <ArbitreTabFormPane
-              key={tab.key}
-              tabPath={tab.path}
-              arbitreId={decodedId}
-              active={activeTabKey === tab.key}
-            />
-          );
-        })}
-        {epreuveFormTabs.map((tab) => {
-          const encodedId = tab.path.slice('/admin/epreuve/'.length);
-          if (!encodedId) return null;
-          const decodedId = decodeURIComponent(encodedId);
-          return (
-            <EpreuveTabFormPane
-              key={tab.key}
-              tabPath={tab.path}
-              epreuveId={decodedId}
-              active={activeTabKey === tab.key}
-            />
-          );
-        })}
-        {joueurFormTabs.map((tab) => {
-          const encodedId = tab.path.slice('/admin/joueurs/'.length);
-          if (!encodedId) return null;
-          const decodedId = decodeURIComponent(encodedId);
-          return (
-            <JoueurTabFormPane
-              key={tab.key}
-              tabPath={tab.path}
-              joueurId={decodedId}
-              active={activeTabKey === tab.key}
-            />
-          );
-        })}
-        {clubFormTabs.map((tab) => {
-          const encodedId = tab.path.slice('/admin/clubs/'.length);
-          if (!encodedId) return null;
-          const decodedId = decodeURIComponent(encodedId);
-          return (
-            <ClubTabFormPane
-              key={tab.key}
-              tabPath={tab.path}
-              clubId={decodedId}
-              active={activeTabKey === tab.key}
-            />
-          );
-        })}
-        {natioFormTabs.map((tab) => {
-          const encodedId = tab.path.slice('/admin/natio/'.length);
-          if (!encodedId) return null;
-          const decodedId = decodeURIComponent(encodedId);
-          return (
-            <NatioTabFormPane
-              key={tab.key}
-              tabPath={tab.path}
-              natioId={decodedId}
-              active={activeTabKey === tab.key}
-            />
-          );
-        })}
-        {villeFormTabs.map((tab) => {
-          const encodedId = tab.path.slice('/admin/ville/'.length);
-          if (!encodedId) return null;
-          const decodedId = decodeURIComponent(encodedId);
-          return (
-            <VilleTabFormPane
-              key={tab.key}
-              tabPath={tab.path}
-              villeId={decodedId}
-              active={activeTabKey === tab.key}
-            />
-          );
-        })}
-        {terrainFormTabs.map((tab) => {
-          const encodedId = tab.path.slice('/admin/terrain/'.length);
-          if (!encodedId) return null;
-          const decodedId = decodeURIComponent(encodedId);
-          return (
-            <TerrainTabFormPane
-              key={tab.key}
-              tabPath={tab.path}
-              terrainId={decodedId}
-              active={activeTabKey === tab.key}
-            />
-          );
-        })}
-        {deviseFormTabs.map((tab) => {
-          const encodedId = tab.path.slice('/admin/devise/'.length);
-          if (!encodedId) return null;
-          const decodedId = decodeURIComponent(encodedId);
-          return (
-            <DeviseTabFormPane
-              key={tab.key}
-              tabPath={tab.path}
-              deviseId={decodedId}
-              active={activeTabKey === tab.key}
-            />
-          );
-        })}
-        {circFormTabs.map((tab) => {
-          const encodedId = tab.path.slice('/admin/circ/'.length);
-          if (!encodedId) return null;
-          const decodedId = decodeURIComponent(encodedId);
-          return (
-            <CircTabFormPane
-              key={tab.key}
-              tabPath={tab.path}
-              circId={decodedId}
-              active={activeTabKey === tab.key}
-            />
-          );
-        })}
-        {!(
-          activeTabIsNatioForm
-          || activeTabIsClubForm
-          || activeTabIsArbitreForm
-          || activeTabIsEpreuveForm
-          || activeTabIsJoueurForm
-          || activeTabIsVilleForm
-          || activeTabIsTerrainForm
-          || activeTabIsDeviseForm
-          || activeTabIsCircForm
-        ) ? <Outlet /> : null}
+        {PICKER_ENTITY_DEFINITIONS.flatMap((entity) => tabs
+          .filter((tab) => tab.path.startsWith(`${entity.basePath}/`))
+          .map((tab) => {
+            const encodedId = tab.path.slice(`${entity.basePath}/`.length);
+            if (!encodedId) return null;
+            const decodedId = decodeURIComponent(encodedId);
+            return entity.renderTabPane({ tab, decodedId, active: activeTabKey === tab.key });
+          }))}
+        {!activeTabIsDynamicForm ? <Outlet /> : null}
       </Box>
 
       <Dialog
-        open={joueurModalOpen}
-        onClose={() => setJoueurModalOpen(false)}
+        open={Boolean(activePickerEntity)}
+        onClose={() => setPickerModal(null)}
         fullWidth
         maxWidth="xl"
       >
-        <DialogTitle sx={{ pr: 1.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
-              <PeopleRoundedIcon sx={{ fontSize: 18 }} />
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>Selectionner un Joueur</Typography>
-            </Box>
-            <IconButton aria-label="Fermer la liste des joueurs" onClick={() => setJoueurModalOpen(false)}>
-              <CloseRoundedIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6' }}>
-          <JoueurPage variant="modalPicker" onOpenInTab={handleOpenJoueurInTab} />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={arbitreModalOpen}
-        onClose={() => setArbitreModalOpen(false)}
-        fullWidth
-        maxWidth="xl"
-      >
-        <DialogTitle sx={{ pr: 1.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
-              <SportsIcon sx={{ fontSize: 18 }} />
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>Selectionner un Arbitre</Typography>
-            </Box>
-            <IconButton aria-label="Fermer la liste des arbitres" onClick={() => setArbitreModalOpen(false)}>
-              <CloseRoundedIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6' }}>
-          <ArbitrePage variant="modalPicker" onOpenInTab={handleOpenArbitreInTab} />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={epreuveModalOpen}
-        onClose={() => setEpreuveModalOpen(false)}
-        fullWidth
-        maxWidth="xl"
-      >
-        <DialogTitle sx={{ pr: 1.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
-              <EmojiEventsRoundedIcon sx={{ fontSize: 18 }} />
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>Selectionner une Epreuve</Typography>
-            </Box>
-            <IconButton aria-label="Fermer la liste des epreuves" onClick={() => setEpreuveModalOpen(false)}>
-              <CloseRoundedIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6' }}>
-          <EpreuvePage variant="modalPicker" onOpenInTab={handleOpenEpreuveInTab} />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={clubModalOpen}
-        onClose={() => setClubModalOpen(false)}
-        fullWidth
-        maxWidth="xl"
-      >
-        <DialogTitle sx={{ pr: 1.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
-              <ShieldRoundedIcon sx={{ fontSize: 18 }} />
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>Selectionner un Club</Typography>
-            </Box>
-            <IconButton aria-label="Fermer la liste des clubs" onClick={() => setClubModalOpen(false)}>
-              <CloseRoundedIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6' }}>
-          <ClubPage variant="modalPicker" onOpenInTab={handleOpenClubInTab} />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={natioModalOpen}
-        onClose={() => setNatioModalOpen(false)}
-        fullWidth
-        maxWidth="xl"
-      >
-        <DialogTitle sx={{ pr: 1.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
-              <FlagRoundedIcon sx={{ fontSize: 18 }} />
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>Sélectionner un Pays</Typography>
-            </Box>
-            <IconButton aria-label="Fermer la liste des pays" onClick={() => setNatioModalOpen(false)}>
-              <CloseRoundedIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6' }}>
-          <NatioPage variant="modalPicker" onOpenInTab={handleOpenNatioInTab} />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={villeModalOpen}
-        onClose={() => setVilleModalOpen(false)}
-        fullWidth
-        maxWidth="xl"
-      >
-        <DialogTitle sx={{ pr: 1.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
-              <LocationCityRoundedIcon sx={{ fontSize: 18 }} />
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>Sélectionner une Ville</Typography>
-            </Box>
-            <IconButton aria-label="Fermer la liste des villes" onClick={() => setVilleModalOpen(false)}>
-              <CloseRoundedIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6' }}>
-          <VillePage variant="modalPicker" onOpenInTab={handleOpenVilleInTab} />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={terrainModalOpen}
-        onClose={() => setTerrainModalOpen(false)}
-        fullWidth
-        maxWidth="xl"
-      >
-        <DialogTitle sx={{ pr: 1.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
-              <StadiumRoundedIcon sx={{ fontSize: 18 }} />
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>Sélectionner un Stade</Typography>
-            </Box>
-            <IconButton aria-label="Fermer la liste des stades" onClick={() => setTerrainModalOpen(false)}>
-              <CloseRoundedIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6' }}>
-          <TerrainPage variant="modalPicker" onOpenInTab={handleOpenTerrainInTab} />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={deviseModalOpen}
-        onClose={() => setDeviseModalOpen(false)}
-        fullWidth
-        maxWidth="xl"
-      >
-        <DialogTitle sx={{ pr: 1.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
-              <EuroRoundedIcon sx={{ fontSize: 18 }} />
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>Sélectionner une Devise</Typography>
-            </Box>
-            <IconButton aria-label="Fermer la liste des devises" onClick={() => setDeviseModalOpen(false)}>
-              <CloseRoundedIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6' }}>
-          <DevisePage variant="modalPicker" onOpenInTab={handleOpenDeviseInTab} />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={circModalOpen}
-        onClose={() => setCircModalOpen(false)}
-        fullWidth
-        maxWidth="xl"
-      >
-        <DialogTitle sx={{ pr: 1.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
-              <EventNoteRoundedIcon sx={{ fontSize: 18 }} />
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>Sélectionner une Circonstance</Typography>
-            </Box>
-            <IconButton aria-label="Fermer la liste des circonstances" onClick={() => setCircModalOpen(false)}>
-              <CloseRoundedIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6' }}>
-          <CircPage variant="modalPicker" onOpenInTab={handleOpenCircInTab} />
-        </DialogContent>
+        {activePickerEntity ? (
+          <>
+            <DialogTitle sx={{ pr: 1.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+                  {activePickerEntity.titleIcon}
+                  <Typography variant="h6" sx={{ fontWeight: 700 }}>{activePickerEntity.modalTitle}</Typography>
+                </Box>
+                <IconButton aria-label={activePickerEntity.closeAriaLabel} onClick={() => setPickerModal(null)}>
+                  <CloseRoundedIcon />
+                </IconButton>
+              </Box>
+            </DialogTitle>
+            <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6' }}>
+              {activePickerEntity.renderPage(handleOpenPickerEntityInTab(activePickerEntity.key))}
+            </DialogContent>
+          </>
+        ) : null}
       </Dialog>
     </Box>
   );

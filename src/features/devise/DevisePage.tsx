@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { createDevise, deleteDevise, fetchDevise, fetchDeviseById, updateDevise, canDeleteDevise } from './deviseApi';
 import { DeviseFormDialog } from './DeviseFormDialog';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
-import { toErrorMessage, useEntityPage } from '../../components/useEntityPage';
+import { createAndOpenInTab, useEntityPage } from '../../components/useEntityPage';
 import { createDeviseColumns } from './deviseColumnsHelper';
 import type { DeviseRow } from './types';
 import { resolveDeviseId, resolveDeviseLabel } from './deviseUi';
@@ -75,19 +75,15 @@ export function DevisePage({ variant = 'page', onOpenInTab }: DevisePageProps) {
 
   const handleFormSubmit = async (payload: DeviseRow) => {
     if (variant === 'modalPicker' && onOpenInTab && page.dialogMode === 'create') {
-      try {
-        const created = await createDevise(payload);
-        const createdRow = (created ?? payload) as DeviseRow;
-        const createdId = resolveDeviseId(createdRow);
-        if (createdId === undefined || createdId === null || String(createdId).trim() === '') {
-          page.setSnackbar({ severity: 'error', message: 'Creation reussie mais identifiant introuvable.' });
-          return;
-        }
-        page.setDialogOpen(false);
-        onOpenInTab({ rowId: createdId, label: resolveDeviseLabel(createdRow) });
-      } catch (error) {
-        page.setSnackbar({ severity: 'error', message: toErrorMessage(error) });
-      }
+      await createAndOpenInTab({
+        create: createDevise,
+        payload,
+        resolveId: resolveDeviseId,
+        resolveLabel: resolveDeviseLabel,
+        closeDialog: () => page.setDialogOpen(false),
+        onOpenInTab,
+        setSnackbar: page.setSnackbar,
+      });
       return;
     }
 

@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { canDeleteCirc, createCirc, deleteCirc, fetchCirc, fetchCircById, updateCirc } from './circApi';
 import { CircFormDialog } from './CircFormDialog';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
-import { toErrorMessage, useEntityPage } from '../../components/useEntityPage';
+import { createAndOpenInTab, useEntityPage } from '../../components/useEntityPage';
 import { createCircColumns } from './circColumnsHelper';
 import type { CircRow } from './types';
 import { resolveCircId, resolveCircLabel } from './circUi';
@@ -74,19 +74,15 @@ export function CircPage({ variant = 'page', onOpenInTab }: CircPageProps) {
 
   const handleFormSubmit = async (payload: CircRow) => {
     if (variant === 'modalPicker' && onOpenInTab && page.dialogMode === 'create') {
-      try {
-        const created = await createCirc(payload);
-        const createdRow = (created ?? payload) as CircRow;
-        const createdId = resolveCircId(createdRow);
-        if (createdId === undefined || createdId === null || String(createdId).trim() === '') {
-          page.setSnackbar({ severity: 'error', message: 'Creation reussie mais identifiant introuvable.' });
-          return;
-        }
-        page.setDialogOpen(false);
-        onOpenInTab({ rowId: createdId, label: resolveCircLabel(createdRow) });
-      } catch (error) {
-        page.setSnackbar({ severity: 'error', message: toErrorMessage(error) });
-      }
+      await createAndOpenInTab({
+        create: createCirc,
+        payload,
+        resolveId: resolveCircId,
+        resolveLabel: resolveCircLabel,
+        closeDialog: () => page.setDialogOpen(false),
+        onOpenInTab,
+        setSnackbar: page.setSnackbar,
+      });
       return;
     }
 

@@ -7,7 +7,7 @@ import type { IntegrityConstraint } from './EntityPageLayout';
 export interface EntityApi<Row> {
   fetchAll: (search: string, signal?: AbortSignal) => Promise<{ data?: Row[] }>;
   fetchById: (id: string | number) => Promise<Row>;
-  create: (payload: Row) => Promise<unknown>;
+  create?: (payload: Row) => Promise<unknown>;
   update: (id: string | number, payload: Row) => Promise<unknown>;
   remove: (id: string | number) => Promise<unknown>;
   canDelete: (id: string | number) => Promise<{ constraints: IntegrityConstraint[] }>;
@@ -26,6 +26,16 @@ export interface EntityLabels {
   noneSelected: string;
 }
 
+interface CreateAndOpenInTabOptions<Row> {
+  create: (payload: Row) => Promise<unknown>;
+  payload: Row;
+  resolveId: (row: Row) => string | number | undefined;
+  resolveLabel: (row: Row) => string;
+  closeDialog: () => void;
+  onOpenInTab: (payload: { rowId: GridRowId; label: string }) => void;
+  setSnackbar: (value: FeedbackMessage | null) => void;
+}
+
 export function toErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     const apiMessage = (error.response?.data as { message?: string } | undefined)?.message;
@@ -34,6 +44,31 @@ export function toErrorMessage(error: unknown): string {
     if (error.response?.status === 409) return 'Suppression impossible: des enregistrements dependants existent.';
   }
   return 'Une erreur est survenue.';
+}
+
+export async function createAndOpenInTab<Row extends Record<string, unknown>>({
+  create,
+  payload,
+  resolveId,
+  resolveLabel,
+  closeDialog,
+  onOpenInTab,
+  setSnackbar,
+}: CreateAndOpenInTabOptions<Row>): Promise<void> {
+  try {
+    const created = await create(payload);
+    const createdRow = (created ?? payload) as Row;
+    const createdId = resolveId(createdRow);
+    if (createdId === undefined || createdId === null || String(createdId).trim() === '') {
+      setSnackbar({ severity: 'error', message: 'Creation reussie mais identifiant introuvable.' });
+      return;
+    }
+
+    closeDialog();
+    onOpenInTab({ rowId: createdId, label: resolveLabel(createdRow) });
+  } catch (error) {
+    setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+  }
 }
 
 export function useEntityPage<Row extends Record<string, unknown>>(
@@ -119,6 +154,10 @@ export function useEntityPage<Row extends Record<string, unknown>>(
   const handleFormSubmit = async (payload: Row) => {
     try {
       if (dialogMode === 'create') {
+        if (!api.create) {
+          setSnackbar({ severity: 'error', message: 'Creation non disponible.' });
+          return;
+        }
         await api.create(payload);
         setSnackbar({ severity: 'success', message: labels.created });
       } else {

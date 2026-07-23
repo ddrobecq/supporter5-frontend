@@ -5,7 +5,7 @@ import { fetchNatio } from '../natio/natioApi';
 import { VilleFormDialog } from './VilleFormDialog';
 import { createVilleColumns, createNatioMap } from './villeColumnsHelper';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
-import { toErrorMessage, useEntityPage } from '../../components/useEntityPage';
+import { createAndOpenInTab, useEntityPage } from '../../components/useEntityPage';
 import type { VilleRow } from './types';
 import type { NatioRow } from '../natio/types';
 import { buildVilleFormFields, detectVillePrimaryKey, resolveVilleId, resolveVilleLabel } from './villeUi';
@@ -93,19 +93,15 @@ export function VillePage({ variant = 'page', onOpenInTab }: VillePageProps) {
 
   const handleFormSubmit = async (payload: VilleRow) => {
     if (variant === 'modalPicker' && onOpenInTab && page.dialogMode === 'create') {
-      try {
-        const created = await createVille(payload);
-        const createdRow = (created ?? payload) as VilleRow;
-        const createdId = resolveVilleId(createdRow);
-        if (createdId === undefined || createdId === null || String(createdId).trim() === '') {
-          page.setSnackbar({ severity: 'error', message: 'Creation reussie mais identifiant introuvable.' });
-          return;
-        }
-        page.setDialogOpen(false);
-        onOpenInTab({ rowId: createdId, label: resolveVilleLabel(createdRow) });
-      } catch (error) {
-        page.setSnackbar({ severity: 'error', message: toErrorMessage(error) });
-      }
+      await createAndOpenInTab({
+        create: createVille,
+        payload,
+        resolveId: resolveVilleId,
+        resolveLabel: resolveVilleLabel,
+        closeDialog: () => page.setDialogOpen(false),
+        onOpenInTab,
+        setSnackbar: page.setSnackbar,
+      });
       return;
     }
 

@@ -1,6 +1,7 @@
-import { Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, List, ListItemButton, ListItemText, TextField, Typography } from '@mui/material';
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material';
 import axios from 'axios';
 import { useEffect, useRef, useState } from 'react';
+import { CreateWizardSuggestionPanel } from '../../components/CreateWizardSuggestionPanel';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { fetchNatio } from '../natio/natioApi';
 import type { NatioRow } from '../natio/types';
@@ -172,26 +173,13 @@ export function JoueurCreateWizardDialog({ open, onClose, onCreate, onError }: J
           />
 
           {step === 1 ? (
-            <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, minHeight: 220, maxHeight: 220, overflowY: 'auto' }}>
-              {loadingSuggestions ? (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1.25 }}>
-                  <CircularProgress size={16} />
-                  <Typography variant="body2" color="text.secondary">Recherche en cours...</Typography>
-                </Box>
-              ) : suggestions.length === 0 ? (
-                <Typography variant="body2" color="text.secondary" sx={{ px: 1.5, py: 1.25 }}>
-                  Aucun joueur approchant trouve.
-                </Typography>
-              ) : (
-                <List dense disablePadding>
-                  {suggestions.map((row) => (
-                    <ListItemButton key={row.IDJOUEUR} sx={{ py: 0.4 }}>
-                      <ListItemText primary={`${String(row.NOM ?? '').toUpperCase()} ${String(row.PRENOM ?? '')} (${String(row.IDNATIO ?? '')})`} />
-                    </ListItemButton>
-                  ))}
-                </List>
-              )}
-            </Box>
+            <CreateWizardSuggestionPanel
+              loading={loadingSuggestions}
+              rows={suggestions}
+              emptyText="Aucun joueur approchant trouve."
+              getKey={(row) => row.IDJOUEUR}
+              getPrimaryText={(row) => `${String(row.NOM ?? '').toUpperCase()} ${String(row.PRENOM ?? '')} (${String(row.IDNATIO ?? '')})`}
+            />
           ) : (
             <>
               <TextField
