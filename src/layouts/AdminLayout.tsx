@@ -7,7 +7,7 @@ import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
 import EuroRoundedIcon from '@mui/icons-material/EuroRounded';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
-import PeopleRoundedIcon from '@mui/icons-material/PeopleRounded';
+import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
@@ -55,7 +55,7 @@ import { JoueurPage } from '../features/joueur/JoueurPage';
 import { JoueurTabFormPane } from '../features/joueur/JoueurTabFormPane';
 
 const QUICK_ACTIONS = [
-  { label: 'Joueurs', icon: <PeopleRoundedIcon />, path: '/joueurs' },
+  { label: 'Joueurs', icon: <PersonRoundedIcon />, path: '/joueurs' },
   { label: 'Statistiques', icon: <BarChartRoundedIcon /> },
   { label: 'Clubs', icon: <ShieldRoundedIcon />, path: '/clubs' },
   { label: 'Matchs', icon: <SportsSoccerRoundedIcon /> },
@@ -106,7 +106,7 @@ const TAB_META: Record<string, TabMeta> = {
   '/admin/circ': { label: 'Circonstances', icon: <EventNoteRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/epreuve': { label: 'Épreuves', icon: <EmojiEventsRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/calendrier': { label: 'Calendrier', icon: <CalendarMonthIcon sx={{ fontSize: 14 }} /> },
-  '/admin/joueurs': { label: 'Joueurs', icon: <PeopleRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/joueurs': { label: 'Joueurs', icon: <PersonRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/clubs': { label: 'Clubs', icon: <ShieldRoundedIcon sx={{ fontSize: 14 }} /> },
 };
 
@@ -119,7 +119,7 @@ const PICKER_ENTITY_DEFINITIONS: PickerEntityDefinition[] = [
     shortPath: '/joueurs',
     modalTitle: 'Selectionner un Joueur',
     closeAriaLabel: 'Fermer la liste des joueurs',
-    titleIcon: <PeopleRoundedIcon sx={{ fontSize: 18 }} />,
+    titleIcon: <PersonRoundedIcon sx={{ fontSize: 18 }} />,
     renderPage: (onOpenInTab) => <JoueurPage variant="modalPicker" onOpenInTab={onOpenInTab} />,
     renderTabPane: ({ tab, decodedId, active }) => (
       <JoueurTabFormPane key={tab.key} tabPath={tab.path} joueurId={decodedId} active={active} />

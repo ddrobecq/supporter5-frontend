@@ -1,5 +1,5 @@
 import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
-import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
+import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import {
   Autocomplete,
   Box,
@@ -371,7 +371,7 @@ export function JoueurFormDialog({
                   color: 'text.disabled',
                 }}
               >
-                <AccountCircleOutlinedIcon sx={{ fontSize: 64 }} />
+                <PersonRoundedIcon sx={{ fontSize: 64 }} />
                 <Box sx={{ fontSize: '0.7rem' }}>Portrait</Box>
               </Box>
             )}
