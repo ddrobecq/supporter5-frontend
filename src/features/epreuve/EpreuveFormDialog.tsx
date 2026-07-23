@@ -2,18 +2,17 @@ import {
   Box,
   Button,
   FormControlLabel,
-  IconButton,
   MenuItem,
   Stack,
   Switch,
   TextField,
   Typography,
 } from '@mui/material';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getEntityImageUrl, useEntityImage } from '../../lib/useEntityImage';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
+import { EntityImageFrame } from '../../components/EntityImageFrame';
 import type { EpreuveRow } from './types';
 
 const SCOPE_OPTIONS = [
@@ -33,15 +32,6 @@ interface EpreuveFormDialogProps {
   onSubmit: (payload: EpreuveRow) => Promise<void>;
 }
 
-function imageToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 export function EpreuveFormDialog({
   open,
   mode,
@@ -54,16 +44,14 @@ export function EpreuveFormDialog({
   const [values, setValues] = useState<EpreuveRow>({});
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [newVisuelDataUrl, setNewVisuelDataUrl] = useState<string | null>(null);
-  const [photoLoading, setPhotoLoading] = useState(false);
-  const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const [visuelDraft, setVisuelDraft] = useState<string | null | undefined>(undefined);
 
   const editId = mode === 'edit' ? (initialData?.IDEPREUVE as string | number | undefined) : undefined;
   const existingPhoto = useEntityImage('epreuve', editId);
 
   useEffect(() => {
     if (!open) {
-      setNewVisuelDataUrl(null);
+      setVisuelDraft(undefined);
       return;
     }
 
@@ -77,7 +65,7 @@ export function EpreuveFormDialog({
       EPR_PAYS: initialData?.EPR_PAYS ?? 0,
     });
     setErrors({});
-    setNewVisuelDataUrl(null);
+    setVisuelDraft(undefined);
   }, [open, initialData]);
 
   const isIdReadOnly = mode === 'edit' && !!primaryKey;
@@ -88,8 +76,8 @@ export function EpreuveFormDialog({
   }, [editId]);
 
   const trophyPreview = useMemo(
-    () => newVisuelDataUrl ?? existingPhoto.src ?? directTrophyUrl,
-    [newVisuelDataUrl, existingPhoto.src, directTrophyUrl],
+    () => (visuelDraft === undefined ? (existingPhoto.src ?? directTrophyUrl) : visuelDraft),
+    [visuelDraft, existingPhoto.src, directTrophyUrl],
   );
 
   const validate = (): boolean => {
@@ -105,23 +93,6 @@ export function EpreuveFormDialog({
     return Object.keys(nextErrors).length === 0;
   };
 
-  const handleVisuelUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setErrors((prev) => ({ ...prev, EPR_VISUEL: 'Seulement les images (JPEG/PNG/SVG)' }));
-      return;
-    }
-    setPhotoLoading(true);
-    try {
-      const dataUrl = await imageToDataUrl(file);
-      setNewVisuelDataUrl(dataUrl);
-      setErrors((prev) => ({ ...prev, EPR_VISUEL: '' }));
-    } finally {
-      setPhotoLoading(false);
-    }
-  };
-
   const handleSave = async () => {
     if (!validate()) return;
     setSaving(true);
@@ -134,8 +105,8 @@ export function EpreuveFormDialog({
         OFFICIELLE: values.OFFICIELLE ? 1 : 0,
         EPR_PAYS: values.EPR_PAYS ? 1 : 0,
       };
-      if (newVisuelDataUrl) {
-        payload.EPR_VISUEL = newVisuelDataUrl;
+      if (visuelDraft !== undefined) {
+        payload.EPR_VISUEL = visuelDraft;
       }
       await onSubmit(payload);
     } finally {
@@ -156,42 +127,33 @@ export function EpreuveFormDialog({
         }}
       >
         <Box sx={{ width: 180, maxWidth: '100%', flexShrink: 0, gridColumn: '1', gridRow: '1' }}>
-          <Box
-            sx={{
-              width: 180,
-              height: 180,
-              borderRadius: 1,
-              border: '1px solid',
-              borderColor: 'divider',
-              bgcolor: 'grey.100',
-              overflow: 'hidden',
-              display: 'grid',
-              placeItems: 'center',
-              position: 'relative',
+          <EntityImageFrame
+            width={180}
+            height={180}
+            loading={visuelDraft === undefined && existingPhoto.loading}
+            src={trophyPreview}
+            alt="Visuel de l'épreuve"
+            objectFit="contain"
+            editable
+            accept="image/*"
+            onChangeImage={(nextValue) => {
+              setVisuelDraft(nextValue);
+              setErrors((prev) => ({ ...prev, EPR_VISUEL: '' }));
             }}
-          >
-            {trophyPreview ? (
-              <Box component="img" src={trophyPreview} alt="Visuel de l'épreuve" sx={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-            ) : photoLoading || existingPhoto.loading ? (
-              <EmojiEventsRoundedIcon sx={{ fontSize: 72, color: 'text.disabled' }} />
-            ) : (
+            onActionError={(message) => setErrors((prev) => ({ ...prev, EPR_VISUEL: message }))}
+            actionLabels={{
+              upload: 'Importer un visuel',
+              paste: 'Coller un visuel depuis le presse-papiers',
+              clear: 'Supprimer le visuel',
+            }}
+            sx={{ border: '1px solid', borderColor: 'divider' }}
+            fallback={(
               <Stack spacing={0.5} sx={{ alignItems: 'center', color: 'text.disabled' }}>
                 <EmojiEventsRoundedIcon sx={{ fontSize: 72 }} />
                 <Box sx={{ fontSize: 12 }}>Trophée</Box>
               </Stack>
             )}
-
-            <IconButton
-              component="label"
-              size="small"
-              aria-label="Importer un visuel"
-              disabled={photoLoading}
-              sx={{ position: 'absolute', right: 8, bottom: 8, bgcolor: 'background.paper', boxShadow: 1 }}
-            >
-              <CloudUploadIcon fontSize="small" />
-              <input ref={photoInputRef} type="file" hidden accept="image/*" onChange={(event) => void handleVisuelUpload(event)} />
-            </IconButton>
-          </Box>
+          />
         </Box>
 
         <Box sx={{ minWidth: 0, gridColumn: '2', gridRow: '1', alignSelf: 'start' }}>

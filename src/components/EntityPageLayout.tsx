@@ -122,6 +122,7 @@ export function EntityPageLayout<Row extends GridValidRowModel>({
     (actionsInlineWithSearch && !isDesktop)
     || (compactActionButtons && !(actionsInlineWithSearch && isDesktop));
   const hasActionRow = showActions && !actionsInlineWithSearch;
+  const fitToContainer = hideTitle && actionsInlineWithSearch;
 
   const renderActionButtons = () => (
     <Stack ref={actionButtonsRowRef} direction="row" spacing={1} sx={{ width: '100%' }}>
@@ -163,7 +164,7 @@ export function EntityPageLayout<Row extends GridValidRowModel>({
   );
 
   return (
-    <Stack spacing={2}>
+    <Stack spacing={2} sx={fitToContainer ? { height: '100%', minHeight: 0, minWidth: 0 } : undefined}>
       {showHeader ? (
         <Stack
           direction="row"
@@ -212,8 +213,8 @@ export function EntityPageLayout<Row extends GridValidRowModel>({
         </Stack>
       ) : null}
 
-      <Card>
-        <CardContent>
+      <Card sx={fitToContainer ? { flex: 1, minHeight: 0, minWidth: 0 } : undefined}>
+        <CardContent sx={fitToContainer ? { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, minWidth: 0 } : undefined}>
           {hasActionRow ? (
             <Box sx={{ width: '100%' }}>
               {renderActionButtons()}
@@ -221,7 +222,11 @@ export function EntityPageLayout<Row extends GridValidRowModel>({
           ) : null}
 
           {showGrid ? (
-            <Box sx={{ mt: 2, height: `calc(100vh - ${hasActionRow ? 270 : 235}px)`, minHeight: 420 }}>
+            <Box
+              sx={fitToContainer
+                ? { mt: 2, flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden' }
+                : { mt: 2, height: `calc(100vh - ${hasActionRow ? 270 : 235}px)`, minHeight: 420 }}
+            >
               <EntityDataGrid
                 rows={rows}
                 columns={columns}

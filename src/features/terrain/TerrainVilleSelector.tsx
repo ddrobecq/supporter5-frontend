@@ -123,10 +123,22 @@ export function TerrainVilleSelector({ open, onClose, onSelect }: TerrainVilleSe
   }, []);
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="md"
+      slotProps={{
+        paper: {
+          sx: {
+            height: 'min(82vh, 760px)',
+          },
+        },
+      }}
+    >
       <DialogTitle>Sélectionner une Ville</DialogTitle>
-      <DialogContent sx={{ p: 2, pt: '16px !important' }}>
-        <Stack spacing={2} sx={{ height: 'calc(100vh - 280px)', minHeight: 400 }}>
+      <DialogContent sx={{ p: 2, pt: '16px !important', overflow: 'hidden', display: 'flex', minHeight: 0 }}>
+        <Stack spacing={2} sx={{ height: '100%', minHeight: 0, flex: 1 }}>
           <EntitySearchBar
             label="Rechercher une ville"
             value={search}

@@ -4,14 +4,12 @@ import {
   Button,
   Stack,
   TextField,
-  IconButton,
-  CircularProgress,
 } from '@mui/material';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
+import { EntityImageFrame } from '../../components/EntityImageFrame';
 import type { ArbitreRow } from './types';
 import type { NatioRow } from '../natio/types';
 
@@ -25,15 +23,6 @@ interface ArbitreFormDialogProps {
   natioDatas: NatioRow[];
   onClose: () => void;
   onSubmit: (payload: ArbitreRow) => Promise<void>;
-}
-
-function imageToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 }
 
 function capitalizeFirstLetter(value: string): string {
@@ -55,9 +44,7 @@ export function ArbitreFormDialog({
   const [values, setValues] = useState<ArbitreRow>({});
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [newPhotoDataUrl, setNewPhotoDataUrl] = useState<string | null>(null);
-  const [photoLoading, setPhotoLoading] = useState(false);
-  const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const [photoDraft, setPhotoDraft] = useState<string | null | undefined>(undefined);
 
   // ID de l'arbitre en cours d'édition — utilisé pour charger la photo existante de façon asynchrone
   const editId = mode === 'edit' ? (initialData?.IDARBITRE as string | number | undefined) : undefined;
@@ -116,7 +103,7 @@ export function ArbitreFormDialog({
 
   useEffect(() => {
     if (!open) {
-      setNewPhotoDataUrl(null);
+      setPhotoDraft(undefined);
       return;
     }
     const initial: ArbitreRow = {};
@@ -126,29 +113,8 @@ export function ArbitreFormDialog({
       initial[field] = (initialData?.[field] as string | number | null | undefined) ?? '';
     }
     setValues(initial);
-    setNewPhotoDataUrl(null);
+    setPhotoDraft(undefined);
   }, [open, resolvedFields, initialData]);
-
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      setErrors((prev) => ({ ...prev, photo: 'Seulement les images (JPEG/PNG)' }));
-      return;
-    }
-
-    setPhotoLoading(true);
-    try {
-      const dataUrl = await imageToDataUrl(file);
-      setNewPhotoDataUrl(dataUrl);
-      setErrors((prev) => ({ ...prev, photo: '' }));
-    } catch {
-      setErrors((prev) => ({ ...prev, photo: "Erreur lors du chargement de l'image" }));
-    } finally {
-      setPhotoLoading(false);
-    }
-  };
 
   const handleSave = async () => {
     // Valider avant envoi
@@ -186,9 +152,9 @@ export function ArbitreFormDialog({
           cleanedValues[key] = value;
         }
       }
-      // N'inclure ARB_PHOTO dans le payload que si l'utilisateur a uploadé une nouvelle photo
-      if (photoField && newPhotoDataUrl) {
-        cleanedValues[photoField] = newPhotoDataUrl;
+      // N inclure ARB_PHOTO dans le payload que si l utilisateur l a modifie
+      if (photoField && photoDraft !== undefined) {
+        cleanedValues[photoField] = photoDraft;
       }
       await onSubmit(cleanedValues);
       setErrors({});
@@ -203,79 +169,43 @@ export function ArbitreFormDialog({
             <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start' }}>
               {/* Photo portrait */}
               {photoField ? (
-                <Box
-                  sx={{
-                    width: 120,
-                    height: 150,
-                    flexShrink: 0,
-                    border: '2px solid',
-                    borderColor: 'divider',
-                    borderRadius: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    overflow: 'hidden',
-                    backgroundColor: '#f5f5f5',
-                    position: 'relative',
+                <EntityImageFrame
+                  width={120}
+                  height={150}
+                  loading={photoDraft === undefined && existingPhoto.loading}
+                  src={photoDraft === undefined ? existingPhoto.src : photoDraft}
+                  alt="Portrait de l'arbitre"
+                  objectFit="contain"
+                  editable
+                  accept="image/jpeg,image/png,image/webp"
+                  onChangeImage={(nextValue) => {
+                    setPhotoDraft(nextValue);
+                    setErrors((prev) => ({ ...prev, photo: '' }));
                   }}
-                >
-                  {/* Spinner : upload local en cours ou chargement depuis API */}
-                  {(photoLoading || existingPhoto.loading) && <CircularProgress size={40} />}
-
-                  {/* Photo affichée : nouvelle upload prioritaire, sinon photo existante depuis API */}
-                  {!photoLoading && !existingPhoto.loading && (newPhotoDataUrl ?? existingPhoto.src) ? (
+                  onActionError={(message) => setErrors((prev) => ({ ...prev, photo: message }))}
+                  actionLabels={{
+                    upload: 'Importer une photo',
+                    paste: 'Coller une photo depuis le presse-papiers',
+                    clear: 'Supprimer la photo',
+                  }}
+                  fallback={(
                     <Box
-                      component="img"
-                      src={(newPhotoDataUrl ?? existingPhoto.src) as string}
-                      sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
-                  ) : (
-                    !photoLoading && !existingPhoto.loading && (
-                      <Box
-                        sx={{
-                          width: '100%',
-                          height: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexDirection: 'column',
-                          gap: 0.5,
-                          color: 'text.disabled',
-                        }}
-                      >
-                        <AccountCircleOutlinedIcon sx={{ fontSize: 64 }} />
-                        <Box sx={{ fontSize: '0.7rem' }}>Portrait</Box>
-                      </Box>
-                    )
+                      sx={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexDirection: 'column',
+                        gap: 0.5,
+                        color: 'text.disabled',
+                      }}
+                    >
+                      <AccountCircleOutlinedIcon sx={{ fontSize: 64 }} />
+                      <Box sx={{ fontSize: '0.7rem' }}>Portrait</Box>
+                    </Box>
                   )}
-
-                  <IconButton
-                    component="label"
-                    size="small"
-                    aria-label="Importer une photo"
-                    disabled={photoLoading}
-                    sx={{
-                      position: 'absolute',
-                      right: 2,
-                      bottom: 2,
-                      width: 22,
-                      height: 22,
-                      bgcolor: 'background.paper',
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      '&:hover': { bgcolor: 'grey.100' },
-                    }}
-                  >
-                    <CloudUploadIcon sx={{ fontSize: 14 }} />
-                    <input
-                      ref={photoInputRef}
-                      type="file"
-                      accept="image/jpeg,image/png"
-                      hidden
-                      onChange={(e) => void handlePhotoUpload(e)}
-                    />
-                  </IconButton>
-                </Box>
+                />
               ) : null}
 
               {/* Code */}

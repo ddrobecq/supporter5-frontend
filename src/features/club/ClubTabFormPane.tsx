@@ -5,6 +5,7 @@ import AutoFixHighRoundedIcon from '@mui/icons-material/AutoFixHighRounded';
 import FormatColorFillRoundedIcon from '@mui/icons-material/FormatColorFillRounded';
 import FormatColorTextRoundedIcon from '@mui/icons-material/FormatColorTextRounded';
 import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
+import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
 import {
   Box,
   Button,
@@ -22,6 +23,7 @@ import jerseySvgSource from '../../../img/jersey.svg?raw';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
+import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { fetchNatio } from '../natio/natioApi';
@@ -140,7 +142,92 @@ function replaceSvgStyleColor(svg: string, target: string, replacement: string):
     .replace(new RegExp(`stroke="${escapedTarget}"`, 'g'), `stroke="${replacement}"`);
 }
 
-function createJerseyVisualDataUri(fondColor: string, texteColor: string): string {
+function escapeSvgText(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function wrapClubNameLines(rawName: string): string[] {
+  const text = rawName.replace(/\s+/g, ' ').trim();
+  if (!text) return [];
+
+  const words = text.split(' ');
+  const maxLines = 3;
+  const maxCharsPerLine = 11;
+
+  // If the label has multiple words, prefer one word per line for clearer jersey rendering.
+  if (words.length > 1) {
+    const rawLines = words.slice(0, maxLines - 1);
+    const remaining = words.slice(maxLines - 1).join(' ');
+    if (remaining) {
+      rawLines.push(remaining);
+    }
+
+    const normalizedLines = rawLines
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(0, maxLines)
+      .map((line, index, array) => {
+        if (line.length <= maxCharsPerLine) return line;
+        if (index < array.length - 1) return `${line.slice(0, maxCharsPerLine - 1)}…`;
+        return `${line.slice(0, maxCharsPerLine - 1)}…`;
+      });
+
+    return normalizedLines;
+  }
+
+  const lines: string[] = [];
+  let current = '';
+
+  for (let index = 0; index < words.length; index += 1) {
+    const word = words[index] ?? '';
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length <= maxCharsPerLine) {
+      current = candidate;
+      continue;
+    }
+
+    if (current) {
+      lines.push(current);
+      current = '';
+      if (lines.length === maxLines - 1) {
+        const remaining = [word, ...words.slice(index + 1)].join(' ');
+        lines.push(remaining);
+        break;
+      }
+    }
+
+    if (word.length > maxCharsPerLine) {
+      const chunk = word.slice(0, maxCharsPerLine - 1);
+      const rest = word.slice(maxCharsPerLine - 1);
+      lines.push(chunk);
+      if (lines.length === maxLines) break;
+      current = rest;
+    } else {
+      current = word;
+    }
+  }
+
+  if (current && lines.length < maxLines) {
+    lines.push(current);
+  }
+
+  if (lines.length > maxLines) {
+    return lines.slice(0, maxLines);
+  }
+
+  if (lines.length === maxLines && lines[maxLines - 1].length > maxCharsPerLine) {
+    lines[maxLines - 1] = `${lines[maxLines - 1].slice(0, maxCharsPerLine - 1)}…`;
+  }
+
+  return lines;
+}
+
+function createJerseyVisualDataUri(fondColor: string, texteColor: string, clubName: string): string {
   let svg = jerseySvgSource;
   svg = replaceSvgStyleColor(svg, '#32BEA6', '#eeeeee');
   svg = replaceSvgStyleColor(svg, '#000000', fondColor);
@@ -150,6 +237,18 @@ function createJerseyVisualDataUri(fondColor: string, texteColor: string): strin
   svg = replaceSvgStyleColor(svg, '#C49F05', texteColor);
   svg = replaceSvgStyleColor(svg, '#487206', texteColor);
   svg = replaceSvgStyleColor(svg, '#8c9183', texteColor);
+
+  const wrappedLines = wrapClubNameLines(clubName);
+  if (wrappedLines.length > 0) {
+    const lineHeight = 38;
+    const startY = 245 - ((wrappedLines.length - 1) * lineHeight) / 2;
+    const tspans = wrappedLines
+      .map((line, index) => `<tspan x="248" y="${startY + index * lineHeight}">${escapeSvgText(line)}</tspan>`)
+      .join('');
+    const textLayer = `<text text-anchor="middle" font-family="Arial, sans-serif" font-size="36" font-weight="700" letter-spacing="0.5" fill="${texteColor}">${tspans}</text>`;
+    svg = svg.replace('</svg>', `${textLayer}</svg>`);
+  }
+
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
@@ -255,13 +354,14 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
   const [terrainHistorySelection, setTerrainHistorySelection] = useState<GridRowId[]>([]);
   const [villeSelectorOpen, setVilleSelectorOpen] = useState(false);
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
+  const [clubImageDraft, setClubImageDraft] = useState<string | null | undefined>(undefined);
   const fondColorInputRef = useRef<HTMLInputElement | null>(null);
   const texteColorInputRef = useRef<HTMLInputElement | null>(null);
   const profileSignatureRef = useRef('');
   const clubImage = useEntityImage('club', clubId);
   const currentFondColor = profileDraft.fond;
   const currentTexteColor = profileDraft.texte;
-  const kitVisualSrc = createJerseyVisualDataUri(currentFondColor, currentTexteColor);
+  const kitVisualSrc = createJerseyVisualDataUri(currentFondColor, currentTexteColor, profileDraft.name);
 
   const isProfileDirty = getClubProfileSignature(profileDraft) !== profileSignatureRef.current;
 
@@ -382,6 +482,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     try {
       const data = await fetchClubProfileById(clubId);
       setRow(data);
+      setClubImageDraft(undefined);
       const nextDraft = createClubProfileDraft(data);
       setProfileDraft(nextDraft);
       profileSignatureRef.current = getClubProfileSignature(nextDraft);
@@ -432,6 +533,10 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       dispatchDirty(tabPath, false);
     };
   }, [reloadHistories, reloadRow, tabPath]);
+
+  useEffect(() => {
+    setClubImageDraft(undefined);
+  }, [clubId]);
 
   useEffect(() => {
     if (loading) return;
@@ -499,12 +604,12 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       spacing={0.25}
       sx={{
         justifyContent: 'center',
-        bgcolor: 'rgba(255, 255, 255, 0.78)',
+        bgcolor: 'rgba(255, 255, 255, 0.22)',
         backdropFilter: 'blur(2px)',
         borderRadius: 999,
         px: 0.5,
         py: 0.25,
-        boxShadow: '0 1px 4px rgba(0, 0, 0, 0.18)',
+        boxShadow: '0 1px 4px rgba(0, 0, 0, 0.12)',
       }}
     >
       <Tooltip title="Choisir la couleur du FOND">
@@ -547,67 +652,71 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
           <Stack spacing={2.25}>
             <Stack spacing={1.25}>
               <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                <Box
-                  sx={{
-                    width: 120,
-                    height: 150,
-                    flexShrink: 0,
-                    border: '2px solid',
-                    borderColor: 'divider',
-                    borderRadius: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    overflow: 'hidden',
-                    bgcolor: '#f5f5f5',
+                <EntityImageFrame
+                  width={120}
+                  height={150}
+                  loading={clubImageDraft === undefined && clubImage.loading}
+                  src={clubImageDraft === undefined ? clubImage.src : clubImageDraft}
+                  alt="Ecusson du club"
+                  objectFit="contain"
+                  editable
+                  accept="image/*"
+                  onChangeImage={(nextValue) => setClubImageDraft(nextValue)}
+                  onActionError={(message) => setSnackbar({ severity: 'error', message })}
+                  actionLabels={{
+                    upload: 'Importer un ecusson',
+                    paste: 'Coller un ecusson depuis le presse-papiers',
+                    clear: 'Supprimer l ecusson',
                   }}
-                >
-                  {clubImage.loading ? <CircularProgress size={20} /> : clubImage.src ? (
-                    <Box component="img" src={clubImage.src} alt="Ecusson du club" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <Typography variant="caption" color="text.secondary">ECUSSON</Typography>
-                  )}
-                </Box>
+                  fallback={<SportsSoccerRoundedIcon sx={{ fontSize: 40, color: 'text.disabled' }} />}
+                  sx={{ bgcolor: '#f5f5f5' }}
+                />
 
                 <Stack spacing={0.5} sx={{ width: 120, flexShrink: 0 }}>
-                  <Box
+                  <EntityImageFrame
+                    width={120}
+                    height={150}
+                    src={kitVisualSrc}
+                    alt="Maillot du club"
+                    objectFit="contain"
+                    objectPosition="center top"
+                    imageSx={{ transform: 'scale(1.2)', transformOrigin: 'center 32%' }}
                     sx={{
-                      width: 120,
-                      height: 150,
-                      border: '2px solid',
-                      borderColor: 'divider',
-                      borderRadius: 1,
-                      position: 'relative',
-                      overflow: 'hidden',
                       bgcolor: '#f5f5f5',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
+                      '&:hover .club-kit-actions, &:focus-within .club-kit-actions': {
+                        opacity: 1,
+                        pointerEvents: 'auto',
+                      },
                     }}
-                  >
-                    <Box
-                      component="img"
-                      src={kitVisualSrc}
-                      alt="Maillot du club"
-                      sx={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'contain',
-                        objectPosition: 'center top',
-                        transform: 'translateY(-8px)',
-                      }}
-                    />
-                    <Box sx={{ position: 'absolute', left: 0, right: 0, bottom: 2, display: 'flex', justifyContent: 'center' }}>
-                      {visualButtons}
-                    </Box>
-                  </Box>
+                    overlay={(
+                      <Box
+                        className="club-kit-actions"
+                        sx={{
+                          position: 'absolute',
+                          left: 0,
+                          right: 0,
+                          bottom: 2,
+                          display: 'flex',
+                          justifyContent: 'center',
+                          opacity: 0,
+                          pointerEvents: 'none',
+                          transition: 'opacity 160ms ease',
+                          '.MuiIconButton-root': {
+                            pointerEvents: 'auto',
+                          },
+                        }}
+                      >
+                        {visualButtons}
+                      </Box>
+                    )}
+                  />
                 </Stack>
 
                 <TextField
                   label="Identifiant"
                   value={String(row.IDCLUB ?? '')}
                   size="small"
-                  sx={{ width: 170, flexShrink: 0 }}
+                  sx={{ width: '14ch', minWidth: '14ch', maxWidth: '14ch', flexShrink: 0 }}
                   slotProps={{
                     input: {
                       readOnly: true,

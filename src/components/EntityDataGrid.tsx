@@ -76,7 +76,7 @@ export function EntityDataGrid<RowModel extends GridValidRowModel>({
       label={label}
       showToolbar={showToolbar}
       disableColumnMenu
-      sx={{ '& .MuiDataGrid-cell': { cursor: 'default' } }}
+      sx={{ width: '100%', minWidth: 0, '& .MuiDataGrid-cell': { cursor: 'default' } }}
     />
   );
 }

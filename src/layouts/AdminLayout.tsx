@@ -848,6 +848,13 @@ export function AdminLayout() {
         onClose={() => setPickerModal(null)}
         fullWidth
         maxWidth="xl"
+        slotProps={{
+          paper: {
+            sx: {
+              height: 'min(90vh, 980px)',
+            },
+          },
+        }}
       >
         {activePickerEntity ? (
           <>
@@ -862,8 +869,10 @@ export function AdminLayout() {
                 </IconButton>
               </Box>
             </DialogTitle>
-            <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6' }}>
-              {activePickerEntity.renderPage(handleOpenPickerEntityInTab(activePickerEntity.key))}
+            <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6', overflow: 'hidden', display: 'flex', minHeight: 0, minWidth: 0 }}>
+              <Box sx={{ flex: 1, minHeight: 0, minWidth: 0, display: 'flex', '& > *': { flex: 1, minHeight: 0, minWidth: 0 } }}>
+                {activePickerEntity.renderPage(handleOpenPickerEntityInTab(activePickerEntity.key))}
+              </Box>
             </DialogContent>
           </>
         ) : null}

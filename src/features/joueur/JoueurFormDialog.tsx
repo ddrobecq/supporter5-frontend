@@ -1,12 +1,10 @@
 import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import {
   Autocomplete,
   Box,
   Button,
-  CircularProgress,
   IconButton,
   InputAdornment,
   Stack,
@@ -18,6 +16,7 @@ import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
+import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { TerrainVilleSelector } from '../terrain/TerrainVilleSelector';
 import type { NatioRow } from '../natio/types';
@@ -37,15 +36,6 @@ interface JoueurFormDialogProps {
 }
 
 type VilleTarget = 'birth' | 'death';
-
-function imageToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
 
 function normalizeDateDigits(input: string): string {
   const digits = input.replace(/\D+/g, '').slice(0, 8);
@@ -126,12 +116,10 @@ export function JoueurFormDialog({
   const [villeTarget, setVilleTarget] = useState<VilleTarget>('birth');
   const [birthVilleName, setBirthVilleName] = useState('');
   const [deathVilleName, setDeathVilleName] = useState('');
-  const [newPhotoDataUrl, setNewPhotoDataUrl] = useState<string | null>(null);
-  const [photoLoading, setPhotoLoading] = useState(false);
+  const [photoDraft, setPhotoDraft] = useState<string | null | undefined>(undefined);
   const [historyRows, setHistoryRows] = useState<JoueurHistoryRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historySelection, setHistorySelection] = useState<GridRowId[]>([]);
-  const photoInputRef = useRef<HTMLInputElement | null>(null);
   const birthDatePickerRef = useRef<HTMLInputElement | null>(null);
   const deathDatePickerRef = useRef<HTMLInputElement | null>(null);
 
@@ -268,7 +256,7 @@ export function JoueurFormDialog({
     setBirthVilleName(normalizeNullableText(nextValues.VILLE_NOM));
     setDeathVilleName(normalizeNullableText(nextValues.VILLE_DECES_NOM));
     setErrors({});
-    setNewPhotoDataUrl(null);
+    setPhotoDraft(undefined);
   }, [open, initialData]);
 
   useEffect(() => {
@@ -319,27 +307,6 @@ export function JoueurFormDialog({
       .finally(() => setHistoryLoading(false));
   }, [mode, open, values.IDJOUEUR]);
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      setErrors((prev) => ({ ...prev, photo: 'Seulement les images (JPEG/PNG)' }));
-      return;
-    }
-
-    setPhotoLoading(true);
-    try {
-      const dataUrl = await imageToDataUrl(file);
-      setNewPhotoDataUrl(dataUrl);
-      setErrors((prev) => ({ ...prev, photo: '' }));
-    } catch {
-      setErrors((prev) => ({ ...prev, photo: "Erreur lors du chargement de l'image" }));
-    } finally {
-      setPhotoLoading(false);
-    }
-  };
-
   const handleVillePick = (target: VilleTarget): void => {
     setVilleTarget(target);
     setVilleSelectorOpen(true);
@@ -387,11 +354,10 @@ export function JoueurFormDialog({
       payload.VILLE_DECES = normalizeNullableCityId(payload.VILLE_DECES);
       delete payload.VILLE_NOM;
       delete payload.VILLE_DECES_NOM;
-      if (!newPhotoDataUrl) {
+      if (photoDraft === undefined) {
         delete payload.PHOTO;
-      }
-      if (newPhotoDataUrl) {
-        payload.PHOTO = newPhotoDataUrl;
+      } else {
+        payload.PHOTO = photoDraft;
       }
       await onSubmit(payload);
     } finally {
@@ -404,31 +370,26 @@ export function JoueurFormDialog({
         <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} sx={{ alignItems: 'stretch' }}>
           <Stack spacing={2} sx={{ flex: 1, minWidth: 0 }}>
             <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start' }}>
-          <Box
-            sx={{
-              width: 120,
-              height: 150,
-              flexShrink: 0,
-              border: '2px solid',
-              borderColor: 'divider',
-              borderRadius: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              overflow: 'hidden',
-              backgroundColor: '#f5f5f5',
-              position: 'relative',
+          <EntityImageFrame
+            width={120}
+            height={150}
+            loading={photoDraft === undefined && existingPhoto.loading}
+            src={photoDraft === undefined ? existingPhoto.src : photoDraft}
+            alt="Portrait du joueur"
+            objectFit="contain"
+            editable
+            accept="image/jpeg,image/png,image/webp"
+            onChangeImage={(nextValue) => {
+              setPhotoDraft(nextValue);
+              setErrors((prev) => ({ ...prev, photo: '' }));
             }}
-          >
-            {(photoLoading || existingPhoto.loading) ? <CircularProgress size={40} /> : null}
-
-            {!photoLoading && !existingPhoto.loading && (newPhotoDataUrl ?? existingPhoto.src) ? (
-              <Box
-                component="img"
-                src={(newPhotoDataUrl ?? existingPhoto.src) as string}
-                sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            ) : (!photoLoading && !existingPhoto.loading ? (
+            onActionError={(message) => setErrors((prev) => ({ ...prev, photo: message }))}
+            actionLabels={{
+              upload: 'Importer une photo',
+              paste: 'Coller une photo depuis le presse-papiers',
+              clear: 'Supprimer la photo',
+            }}
+            fallback={(
               <Box
                 sx={{
                   width: '100%',
@@ -444,35 +405,8 @@ export function JoueurFormDialog({
                 <AccountCircleOutlinedIcon sx={{ fontSize: 64 }} />
                 <Box sx={{ fontSize: '0.7rem' }}>Portrait</Box>
               </Box>
-            ) : null)}
-
-            <IconButton
-              component="label"
-              size="small"
-              aria-label="Importer une photo"
-              disabled={photoLoading}
-              sx={{
-                position: 'absolute',
-                right: 2,
-                bottom: 2,
-                width: 22,
-                height: 22,
-                bgcolor: 'background.paper',
-                border: '1px solid',
-                borderColor: 'divider',
-                '&:hover': { bgcolor: 'grey.100' },
-              }}
-            >
-              <CloudUploadIcon sx={{ fontSize: 14 }} />
-              <input
-                ref={photoInputRef}
-                type="file"
-                accept="image/jpeg,image/png"
-                hidden
-                onChange={(event) => void handlePhotoUpload(event)}
-              />
-            </IconButton>
-          </Box>
+            )}
+          />
 
           <Stack spacing={1} sx={{ flex: 1 }}>
             <TextField
