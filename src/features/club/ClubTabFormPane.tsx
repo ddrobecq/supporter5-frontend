@@ -259,7 +259,7 @@ function wrapClubNameLines(rawName: string): string[] {
 
 function createJerseyVisualDataUri(fondColor: string, texteColor: string, clubName: string): string {
   let svg = jerseySvgSource;
-  svg = replaceSvgStyleColor(svg, '#32BEA6', '#eeeeee');
+  svg = replaceSvgStyleColor(svg, '#32BEA6', 'transparent');
   svg = replaceSvgStyleColor(svg, '#000000', fondColor);
   svg = replaceSvgStyleColor(svg, '#EFCE0F', fondColor);
   svg = replaceSvgStyleColor(svg, '#F2B906', fondColor);
@@ -979,15 +979,15 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
                   sx={{ bgcolor: '#f5f5f5' }}
                 />
 
-                <Stack spacing={0.5} sx={{ width: 120, flexShrink: 0 }}>
+                <Stack spacing={0.5} sx={{ width: 132, flexShrink: 0 }}>
                   <EntityImageFrame
-                    width={120}
+                    width={132}
                     height={150}
                     src={kitVisualSrc}
                     alt="Maillot du club"
                     objectFit="contain"
                     objectPosition="center top"
-                    imageSx={{ transform: 'scale(1.2)', transformOrigin: 'center 32%' }}
+                    imageSx={{ transform: 'translateY(-10px) scale(1.56)', transformOrigin: 'center 24%' }}
                     sx={{
                       bgcolor: '#f5f5f5',
                       '&:hover .club-kit-actions, &:focus-within .club-kit-actions': {
