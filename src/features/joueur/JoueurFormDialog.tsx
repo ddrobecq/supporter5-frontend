@@ -1,14 +1,25 @@
 import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
+import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRounded';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import {
   Autocomplete,
   Box,
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   InputAdornment,
+  IconButton,
   Stack,
   TextField,
   Tooltip,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useEffect, useMemo, useState } from 'react';
@@ -20,7 +31,7 @@ import { useEntityImage } from '../../lib/useEntityImage';
 import { TerrainVilleSelector } from '../terrain/TerrainVilleSelector';
 import type { NatioRow } from '../natio/types';
 import { fetchVilleById } from '../ville/villeApi';
-import { fetchJoueurHistory } from './joueurApi';
+import { createJoueurHistory, deleteJoueurHistory, fetchJoueurHistory, fetchSaisons, updateJoueurHistory } from './joueurApi';
 import type { JoueurHistoryRow, PosteOption, JoueurRow } from './types';
 
 interface JoueurFormDialogProps {
@@ -35,6 +46,11 @@ interface JoueurFormDialogProps {
 }
 
 type VilleTarget = 'birth' | 'death';
+
+interface JoueurHistoryDialogDraft {
+  saison: string;
+  poste: string;
+}
 
 function normalizeDateDigits(input: string): string {
   const digits = input.replace(/\D+/g, '').slice(0, 8);
@@ -80,6 +96,8 @@ export function JoueurFormDialog({
   onClose,
   onSubmit,
 }: JoueurFormDialogProps) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [values, setValues] = useState<JoueurRow>({});
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -91,6 +109,14 @@ export function JoueurFormDialog({
   const [historyRows, setHistoryRows] = useState<JoueurHistoryRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historySelection, setHistorySelection] = useState<GridRowId[]>([]);
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [historyDialogMode, setHistoryDialogMode] = useState<'create' | 'edit'>('create');
+  const [historyDialogId, setHistoryDialogId] = useState<number | null>(null);
+  const [historyDialogSaving, setHistoryDialogSaving] = useState(false);
+  const [historyDialogDraft, setHistoryDialogDraft] = useState<JoueurHistoryDialogDraft>({ saison: '', poste: '' });
+  const [historyDeleteConfirmOpen, setHistoryDeleteConfirmOpen] = useState(false);
+  const [historyDeleteSaving, setHistoryDeleteSaving] = useState(false);
+  const [saisonOptions, setSaisonOptions] = useState<string[]>([]);
 
   const editId = mode === 'edit' ? (initialData?.IDJOUEUR as string | number | undefined) : undefined;
   const existingPhoto = useEntityImage('joueurrg', editId);
@@ -106,6 +132,9 @@ export function JoueurFormDialog({
     () => posteOptions.map((poste) => ({ value: poste.POS_ID, label: poste.POS_NOM })),
     [posteOptions],
   );
+
+  const selectedHistoryId = Number(historySelection[0] ?? 0);
+  const selectedHistoryRow = historyRows.find((historyRow) => Number(historyRow.JOCLEUNIK) === selectedHistoryId);
 
   const historyColumns = useMemo<GridColDef<JoueurHistoryRow>[]>(() => [
     {
@@ -275,6 +304,190 @@ export function JoueurFormDialog({
       })
       .finally(() => setHistoryLoading(false));
   }, [mode, open, values.IDJOUEUR]);
+
+  useEffect(() => {
+    if (!open) {
+      setSaisonOptions([]);
+      return;
+    }
+
+    void fetchSaisons()
+      .then((rows) => {
+        const seasons = Array.from(new Set(rows.map((row) => String(row.SAISON ?? '').trim()).filter(Boolean)));
+        setSaisonOptions(seasons);
+      })
+      .catch(() => setSaisonOptions([]));
+  }, [open]);
+
+  const reloadHistory = async () => {
+    const idJoueur = normalizeNullableText(values.IDJOUEUR);
+    if (!idJoueur) {
+      setHistoryRows([]);
+      setHistorySelection([]);
+      return;
+    }
+
+    setHistoryLoading(true);
+    try {
+      const rows = await fetchJoueurHistory(idJoueur);
+      setHistoryRows(rows);
+      setHistorySelection([]);
+    } catch {
+      setHistoryRows([]);
+      setHistorySelection([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const openHistoryCreateDialog = () => {
+    const latestSeasonPoste = historyRows[0]?.POSTE;
+    const currentPoste = Number(values.POSTE ?? 0);
+    const resolvedDefaultPoste = Number.isInteger(Number(latestSeasonPoste)) && Number(latestSeasonPoste) > 0
+      ? String(latestSeasonPoste)
+      : Number.isInteger(currentPoste) && currentPoste > 0
+        ? String(currentPoste)
+        : posteSelectOptions[0]
+          ? String(posteSelectOptions[0].value)
+          : '';
+
+    setHistoryDialogMode('create');
+    setHistoryDialogId(null);
+    setHistoryDialogDraft({
+      saison: saisonOptions[0] ?? '',
+      poste: resolvedDefaultPoste,
+    });
+    setHistoryDialogOpen(true);
+  };
+
+  const openHistoryEditDialog = (historyRow?: JoueurHistoryRow) => {
+    const rowToEdit = historyRow ?? selectedHistoryRow;
+    if (!rowToEdit) {
+      setErrors((prev) => ({ ...prev, history: 'Selectionnez une saison a modifier.' }));
+      return;
+    }
+
+    setHistoryDialogMode('edit');
+    setHistoryDialogId(Number(rowToEdit.JOCLEUNIK));
+    setHistoryDialogDraft({
+      saison: String(rowToEdit.SAISON ?? ''),
+      poste: String(rowToEdit.POSTE ?? ''),
+    });
+    setHistoryDialogOpen(true);
+  };
+
+  const openHistoryDeleteConfirm = () => {
+    if (!selectedHistoryRow) {
+      setErrors((prev) => ({ ...prev, history: 'Selectionnez une saison a supprimer.' }));
+      return;
+    }
+    setHistoryDeleteConfirmOpen(true);
+  };
+
+  const handleHistoryDialogSave = async () => {
+    const idJoueur = normalizeNullableText(values.IDJOUEUR);
+    const saison = String(historyDialogDraft.saison ?? '').trim();
+    const poste = String(historyDialogDraft.poste ?? '').trim();
+
+    if (!idJoueur) {
+      setErrors((prev) => ({ ...prev, history: 'Identifiant joueur invalide.' }));
+      return;
+    }
+    if (!saison) {
+      setErrors((prev) => ({ ...prev, history: 'La saison est requise.' }));
+      return;
+    }
+    if (!poste) {
+      setErrors((prev) => ({ ...prev, history: 'Le poste est requis.' }));
+      return;
+    }
+
+    setHistoryDialogSaving(true);
+    try {
+      if (historyDialogMode === 'create') {
+        await createJoueurHistory(idJoueur, { saison, poste });
+      } else {
+        if (!historyDialogId) {
+          setErrors((prev) => ({ ...prev, history: 'Historique invalide.' }));
+          return;
+        }
+        await updateJoueurHistory(idJoueur, historyDialogId, { saison, poste });
+      }
+
+      await reloadHistory();
+      setHistoryDialogOpen(false);
+      setErrors((prev) => ({ ...prev, history: '' }));
+    } catch (error) {
+      setErrors((prev) => ({ ...prev, history: String((error as { message?: string })?.message ?? 'Erreur de sauvegarde.') }));
+    } finally {
+      setHistoryDialogSaving(false);
+    }
+  };
+
+  const handleHistoryDeleteConfirm = async () => {
+    const idJoueur = normalizeNullableText(values.IDJOUEUR);
+    if (!idJoueur || !selectedHistoryRow) {
+      setHistoryDeleteConfirmOpen(false);
+      return;
+    }
+
+    setHistoryDeleteSaving(true);
+    try {
+      await deleteJoueurHistory(idJoueur, selectedHistoryRow.JOCLEUNIK);
+      await reloadHistory();
+      setHistoryDeleteConfirmOpen(false);
+      setErrors((prev) => ({ ...prev, history: '' }));
+    } catch (error) {
+      setErrors((prev) => ({ ...prev, history: String((error as { message?: string })?.message ?? 'Erreur de suppression.') }));
+    } finally {
+      setHistoryDeleteSaving(false);
+    }
+  };
+
+  const handleHistoryRowDoubleClick = (rowId: GridRowId) => {
+    const clicked = historyRows.find((historyRow) => Number(historyRow.JOCLEUNIK) === Number(rowId));
+    if (!clicked) return;
+    setHistorySelection([clicked.JOCLEUNIK]);
+    openHistoryEditDialog(clicked);
+  };
+
+  const historyActions = (
+    <Stack direction="row" spacing={0.5}>
+      <Tooltip title="Ajouter">
+        {isMobile ? (
+          <IconButton size="small" color="primary" aria-label="Ajouter" onClick={openHistoryCreateDialog} disabled={!normalizeNullableText(values.IDJOUEUR)}>
+            <AddCircleOutlineRoundedIcon fontSize="small" />
+          </IconButton>
+        ) : (
+          <Button size="small" variant="outlined" startIcon={<AddCircleOutlineRoundedIcon />} sx={{ minWidth: 0, px: 1.1 }} onClick={openHistoryCreateDialog} disabled={!normalizeNullableText(values.IDJOUEUR)}>
+            Ajouter
+          </Button>
+        )}
+      </Tooltip>
+      <Tooltip title="Modifier">
+        {isMobile ? (
+          <IconButton size="small" color="primary" aria-label="Modifier" onClick={() => openHistoryEditDialog()} disabled={!selectedHistoryRow}>
+            <EditOutlinedIcon fontSize="small" />
+          </IconButton>
+        ) : (
+          <Button size="small" variant="outlined" startIcon={<EditOutlinedIcon />} sx={{ minWidth: 0, px: 1.1 }} onClick={() => openHistoryEditDialog()} disabled={!selectedHistoryRow}>
+            Modifier
+          </Button>
+        )}
+      </Tooltip>
+      <Tooltip title="Supprimer">
+        {isMobile ? (
+          <IconButton size="small" color="error" aria-label="Supprimer" onClick={openHistoryDeleteConfirm} disabled={!selectedHistoryRow}>
+            <DeleteOutlineRoundedIcon fontSize="small" />
+          </IconButton>
+        ) : (
+          <Button size="small" color="error" variant="outlined" startIcon={<DeleteOutlineRoundedIcon />} sx={{ minWidth: 0, px: 1.1 }} onClick={openHistoryDeleteConfirm} disabled={!selectedHistoryRow}>
+            Supprimer
+          </Button>
+        )}
+      </Tooltip>
+    </Stack>
+  );
 
   const handleVillePick = (target: VilleTarget): void => {
     setVilleTarget(target);
@@ -566,6 +779,12 @@ export function JoueurFormDialog({
               gap: 1,
             }}
           >
+            <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                Historique dans le Club
+              </Typography>
+              {historyActions}
+            </Stack>
             <Box
               sx={{
                 height: 340,
@@ -582,13 +801,14 @@ export function JoueurFormDialog({
                 getRowId={(row) => row.JOCLEUNIK}
                 selection={historySelection}
                 onSelectionChange={setHistorySelection}
+                onRowDoubleClick={handleHistoryRowDoubleClick}
                 disableRowSelectionOnClick
                 pageSizeOptions={[5, 10, 25]}
                 density="compact"
-                label="Historique du Club"
-                showToolbar
+                label="Historique dans le Club"
               />
             </Box>
+            {errors.history ? <Typography sx={{ color: 'error.main', fontSize: '0.75rem' }}>{errors.history}</Typography> : null}
           </Box>
         </Stack>
     </>
@@ -626,6 +846,48 @@ export function JoueurFormDialog({
         onClose={() => setVilleSelectorOpen(false)}
         onSelect={handleVilleSelect}
       />
+
+      <Dialog open={historyDialogOpen} onClose={() => { if (!historyDialogSaving) setHistoryDialogOpen(false); }} fullWidth maxWidth="sm">
+        <DialogTitle>{historyDialogMode === 'create' ? 'Ajouter une saison' : 'Modifier une saison'}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1.5} sx={{ pt: 0.75 }}>
+            <Autocomplete
+              options={saisonOptions}
+              getOptionLabel={(option) => option}
+              value={historyDialogDraft.saison || null}
+              onChange={(_, option) => setHistoryDialogDraft((prev) => ({ ...prev, saison: String(option ?? '') }))}
+              renderInput={(params) => <TextField {...params} label="Saison" size="small" />}
+              size="small"
+            />
+
+            <Autocomplete
+              options={posteSelectOptions}
+              getOptionLabel={(option) => option.label}
+              value={posteSelectOptions.find((option) => String(option.value) === historyDialogDraft.poste) ?? null}
+              onChange={(_, option) => setHistoryDialogDraft((prev) => ({ ...prev, poste: option ? String(option.value) : '' }))}
+              renderInput={(params) => <TextField {...params} label="Poste" size="small" />}
+              size="small"
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setHistoryDialogOpen(false)} disabled={historyDialogSaving}>Annuler</Button>
+          <Button variant="contained" onClick={() => void handleHistoryDialogSave()} disabled={historyDialogSaving}>OK</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={historyDeleteConfirmOpen} onClose={() => { if (!historyDeleteSaving) setHistoryDeleteConfirmOpen(false); }}>
+        <DialogTitle>Supprimer une saison</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Confirmez-vous la suppression de cette saison dans l historique du club ?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setHistoryDeleteConfirmOpen(false)} disabled={historyDeleteSaving}>Annuler</Button>
+          <Button color="error" variant="contained" onClick={() => void handleHistoryDeleteConfirm()} disabled={historyDeleteSaving}>Supprimer</Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

@@ -95,6 +95,30 @@ export async function fetchJoueurHistory(id: string | number): Promise<JoueurHis
   return data.data ?? [];
 }
 
+export async function createJoueurHistory(
+  id: string | number,
+  payload: { saison: string; poste: number | string },
+): Promise<JoueurHistoryRow> {
+  const { data } = await http.post<JoueurHistoryRow>(`${env.joueurAdminResource}/${id}/history`, payload);
+  return data;
+}
+
+export async function updateJoueurHistory(
+  id: string | number,
+  historyId: string | number,
+  payload: { saison: string; poste: number | string },
+): Promise<JoueurHistoryRow> {
+  const { data } = await http.put<JoueurHistoryRow>(`${env.joueurAdminResource}/${id}/history/${historyId}`, payload);
+  return data;
+}
+
+export async function deleteJoueurHistory(
+  id: string | number,
+  historyId: string | number,
+): Promise<void> {
+  await http.delete(`${env.joueurAdminResource}/${id}/history/${historyId}`);
+}
+
 export async function createJoueur(payload: JoueurRow): Promise<JoueurRow | undefined> {
   const { data } = await http.post<JoueurRow>(env.joueurAdminResource, payload);
   return data;
