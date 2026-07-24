@@ -472,62 +472,70 @@ export function AdminLayout() {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#eef2f6' }}>
-      <AppBar position="static" color="inherit" elevation={1}>
-        <Toolbar sx={{ justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'baseline' }}>
-            <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: 0.2 }}>
-              Supporter
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
-              v5.0.0.0
-            </Typography>
-          </Box>
+      <Box
+        sx={{
+          position: 'sticky',
+          top: 0,
+          zIndex: (theme) => theme.zIndex.appBar + 2,
+          boxShadow: '0 1px 0 rgba(15, 23, 42, 0.08)',
+        }}
+      >
+        <AppBar position="static" color="inherit" elevation={1}>
+          <Toolbar sx={{ justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'baseline' }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: 0.2 }}>
+                Supporter
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
+                v5.0.0.0
+              </Typography>
+            </Box>
 
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <Button
-              variant="outlined"
-              color="inherit"
-              startIcon={<SettingsRoundedIcon />}
-              sx={{
-                '.MuiButton-startIcon': { mr: { xs: 0, sm: 1 } },
-              }}
-            >
-              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
-                Configuration
-              </Box>
-            </Button>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Button
+                variant="outlined"
+                color="inherit"
+                startIcon={<SettingsRoundedIcon />}
+                sx={{
+                  '.MuiButton-startIcon': { mr: { xs: 0, sm: 1 } },
+                }}
+              >
+                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                  Configuration
+                </Box>
+              </Button>
 
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<LogoutRoundedIcon />}
-              sx={{
-                minWidth: { xs: 40, sm: 'auto' },
-                px: { xs: 1, sm: 1.5 },
-                '.MuiButton-startIcon': { mr: { xs: 0, sm: 1 } },
-              }}
-              onClick={() => {
-                logout();
-                navigate('/login');
-              }}
-            >
-              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
-                Deconnexion
-              </Box>
-            </Button>
-          </Box>
-        </Toolbar>
-      </AppBar>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<LogoutRoundedIcon />}
+                sx={{
+                  minWidth: { xs: 40, sm: 'auto' },
+                  px: { xs: 1, sm: 1.5 },
+                  '.MuiButton-startIcon': { mr: { xs: 0, sm: 1 } },
+                }}
+                onClick={() => {
+                  logout();
+                  navigate('/login');
+                }}
+              >
+                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                  Deconnexion
+                </Box>
+              </Button>
+            </Box>
+          </Toolbar>
+        </AppBar>
 
-      <Box sx={{ borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#ffffff' }}>
-        <Toolbar
-          sx={{
-            gap: 1,
-            py: 1,
-            flexWrap: 'wrap',
-            justifyContent: 'space-between',
-          }}
-        >
+        <Box sx={{ borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#ffffff' }}>
+          <Toolbar
+            sx={{
+              gap: 1,
+              py: 1,
+              flexWrap: 'wrap',
+              justifyContent: 'space-between',
+            }}
+          >
           <Box ref={navButtonsRowRef} sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', minWidth: 0, flex: 1 }}>
             <Tooltip title="Accueil" disableHoverListener={!compactNavButtons}>
               <Button
@@ -771,64 +779,65 @@ export function AdminLayout() {
               </Tooltip>
             </Box>
           </Box>
-        </Toolbar>
-      </Box>
+          </Toolbar>
+        </Box>
 
-      <Box sx={{ bgcolor: '#ffffff', borderBottom: '1px solid', borderColor: 'divider', px: 1.5 }}>
-        <Tabs
-          value={activeTabKey}
-          variant="scrollable"
-          scrollButtons="auto"
-          onChange={(_event, newValue: string) => {
-            const tab = tabs.find((item) => item.key === newValue);
-            if (!tab) return;
-            setActiveTabKey(tab.key);
-            navigate(tab.path);
-          }}
-        >
-          {tabs.map((tab) => (
-            <Tab
-              key={tab.key}
-              value={tab.key}
-              label={(
-                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-                  <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
-                    {TAB_META[resolveTabMetaPath(tab.path)]?.icon ?? null}
+        <Box sx={{ bgcolor: '#ffffff', borderBottom: '1px solid', borderColor: 'divider', px: 1.5 }}>
+          <Tabs
+            value={activeTabKey}
+            variant="scrollable"
+            scrollButtons="auto"
+            onChange={(_event, newValue: string) => {
+              const tab = tabs.find((item) => item.key === newValue);
+              if (!tab) return;
+              setActiveTabKey(tab.key);
+              navigate(tab.path);
+            }}
+          >
+            {tabs.map((tab) => (
+              <Tab
+                key={tab.key}
+                value={tab.key}
+                label={(
+                  <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
+                      {TAB_META[resolveTabMetaPath(tab.path)]?.icon ?? null}
+                    </Box>
+                    <span>{tab.label}</span>
+                    {dirtyTabsByPath[normalizeRoutePath(tab.path)] ? (
+                      <Box
+                        component="span"
+                        aria-label="Modifications non enregistrees"
+                        sx={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: '50%',
+                          bgcolor: 'warning.main',
+                          display: 'inline-block',
+                          ml: 0.25,
+                        }}
+                      />
+                    ) : null}
+                    {tab.closable ? (
+                      <IconButton
+                        size="small"
+                        aria-label={`Fermer ${tab.label}`}
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          closeTab(tab.key);
+                        }}
+                        sx={{ p: 0.1 }}
+                      >
+                        <CloseRoundedIcon sx={{ fontSize: 14 }} />
+                      </IconButton>
+                    ) : null}
                   </Box>
-                  <span>{tab.label}</span>
-                  {dirtyTabsByPath[normalizeRoutePath(tab.path)] ? (
-                    <Box
-                      component="span"
-                      aria-label="Modifications non enregistrees"
-                      sx={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: '50%',
-                        bgcolor: 'warning.main',
-                        display: 'inline-block',
-                        ml: 0.25,
-                      }}
-                    />
-                  ) : null}
-                  {tab.closable ? (
-                    <IconButton
-                      size="small"
-                      aria-label={`Fermer ${tab.label}`}
-                      onMouseDown={(event) => event.stopPropagation()}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        closeTab(tab.key);
-                      }}
-                      sx={{ p: 0.1 }}
-                    >
-                      <CloseRoundedIcon sx={{ fontSize: 14 }} />
-                    </IconButton>
-                  ) : null}
-                </Box>
-              )}
-            />
-          ))}
-        </Tabs>
+                )}
+              />
+            ))}
+          </Tabs>
+        </Box>
       </Box>
 
       <Box sx={{ p: { xs: 1.5, md: 2.5 } }}>
