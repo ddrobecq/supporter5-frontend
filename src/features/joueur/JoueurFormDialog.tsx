@@ -27,6 +27,7 @@ import { DateInputField } from '../../components/DateInputField';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
+import { useDirtySignature } from '../../lib/useDirtySignature';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { TerrainVilleSelector } from '../terrain/TerrainVilleSelector';
 import type { NatioRow } from '../natio/types';
@@ -41,6 +42,7 @@ interface JoueurFormDialogProps {
   initialData?: JoueurRow;
   natioDatas: NatioRow[];
   posteOptions: PosteOption[];
+  onDirtyChange?: (dirty: boolean) => void;
   onClose: () => void;
   onSubmit: (payload: JoueurRow) => Promise<void>;
 }
@@ -93,6 +95,7 @@ export function JoueurFormDialog({
   initialData,
   natioDatas,
   posteOptions,
+  onDirtyChange,
   onClose,
   onSubmit,
 }: JoueurFormDialogProps) {
@@ -117,6 +120,7 @@ export function JoueurFormDialog({
   const [historyDeleteConfirmOpen, setHistoryDeleteConfirmOpen] = useState(false);
   const [historyDeleteSaving, setHistoryDeleteSaving] = useState(false);
   const [saisonOptions, setSaisonOptions] = useState<string[]>([]);
+  const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, onDirtyChange);
 
   const editId = mode === 'edit' ? (initialData?.IDJOUEUR as string | number | undefined) : undefined;
   const existingPhoto = useEntityImage('joueurrg', editId);
@@ -255,7 +259,23 @@ export function JoueurFormDialog({
     setDeathVilleName(normalizeNullableText(nextValues.VILLE_DECES_NOM));
     setErrors({});
     setPhotoDraft(undefined);
+    setInitialSignature(JSON.stringify({
+      ...nextValues,
+      PHOTO: '',
+      VILLE_NOM: normalizeNullableText(nextValues.VILLE_NOM),
+      VILLE_DECES_NOM: normalizeNullableText(nextValues.VILLE_DECES_NOM),
+    }));
   }, [open, initialData]);
+
+  useEffect(() => {
+    const currentSignature = JSON.stringify({
+      ...values,
+      PHOTO: photoDraft === undefined ? '' : photoDraft,
+      VILLE_NOM: birthVilleName,
+      VILLE_DECES_NOM: deathVilleName,
+    });
+    syncDirty(currentSignature);
+  }, [birthVilleName, deathVilleName, photoDraft, syncDirty, values]);
 
   useEffect(() => {
     if (!open) return;
@@ -542,6 +562,7 @@ export function JoueurFormDialog({
         payload.PHOTO = photoDraft;
       }
       await onSubmit(payload);
+      markClean();
     } finally {
       setSaving(false);
     }

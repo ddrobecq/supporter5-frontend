@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { toErrorMessage } from '../../components/useEntityPage';
+import { useTabMetaEvents } from '../../lib/useTabMetaEvents';
 import { fetchNatio } from '../natio/natioApi';
 import type { NatioRow } from '../natio/types';
 import { ArbitreFormDialog } from './ArbitreFormDialog';
@@ -15,14 +16,6 @@ interface ArbitreTabFormPaneProps {
   active: boolean;
 }
 
-function dispatchDirty(tabPath: string, dirty: boolean) {
-  window.dispatchEvent(new CustomEvent('supporter:tab-dirty', { detail: { path: tabPath, dirty } }));
-}
-
-function dispatchTabLabel(tabPath: string, label: string) {
-  window.dispatchEvent(new CustomEvent('supporter:tab-label', { detail: { path: tabPath, label } }));
-}
-
 function resolveArbitreLabel(row: ArbitreRow, fallback: string): string {
   const nom = String(row.NOM ?? '').trim().toUpperCase();
   const prenom = String(row.PRENOM ?? '').trim();
@@ -30,6 +23,7 @@ function resolveArbitreLabel(row: ArbitreRow, fallback: string): string {
 }
 
 export function ArbitreTabFormPane({ tabPath, arbitreId, active }: ArbitreTabFormPaneProps) {
+  const { setDirty, setLabel } = useTabMetaEvents(tabPath);
   const [loading, setLoading] = useState(true);
   const [row, setRow] = useState<ArbitreRow | undefined>(undefined);
   const [natioDatas, setNatioDatas] = useState<NatioRow[]>([]);
@@ -40,8 +34,8 @@ export function ArbitreTabFormPane({ tabPath, arbitreId, active }: ArbitreTabFor
     try {
       const data = await fetchArbitreById(arbitreId);
       setRow(data);
-      dispatchTabLabel(tabPath, resolveArbitreLabel(data, String(arbitreId)));
-      dispatchDirty(tabPath, false);
+      setLabel(resolveArbitreLabel(data, String(arbitreId)));
+      setDirty(false);
       return true;
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
@@ -49,7 +43,7 @@ export function ArbitreTabFormPane({ tabPath, arbitreId, active }: ArbitreTabFor
     } finally {
       setLoading(false);
     }
-  }, [arbitreId, tabPath]);
+  }, [arbitreId, setDirty, setLabel]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -62,9 +56,9 @@ export function ArbitreTabFormPane({ tabPath, arbitreId, active }: ArbitreTabFor
 
     return () => {
       controller.abort();
-      dispatchDirty(tabPath, false);
+      setDirty(false);
     };
-  }, [reloadRow, tabPath]);
+  }, [reloadRow, setDirty]);
 
   const formFields = useMemo<string[]>(() => {
     if (!row) return [];
@@ -88,14 +82,15 @@ export function ArbitreTabFormPane({ tabPath, arbitreId, active }: ArbitreTabFor
           primaryKey="IDARBITRE"
           initialData={row}
           natioDatas={natioDatas}
+          onDirtyChange={(dirty) => setDirty(dirty)}
           onClose={() => { void reloadRow(); }}
           onSubmit={async (payload) => {
             try {
               await updateArbitre(arbitreId, payload);
               const refreshed = await fetchArbitreById(arbitreId);
               setRow(refreshed);
-              dispatchTabLabel(tabPath, resolveArbitreLabel(refreshed, String(arbitreId)));
-              dispatchDirty(tabPath, false);
+              setLabel(resolveArbitreLabel(refreshed, String(arbitreId)));
+              setDirty(false);
               setSnackbar({ severity: 'success', message: 'Arbitre mis a jour.' });
             } catch (error) {
               setSnackbar({ severity: 'error', message: toErrorMessage(error) });

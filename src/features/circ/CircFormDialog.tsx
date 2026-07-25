@@ -1,6 +1,7 @@
 import { Box, Button, MenuItem, Stack, TextField } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
+import { useDirtySignature } from '../../lib/useDirtySignature';
 import { CIRC_TYPE_OPTIONS } from './circColumnsHelper';
 import type { CircRow } from './types';
 
@@ -19,7 +20,7 @@ export function CircFormDialog({ open, mode, embedded = false, primaryKey, initi
   const [values, setValues] = useState<CircRow>({});
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [initialSignature, setInitialSignature] = useState('');
+  const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, onDirtyChange);
 
   useEffect(() => {
     if (!open) return;
@@ -37,9 +38,8 @@ export function CircFormDialog({ open, mode, embedded = false, primaryKey, initi
   }, [open, initialData]);
 
   useEffect(() => {
-    if (!open || !initialSignature) return;
-    onDirtyChange?.(JSON.stringify(values) !== initialSignature);
-  }, [initialSignature, onDirtyChange, open, values]);
+    syncDirty(JSON.stringify(values));
+  }, [syncDirty, values]);
 
   const isCodeReadOnly = mode === 'edit' && !!primaryKey;
 
@@ -67,7 +67,7 @@ export function CircFormDialog({ open, mode, embedded = false, primaryKey, initi
         CIRC: String(values.CIRC ?? '').trim(),
         TYPE_TOUR: Number(values.TYPE_TOUR),
       });
-      onDirtyChange?.(false);
+      markClean();
     } finally {
       setSaving(false);
     }

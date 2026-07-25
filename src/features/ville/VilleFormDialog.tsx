@@ -7,6 +7,7 @@ import {
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
+import { useDirtySignature } from '../../lib/useDirtySignature';
 import type { VilleRow } from './types';
 import type { NatioRow } from '../natio/types';
 
@@ -38,7 +39,7 @@ export function VilleFormDialog({
   const [values, setValues] = useState<VilleRow>({});
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [initialSignature, setInitialSignature] = useState('');
+  const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, onDirtyChange);
 
   const labelsByField: Record<string, string> = {
     VICLEUNIK: 'Code',
@@ -97,9 +98,8 @@ export function VilleFormDialog({
   }, [open, resolvedFields, initialData]);
 
   useEffect(() => {
-    if (!open || !initialSignature) return;
-    onDirtyChange?.(JSON.stringify(values) !== initialSignature);
-  }, [initialSignature, onDirtyChange, open, values]);
+    syncDirty(JSON.stringify(values));
+  }, [syncDirty, values]);
 
   const handleSave = async () => {
     // Valider avant envoi
@@ -137,7 +137,7 @@ export function VilleFormDialog({
       }
       await onSubmit(cleanedValues);
       setErrors({});
-      onDirtyChange?.(false);
+      markClean();
     } finally {
       setSaving(false);
     }

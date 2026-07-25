@@ -8,6 +8,7 @@ import {
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import { useEffect, useMemo, useState } from 'react';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
+import { useDirtySignature } from '../../lib/useDirtySignature';
 import type { TerrainRow } from './types';
 import { TerrainVilleSelector } from './TerrainVilleSelector';
 
@@ -37,7 +38,7 @@ export function TerrainFormDialog({
   const [values, setValues] = useState<TerrainRow>({});
   const [saving, setSaving] = useState(false);
   const [villeSelectorOpen, setVilleSelectorOpen] = useState(false);
-  const [initialSignature, setInitialSignature] = useState('');
+  const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, onDirtyChange);
 
   const labelsByField: Record<string, string> = {
     TECLEUNIK: 'Code',
@@ -89,16 +90,15 @@ export function TerrainFormDialog({
   }, [open, resolvedFields, initialData]);
 
   useEffect(() => {
-    if (!open || !initialSignature) return;
-    onDirtyChange?.(JSON.stringify(values) !== initialSignature);
-  }, [initialSignature, onDirtyChange, open, values]);
+    syncDirty(JSON.stringify(values));
+  }, [syncDirty, values]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
       const payload: TerrainRow = { ...values };
       await onSubmit(payload);
-      onDirtyChange?.(false);
+      markClean();
     } finally {
       setSaving(false);
     }

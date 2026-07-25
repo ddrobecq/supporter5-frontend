@@ -2,11 +2,12 @@ import BarChartRoundedIcon from '@mui/icons-material/BarChartRounded';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import EventNoteRoundedIcon from '@mui/icons-material/EventNoteRounded';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
 import EuroRoundedIcon from '@mui/icons-material/EuroRounded';
-import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
+import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
@@ -51,6 +52,8 @@ import { ArbitrePage } from '../features/arbitre/ArbitrePage';
 import { ArbitreTabFormPane } from '../features/arbitre/ArbitreTabFormPane';
 import { EpreuvePage } from '../features/epreuve/EpreuvePage';
 import { EpreuveTabFormPane } from '../features/epreuve/EpreuveTabFormPane';
+import { CompetitionPage } from '../features/competition/CompetitionPage';
+import { CompetitionTabFormPane } from '../features/competition/CompetitionTabFormPane';
 import { JoueurPage } from '../features/joueur/JoueurPage';
 import { JoueurTabFormPane } from '../features/joueur/JoueurTabFormPane';
 
@@ -78,7 +81,7 @@ interface TabMeta {
   icon: ReactNode;
 }
 
-type PickerEntityKey = 'joueur' | 'arbitre' | 'epreuve' | 'club' | 'natio' | 'ville' | 'terrain' | 'devise' | 'circ';
+type PickerEntityKey = 'joueur' | 'arbitre' | 'epreuve' | 'competition' | 'club' | 'natio' | 'ville' | 'terrain' | 'devise' | 'circ';
 
 interface PickerOpenPayload {
   rowId: GridRowId;
@@ -104,7 +107,8 @@ const TAB_META: Record<string, TabMeta> = {
   '/admin/terrain': { label: 'Stades', icon: <StadiumRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/devise': { label: 'Devises', icon: <EuroRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/circ': { label: 'Circonstances', icon: <EventNoteRoundedIcon sx={{ fontSize: 14 }} /> },
-  '/admin/epreuve': { label: 'Épreuves', icon: <EmojiEventsRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/epreuve': { label: 'Épreuves', icon: <MilitaryTechIcon sx={{ fontSize: 14 }} /> },
+  '/admin/competitions': { label: 'Competitions', icon: <EmojiEventsIcon sx={{ fontSize: 14 }} /> },
   '/admin/calendrier': { label: 'Calendrier', icon: <CalendarMonthIcon sx={{ fontSize: 14 }} /> },
   '/admin/joueurs': { label: 'Joueurs', icon: <PersonRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/clubs': { label: 'Clubs', icon: <ShieldRoundedIcon sx={{ fontSize: 14 }} /> },
@@ -143,10 +147,22 @@ const PICKER_ENTITY_DEFINITIONS: PickerEntityDefinition[] = [
     shortPath: '/epreuve',
     modalTitle: 'Selectionner une Epreuve',
     closeAriaLabel: 'Fermer la liste des epreuves',
-    titleIcon: <EmojiEventsRoundedIcon sx={{ fontSize: 18 }} />,
+    titleIcon: <EmojiEventsIcon sx={{ fontSize: 18 }} />,
     renderPage: (onOpenInTab) => <EpreuvePage variant="modalPicker" onOpenInTab={onOpenInTab} />,
     renderTabPane: ({ tab, decodedId, active }) => (
       <EpreuveTabFormPane key={tab.key} tabPath={tab.path} epreuveId={decodedId} active={active} />
+    ),
+  },
+  {
+    key: 'competition',
+    basePath: '/admin/competitions',
+    shortPath: '/competitions',
+    modalTitle: 'Selectionner une Competition',
+    closeAriaLabel: 'Fermer la liste des competitions',
+    titleIcon: <MilitaryTechIcon sx={{ fontSize: 18 }} />,
+    renderPage: (onOpenInTab) => <CompetitionPage variant="modalPicker" onOpenInTab={onOpenInTab} />,
+    renderTabPane: ({ tab, decodedId, active }) => (
+      <CompetitionTabFormPane key={tab.key} tabPath={tab.path} competitionId={decodedId} active={active} />
     ),
   },
   {
@@ -243,6 +259,8 @@ function normalizeRoutePath(path: string): string {
       return '/admin/circ';
     case '/epreuve':
       return '/admin/epreuve';
+    case '/competitions':
+      return '/admin/competitions';
     case '/calendrier':
       return '/admin/calendrier';
     case '/joueurs':
@@ -304,6 +322,7 @@ export function AdminLayout() {
   const isDeviseActive = isEntityActive('devise');
   const isCircActive = isEntityActive('circ');
   const isEpreuveActive = isEntityActive('epreuve');
+  const isCompetitionActive = isEntityActive('competition');
   const activeTab = typeof activeTabKey === 'string' ? tabs.find((tab) => tab.key === activeTabKey) : undefined;
   const isDynamicFormPath = (path: string) => PICKER_ENTITY_DEFINITIONS.some((entity) => path.startsWith(`${entity.basePath}/`));
   const activeTabIsDynamicForm = Boolean(activeTab?.path && isDynamicFormPath(activeTab.path)) || isDynamicFormPath(location.pathname);
@@ -313,7 +332,7 @@ export function AdminLayout() {
     if (!row) return;
 
     const updateCompactState = () => {
-      const buttonCount = 8 + QUICK_ACTIONS.length;
+      const buttonCount = 9 + QUICK_ACTIONS.length;
       const spacingPx = 8;
       const totalSpacing = spacingPx * Math.max(0, buttonCount - 1);
       const widthPerButton = (Math.max(0, row.clientWidth) - totalSpacing) / buttonCount;
@@ -668,7 +687,7 @@ export function AdminLayout() {
                 size="small"
                 variant={isEpreuveActive ? 'contained' : 'outlined'}
                 color={isEpreuveActive ? 'primary' : 'inherit'}
-                startIcon={compactNavButtons ? undefined : <EmojiEventsRoundedIcon />}
+                startIcon={compactNavButtons ? undefined : <MilitaryTechIcon />}
                 sx={{
                   minWidth: 36,
                   px: compactNavButtons ? 1 : 1.25,
@@ -677,7 +696,25 @@ export function AdminLayout() {
                 aria-label="Épreuves"
                 onClick={() => setPickerModal('epreuve')}
               >
-                {compactNavButtons ? <EmojiEventsRoundedIcon /> : 'Épreuves'}
+                {compactNavButtons ? <MilitaryTechIcon /> : 'Épreuves'}
+              </Button>
+            </Tooltip>
+
+            <Tooltip title="Competitions" disableHoverListener={!compactNavButtons}>
+              <Button
+                size="small"
+                variant={isCompetitionActive ? 'contained' : 'outlined'}
+                color={isCompetitionActive ? 'primary' : 'inherit'}
+                startIcon={compactNavButtons ? undefined : <EmojiEventsIcon />}
+                sx={{
+                  minWidth: 36,
+                  px: compactNavButtons ? 1 : 1.25,
+                  '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
+                }}
+                aria-label="Competitions"
+                onClick={() => setPickerModal('competition')}
+              >
+                {compactNavButtons ? <EmojiEventsIcon /> : 'Competitions'}
               </Button>
             </Tooltip>
 

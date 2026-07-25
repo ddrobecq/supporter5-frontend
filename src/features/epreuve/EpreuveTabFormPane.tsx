@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { toErrorMessage } from '../../components/useEntityPage';
+import { useTabMetaEvents } from '../../lib/useTabMetaEvents';
 import { EpreuveFormDialog } from './EpreuveFormDialog';
 import { fetchEpreuveById, updateEpreuve } from './epreuveApi';
 import type { EpreuveRow } from './types';
@@ -13,15 +14,8 @@ interface EpreuveTabFormPaneProps {
   active: boolean;
 }
 
-function dispatchDirty(tabPath: string, dirty: boolean) {
-  window.dispatchEvent(new CustomEvent('supporter:tab-dirty', { detail: { path: tabPath, dirty } }));
-}
-
-function dispatchTabLabel(tabPath: string, label: string) {
-  window.dispatchEvent(new CustomEvent('supporter:tab-label', { detail: { path: tabPath, label } }));
-}
-
 export function EpreuveTabFormPane({ tabPath, epreuveId, active }: EpreuveTabFormPaneProps) {
+  const { setDirty, setLabel } = useTabMetaEvents(tabPath);
   const [loading, setLoading] = useState(true);
   const [row, setRow] = useState<EpreuveRow | undefined>(undefined);
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
@@ -32,8 +26,8 @@ export function EpreuveTabFormPane({ tabPath, epreuveId, active }: EpreuveTabFor
       const data = await fetchEpreuveById(epreuveId);
       setRow(data);
       const label = String(data.EPREUVE ?? '').trim() || String(epreuveId);
-      dispatchTabLabel(tabPath, label);
-      dispatchDirty(tabPath, false);
+      setLabel(label);
+      setDirty(false);
       return true;
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
@@ -41,14 +35,14 @@ export function EpreuveTabFormPane({ tabPath, epreuveId, active }: EpreuveTabFor
     } finally {
       setLoading(false);
     }
-  }, [epreuveId, tabPath]);
+  }, [epreuveId, setDirty, setLabel]);
 
   useEffect(() => {
     void reloadRow();
     return () => {
-      dispatchDirty(tabPath, false);
+      setDirty(false);
     };
-  }, [reloadRow, tabPath]);
+  }, [reloadRow, setDirty]);
 
   return (
     <Box sx={{ display: active ? 'block' : 'none' }}>
@@ -64,6 +58,7 @@ export function EpreuveTabFormPane({ tabPath, epreuveId, active }: EpreuveTabFor
           embedded
           primaryKey="IDEPREUVE"
           initialData={row}
+          onDirtyChange={(dirty) => setDirty(dirty)}
           onClose={() => { void reloadRow(); }}
           onSubmit={async (payload) => {
             try {
@@ -71,8 +66,8 @@ export function EpreuveTabFormPane({ tabPath, epreuveId, active }: EpreuveTabFor
               const refreshed = await fetchEpreuveById(epreuveId);
               setRow(refreshed);
               const label = String(refreshed.EPREUVE ?? '').trim() || String(epreuveId);
-              dispatchTabLabel(tabPath, label);
-              dispatchDirty(tabPath, false);
+              setLabel(label);
+              setDirty(false);
               setSnackbar({ severity: 'success', message: 'Epreuve mise a jour.' });
             } catch (error) {
               setSnackbar({ severity: 'error', message: toErrorMessage(error) });

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { toErrorMessage } from '../../components/useEntityPage';
+import { useTabMetaEvents } from '../../lib/useTabMetaEvents';
 import { fetchTerrainById, updateTerrain } from './terrainApi';
 import { TerrainFormDialog } from './TerrainFormDialog';
 import type { TerrainRow } from './types';
@@ -14,15 +15,8 @@ interface TerrainTabFormPaneProps {
   active: boolean;
 }
 
-function dispatchDirty(tabPath: string, dirty: boolean) {
-  window.dispatchEvent(new CustomEvent('supporter:tab-dirty', { detail: { path: tabPath, dirty } }));
-}
-
-function dispatchTabLabel(tabPath: string, label: string) {
-  window.dispatchEvent(new CustomEvent('supporter:tab-label', { detail: { path: tabPath, label } }));
-}
-
 export function TerrainTabFormPane({ tabPath, terrainId, active }: TerrainTabFormPaneProps) {
+  const { setDirty, setLabel } = useTabMetaEvents(tabPath);
   const [loading, setLoading] = useState(true);
   const [row, setRow] = useState<TerrainRow | undefined>(undefined);
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
@@ -32,7 +26,7 @@ export function TerrainTabFormPane({ tabPath, terrainId, active }: TerrainTabFor
     try {
       const data = await fetchTerrainById(terrainId);
       setRow(data);
-      dispatchDirty(tabPath, false);
+      setDirty(false);
       return true;
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
@@ -40,15 +34,15 @@ export function TerrainTabFormPane({ tabPath, terrainId, active }: TerrainTabFor
     } finally {
       setLoading(false);
     }
-  }, [tabPath, terrainId]);
+  }, [setDirty, terrainId]);
 
   useEffect(() => {
     void reloadRow();
 
     return () => {
-      dispatchDirty(tabPath, false);
+      setDirty(false);
     };
-  }, [reloadRow, tabPath]);
+  }, [reloadRow, setDirty]);
 
   const fields = useMemo(() => buildTerrainFormFields(row), [row]);
   const primaryKey = useMemo(() => detectTerrainPrimaryKey(row ? [row] : []), [row]);
@@ -58,9 +52,9 @@ export function TerrainTabFormPane({ tabPath, terrainId, active }: TerrainTabFor
       await updateTerrain(terrainId, payload);
       const refreshed = await fetchTerrainById(terrainId);
       setRow(refreshed);
-      dispatchTabLabel(tabPath, resolveTerrainLabel(refreshed));
+      setLabel(resolveTerrainLabel(refreshed));
       setSnackbar({ severity: 'success', message: 'Terrain mis a jour.' });
-      dispatchDirty(tabPath, false);
+      setDirty(false);
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
     }
@@ -81,7 +75,7 @@ export function TerrainTabFormPane({ tabPath, terrainId, active }: TerrainTabFor
           fields={fields}
           primaryKey={primaryKey}
           initialData={row}
-          onDirtyChange={(dirty) => dispatchDirty(tabPath, dirty)}
+          onDirtyChange={(dirty) => setDirty(dirty)}
           onClose={() => { void reloadRow(); }}
           onSubmit={handleSubmit}
         />

@@ -18,4 +18,7 @@ export const env = {
   circAdminResource: import.meta.env.VITE_CIRC_ADMIN_RESOURCE ?? '/api/admin/circs',
   epreuvePublicResource: import.meta.env.VITE_EPREUVE_PUBLIC_RESOURCE ?? '/api/epreuves',
   epreuveAdminResource: import.meta.env.VITE_EPREUVE_ADMIN_RESOURCE ?? '/api/admin/epreuves',
+  saisonPublicResource: import.meta.env.VITE_SAISON_PUBLIC_RESOURCE ?? '/api/saisons',
+  competitionPublicResource: import.meta.env.VITE_COMPETITION_PUBLIC_RESOURCE ?? '/api/competitions',
+  competitionAdminResource: import.meta.env.VITE_COMPETITION_ADMIN_RESOURCE ?? '/api/admin/competitions',
 };

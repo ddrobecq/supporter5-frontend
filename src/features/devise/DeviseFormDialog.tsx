@@ -1,6 +1,7 @@
 import { Box, Button, FormControlLabel, Stack, Switch, TextField } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
+import { useDirtySignature } from '../../lib/useDirtySignature';
 import type { DeviseRow } from './types';
 
 interface DeviseFormDialogProps {
@@ -27,7 +28,7 @@ export function DeviseFormDialog({
   const [values, setValues] = useState<DeviseRow>({});
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [initialSignature, setInitialSignature] = useState('');
+  const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, onDirtyChange);
 
   useEffect(() => {
     if (!open) return;
@@ -49,9 +50,8 @@ export function DeviseFormDialog({
   }, [open, initialData]);
 
   useEffect(() => {
-    if (!open || !initialSignature) return;
-    onDirtyChange?.(JSON.stringify(values) !== initialSignature);
-  }, [initialSignature, onDirtyChange, open, values]);
+    syncDirty(JSON.stringify(values));
+  }, [syncDirty, values]);
 
   const isCodeReadOnly = mode === 'edit' && !!primaryKey;
 
@@ -76,7 +76,7 @@ export function DeviseFormDialog({
         DVDEFAUT: values.DVDEFAUT ? 1 : 0,
       };
       await onSubmit(payload);
-      onDirtyChange?.(false);
+      markClean();
     } finally {
       setSaving(false);
     }

@@ -8,11 +8,12 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
+import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
 import { useEffect, useMemo, useState } from 'react';
 import { getEntityImageUrl, useEntityImage } from '../../lib/useEntityImage';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
+import { useDirtySignature } from '../../lib/useDirtySignature';
 import type { EpreuveRow } from './types';
 
 const SCOPE_OPTIONS = [
@@ -28,6 +29,7 @@ interface EpreuveFormDialogProps {
   embedded?: boolean;
   primaryKey?: string;
   initialData?: EpreuveRow;
+  onDirtyChange?: (dirty: boolean) => void;
   onClose: () => void;
   onSubmit: (payload: EpreuveRow) => Promise<void>;
 }
@@ -38,6 +40,7 @@ export function EpreuveFormDialog({
   embedded = false,
   primaryKey,
   initialData,
+  onDirtyChange,
   onClose,
   onSubmit,
 }: EpreuveFormDialogProps) {
@@ -45,6 +48,7 @@ export function EpreuveFormDialog({
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [visuelDraft, setVisuelDraft] = useState<string | null | undefined>(undefined);
+  const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, onDirtyChange);
 
   const editId = mode === 'edit' ? (initialData?.IDEPREUVE as string | number | undefined) : undefined;
   const existingPhoto = useEntityImage('epreuve', editId);
@@ -66,7 +70,29 @@ export function EpreuveFormDialog({
     });
     setErrors({});
     setVisuelDraft(undefined);
+    setInitialSignature(JSON.stringify({
+      IDEPREUVE: initialData?.IDEPREUVE ?? '',
+      EPREUVE: initialData?.EPREUVE ?? '',
+      SCOPE: Number(initialData?.SCOPE ?? 1),
+      OFFICIELLE: initialData?.OFFICIELLE ?? 0,
+      EPR_VISUEL: '',
+      EPR_WEB: initialData?.EPR_WEB ?? '',
+      EPR_PAYS: initialData?.EPR_PAYS ?? 0,
+    }));
   }, [open, initialData]);
+
+  useEffect(() => {
+    const currentSignature = JSON.stringify({
+      IDEPREUVE: values.IDEPREUVE ?? '',
+      EPREUVE: values.EPREUVE ?? '',
+      SCOPE: Number(values.SCOPE ?? 1),
+      OFFICIELLE: values.OFFICIELLE ?? 0,
+      EPR_VISUEL: visuelDraft === undefined ? '' : visuelDraft,
+      EPR_WEB: values.EPR_WEB ?? '',
+      EPR_PAYS: values.EPR_PAYS ?? 0,
+    });
+    syncDirty(currentSignature);
+  }, [syncDirty, values, visuelDraft]);
 
   const isIdReadOnly = mode === 'edit' && !!primaryKey;
 
@@ -109,6 +135,7 @@ export function EpreuveFormDialog({
         payload.EPR_VISUEL = visuelDraft;
       }
       await onSubmit(payload);
+      markClean();
     } finally {
       setSaving(false);
     }
@@ -149,7 +176,7 @@ export function EpreuveFormDialog({
             sx={{ border: '1px solid', borderColor: 'divider' }}
             fallback={(
               <Stack spacing={0.5} sx={{ alignItems: 'center', color: 'text.disabled' }}>
-                <EmojiEventsRoundedIcon sx={{ fontSize: 72 }} />
+                <MilitaryTechIcon sx={{ fontSize: 72 }} />
                 <Box sx={{ fontSize: 12 }}>Trophée</Box>
               </Stack>
             )}

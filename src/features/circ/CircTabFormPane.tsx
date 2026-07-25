@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { toErrorMessage } from '../../components/useEntityPage';
+import { useTabMetaEvents } from '../../lib/useTabMetaEvents';
 import { fetchCircById, updateCirc } from './circApi';
 import { CircFormDialog } from './CircFormDialog';
 import type { CircRow } from './types';
@@ -14,15 +15,8 @@ interface CircTabFormPaneProps {
   active: boolean;
 }
 
-function dispatchDirty(tabPath: string, dirty: boolean) {
-  window.dispatchEvent(new CustomEvent('supporter:tab-dirty', { detail: { path: tabPath, dirty } }));
-}
-
-function dispatchTabLabel(tabPath: string, label: string) {
-  window.dispatchEvent(new CustomEvent('supporter:tab-label', { detail: { path: tabPath, label } }));
-}
-
 export function CircTabFormPane({ tabPath, circId, active }: CircTabFormPaneProps) {
+  const { setDirty, setLabel } = useTabMetaEvents(tabPath);
   const [loading, setLoading] = useState(true);
   const [row, setRow] = useState<CircRow | undefined>(undefined);
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
@@ -32,7 +26,7 @@ export function CircTabFormPane({ tabPath, circId, active }: CircTabFormPaneProp
     try {
       const data = await fetchCircById(circId);
       setRow(data);
-      dispatchDirty(tabPath, false);
+      setDirty(false);
       return true;
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
@@ -40,24 +34,24 @@ export function CircTabFormPane({ tabPath, circId, active }: CircTabFormPaneProp
     } finally {
       setLoading(false);
     }
-  }, [circId, tabPath]);
+  }, [circId, setDirty]);
 
   useEffect(() => {
     void reloadRow();
 
     return () => {
-      dispatchDirty(tabPath, false);
+      setDirty(false);
     };
-  }, [reloadRow, tabPath]);
+  }, [reloadRow, setDirty]);
 
   const handleSubmit = async (payload: CircRow) => {
     try {
       await updateCirc(circId, payload);
       const refreshed = await fetchCircById(circId);
       setRow(refreshed);
-      dispatchTabLabel(tabPath, resolveCircLabel(refreshed));
+      setLabel(resolveCircLabel(refreshed));
       setSnackbar({ severity: 'success', message: 'Circonstance mise a jour.' });
-      dispatchDirty(tabPath, false);
+      setDirty(false);
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
     }
@@ -77,7 +71,7 @@ export function CircTabFormPane({ tabPath, circId, active }: CircTabFormPaneProp
           embedded
           primaryKey="IDCIRC"
           initialData={row}
-          onDirtyChange={(dirty) => dispatchDirty(tabPath, dirty)}
+          onDirtyChange={(dirty) => setDirty(dirty)}
           onClose={() => { void reloadRow(); }}
           onSubmit={handleSubmit}
         />

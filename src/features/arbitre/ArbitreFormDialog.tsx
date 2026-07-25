@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
+import { useDirtySignature } from '../../lib/useDirtySignature';
 import type { ArbitreRow } from './types';
 import type { NatioRow } from '../natio/types';
 
@@ -21,6 +22,7 @@ interface ArbitreFormDialogProps {
   primaryKey?: string;
   initialData?: ArbitreRow;
   natioDatas: NatioRow[];
+  onDirtyChange?: (dirty: boolean) => void;
   onClose: () => void;
   onSubmit: (payload: ArbitreRow) => Promise<void>;
 }
@@ -38,6 +40,7 @@ export function ArbitreFormDialog({
   primaryKey,
   initialData,
   natioDatas,
+  onDirtyChange,
   onClose,
   onSubmit,
 }: ArbitreFormDialogProps) {
@@ -45,6 +48,7 @@ export function ArbitreFormDialog({
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [photoDraft, setPhotoDraft] = useState<string | null | undefined>(undefined);
+  const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, onDirtyChange);
 
   // ID de l'arbitre en cours d'édition — utilisé pour charger la photo existante de façon asynchrone
   const editId = mode === 'edit' ? (initialData?.IDARBITRE as string | number | undefined) : undefined;
@@ -114,7 +118,16 @@ export function ArbitreFormDialog({
     }
     setValues(initial);
     setPhotoDraft(undefined);
+    setInitialSignature(JSON.stringify({ ...initial, ARB_PHOTO: '' }));
   }, [open, resolvedFields, initialData]);
+
+  useEffect(() => {
+    const currentSignature = JSON.stringify({
+      ...values,
+      ARB_PHOTO: photoDraft === undefined ? '' : photoDraft,
+    });
+    syncDirty(currentSignature);
+  }, [photoDraft, syncDirty, values]);
 
   const handleSave = async () => {
     // Valider avant envoi
@@ -157,6 +170,7 @@ export function ArbitreFormDialog({
         cleanedValues[photoField] = photoDraft;
       }
       await onSubmit(cleanedValues);
+      markClean();
       setErrors({});
     } finally {
       setSaving(false);

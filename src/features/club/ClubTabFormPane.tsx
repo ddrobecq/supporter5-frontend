@@ -31,6 +31,7 @@ import { DateInputField } from '../../components/DateInputField';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { toErrorMessage } from '../../components/useEntityPage';
+import { useTabMetaEvents } from '../../lib/useTabMetaEvents';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { fetchNatio } from '../natio/natioApi';
 import type { NatioRow } from '../natio/types';
@@ -76,14 +77,6 @@ interface ClubTerrainDialogDraft {
   date: string;
   terrainId: string;
   terrainName: string;
-}
-
-function dispatchDirty(tabPath: string, dirty: boolean) {
-  window.dispatchEvent(new CustomEvent('supporter:tab-dirty', { detail: { path: tabPath, dirty } }));
-}
-
-function dispatchTabLabel(tabPath: string, label: string) {
-  window.dispatchEvent(new CustomEvent('supporter:tab-label', { detail: { path: tabPath, label } }));
 }
 
 const MONTHS_FR_SHORT = ['jan', 'fev', 'mar', 'avr', 'mai', 'jun', 'jul', 'aou', 'sep', 'oct', 'nov', 'dec'];
@@ -400,6 +393,7 @@ function formatDateForApi(value: string): string | null {
 }
 
 export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProps) {
+  const { setDirty, setLabel } = useTabMetaEvents(tabPath);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [loading, setLoading] = useState(true);
@@ -490,8 +484,8 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       setRow(updated);
       setProfileDraft(createClubProfileDraft(updated));
       profileSignatureRef.current = getClubProfileSignature(createClubProfileDraft(updated));
-      dispatchTabLabel(tabPath, String(updated.CLUB_ABREGE ?? '').trim() || String(clubId));
-      dispatchDirty(tabPath, false);
+      setLabel(String(updated.CLUB_ABREGE ?? '').trim() || String(clubId));
+      setDirty(false);
       setSnackbar({ severity: 'success', message: 'Club mis a jour.' });
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
@@ -502,7 +496,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
 
   const handleProfileReset = () => {
     setProfileDraft(createClubProfileDraft(row));
-    dispatchDirty(tabPath, false);
+    setDirty(false);
   };
 
   const nameHistoryColumns: GridColDef<ClubNameHistoryRow>[] = [
@@ -563,8 +557,8 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       setProfileDraft(nextDraft);
       profileSignatureRef.current = getClubProfileSignature(nextDraft);
       const nextLabel = String(data.CLUB_ABREGE ?? '').trim() || String(clubId);
-      dispatchTabLabel(tabPath, nextLabel);
-      dispatchDirty(tabPath, false);
+      setLabel(nextLabel);
+      setDirty(false);
       return true;
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
@@ -572,7 +566,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     } finally {
       setLoading(false);
     }
-  }, [clubId, tabPath]);
+  }, [clubId, setDirty, setLabel]);
 
   const reloadHistories = useCallback(async () => {
     setNameHistoryLoading(true);
@@ -606,9 +600,9 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
 
     return () => {
       controller.abort();
-      dispatchDirty(tabPath, false);
+      setDirty(false);
     };
-  }, [reloadHistories, reloadRow, tabPath]);
+  }, [reloadHistories, reloadRow, setDirty]);
 
   useEffect(() => {
     setClubImageDraft(undefined);
@@ -616,8 +610,8 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
 
   useEffect(() => {
     if (loading) return;
-    dispatchDirty(tabPath, isProfileDirty);
-  }, [isProfileDirty, loading, tabPath]);
+    setDirty(isProfileDirty);
+  }, [isProfileDirty, loading, setDirty]);
 
   const countryOptions = natioRows
     .map((natio) => ({

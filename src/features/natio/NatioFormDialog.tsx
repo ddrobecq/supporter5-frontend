@@ -10,6 +10,7 @@ import {
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
 import { useEffect, useMemo, useState } from 'react';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
+import { useDirtySignature } from '../../lib/useDirtySignature';
 import type { NatioRow } from './types';
 
 function svgToDataUrl(svg: string): string {
@@ -113,7 +114,7 @@ export function NatioFormDialog({
   const [saving, setSaving] = useState(false);
   const [flagPreview, setFlagPreview] = useState('');
   const [flagSvgContent, setFlagSvgContent] = useState('');
-  const [initialSignature, setInitialSignature] = useState('');
+  const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, onDirtyChange);
 
   const labelsByField: Record<string, string> = {
     IDNATIO: 'Code',
@@ -176,10 +177,9 @@ export function NatioFormDialog({
   }, [open, resolvedFields, initialData]);
 
   useEffect(() => {
-    if (!open || !initialSignature) return;
     const currentSignature = JSON.stringify({ ...values, NAT_DRAPEAU: flagSvgContent.trim() || '' });
-    onDirtyChange?.(currentSignature !== initialSignature);
-  }, [open, initialSignature, values, flagSvgContent, onDirtyChange]);
+    syncDirty(currentSignature);
+  }, [flagSvgContent, syncDirty, values]);
 
   const handleFlagFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -211,7 +211,7 @@ export function NatioFormDialog({
         }
       }
       await onSubmit(payload);
-      onDirtyChange?.(false);
+      markClean();
     } finally {
       setSaving(false);
     }

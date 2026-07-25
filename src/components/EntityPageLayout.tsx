@@ -40,6 +40,7 @@ interface EntityPageLayoutProps<Row extends GridValidRowModel> {
   search: string;
   onSearchChange: (value: string) => void;
   searchInputRef?: RefObject<HTMLInputElement | null>;
+  searchControl?: ReactNode;
   headerExtra?: ReactNode;
   // Boutons d'action
   onNew: () => void;
@@ -85,6 +86,7 @@ export function EntityPageLayout<Row extends GridValidRowModel>({
   search,
   onSearchChange,
   searchInputRef,
+  searchControl,
   headerExtra,
   onNew,
   onOpen,
@@ -190,19 +192,21 @@ export function EntityPageLayout<Row extends GridValidRowModel>({
               flexWrap: 'nowrap',
             }}
           >
-            <EntitySearchBar
-              label={searchLabel}
-              value={search}
-              onChange={onSearchChange}
-              inputRef={searchInputRef}
-              autoFocus
-              sx={{
-                width: actionsInlineWithSearch ? 'auto' : { xs: '52vw', md: '100%' },
-                flex: actionsInlineWithSearch ? '1 1 0px' : undefined,
-                minWidth: actionsInlineWithSearch ? 170 : 120,
-                maxWidth: actionsInlineWithSearch ? 'none' : { xs: 260, md: 560 },
-              }}
-            />
+            {searchControl ?? (
+              <EntitySearchBar
+                label={searchLabel}
+                value={search}
+                onChange={onSearchChange}
+                inputRef={searchInputRef}
+                autoFocus
+                sx={{
+                  width: actionsInlineWithSearch ? 'auto' : { xs: '52vw', md: '100%' },
+                  flex: actionsInlineWithSearch ? '1 1 0px' : undefined,
+                  minWidth: actionsInlineWithSearch ? 170 : 120,
+                  maxWidth: actionsInlineWithSearch ? 'none' : { xs: 260, md: 560 },
+                }}
+              />
+            )}
             {actionsInlineWithSearch && showActions ? (
               <Box sx={{ width: 'auto', minWidth: 0, flex: '0 0 auto' }}>
                 {renderActionButtons()}

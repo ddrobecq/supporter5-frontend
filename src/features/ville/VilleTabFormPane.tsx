@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { toErrorMessage } from '../../components/useEntityPage';
+import { useTabMetaEvents } from '../../lib/useTabMetaEvents';
 import { fetchNatio } from '../natio/natioApi';
 import type { NatioRow } from '../natio/types';
 import { fetchVilleById, updateVille } from './villeApi';
@@ -16,15 +17,8 @@ interface VilleTabFormPaneProps {
   active: boolean;
 }
 
-function dispatchDirty(tabPath: string, dirty: boolean) {
-  window.dispatchEvent(new CustomEvent('supporter:tab-dirty', { detail: { path: tabPath, dirty } }));
-}
-
-function dispatchTabLabel(tabPath: string, label: string) {
-  window.dispatchEvent(new CustomEvent('supporter:tab-label', { detail: { path: tabPath, label } }));
-}
-
 export function VilleTabFormPane({ tabPath, villeId, active }: VilleTabFormPaneProps) {
+  const { setDirty, setLabel } = useTabMetaEvents(tabPath);
   const [loading, setLoading] = useState(true);
   const [row, setRow] = useState<VilleRow | undefined>(undefined);
   const [natioDatas, setNatioDatas] = useState<NatioRow[]>([]);
@@ -35,7 +29,7 @@ export function VilleTabFormPane({ tabPath, villeId, active }: VilleTabFormPaneP
     try {
       const data = await fetchVilleById(villeId);
       setRow(data);
-      dispatchDirty(tabPath, false);
+      setDirty(false);
       return true;
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
@@ -43,7 +37,7 @@ export function VilleTabFormPane({ tabPath, villeId, active }: VilleTabFormPaneP
     } finally {
       setLoading(false);
     }
-  }, [tabPath, villeId]);
+  }, [setDirty, villeId]);
 
   useEffect(() => {
     void fetchNatio('').then((result) => setNatioDatas(result.data ?? [])).catch(() => {});
@@ -53,9 +47,9 @@ export function VilleTabFormPane({ tabPath, villeId, active }: VilleTabFormPaneP
     void reloadRow();
 
     return () => {
-      dispatchDirty(tabPath, false);
+      setDirty(false);
     };
-  }, [reloadRow, tabPath]);
+  }, [reloadRow, setDirty]);
 
   const fields = useMemo(() => buildVilleFormFields(row), [row]);
   const primaryKey = useMemo(() => detectVillePrimaryKey(row ? [row] : []), [row]);
@@ -65,9 +59,9 @@ export function VilleTabFormPane({ tabPath, villeId, active }: VilleTabFormPaneP
       await updateVille(villeId, payload);
       const refreshed = await fetchVilleById(villeId);
       setRow(refreshed);
-      dispatchTabLabel(tabPath, resolveVilleLabel(refreshed));
+      setLabel(resolveVilleLabel(refreshed));
       setSnackbar({ severity: 'success', message: 'Ville mise a jour.' });
-      dispatchDirty(tabPath, false);
+      setDirty(false);
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
     }
@@ -89,7 +83,7 @@ export function VilleTabFormPane({ tabPath, villeId, active }: VilleTabFormPaneP
           primaryKey={primaryKey}
           initialData={row}
           natioDatas={natioDatas}
-          onDirtyChange={(dirty) => dispatchDirty(tabPath, dirty)}
+          onDirtyChange={(dirty) => setDirty(dirty)}
           onClose={() => { void reloadRow(); }}
           onSubmit={handleSubmit}
         />

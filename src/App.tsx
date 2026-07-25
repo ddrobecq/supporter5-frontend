@@ -10,6 +10,7 @@ import { TerrainPage } from './features/terrain/TerrainPage';
 import { DevisePage } from './features/devise/DevisePage';
 import { CircPage } from './features/circ/CircPage';
 import { EpreuvePage } from './features/epreuve/EpreuvePage';
+import { CompetitionPage } from './features/competition/CompetitionPage';
 import { JoueurPage } from './features/joueur/JoueurPage';
 import { CalendrierPage } from './features/calendrier/CalendrierPage';
 import { ClubPage } from './features/club/ClubPage';
@@ -44,6 +45,7 @@ const ENTITY_ROUTES: EntityRouteDefinition[] = [
   { shortPath: 'devise', adminPath: 'admin/devise', paramName: 'deviseId', PageComponent: DevisePage },
   { shortPath: 'circ', adminPath: 'admin/circ', paramName: 'circId', PageComponent: CircPage },
   { shortPath: 'epreuve', adminPath: 'admin/epreuve', paramName: 'epreuveId', PageComponent: EpreuvePage },
+  { shortPath: 'competitions', adminPath: 'admin/competitions', paramName: 'competitionId', PageComponent: CompetitionPage },
 ];
 
 function App() {

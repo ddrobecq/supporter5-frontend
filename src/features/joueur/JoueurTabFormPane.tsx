@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { toErrorMessage } from '../../components/useEntityPage';
+import { useTabMetaEvents } from '../../lib/useTabMetaEvents';
 import { fetchNatio } from '../natio/natioApi';
 import type { NatioRow } from '../natio/types';
 import { JoueurFormDialog } from './JoueurFormDialog';
@@ -15,14 +16,6 @@ interface JoueurTabFormPaneProps {
   active: boolean;
 }
 
-function dispatchDirty(tabPath: string, dirty: boolean) {
-  window.dispatchEvent(new CustomEvent('supporter:tab-dirty', { detail: { path: tabPath, dirty } }));
-}
-
-function dispatchTabLabel(tabPath: string, label: string) {
-  window.dispatchEvent(new CustomEvent('supporter:tab-label', { detail: { path: tabPath, label } }));
-}
-
 function resolveJoueurLabel(row: JoueurRow, fallback: string): string {
   const nom = String(row.NOM ?? '').trim().toUpperCase();
   const prenom = String(row.PRENOM ?? '').trim();
@@ -30,6 +23,7 @@ function resolveJoueurLabel(row: JoueurRow, fallback: string): string {
 }
 
 export function JoueurTabFormPane({ tabPath, joueurId, active }: JoueurTabFormPaneProps) {
+  const { setDirty, setLabel } = useTabMetaEvents(tabPath);
   const [loading, setLoading] = useState(true);
   const [row, setRow] = useState<JoueurRow | undefined>(undefined);
   const [natioDatas, setNatioDatas] = useState<NatioRow[]>([]);
@@ -41,8 +35,8 @@ export function JoueurTabFormPane({ tabPath, joueurId, active }: JoueurTabFormPa
     try {
       const data = await fetchJoueurById(joueurId);
       setRow(data);
-      dispatchTabLabel(tabPath, resolveJoueurLabel(data, String(joueurId)));
-      dispatchDirty(tabPath, false);
+      setLabel(resolveJoueurLabel(data, String(joueurId)));
+      setDirty(false);
       return true;
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
@@ -50,7 +44,7 @@ export function JoueurTabFormPane({ tabPath, joueurId, active }: JoueurTabFormPa
     } finally {
       setLoading(false);
     }
-  }, [joueurId, tabPath]);
+  }, [joueurId, setDirty, setLabel]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -67,9 +61,9 @@ export function JoueurTabFormPane({ tabPath, joueurId, active }: JoueurTabFormPa
 
     return () => {
       controller.abort();
-      dispatchDirty(tabPath, false);
+      setDirty(false);
     };
-  }, [reloadRow, tabPath]);
+  }, [reloadRow, setDirty]);
 
   return (
     <Box sx={{ display: active ? 'block' : 'none' }}>
@@ -86,14 +80,15 @@ export function JoueurTabFormPane({ tabPath, joueurId, active }: JoueurTabFormPa
           initialData={row}
           natioDatas={natioDatas}
           posteOptions={posteOptions}
+          onDirtyChange={(dirty) => setDirty(dirty)}
           onClose={() => { void reloadRow(); }}
           onSubmit={async (payload) => {
             try {
               await updateJoueur(joueurId, payload);
               const refreshed = await fetchJoueurById(joueurId);
               setRow(refreshed);
-              dispatchTabLabel(tabPath, resolveJoueurLabel(refreshed, String(joueurId)));
-              dispatchDirty(tabPath, false);
+              setLabel(resolveJoueurLabel(refreshed, String(joueurId)));
+              setDirty(false);
               setSnackbar({ severity: 'success', message: 'Joueur mis a jour.' });
             } catch (error) {
               setSnackbar({ severity: 'error', message: toErrorMessage(error) });
