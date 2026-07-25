@@ -26,6 +26,15 @@ export interface CompetitionCreateWizardPayload {
   sameAsLastEdition: boolean;
 }
 
+export interface CompetitionTourRow {
+  TUCLEUNIK: number;
+  COCLEUNIK: number;
+  TU_ORDRE: number;
+  TOUR: string;
+  TYPE_ID: number;
+  TYPE: string;
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   total: number;

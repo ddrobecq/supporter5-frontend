@@ -19,6 +19,8 @@ export const env = {
   epreuvePublicResource: import.meta.env.VITE_EPREUVE_PUBLIC_RESOURCE ?? '/api/epreuves',
   epreuveAdminResource: import.meta.env.VITE_EPREUVE_ADMIN_RESOURCE ?? '/api/admin/epreuves',
   saisonPublicResource: import.meta.env.VITE_SAISON_PUBLIC_RESOURCE ?? '/api/saisons',
+  tourPublicResource: import.meta.env.VITE_TOUR_PUBLIC_RESOURCE ?? '/api/tours',
+  tourAdminResource: import.meta.env.VITE_TOUR_ADMIN_RESOURCE ?? '/api/admin/tours',
   competitionPublicResource: import.meta.env.VITE_COMPETITION_PUBLIC_RESOURCE ?? '/api/competitions',
   competitionAdminResource: import.meta.env.VITE_COMPETITION_ADMIN_RESOURCE ?? '/api/admin/competitions',
 };

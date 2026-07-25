@@ -3,6 +3,7 @@ import { http } from '../../lib/http';
 import type {
   CompetitionCreateWizardPayload,
   CompetitionRow,
+  CompetitionTourRow,
   EpreuveOption,
   PaginatedResponse,
   SaisonOption,
@@ -81,4 +82,25 @@ export async function createCompetitionWithWizard(payload: CompetitionCreateWiza
 
 export async function deleteCompetition(id: string | number): Promise<void> {
   await http.delete(`${env.competitionAdminResource}/${id}`);
+}
+
+export async function fetchCompetitionTours(competitionId: string | number): Promise<CompetitionTourRow[]> {
+  const { data } = await http.get<{ data: CompetitionTourRow[] }>(
+    `${env.tourAdminResource}/competition/${competitionId}`,
+  );
+  return data.data ?? [];
+}
+
+export async function canDeleteCompetitionTour(tourId: string | number): Promise<CanDeleteResponse> {
+  const { data } = await http.get<CanDeleteResponse>(`${env.tourAdminResource}/${tourId}/can-delete`);
+  return data;
+}
+
+export async function deleteCompetitionTour(tourId: string | number): Promise<void> {
+  await http.delete(`${env.tourAdminResource}/${tourId}`);
+}
+
+export async function moveCompetitionTour(tourId: string | number, direction: 'up' | 'down'): Promise<CompetitionTourRow[]> {
+  const { data } = await http.patch<{ data: CompetitionTourRow[] }>(`${env.tourAdminResource}/${tourId}/move`, { direction });
+  return data.data ?? [];
 }

@@ -1,6 +1,6 @@
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { MenuItem, TextField } from '@mui/material';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
 import { useEntityPage } from '../../components/useEntityPage';
 import {
@@ -27,6 +27,7 @@ export function CompetitionPage({ variant = 'page', onOpenInTab }: CompetitionPa
   const [epreuveOptions, setEpreuveOptions] = useState<EpreuveOption[]>([]);
   const [saisonOptions, setSaisonOptions] = useState<SaisonOption[]>([]);
   const [selectedSeason, setSelectedSeason] = useState('');
+  const selectedSeasonRef = useRef('');
 
   const resolveCompetitionLabel = (row: CompetitionRow, fallback: string): string => {
     const nom = String(row.NOM ?? '').trim();
@@ -39,7 +40,7 @@ export function CompetitionPage({ variant = 'page', onOpenInTab }: CompetitionPa
     {
       fetchAll: (search, signal) => fetchCompetition(
         variant === 'modalPicker' ? '' : search,
-        variant === 'modalPicker' ? selectedSeason : undefined,
+        variant === 'modalPicker' ? selectedSeasonRef.current : undefined,
         signal,
       ),
       fetchById: fetchCompetitionById,
@@ -64,7 +65,9 @@ export function CompetitionPage({ variant = 'page', onOpenInTab }: CompetitionPa
           setEpreuveOptions(result.epreuves);
           setSaisonOptions(result.saisons);
           if (!selectedSeason && result.saisons[0]?.SAISON) {
-            setSelectedSeason(String(result.saisons[0].SAISON));
+            const nextSeason = String(result.saisons[0].SAISON);
+            selectedSeasonRef.current = nextSeason;
+            setSelectedSeason(nextSeason);
           }
         })
         .catch(() => {});
@@ -98,15 +101,20 @@ export function CompetitionPage({ variant = 'page', onOpenInTab }: CompetitionPa
   };
 
   const handleSeasonChange = (nextSeason: string) => {
+    selectedSeasonRef.current = nextSeason;
     setSelectedSeason(nextSeason);
     page.setSelection([]);
+    if (variant === 'modalPicker') {
+      void page.reloadData();
+    }
   };
 
   // Recharger les données quand la saison de sélection change en mode picker.
   useEffect(() => {
     if (variant !== 'modalPicker' || !selectedSeason) return;
     void page.reloadData();
-  }, [page, selectedSeason, variant]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSeason, variant]);
 
   const handleOpen = () => {
     if (variant === 'modalPicker' && onOpenInTab) {
