@@ -76,6 +76,41 @@ export interface CompetitionTourUpsertPayload {
   NB_MATCH: number;
 }
 
+export interface TourParticipantRow {
+  PACLEUNIK: number;
+  TUCLEUNIK: number;
+  IDCLUB: string;
+  CLUB: string;
+  GROUPE: string;
+}
+
+export interface CircOptionRow {
+  IDCIRC: string;
+  CIRC: string;
+  TYPE_TOUR: number;
+}
+
+export interface TourMatchRow {
+  RECLEUNIK: number;
+  DATE: string;
+  HEURE: string;
+  DOMICILE: string;
+  EXTERIEUR: string;
+  IDCIRC?: string | null;
+  ETAT: number;
+  TUCLEUNIK: number;
+  SAISON: string;
+  READMIN: number;
+  COMMENT?: string | null;
+  VID_ID?: number | null;
+  BUTDOM: number;
+  BUTEXT: number;
+  TABDOM: number;
+  TABEXT: number;
+  PADOMSource?: string;
+  PAEXTSource?: string;
+}
+
 export interface TourDefRow {
   TDCLEUNIK: number;
   NOM: string;

@@ -9,7 +9,10 @@ import type {
   EpreuveOption,
   PaginatedResponse,
   SaisonOption,
+  CircOptionRow,
+  TourMatchRow,
   TourDefRow,
+  TourParticipantRow,
 } from './types';
 
 export interface IntegrityConstraint {
@@ -139,4 +142,58 @@ export async function fetchTourDefsByType(typeId: number): Promise<TourDefRow[]>
 export async function fetchTourDefById(tourDefId: string | number): Promise<TourDefRow> {
   const { data } = await http.get<TourDefRow>(`${env.apiBaseUrl}/api/tourdefs/${tourDefId}`);
   return data;
+}
+
+export async function fetchTourParticipants(tourId: string | number): Promise<TourParticipantRow[]> {
+  const { data } = await http.get<{ data: TourParticipantRow[] }>(`${env.tourAdminResource}/${tourId}/participants`);
+  return data.data ?? [];
+}
+
+export async function addTourParticipant(tourId: string | number, clubId: string): Promise<TourParticipantRow> {
+  const { data } = await http.post<TourParticipantRow>(`${env.tourAdminResource}/${tourId}/participants`, { clubId });
+  return data;
+}
+
+export async function removeTourParticipants(tourId: string | number, clubIds: string[]): Promise<number> {
+  const { data } = await http.delete<{ removed: number }>(`${env.tourAdminResource}/${tourId}/participants`, {
+    data: { clubIds },
+  });
+  return Number(data.removed ?? 0);
+}
+
+export async function fetchCircByTourType(typeId: number): Promise<CircOptionRow[]> {
+  const { data } = await http.get<PaginatedResponse<CircOptionRow>>(env.circPublicResource, {
+    params: { limit: 500, sort: 'CIRC', order: 'asc', page: 1 },
+  });
+  return (data.data ?? [])
+    .map((row) => ({
+      IDCIRC: String(row.IDCIRC ?? '').trim(),
+      CIRC: String(row.CIRC ?? '').trim(),
+      TYPE_TOUR: Number(row.TYPE_TOUR ?? 1) || 1,
+    }))
+    .filter((row) => row.TYPE_TOUR === typeId);
+}
+
+export async function fetchTourRencontres(tourId: string | number): Promise<TourMatchRow[]> {
+  const { data } = await http.get<{ data: TourMatchRow[] }>(`${env.tourAdminResource}/${tourId}/rencontres`);
+  return data.data ?? [];
+}
+
+export type CreateTourMatchPayload = Omit<TourMatchRow, 'RECLEUNIK'>;
+
+export async function createTourRencontre(payload: CreateTourMatchPayload): Promise<TourMatchRow | undefined> {
+  const { data } = await http.post<TourMatchRow>('/api/admin/rencontres', payload);
+  return data;
+}
+
+export async function updateTourRencontre(
+  rencontreId: string | number,
+  payload: Partial<TourMatchRow>,
+): Promise<TourMatchRow | undefined> {
+  const { data } = await http.put<TourMatchRow>(`/api/admin/rencontres/${encodeURIComponent(String(rencontreId))}`, payload);
+  return data;
+}
+
+export async function deleteTourRencontre(rencontreId: string | number): Promise<void> {
+  await http.delete(`/api/admin/rencontres/${encodeURIComponent(String(rencontreId))}`);
 }

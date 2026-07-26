@@ -1,10 +1,13 @@
 import {
   Box,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
   Stack,
   Typography,
 } from '@mui/material';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { fetchTourDefsByType, fetchTourDefById } from './competitionApi';
 import type { TourDefRow } from './types';
@@ -185,18 +188,6 @@ export function TourWizardStep3DefineForm({
       });
   }, [selectedTourDefId, tourDefs.length]);
 
-  const columns = useMemo(
-    () => [
-      {
-        field: 'NOM',
-        headerName: 'Nom',
-        flex: 1,
-        minWidth: 200,
-      },
-    ],
-    [],
-  );
-
   const selectedConfigSummary = useMemo(() => {
     const finTpsRegLabel = FIN_TIME_REG_OPTIONS.find((opt) => opt.value === form.finTpsReg)?.label ?? 'Fin du match';
     const finProlongLabel = FIN_PROLONG_OPTIONS.find((opt) => opt.value === form.finProlong)?.label ?? 'But en Or';
@@ -227,33 +218,31 @@ export function TourWizardStep3DefineForm({
 
   return (
     <Stack spacing={2.5}>
-      {/* Grid de TourDefs */}
+      {/* Liste déroulante des TourDefs */}
       <Box>
         <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
           Sélectionner une définition de tour
         </Typography>
-        <Box sx={{ height: 250, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-          <EntityDataGrid<TourDefRow>
-            rows={tourDefs}
-            columns={columns}
-            loading={loading}
-            getRowId={(row) => row.TDCLEUNIK}
-            selection={selectedTourDefId ? [selectedTourDefId] : []}
-            onSelectionChange={(selection) => {
-              const id = Array.isArray(selection) && selection.length > 0 ? selection[0] : null;
-              if (id) {
-                const numId = typeof id === 'string' ? parseInt(id, 10) : Number(id);
-                setSelectedTourDefId(numId);
+        <FormControl fullWidth size="small" disabled={loading || tourDefs.length === 0}>
+          <InputLabel id="tourdef-select-label">Définition</InputLabel>
+          <Select
+            labelId="tourdef-select-label"
+            label="Définition"
+            value={selectedTourDefId ? String(selectedTourDefId) : ''}
+            onChange={(event) => {
+              const next = Number(event.target.value);
+              if (Number.isInteger(next) && next > 0) {
+                setSelectedTourDefId(next);
               }
             }}
-            onRowDoubleClick={(id) => {
-              if (id) {
-                setSelectedTourDefId(id as number);
-              }
-            }}
-            disableRowSelectionOnClick={true}
-          />
-        </Box>
+          >
+            {tourDefs.map((tourDef) => (
+              <MenuItem key={tourDef.TDCLEUNIK} value={String(tourDef.TDCLEUNIK)}>
+                {tourDef.NOM}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </Box>
 
       {/* Résumé de configuration */}

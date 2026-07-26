@@ -25,9 +25,12 @@ import { TimeInputField } from '../../components/TimeInputField';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { createCompetitionTour, fetchCompetitionTourById, updateCompetitionTour } from './competitionApi';
 import { TourWizardStep3DefineForm } from './TourWizardStep3DefineForm';
+import { TourWizardStep5Participants } from './TourWizardStep5Participants';
+import { TourWizardStep6Rencontres } from './TourWizardStep6Rencontres';
 import type { CompetitionTourDetailRow, CompetitionTourUpsertPayload } from './types';
 
-const WIZARD_STEPS = ['Description', 'Dates', 'Etape 3', 'Etape 4'] as const;
+const WIZARD_STEPS_DEFAULT = ['Description', 'Dates', 'Définition', 'Etape 4', 'Rencontres'] as const;
+const WIZARD_STEPS_ELIMINATOIRE = ['Description', 'Dates', 'Définition', 'Etape 4', 'Participants', 'Rencontres'] as const;
 
 type TourType = 'ligue' | 'eliminatoire';
 type SelectionMode = 'tirage' | 'programmation';
@@ -37,6 +40,7 @@ interface TourWizardDialogProps {
   mode: 'create' | 'edit';
   competitionId: string | number;
   competitionLabel: string;
+  competitionSeason?: string;
   initialTourId?: number;
   proposedTourId: number;
   proposedOrder: number;
@@ -151,6 +155,7 @@ export function TourWizardDialog({
   mode,
   competitionId,
   competitionLabel,
+  competitionSeason,
   initialTourId,
   proposedTourId,
   proposedOrder,
@@ -208,9 +213,17 @@ export function TourWizardDialog({
 
   const title = mode === 'create' ? 'Ajouter un tour' : 'Modifier un tour';
 
+  const wizardSteps = draft.type === 'eliminatoire'
+    ? WIZARD_STEPS_ELIMINATOIRE
+    : WIZARD_STEPS_DEFAULT;
+
+  useEffect(() => {
+    setStepIndex((prev) => Math.min(prev, wizardSteps.length - 1));
+  }, [wizardSteps.length]);
+
   const canGoBack = stepIndex > 0 && !saving;
-  const canGoNext = stepIndex < WIZARD_STEPS.length - 1 && !saving;
-  const isLastStep = stepIndex === WIZARD_STEPS.length - 1;
+  const canGoNext = stepIndex < wizardSteps.length - 1 && !saving;
+  const isLastStep = stepIndex === wizardSteps.length - 1;
 
   const isDateRangeInvalid = useMemo(() => {
     const start = toApiDate(draft.dateDebut);
@@ -249,7 +262,7 @@ export function TourWizardDialog({
   const handleNext = () => {
     if (stepIndex === 0 && !validateStepOne()) return;
     if (stepIndex === 1 && !validateStepTwo()) return;
-    setStepIndex((prev) => Math.min(prev + 1, WIZARD_STEPS.length - 1));
+    setStepIndex((prev) => Math.min(prev + 1, wizardSteps.length - 1));
   };
 
   const handleBack = () => {
@@ -319,16 +332,23 @@ export function TourWizardDialog({
       }}
       fullWidth
       maxWidth="md"
+      slotProps={{
+        paper: {
+          sx: {
+            height: 'min(92vh, 940px)',
+          },
+        },
+      }}
     >
       <DialogTitle>{title}</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} sx={{ pt: 0.5 }}>
+      <DialogContent sx={{ display: 'flex', minHeight: 0, overflow: 'hidden' }}>
+        <Stack spacing={2} sx={{ pt: 0.5, flex: 1, minHeight: 0, overflow: 'auto' }}>
           <Typography variant="body2" color="text.secondary">
             Competition: {competitionLabel}
           </Typography>
 
           <Stepper activeStep={stepIndex} alternativeLabel>
-            {WIZARD_STEPS.map((stepLabel) => (
+            {wizardSteps.map((stepLabel) => (
               <Step key={stepLabel}>
                 <StepLabel>{stepLabel}</StepLabel>
               </Step>
@@ -515,6 +535,27 @@ export function TourWizardDialog({
               </Typography>
             </Box>
           ) : null}
+
+          {!loading && draft.type === 'eliminatoire' && stepIndex === 4 ? (
+            <TourWizardStep5Participants
+              tourId={draft.id}
+              onError={onError}
+            />
+          ) : null}
+
+          {!loading && (
+            (draft.type === 'eliminatoire' && stepIndex === 5)
+            || (draft.type !== 'eliminatoire' && stepIndex === 4)
+          ) ? (
+            <TourWizardStep6Rencontres
+              tourId={draft.id}
+              tourType={draft.type}
+              competitionSeason={String(competitionSeason ?? '').trim()}
+              tourStartDate={toApiDate(draft.dateDebut) ?? ''}
+              tourDefaultHeure={String(draft.heureMatches ?? '').trim()}
+              onError={onError}
+            />
+          ) : null}
         </Stack>
       </DialogContent>
 
@@ -525,7 +566,7 @@ export function TourWizardDialog({
           <Button onClick={handleNext} disabled={!canGoNext || loading}>Suivant</Button>
         ) : (
           <Button variant="contained" onClick={() => void handleSave()} disabled={saving || loading}>
-            {saving ? 'Enregistrement...' : 'Enregistrer'}
+            {saving ? 'Enregistrement...' : 'Terminer'}
           </Button>
         )}
       </DialogActions>

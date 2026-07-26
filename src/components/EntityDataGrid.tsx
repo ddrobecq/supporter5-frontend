@@ -1,5 +1,6 @@
 import {
   DataGrid,
+  type GridCellParams,
   type GridColDef,
   type GridPaginationModel,
   type GridRowClassNameParams,
@@ -26,6 +27,13 @@ interface EntityDataGridProps<RowModel extends GridValidRowModel> {
   paginationModel?: GridPaginationModel;
   onPaginationModelChange?: (model: GridPaginationModel) => void;
   rowCount?: number;
+  multiSelection?: boolean;
+  checkboxSelection?: boolean;
+  hideCheckboxSelectionColumn?: boolean;
+  editMode?: 'cell' | 'row';
+  processRowUpdate?: (newRow: RowModel, oldRow: RowModel) => Promise<RowModel> | RowModel;
+  onProcessRowUpdateError?: (error: unknown) => void;
+  isCellEditable?: (params: GridCellParams<RowModel>) => boolean;
 }
 
 export function EntityDataGrid<RowModel extends GridValidRowModel>({
@@ -47,6 +55,13 @@ export function EntityDataGrid<RowModel extends GridValidRowModel>({
   paginationModel,
   onPaginationModelChange,
   rowCount,
+  multiSelection = false,
+  checkboxSelection = false,
+  hideCheckboxSelectionColumn = false,
+  editMode,
+  processRowUpdate,
+  onProcessRowUpdateError,
+  isCellEditable,
 }: EntityDataGridProps<RowModel>) {
   return (
     <DataGrid
@@ -55,28 +70,55 @@ export function EntityDataGrid<RowModel extends GridValidRowModel>({
       loading={loading}
       getRowId={getRowId}
       rowSelectionModel={{ type: 'include', ids: new Set(selection) }}
-      onRowSelectionModelChange={(model) => onSelectionChange(model.ids.size > 0 ? [Array.from(model.ids)[0]] : [])}
+      onRowSelectionModelChange={(model) => {
+        const ids = Array.from(model.ids);
+        if (ids.length === 0) {
+          onSelectionChange([]);
+          return;
+        }
+        onSelectionChange(multiSelection ? ids : [ids[0]]);
+      }}
       pageSizeOptions={pageSizeOptions}
       onRowDoubleClick={(params) => onRowDoubleClick?.(params.id)}
       disableRowSelectionOnClick={disableRowSelectionOnClick}
+      checkboxSelection={checkboxSelection}
       pagination
       paginationMode={paginationMode}
       paginationModel={paginationModel}
       onPaginationModelChange={onPaginationModelChange}
       rowCount={rowCount}
+      editMode={editMode}
+      processRowUpdate={processRowUpdate}
+      onProcessRowUpdateError={onProcessRowUpdateError}
+      isCellEditable={isCellEditable}
       onRowClick={(params) => {
         if (onRowClick) {
           onRowClick(params.id);
           return;
         }
-        onSelectionChange([params.id]);
+        if (editMode) {
+          return;
+        }
+        if (!multiSelection) {
+          onSelectionChange([params.id]);
+        }
       }}
       getRowClassName={getRowClassName}
       density={density}
       label={label}
       showToolbar={showToolbar}
       disableColumnMenu
-      sx={{ width: '100%', minWidth: 0, '& .MuiDataGrid-cell': { cursor: 'default' } }}
+      sx={{
+        width: '100%',
+        minWidth: 0,
+        '& .MuiDataGrid-cell': { cursor: 'default' },
+        ...(hideCheckboxSelectionColumn
+          ? {
+              '& .MuiDataGrid-columnHeaderCheckbox': { display: 'none' },
+              '& .MuiDataGrid-cellCheckbox': { display: 'none' },
+            }
+          : {}),
+      }}
     />
   );
 }

@@ -350,6 +350,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
         mode={tourModalMode}
         competitionId={competitionId}
         competitionLabel={resolveCompetitionLabel(row ?? {}, String(competitionId))}
+        competitionSeason={String(row?.SAISON ?? '').trim()}
         initialTourId={tourModalEditingId}
         proposedTourId={Math.max(0, ...tourRows.map((tour) => Number(tour.TUCLEUNIK) || 0)) + 1}
         proposedOrder={tourRows.length + 1}
