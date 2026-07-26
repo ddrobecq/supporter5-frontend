@@ -11,7 +11,7 @@ import {
   RadioGroup,
   Stack,
   Step,
-  StepLabel,
+  StepButton,
   Stepper,
   Switch,
   TextField,
@@ -29,8 +29,14 @@ import { TourWizardStep5Participants } from './TourWizardStep5Participants';
 import { TourWizardStep6Rencontres } from './TourWizardStep6Rencontres';
 import type { CompetitionTourDetailRow, CompetitionTourUpsertPayload } from './types';
 
-const WIZARD_STEPS_DEFAULT = ['Description', 'Dates', 'Définition', 'Etape 4', 'Rencontres'] as const;
-const WIZARD_STEPS_ELIMINATOIRE = ['Description', 'Dates', 'Définition', 'Etape 4', 'Participants', 'Rencontres'] as const;
+const WIZARD_STEPS = ['Description', 'Dates', 'Définition', 'Classement', 'Participants', 'Rencontres'] as const;
+
+const STEP_DESCRIPTION = 0;
+const STEP_DATES = 1;
+const STEP_DEFINITION = 2;
+const STEP_CLASSEMENT = 3;
+const STEP_PARTICIPANTS = 4;
+const STEP_RENCONTRES = 5;
 
 type TourType = 'ligue' | 'eliminatoire';
 type SelectionMode = 'tirage' | 'programmation';
@@ -100,6 +106,30 @@ function mapTourTypeFromDb(tourDefType: number | undefined): TourType {
 
 function mapTourTypeToDb(type: TourType): number {
   return type === 'eliminatoire' ? 2 : 1;
+}
+
+function isStepSkippedForType(step: number, type: TourType): boolean {
+  if (type === 'eliminatoire' && step === STEP_CLASSEMENT) return true;
+  if (type === 'ligue' && step === STEP_PARTICIPANTS) return true;
+  return false;
+}
+
+function getNextAvailableStep(step: number, type: TourType): number | null {
+  for (let index = step + 1; index < WIZARD_STEPS.length; index += 1) {
+    if (!isStepSkippedForType(index, type)) {
+      return index;
+    }
+  }
+  return null;
+}
+
+function getPreviousAvailableStep(step: number, type: TourType): number | null {
+  for (let index = step - 1; index >= 0; index -= 1) {
+    if (!isStepSkippedForType(index, type)) {
+      return index;
+    }
+  }
+  return null;
 }
 
 function createDefaultDraft(proposedTourId: number, proposedOrder: number): TourDraft {
@@ -213,17 +243,26 @@ export function TourWizardDialog({
 
   const title = mode === 'create' ? 'Ajouter un tour' : 'Modifier un tour';
 
-  const wizardSteps = draft.type === 'eliminatoire'
-    ? WIZARD_STEPS_ELIMINATOIRE
-    : WIZARD_STEPS_DEFAULT;
-
   useEffect(() => {
-    setStepIndex((prev) => Math.min(prev, wizardSteps.length - 1));
-  }, [wizardSteps.length]);
+    if (!isStepSkippedForType(stepIndex, draft.type)) {
+      return;
+    }
+    const nextStep = getNextAvailableStep(stepIndex, draft.type);
+    if (nextStep !== null) {
+      setStepIndex(nextStep);
+      return;
+    }
+    const previousStep = getPreviousAvailableStep(stepIndex, draft.type);
+    if (previousStep !== null) {
+      setStepIndex(previousStep);
+    }
+  }, [draft.type, stepIndex]);
 
-  const canGoBack = stepIndex > 0 && !saving;
-  const canGoNext = stepIndex < wizardSteps.length - 1 && !saving;
-  const isLastStep = stepIndex === wizardSteps.length - 1;
+  const previousStep = getPreviousAvailableStep(stepIndex, draft.type);
+  const nextStep = getNextAvailableStep(stepIndex, draft.type);
+  const canGoBack = previousStep !== null && !saving;
+  const canGoNext = nextStep !== null && !saving;
+  const isLastStep = nextStep === null;
 
   const isDateRangeInvalid = useMemo(() => {
     const start = toApiDate(draft.dateDebut);
@@ -260,13 +299,23 @@ export function TourWizardDialog({
   };
 
   const handleNext = () => {
-    if (stepIndex === 0 && !validateStepOne()) return;
-    if (stepIndex === 1 && !validateStepTwo()) return;
-    setStepIndex((prev) => Math.min(prev + 1, wizardSteps.length - 1));
+    if (stepIndex === STEP_DESCRIPTION && !validateStepOne()) return;
+    if (stepIndex === STEP_DATES && !validateStepTwo()) return;
+    if (nextStep !== null) {
+      setStepIndex(nextStep);
+    }
   };
 
   const handleBack = () => {
-    setStepIndex((prev) => Math.max(prev - 1, 0));
+    if (previousStep !== null) {
+      setStepIndex(previousStep);
+    }
+  };
+
+  const handleStepClick = (targetStep: number) => {
+    if (loading || saving) return;
+    if (isStepSkippedForType(targetStep, draft.type)) return;
+    setStepIndex(targetStep);
   };
 
   const buildPayload = (): CompetitionTourUpsertPayload => {
@@ -348,18 +397,27 @@ export function TourWizardDialog({
           </Typography>
 
           <Stepper activeStep={stepIndex} alternativeLabel>
-            {wizardSteps.map((stepLabel) => (
-              <Step key={stepLabel}>
-                <StepLabel>{stepLabel}</StepLabel>
+            {WIZARD_STEPS.map((stepLabel, index) => {
+              const isSkipped = isStepSkippedForType(index, draft.type);
+              return (
+              <Step key={stepLabel} disabled={isSkipped}>
+                <StepButton
+                  color="inherit"
+                  onClick={() => handleStepClick(index)}
+                  disabled={isSkipped || loading || saving}
+                >
+                  {stepLabel}
+                </StepButton>
               </Step>
-            ))}
+              );
+            })}
           </Stepper>
 
           {loading ? (
             <Typography variant="body2" color="text.secondary">Chargement du tour...</Typography>
           ) : null}
 
-          {!loading && stepIndex === 0 ? (
+          {!loading && stepIndex === STEP_DESCRIPTION ? (
             <Stack spacing={1.5}>
               <TextField
                 label="Identifiant"
@@ -429,7 +487,7 @@ export function TourWizardDialog({
             </Stack>
           ) : null}
 
-          {!loading && stepIndex === 1 ? (
+          {!loading && stepIndex === STEP_DATES ? (
             <Stack spacing={2}>
               <Box sx={{ p: 1.25, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
                 <Stack spacing={1.25}>
@@ -517,7 +575,7 @@ export function TourWizardDialog({
             </Stack>
           ) : null}
 
-          {!loading && stepIndex === 2 ? (
+          {!loading && stepIndex === STEP_DEFINITION ? (
             <TourWizardStep3DefineForm
               tourType={draft.type}
               initialTourDefId={draft.tourDefKey}
@@ -528,7 +586,7 @@ export function TourWizardDialog({
             />
           ) : null}
 
-          {!loading && stepIndex === 3 ? (
+          {!loading && draft.type === 'ligue' && stepIndex === STEP_CLASSEMENT ? (
             <Box sx={{ p: 1.5, border: '1px dashed', borderColor: 'divider', borderRadius: 1 }}>
               <Typography variant="body2" color="text.secondary">
                 Cette etape sera implementee dans la suite.
@@ -536,17 +594,14 @@ export function TourWizardDialog({
             </Box>
           ) : null}
 
-          {!loading && draft.type === 'eliminatoire' && stepIndex === 4 ? (
+          {!loading && draft.type === 'eliminatoire' && stepIndex === STEP_PARTICIPANTS ? (
             <TourWizardStep5Participants
               tourId={draft.id}
               onError={onError}
             />
           ) : null}
 
-          {!loading && (
-            (draft.type === 'eliminatoire' && stepIndex === 5)
-            || (draft.type !== 'eliminatoire' && stepIndex === 4)
-          ) ? (
+          {!loading && stepIndex === STEP_RENCONTRES ? (
             <TourWizardStep6Rencontres
               tourId={draft.id}
               tourType={draft.type}
