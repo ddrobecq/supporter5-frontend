@@ -26,6 +26,7 @@ import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { useTabMetaEvents } from '../../lib/useTabMetaEvents';
 import { CompetitionFormDialog } from './CompetitionFormDialog';
+import { TourWizardDialog } from './TourWizardDialog';
 import {
   canDeleteCompetitionTour,
   deleteCompetitionTour,
@@ -63,6 +64,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
   const [tourMoveSaving, setTourMoveSaving] = useState(false);
   const [tourModalOpen, setTourModalOpen] = useState(false);
   const [tourModalMode, setTourModalMode] = useState<'create' | 'edit'>('create');
+  const [tourModalEditingId, setTourModalEditingId] = useState<number | undefined>(undefined);
   const [epreuveOptions, setEpreuveOptions] = useState<EpreuveOption[]>([]);
   const [saisonOptions, setSaisonOptions] = useState<SaisonOption[]>([]);
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
@@ -146,6 +148,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
 
   const openTourCreateModal = () => {
     setTourModalMode('create');
+    setTourModalEditingId(undefined);
     setTourModalOpen(true);
   };
 
@@ -157,6 +160,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
     }
     setTourSelection([rowToEdit.TUCLEUNIK]);
     setTourModalMode('edit');
+    setTourModalEditingId(Number(rowToEdit.TUCLEUNIK));
     setTourModalOpen(true);
   };
 
@@ -341,22 +345,20 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
         </Stack>
       ) : null}
 
-      <Dialog
+      <TourWizardDialog
         open={tourModalOpen}
+        mode={tourModalMode}
+        competitionId={competitionId}
+        competitionLabel={resolveCompetitionLabel(row ?? {}, String(competitionId))}
+        initialTourId={tourModalEditingId}
+        proposedTourId={Math.max(0, ...tourRows.map((tour) => Number(tour.TUCLEUNIK) || 0)) + 1}
+        proposedOrder={tourRows.length + 1}
         onClose={() => setTourModalOpen(false)}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>{tourModalMode === 'create' ? 'Ajouter un tour' : 'Modifier un tour'}</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            La modale Tour sera implementee dans la prochaine etape (specification fonctionnelle detaillee).
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setTourModalOpen(false)} autoFocus>Fermer</Button>
-        </DialogActions>
-      </Dialog>
+        onSaved={async () => {
+          await reloadTours();
+        }}
+        onError={(message) => setSnackbar({ severity: 'error', message })}
+      />
 
       <Dialog
         open={tourDeleteConfirmOpen}

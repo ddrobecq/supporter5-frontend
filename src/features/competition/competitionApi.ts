@@ -3,10 +3,13 @@ import { http } from '../../lib/http';
 import type {
   CompetitionCreateWizardPayload,
   CompetitionRow,
+  CompetitionTourDetailRow,
   CompetitionTourRow,
+  CompetitionTourUpsertPayload,
   EpreuveOption,
   PaginatedResponse,
   SaisonOption,
+  TourDefRow,
 } from './types';
 
 export interface IntegrityConstraint {
@@ -103,4 +106,37 @@ export async function deleteCompetitionTour(tourId: string | number): Promise<vo
 export async function moveCompetitionTour(tourId: string | number, direction: 'up' | 'down'): Promise<CompetitionTourRow[]> {
   const { data } = await http.patch<{ data: CompetitionTourRow[] }>(`${env.tourAdminResource}/${tourId}/move`, { direction });
   return data.data ?? [];
+}
+
+export async function fetchCompetitionTourById(tourId: string | number): Promise<CompetitionTourDetailRow> {
+  const { data } = await http.get<CompetitionTourDetailRow>(`${env.tourPublicResource}/${tourId}/detail`);
+  return data;
+}
+
+export async function createCompetitionTour(payload: CompetitionTourUpsertPayload): Promise<CompetitionTourDetailRow | undefined> {
+  const { data } = await http.post<CompetitionTourDetailRow>(env.tourAdminResource, payload);
+  return data;
+}
+
+export async function updateCompetitionTour(tourId: string | number, payload: CompetitionTourUpsertPayload): Promise<CompetitionTourDetailRow | undefined> {
+  const { data } = await http.put<CompetitionTourDetailRow>(`${env.tourAdminResource}/${tourId}`, payload);
+  return data;
+}
+
+export async function fetchTourDefsByType(typeId: number): Promise<TourDefRow[]> {
+  const { data } = await http.get<PaginatedResponse<TourDefRow>>(`${env.apiBaseUrl}/api/tourdefs`, {
+    params: {
+      limit: 200,
+      sort: 'NOM',
+      order: 'asc',
+      tdtypetour: typeId,
+      page: 1,
+    },
+  });
+  return data.data ?? [];
+}
+
+export async function fetchTourDefById(tourDefId: string | number): Promise<TourDefRow> {
+  const { data } = await http.get<TourDefRow>(`${env.apiBaseUrl}/api/tourdefs/${tourDefId}`);
+  return data;
 }
