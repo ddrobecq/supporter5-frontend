@@ -10,6 +10,7 @@ import type {
   PaginatedResponse,
   SaisonOption,
   CircOptionRow,
+  QualifRow,
   TourMatchRow,
   TourDefRow,
   TourParticipantRow,
@@ -178,6 +179,38 @@ export async function fetchCircByTourType(typeId: number): Promise<CircOptionRow
 export async function fetchTourRencontres(tourId: string | number): Promise<TourMatchRow[]> {
   const { data } = await http.get<{ data: TourMatchRow[] }>(`${env.tourAdminResource}/${tourId}/rencontres`);
   return data.data ?? [];
+}
+
+export async function fetchTourQualifs(tourId: string | number): Promise<QualifRow[]> {
+  const { data } = await http.get<PaginatedResponse<QualifRow>>(env.qualifPublicResource, {
+    params: {
+      limit: 200,
+      sort: 'CLASS_MinRang',
+      order: 'asc',
+      tucleunik: tourId,
+      page: 1,
+    },
+  });
+  return data.data ?? [];
+}
+
+export type CreateQualifPayload = Omit<QualifRow, 'CLASS_ID'>;
+
+export async function createTourQualif(payload: CreateQualifPayload): Promise<QualifRow | undefined> {
+  const { data } = await http.post<QualifRow>(env.qualifAdminResource, payload);
+  return data;
+}
+
+export async function updateTourQualif(
+  qualifId: string | number,
+  payload: Partial<QualifRow>,
+): Promise<QualifRow | undefined> {
+  const { data } = await http.put<QualifRow>(`${env.qualifAdminResource}/${encodeURIComponent(String(qualifId))}`, payload);
+  return data;
+}
+
+export async function deleteTourQualif(qualifId: string | number): Promise<void> {
+  await http.delete(`${env.qualifAdminResource}/${encodeURIComponent(String(qualifId))}`);
 }
 
 export type CreateTourMatchPayload = Omit<TourMatchRow, 'RECLEUNIK'>;

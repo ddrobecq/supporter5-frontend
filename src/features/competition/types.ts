@@ -111,6 +111,17 @@ export interface TourMatchRow {
   PAEXTSource?: string;
 }
 
+export interface QualifRow {
+  CLASS_ID: number;
+  CLASS_MinRang: number;
+  CLASS_MaxRang: number;
+  CLASS_Couleur: number;
+  CLASS_Libelle?: string | null;
+  CLASS_Type: number;
+  TUCLEUNIK: number;
+  CLASS_Abrege: string;
+}
+
 export interface TourDefRow {
   TDCLEUNIK: number;
   NOM: string;

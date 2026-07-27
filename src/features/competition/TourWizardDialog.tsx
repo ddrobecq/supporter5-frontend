@@ -25,18 +25,21 @@ import { TimeInputField } from '../../components/TimeInputField';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { createCompetitionTour, fetchCompetitionTourById, updateCompetitionTour } from './competitionApi';
 import { TourWizardStep3DefineForm } from './TourWizardStep3DefineForm';
+import { TourWizardStep4Groupes } from './TourWizardStep4Groupes';
+import { TourWizardStep4Classement } from './TourWizardStep4Classement';
 import { TourWizardStep5Participants } from './TourWizardStep5Participants';
 import { TourWizardStep6Rencontres } from './TourWizardStep6Rencontres';
 import type { CompetitionTourDetailRow, CompetitionTourUpsertPayload } from './types';
 
-const WIZARD_STEPS = ['Description', 'Dates', 'Définition', 'Classement', 'Participants', 'Rencontres'] as const;
+const WIZARD_STEPS = ['Description', 'Dates', 'Définition', 'Groupes', 'Classement', 'Participants', 'Rencontres'] as const;
 
 const STEP_DESCRIPTION = 0;
 const STEP_DATES = 1;
 const STEP_DEFINITION = 2;
-const STEP_CLASSEMENT = 3;
-const STEP_PARTICIPANTS = 4;
-const STEP_RENCONTRES = 5;
+const STEP_GROUPES = 3;
+const STEP_CLASSEMENT = 4;
+const STEP_PARTICIPANTS = 5;
+const STEP_RENCONTRES = 6;
 
 type TourType = 'ligue' | 'eliminatoire';
 type SelectionMode = 'tirage' | 'programmation';
@@ -109,8 +112,7 @@ function mapTourTypeToDb(type: TourType): number {
 }
 
 function isStepSkippedForType(step: number, type: TourType): boolean {
-  if (type === 'eliminatoire' && step === STEP_CLASSEMENT) return true;
-  if (type === 'ligue' && step === STEP_PARTICIPANTS) return true;
+  if (type === 'eliminatoire' && (step === STEP_GROUPES || step === STEP_CLASSEMENT)) return true;
   return false;
 }
 
@@ -233,7 +235,7 @@ export function TourWizardDialog({
       .finally(() => {
         setLoading(false);
       });
-  }, [open, mode, initialTourId, proposedTourId, proposedOrder, onError]);
+  }, [open, mode, initialTourId, proposedTourId, proposedOrder]);
 
   useEffect(() => {
     if (finalTouched) return;
@@ -242,6 +244,9 @@ export function TourWizardDialog({
   }, [draft.participants, draft.type, finalTouched]);
 
   const title = mode === 'create' ? 'Ajouter un tour' : 'Modifier un tour';
+  const activeTourId = mode === 'edit' && Number(initialTourId) > 0
+    ? Number(initialTourId)
+    : draft.id;
 
   useEffect(() => {
     if (!isStepSkippedForType(stepIndex, draft.type)) {
@@ -380,18 +385,20 @@ export function TourWizardDialog({
         onClose();
       }}
       fullWidth
-      maxWidth="md"
+      maxWidth="lg"
       slotProps={{
         paper: {
           sx: {
             height: 'min(92vh, 940px)',
+            width: 'min(96vw, 1200px)',
+            maxWidth: '1200px',
           },
         },
       }}
     >
       <DialogTitle>{title}</DialogTitle>
-      <DialogContent sx={{ display: 'flex', minHeight: 0, overflow: 'hidden' }}>
-        <Stack spacing={2} sx={{ pt: 0.5, flex: 1, minHeight: 0, overflow: 'auto' }}>
+      <DialogContent sx={{ display: 'flex', minHeight: 0, overflowY: 'hidden', overflowX: 'hidden', px: 2 }}>
+        <Stack spacing={2} sx={{ pt: 0.5, flex: 1, minHeight: 0, minWidth: 0, overflowY: 'auto', overflowX: 'hidden' }}>
           <Typography variant="body2" color="text.secondary">
             Competition: {competitionLabel}
           </Typography>
@@ -586,24 +593,40 @@ export function TourWizardDialog({
             />
           ) : null}
 
-          {!loading && draft.type === 'ligue' && stepIndex === STEP_CLASSEMENT ? (
-            <Box sx={{ p: 1.5, border: '1px dashed', borderColor: 'divider', borderRadius: 1 }}>
-              <Typography variant="body2" color="text.secondary">
-                Cette etape sera implementee dans la suite.
-              </Typography>
-            </Box>
+          {!loading && draft.type === 'ligue' && stepIndex === STEP_GROUPES ? (
+            <TourWizardStep4Groupes
+              tourType={draft.type}
+              tourDefId={draft.tourDefKey}
+              nbEquipe={draft.nbEquipe}
+              nbGroupe={draft.nbGroupe}
+              nbMatch={draft.nbMatch}
+              onNbGroupeChange={(value) => {
+                setDraft((prev) => ({ ...prev, nbGroupe: value }));
+              }}
+              onNbMatchChange={(value) => {
+                setDraft((prev) => ({ ...prev, nbMatch: value }));
+              }}
+              onError={onError}
+            />
           ) : null}
 
-          {!loading && draft.type === 'eliminatoire' && stepIndex === STEP_PARTICIPANTS ? (
+          {!loading && draft.type === 'ligue' && stepIndex === STEP_CLASSEMENT ? (
+            <TourWizardStep4Classement
+              tourId={activeTourId}
+              onError={onError}
+            />
+          ) : null}
+
+          {!loading && stepIndex === STEP_PARTICIPANTS ? (
             <TourWizardStep5Participants
-              tourId={draft.id}
+              tourId={activeTourId}
               onError={onError}
             />
           ) : null}
 
           {!loading && stepIndex === STEP_RENCONTRES ? (
             <TourWizardStep6Rencontres
-              tourId={draft.id}
+              tourId={activeTourId}
               tourType={draft.type}
               competitionSeason={String(competitionSeason ?? '').trim()}
               tourStartDate={toApiDate(draft.dateDebut) ?? ''}
