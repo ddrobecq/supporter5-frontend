@@ -163,7 +163,7 @@ export async function removeTourParticipants(tourId: string | number, clubIds: s
 
 export async function fetchCircByTourType(typeId: number): Promise<CircOptionRow[]> {
   const { data } = await http.get<PaginatedResponse<CircOptionRow>>(env.circPublicResource, {
-    params: { limit: 500, sort: 'CIRC', order: 'asc', page: 1 },
+    params: { limit: 500, sort: 'IDCIRC', order: 'asc', page: 1 },
   });
   return (data.data ?? [])
     .map((row) => ({
@@ -171,7 +171,8 @@ export async function fetchCircByTourType(typeId: number): Promise<CircOptionRow
       CIRC: String(row.CIRC ?? '').trim(),
       TYPE_TOUR: Number(row.TYPE_TOUR ?? 1) || 1,
     }))
-    .filter((row) => row.TYPE_TOUR === typeId);
+    .filter((row) => row.TYPE_TOUR === typeId)
+    .sort((a, b) => a.IDCIRC.localeCompare(b.IDCIRC, 'fr', { sensitivity: 'base' }));
 }
 
 export async function fetchTourRencontres(tourId: string | number): Promise<TourMatchRow[]> {

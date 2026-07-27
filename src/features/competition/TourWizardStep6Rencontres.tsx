@@ -290,23 +290,23 @@ export function TourWizardStep6Rencontres({
       {
         field: 'DATE',
         headerName: 'Date',
-        width: 110,
-        minWidth: 110,
-        maxWidth: 110,
+        width: 96,
+        minWidth: 96,
+        maxWidth: 96,
         editable: true,
         valueFormatter: (value) => formatDateDisplay(value),
       },
       {
         field: 'HEURE',
         headerName: 'Heure',
-        width: 88,
-        minWidth: 88,
-        maxWidth: 88,
+        width: 74,
+        minWidth: 74,
+        maxWidth: 74,
         editable: true,
         valueFormatter: (value) => formatHeureDisplay(value),
       },
-      { field: 'DOMICILE_NOM', headerName: 'Domicile', flex: 1, minWidth: 140 },
-      { field: 'EXTERIEUR_NOM', headerName: 'Extérieur', flex: 1, minWidth: 140 },
+      { field: 'DOMICILE_NOM', headerName: 'Domicile', flex: 1, minWidth: 120 },
+      { field: 'EXTERIEUR_NOM', headerName: 'Extérieur', flex: 1, minWidth: 120 },
     ],
     [],
   );
@@ -362,7 +362,7 @@ export function TourWizardStep6Rencontres({
 
   const clubColumns = useMemo<GridColDef<TourParticipantRow>[]>(
     () => [
-      { field: 'CLUB', headerName: 'Club', flex: 1, minWidth: 220 },
+      { field: 'CLUB', headerName: 'Club', flex: 1 },
     ],
     [],
   );
