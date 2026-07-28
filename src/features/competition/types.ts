@@ -93,7 +93,7 @@ export interface CircOptionRow {
 export interface TourMatchRow {
   RECLEUNIK: number;
   DATE: string;
-  HEURE: string;
+  HEURE: string | null;
   DOMICILE: string;
   EXTERIEUR: string;
   IDCIRC?: string | null;

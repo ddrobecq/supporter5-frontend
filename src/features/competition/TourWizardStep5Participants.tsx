@@ -1,4 +1,4 @@
-import { Box, Button, Stack, Tooltip, Typography } from '@mui/material';
+import { Box, Button, MenuItem, Stack, TextField, Tooltip } from '@mui/material';
 import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import { type GridColDef, type GridRowId } from '@mui/x-data-grid';
@@ -11,21 +11,79 @@ import type { TourParticipantRow } from './types';
 
 interface TourWizardStep5ParticipantsProps {
   tourId: number;
+  nbGroupe: number;
+  groupNames: string[];
   onError?: (message: string) => void;
 }
 
-export function TourWizardStep5Participants({ tourId, onError }: TourWizardStep5ParticipantsProps) {
+function buildDefaultGroupNames(count: number): string[] {
+  return Array.from({ length: count }, (_, index) => `Groupe ${index + 1}`);
+}
+
+export function TourWizardStep5Participants({ tourId, nbGroupe, groupNames, onError }: TourWizardStep5ParticipantsProps) {
   const [rows, setRows] = useState<TourParticipantRow[]>([]);
   const [selection, setSelection] = useState<GridRowId[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectorOpen, setSelectorOpen] = useState(false);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>('');
+
+  const normalizedNbGroupe = Math.max(1, Number(nbGroupe) || 1);
+  const hasMultipleGroups = normalizedNbGroupe > 1;
+
+  const effectiveGroupNames = useMemo(() => {
+    if (!hasMultipleGroups) {
+      return [] as string[];
+    }
+
+    const names = groupNames
+      .map((value) => String(value ?? '').trim())
+      .filter((value) => value.length > 0);
+    if (names.length >= normalizedNbGroupe) {
+      return names.slice(0, normalizedNbGroupe);
+    }
+
+    const defaults = buildDefaultGroupNames(normalizedNbGroupe);
+    return defaults.map((defaultName, index) => names[index] ?? defaultName);
+  }, [groupNames, hasMultipleGroups, normalizedNbGroupe]);
+
+  useEffect(() => {
+    if (!hasMultipleGroups) {
+      setSelectedGroupId('');
+      return;
+    }
+
+    if (selectedGroupId && !effectiveGroupNames.includes(selectedGroupId)) {
+      setSelectedGroupId('');
+    }
+  }, [hasMultipleGroups, selectedGroupId, effectiveGroupNames]);
+
+  useEffect(() => {
+    setSelection([]);
+  }, [selectedGroupId]);
+
+  const participantsHeaderLabel = useMemo(
+    () => (hasMultipleGroups
+      ? `Liste des particpants pour le ${selectedGroupId || '...'}`
+      : 'Liste des participants'),
+    [hasMultipleGroups, selectedGroupId],
+  );
 
   const columns = useMemo<GridColDef<TourParticipantRow>[]>(
     () => [
-      { field: 'CLUB', headerName: 'Club', flex: 1, minWidth: 260 },
+      { field: 'CLUB', headerName: participantsHeaderLabel, flex: 1, minWidth: 260 },
     ],
-    [],
+    [participantsHeaderLabel],
   );
+
+  const visibleRows = useMemo(() => {
+    if (!hasMultipleGroups) {
+      return rows;
+    }
+    if (!selectedGroupId) {
+      return [];
+    }
+    return rows.filter((row) => String(row.GROUPE ?? '').trim() === selectedGroupId);
+  }, [rows, hasMultipleGroups, selectedGroupId]);
 
   const loadParticipants = async () => {
     if (!Number.isInteger(tourId) || tourId <= 0) {
@@ -50,7 +108,12 @@ export function TourWizardStep5Participants({ tourId, onError }: TourWizardStep5
 
   const handleAddClub = async (clubId: string) => {
     try {
-      await addTourParticipant(tourId, clubId);
+      if (hasMultipleGroups && !selectedGroupId) {
+        onError?.('Sélectionnez un groupe avant d\'ajouter un club.');
+        return;
+      }
+
+      await addTourParticipant(tourId, clubId, hasMultipleGroups ? selectedGroupId : '');
       await loadParticipants();
     } catch (error) {
       onError?.(toErrorMessage(error));
@@ -75,42 +138,56 @@ export function TourWizardStep5Participants({ tourId, onError }: TourWizardStep5
 
   return (
     <Stack spacing={1.5}>
-      <Stack
-        direction="row"
-        spacing={0.75}
-        sx={{ justifyContent: 'space-between', alignItems: 'center' }}
-      >
-        <Typography variant="subtitle2">Clubs sélectionnés</Typography>
-        <Stack direction="row" spacing={0.75}>
-          <Tooltip title="Ajouter">
+      {hasMultipleGroups ? (
+        <TextField
+          select
+          label="Liste des Groupes"
+          size="small"
+          value={selectedGroupId}
+          onChange={(event) => setSelectedGroupId(event.target.value)}
+          sx={{ width: { xs: '100%', md: 320 } }}
+        >
+          <MenuItem value="">Aucun groupe sélectionné</MenuItem>
+          {effectiveGroupNames.map((groupName) => (
+            <MenuItem key={groupName} value={groupName}>
+              {groupName}
+            </MenuItem>
+          ))}
+        </TextField>
+      ) : null}
+
+      <Stack direction="row" spacing={0.75}>
+        <Tooltip title="Ajouter">
+          <span>
             <Button
               size="small"
               variant="outlined"
               startIcon={<AddCircleOutlineRoundedIcon />}
               sx={{ minWidth: 0, px: 1.1 }}
               onClick={() => setSelectorOpen(true)}
+              disabled={hasMultipleGroups && !selectedGroupId}
             >
               Ajouter
             </Button>
-          </Tooltip>
-          <Tooltip title="Supprimer">
-            <Button
-              size="small"
-              color="error"
-              variant="outlined"
-              startIcon={<DeleteOutlineRoundedIcon />}
-              sx={{ minWidth: 0, px: 1.1 }}
-              onClick={() => void handleRemoveSelection()}
-            >
-              Supprimer
-            </Button>
-          </Tooltip>
-        </Stack>
+          </span>
+        </Tooltip>
+        <Tooltip title="Supprimer">
+          <Button
+            size="small"
+            color="error"
+            variant="outlined"
+            startIcon={<DeleteOutlineRoundedIcon />}
+            sx={{ minWidth: 0, px: 1.1 }}
+            onClick={() => void handleRemoveSelection()}
+          >
+            Supprimer
+          </Button>
+        </Tooltip>
       </Stack>
 
       <Box sx={{ height: 260, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
         <EntityDataGrid<TourParticipantRow>
-          rows={rows}
+          rows={visibleRows}
           columns={columns}
           loading={loading}
           getRowId={(row) => row.IDCLUB}

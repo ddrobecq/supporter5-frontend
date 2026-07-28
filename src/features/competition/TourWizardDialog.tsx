@@ -202,6 +202,7 @@ export function TourWizardDialog({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [finalTouched, setFinalTouched] = useState(false);
   const [initialTourType, setInitialTourType] = useState<TourType>('ligue');
+  const [groupNames, setGroupNames] = useState<string[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -209,6 +210,7 @@ export function TourWizardDialog({
     setStepIndex(0);
     setErrors({});
     setFinalTouched(false);
+    setGroupNames([]);
 
     if (mode === 'create') {
       const nextDraft = createDefaultDraft(proposedTourId, proposedOrder);
@@ -606,6 +608,7 @@ export function TourWizardDialog({
               onNbMatchChange={(value) => {
                 setDraft((prev) => ({ ...prev, nbMatch: value }));
               }}
+              onGroupNamesChange={setGroupNames}
               onError={onError}
             />
           ) : null}
@@ -620,6 +623,8 @@ export function TourWizardDialog({
           {!loading && stepIndex === STEP_PARTICIPANTS ? (
             <TourWizardStep5Participants
               tourId={activeTourId}
+              nbGroupe={draft.nbGroupe}
+              groupNames={groupNames}
               onError={onError}
             />
           ) : null}
@@ -631,6 +636,8 @@ export function TourWizardDialog({
               competitionSeason={String(competitionSeason ?? '').trim()}
               tourStartDate={toApiDate(draft.dateDebut) ?? ''}
               tourDefaultHeure={String(draft.heureMatches ?? '').trim()}
+              nbGroupe={draft.nbGroupe}
+              groupNames={groupNames}
               onError={onError}
             />
           ) : null}

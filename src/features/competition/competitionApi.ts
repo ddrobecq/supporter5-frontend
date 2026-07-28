@@ -150,8 +150,8 @@ export async function fetchTourParticipants(tourId: string | number): Promise<To
   return data.data ?? [];
 }
 
-export async function addTourParticipant(tourId: string | number, clubId: string): Promise<TourParticipantRow> {
-  const { data } = await http.post<TourParticipantRow>(`${env.tourAdminResource}/${tourId}/participants`, { clubId });
+export async function addTourParticipant(tourId: string | number, clubId: string, groupe = ''): Promise<TourParticipantRow> {
+  const { data } = await http.post<TourParticipantRow>(`${env.tourAdminResource}/${tourId}/participants`, { clubId, groupe });
   return data;
 }
 

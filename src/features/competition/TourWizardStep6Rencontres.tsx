@@ -32,12 +32,14 @@ interface TourWizardStep6RencontresProps {
   competitionSeason: string;
   tourStartDate: string;
   tourDefaultHeure: string;
+  nbGroupe: number;
+  groupNames: string[];
   onError?: (message: string) => void;
 }
 
 interface PendingRencontre {
   date: string;
-  heure: string;
+  heure: string | null;
   domicile: string;
 }
 
@@ -76,7 +78,7 @@ function formatDateDisplay(value: unknown): string {
   return `${dd}/${mm}/${yyyy}`;
 }
 
-function normalizeHeure(value: string): string {
+function normalizeHeure(value: string | null | undefined): string {
   const trimmed = String(value ?? '').trim();
   const compact = /^([01]\d|2[0-3])([0-5]\d)$/.exec(trimmed);
   if (compact) {
@@ -114,18 +116,25 @@ function normalizeCircId(value: unknown): string {
   return String(value ?? '').trim();
 }
 
+function buildDefaultGroupNames(count: number): string[] {
+  return Array.from({ length: count }, (_, index) => `Groupe ${index + 1}`);
+}
+
 export function TourWizardStep6Rencontres({
   tourId,
   tourType,
   competitionSeason,
   tourStartDate,
   tourDefaultHeure,
+  nbGroupe,
+  groupNames,
   onError,
 }: TourWizardStep6RencontresProps) {
   const [participants, setParticipants] = useState<TourParticipantRow[]>([]);
   const [rencontres, setRencontres] = useState<TourMatchRow[]>([]);
   const [circOptions, setCircOptions] = useState<CircOptionRow[]>([]);
   const [selectedCircId, setSelectedCircId] = useState<string>('');
+  const [selectedGroup, setSelectedGroup] = useState<string>('');
   const [clubSelection, setClubSelection] = useState<GridRowId[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
   const [selectedRencontre, setSelectedRencontre] = useState<GridRowId[]>([]);
@@ -136,6 +145,25 @@ export function TourWizardStep6Rencontres({
   const participantsGridRef = useRef<HTMLDivElement | null>(null);
 
   const typeId = tourType === 'eliminatoire' ? 2 : 1;
+  const normalizedNbGroupe = Math.max(1, Number(nbGroupe) || 1);
+  const hasMultipleGroups = normalizedNbGroupe > 1;
+
+  const effectiveGroupNames = useMemo(() => {
+    if (!hasMultipleGroups) {
+      return [] as string[];
+    }
+
+    const names = groupNames
+      .map((value) => String(value ?? '').trim())
+      .filter((value) => value.length > 0);
+
+    if (names.length >= normalizedNbGroupe) {
+      return names.slice(0, normalizedNbGroupe);
+    }
+
+    const defaults = buildDefaultGroupNames(normalizedNbGroupe);
+    return defaults.map((defaultName, index) => names[index] ?? defaultName);
+  }, [groupNames, hasMultipleGroups, normalizedNbGroupe]);
 
   const reloadData = async () => {
     if (!Number.isInteger(tourId) || tourId <= 0) {
@@ -173,7 +201,19 @@ export function TourWizardStep6Rencontres({
     setSelectedClubId('');
     setClubSelection([]);
     setPending(null);
+    setSelectedGroup('');
   }, [tourId]);
+
+  useEffect(() => {
+    if (!hasMultipleGroups) {
+      setSelectedGroup('');
+      return;
+    }
+
+    if (selectedGroup && !effectiveGroupNames.includes(selectedGroup)) {
+      setSelectedGroup('');
+    }
+  }, [hasMultipleGroups, selectedGroup, effectiveGroupNames]);
 
   useEffect(() => {
     // A pending draft is tied to one circumstance; clear it when the selected circumstance changes.
@@ -207,12 +247,26 @@ export function TourWizardStep6Rencontres({
   }, [rencontres, selectedCircId]);
 
   const availableClubRows = useMemo(() => {
-    const rows = participants.filter((row) => !clubsLockedByRencontres.has(String(row.IDCLUB)));
+    let rows = participants.filter((row) => !clubsLockedByRencontres.has(String(row.IDCLUB)));
+
+    if (hasMultipleGroups) {
+      if (!selectedGroup) {
+        return [];
+      }
+      rows = rows.filter((row) => String(row.GROUPE ?? '').trim() === selectedGroup);
+    }
+
     if (pending?.domicile) {
       return rows.filter((row) => String(row.IDCLUB) !== pending.domicile);
     }
     return rows;
-  }, [participants, clubsLockedByRencontres, pending]);
+  }, [participants, clubsLockedByRencontres, pending, hasMultipleGroups, selectedGroup]);
+
+  useEffect(() => {
+    setSelectedClubId('');
+    setClubSelection([]);
+    setPending(null);
+  }, [selectedGroup]);
 
   useEffect(() => {
     if (!selectedClubId) return;
@@ -274,7 +328,7 @@ export function TourWizardStep6Rencontres({
       rows.push({
         RECLEUNIK: -1,
         DATE: pending.date,
-        HEURE: pending.heure,
+        HEURE: pending.heure ?? '',
         DOMICILE: pending.domicile,
         EXTERIEUR: '',
         DOMICILE_NOM: participantById.get(pending.domicile)?.CLUB ?? pending.domicile,
@@ -321,17 +375,18 @@ export function TourWizardStep6Rencontres({
     }
 
     const nextDate = normalizeDate(parseDateInput(newRow.DATE));
-    const nextHeure = normalizeHeure(newRow.HEURE);
+    const rawHeure = String(newRow.HEURE ?? '').trim();
+    const nextHeure = rawHeure ? normalizeHeure(rawHeure) : null;
 
     if (!nextDate) {
       throw new Error('Date invalide. Format attendu: DD/MM/YYYY.');
     }
-    if (!nextHeure) {
+    if (rawHeure && !nextHeure) {
       throw new Error('Heure invalide. Format attendu: HHhMM.');
     }
 
     const prevDate = normalizeDate(parseDateInput(oldRow.DATE));
-    const prevHeure = normalizeHeure(oldRow.HEURE);
+    const prevHeure = normalizeHeure(oldRow.HEURE) || null;
     const updatedRow: RencontresGridRow = { ...newRow, DATE: nextDate, HEURE: nextHeure };
 
     if (nextDate === prevDate && nextHeure === prevHeure) {
@@ -368,6 +423,11 @@ export function TourWizardStep6Rencontres({
   );
 
   const commitSelectedClub = async (explicitClubId?: string) => {
+    if (hasMultipleGroups && !selectedGroup) {
+      onError?.('Sélectionnez un groupe.');
+      return;
+    }
+
     const clubId = String(explicitClubId ?? selectedClubId ?? '').trim();
     if (!clubId) {
       onError?.('Sélectionnez un club.');
@@ -379,7 +439,7 @@ export function TourWizardStep6Rencontres({
         ? filteredRencontreRows[filteredRencontreRows.length - 1]
         : undefined;
       const startDate = normalizeDate(lastMatch?.DATE ?? '') || normalizeDate(tourStartDate) || new Date().toISOString().slice(0, 10);
-      const startHeure = normalizeHeure(lastMatch?.HEURE ?? '') || normalizeHeure(tourDefaultHeure) || '00:00';
+      const startHeure = normalizeHeure(lastMatch?.HEURE ?? '') || normalizeHeure(tourDefaultHeure) || null;
       setPending({
         date: startDate,
         heure: startHeure,
@@ -467,7 +527,7 @@ export function TourWizardStep6Rencontres({
     }
 
     event.preventDefault();
-    if (saving || loading) {
+    if (saving || loading || (hasMultipleGroups && !selectedGroup)) {
       return;
     }
 
@@ -485,20 +545,39 @@ export function TourWizardStep6Rencontres({
     <Stack spacing={1.5}>
       <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Rencontres</Typography>
 
-      <FormControl fullWidth size="small">
-        <InputLabel id="circ-select-label">Nom de la manche</InputLabel>
-        <Select
-          labelId="circ-select-label"
-          label="Nom de la manche"
-          value={selectedCircId}
-          onChange={(event) => setSelectedCircId(String(event.target.value ?? ''))}
-        >
-          <MenuItem value="">(Aucune)</MenuItem>
-          {circOptions.map((circ) => (
-            <MenuItem key={circ.IDCIRC} value={circ.IDCIRC}>{circ.CIRC}</MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+      <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1.25}>
+        {hasMultipleGroups ? (
+          <FormControl size="small" sx={{ width: { xs: '100%', lg: 320 } }}>
+            <InputLabel id="groupe-select-label">Nom du Groupe</InputLabel>
+            <Select
+              labelId="groupe-select-label"
+              label="Nom du Groupe"
+              value={selectedGroup}
+              onChange={(event) => setSelectedGroup(String(event.target.value ?? ''))}
+            >
+              <MenuItem value="">(Aucun)</MenuItem>
+              {effectiveGroupNames.map((groupName) => (
+                <MenuItem key={groupName} value={groupName}>{groupName}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        ) : null}
+
+        <FormControl fullWidth size="small">
+          <InputLabel id="circ-select-label">Nom de la Manche</InputLabel>
+          <Select
+            labelId="circ-select-label"
+            label="Nom de la Manche"
+            value={selectedCircId}
+            onChange={(event) => setSelectedCircId(String(event.target.value ?? ''))}
+          >
+            <MenuItem value="">(Aucune)</MenuItem>
+            {circOptions.map((circ) => (
+              <MenuItem key={circ.IDCIRC} value={circ.IDCIRC}>{circ.CIRC}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Stack>
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25} sx={{ minHeight: 0 }}>
         <Box sx={{ width: { xs: '100%', md: 300 }, minWidth: 0 }}>
@@ -518,7 +597,7 @@ export function TourWizardStep6Rencontres({
               selection={clubSelection}
               onRowDoubleClick={(rowId) => {
                 const id = String(rowId ?? '').trim();
-                if (!id || saving || loading) {
+                if (!id || saving || loading || (hasMultipleGroups && !selectedGroup)) {
                   return;
                 }
                 setSelectedClubId(id);
@@ -543,7 +622,7 @@ export function TourWizardStep6Rencontres({
                 startIcon={<AddCircleOutlineRoundedIcon />}
                 sx={{ minWidth: 0, px: 1.1 }}
                 onClick={() => void commitSelectedClub()}
-                disabled={saving || loading}
+                disabled={saving || loading || (hasMultipleGroups && !selectedGroup)}
               >
                 Ajouter
               </Button>

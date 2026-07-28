@@ -14,11 +14,12 @@ interface TourWizardStep4GroupesProps {
   nbMatch: number;
   onNbGroupeChange: (value: number) => void;
   onNbMatchChange: (value: number) => void;
+  onGroupNamesChange?: (value: string[]) => void;
   onError?: (message: string) => void;
 }
 
-type GroupNameBase = 'Division' | 'Groupe' | 'Ligue' | 'Poule';
-type GroupNumbering = 'custom' | 'alpha' | 'numeric';
+export type GroupNameBase = 'Division' | 'Groupe' | 'Ligue' | 'Poule';
+export type GroupNumbering = 'custom' | 'alpha' | 'numeric';
 
 interface GroupRow {
   id: number;
@@ -57,6 +58,7 @@ export function TourWizardStep4Groupes({
   nbMatch,
   onNbGroupeChange,
   onNbMatchChange,
+  onGroupNamesChange,
   onError,
 }: TourWizardStep4GroupesProps) {
   const [groupNameBase, setGroupNameBase] = useState<GroupNameBase>('Groupe');
@@ -179,6 +181,10 @@ export function TourWizardStep4Groupes({
     return nextRows;
   }, [normalizedNbGroupe, isCustomNaming, disableGroupConfig, customNames, groupNameBase, groupNumbering]);
 
+  useEffect(() => {
+    onGroupNamesChange?.(rows.map((row) => String(row.NOM_GROUPE ?? '').trim()));
+  }, [rows, onGroupNamesChange]);
+
   const columns = useMemo<GridColDef<GroupRow>[]>(
     () => [
       { field: 'NOM_GROUPE', headerName: 'Nom du groupe', flex: 1, minWidth: 200, editable: true },
@@ -268,36 +274,43 @@ export function TourWizardStep4Groupes({
         sx={{ width: { xs: '100%', md: 240 } }}
       />
 
-      <Box sx={{ height: 280, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-        <EntityDataGrid<GroupRow>
-          rows={rows}
-          columns={columns}
-          loading={tourDefLoading}
-          getRowId={(row) => row.id}
-          selection={selection}
-          onSelectionChange={setSelection}
-          editMode="cell"
-          isCellEditable={(params) => (
-            params.field === 'NOM_GROUPE'
-            && isCustomNaming
-            && !disableGroupConfig
-          )}
-          processRowUpdate={(newRow) => {
-            const id = Number(newRow.id);
-            if (id <= 0 || id > customNames.length) {
-              return newRow;
-            }
-            const rawName = String(newRow.NOM_GROUPE ?? '');
-            setCustomNames((prev) => {
-              const next = [...prev];
-              next[id - 1] = rawName;
-              return next;
-            });
-            return newRow;
-          }}
-          onProcessRowUpdateError={(error) => onError?.(toErrorMessage(error))}
-        />
-      </Box>
+      {normalizedNbGroupe > 1 ? (
+        <Stack spacing={0.75}>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            Liste des Groupes
+          </Typography>
+          <Box sx={{ height: 280, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+            <EntityDataGrid<GroupRow>
+              rows={rows}
+              columns={columns}
+              loading={tourDefLoading}
+              getRowId={(row) => row.id}
+              selection={selection}
+              onSelectionChange={setSelection}
+              editMode="cell"
+              isCellEditable={(params) => (
+                params.field === 'NOM_GROUPE'
+                && isCustomNaming
+                && !disableGroupConfig
+              )}
+              processRowUpdate={(newRow) => {
+                const id = Number(newRow.id);
+                if (id <= 0 || id > customNames.length) {
+                  return newRow;
+                }
+                const rawName = String(newRow.NOM_GROUPE ?? '');
+                setCustomNames((prev) => {
+                  const next = [...prev];
+                  next[id - 1] = rawName;
+                  return next;
+                });
+                return newRow;
+              }}
+              onProcessRowUpdateError={(error) => onError?.(toErrorMessage(error))}
+            />
+          </Box>
+        </Stack>
+      ) : null}
     </Stack>
   );
 }
