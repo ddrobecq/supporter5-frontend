@@ -56,6 +56,7 @@ import { CompetitionPage } from '../features/competition/CompetitionPage';
 import { CompetitionTabFormPane } from '../features/competition/CompetitionTabFormPane';
 import { JoueurPage } from '../features/joueur/JoueurPage';
 import { JoueurTabFormPane } from '../features/joueur/JoueurTabFormPane';
+import { RencontreTabFormPane } from '../features/rencontre/RencontreTabFormPane';
 
 const QUICK_ACTIONS = [
   { label: 'Joueurs', icon: <PersonRoundedIcon />, path: '/joueurs' },
@@ -110,6 +111,7 @@ const TAB_META: Record<string, TabMeta> = {
   '/admin/epreuve': { label: 'Épreuves', icon: <MilitaryTechIcon sx={{ fontSize: 14 }} /> },
   '/admin/competitions': { label: 'Competitions', icon: <EmojiEventsIcon sx={{ fontSize: 14 }} /> },
   '/admin/calendrier': { label: 'Calendrier', icon: <CalendarMonthIcon sx={{ fontSize: 14 }} /> },
+  '/admin/rencontres': { label: 'Rencontres', icon: <SportsSoccerRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/joueurs': { label: 'Joueurs', icon: <PersonRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/clubs': { label: 'Clubs', icon: <ShieldRoundedIcon sx={{ fontSize: 14 }} /> },
 };
@@ -275,6 +277,9 @@ function normalizeRoutePath(path: string): string {
 
 function resolveTabMetaPath(path: string): string {
   const normalized = normalizeRoutePath(path);
+  if (normalized.startsWith('/admin/rencontres/')) {
+    return '/admin/rencontres';
+  }
   for (const entity of PICKER_ENTITY_DEFINITIONS) {
     if (normalized.startsWith(`${entity.basePath}/`)) {
       return entity.basePath;
@@ -324,7 +329,10 @@ export function AdminLayout() {
   const isEpreuveActive = isEntityActive('epreuve');
   const isCompetitionActive = isEntityActive('competition');
   const activeTab = typeof activeTabKey === 'string' ? tabs.find((tab) => tab.key === activeTabKey) : undefined;
-  const isDynamicFormPath = (path: string) => PICKER_ENTITY_DEFINITIONS.some((entity) => path.startsWith(`${entity.basePath}/`));
+  const isDynamicFormPath = (path: string) => (
+    path.startsWith('/admin/rencontres/')
+    || PICKER_ENTITY_DEFINITIONS.some((entity) => path.startsWith(`${entity.basePath}/`))
+  );
   const activeTabIsDynamicForm = Boolean(activeTab?.path && isDynamicFormPath(activeTab.path)) || isDynamicFormPath(location.pathname);
 
   useEffect(() => {
@@ -878,6 +886,21 @@ export function AdminLayout() {
       </Box>
 
       <Box sx={{ p: { xs: 1.5, md: 2.5 } }}>
+        {tabs
+          .filter((tab) => tab.path.startsWith('/admin/rencontres/'))
+          .map((tab) => {
+            const encodedId = tab.path.slice('/admin/rencontres/'.length);
+            if (!encodedId) return null;
+            const decodedId = decodeURIComponent(encodedId);
+            return (
+              <RencontreTabFormPane
+                key={tab.key}
+                tabPath={tab.path}
+                rencontreId={decodedId}
+                active={activeTabKey === tab.key}
+              />
+            );
+          })}
         {PICKER_ENTITY_DEFINITIONS.flatMap((entity) => tabs
           .filter((tab) => tab.path.startsWith(`${entity.basePath}/`))
           .map((tab) => {

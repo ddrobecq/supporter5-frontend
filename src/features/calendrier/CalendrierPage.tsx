@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import { DataGrid, type GridColDef, type GridSortModel } from '@mui/x-data-grid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DateInputField, fromInputDateToDisplay, toInputDateFromDisplay } from '../../components/DateInputField';
 import { useEntityImage } from '../../lib/useEntityImage';
 import {
@@ -35,6 +36,7 @@ import { StatusCell } from './StatusCell';
 import type { CalendrierRow } from './types';
 
 const DEFAULT_SORT_MODEL: GridSortModel = [{ field: 'HEURE', sort: 'asc' }];
+const CALENDRIER_DATE_STORAGE_KEY = 'supporter:calendrier:selected-date';
 
 type RowSaveStatus = 'idle' | 'saving' | 'saved' | 'failed';
 
@@ -90,6 +92,19 @@ function formatInputDate(value: Date): string {
   const month = String(value.getMonth() + 1).padStart(2, '0');
   const day = String(value.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function getInitialCalendrierDate(): string {
+  const fallback = formatInputDate(new Date());
+  if (typeof window === 'undefined') {
+    return fallback;
+  }
+
+  const stored = window.sessionStorage.getItem(CALENDRIER_DATE_STORAGE_KEY) ?? '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(stored)) {
+    return stored;
+  }
+  return fallback;
 }
 
 function shiftDate(date: string, deltaDays: number): string {
@@ -267,8 +282,9 @@ function ClubCell({
 }
 
 export function CalendrierPage() {
-  const [date, setDate] = useState<string>(() => formatInputDate(new Date()));
-  const [dateDraft, setDateDraft] = useState<string>(() => fromInputDateToDisplay(formatInputDate(new Date())));
+  const navigate = useNavigate();
+  const [date, setDate] = useState<string>(() => getInitialCalendrierDate());
+  const [dateDraft, setDateDraft] = useState<string>(() => fromInputDateToDisplay(getInitialCalendrierDate()));
   const [rows, setRows] = useState<CalendrierRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -317,6 +333,13 @@ export function CalendrierPage() {
 
   useEffect(() => {
     setDateDraft(fromInputDateToDisplay(date));
+  }, [date]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    window.sessionStorage.setItem(CALENDRIER_DATE_STORAGE_KEY, date);
   }, [date]);
 
   const handleDateDraftChange = useCallback((nextDate: string) => {
@@ -858,6 +881,9 @@ export function CalendrierPage() {
               getRowId={(row) => row.RECLEUNIK}
               getRowClassName={(params) => rowStatusClass(Number(params.row.ETAT))}
               disableRowSelectionOnClick
+              onRowDoubleClick={(params) => {
+                navigate(`/admin/rencontres/${encodeURIComponent(String(params.row.RECLEUNIK ?? ''))}`);
+              }}
               disableColumnMenu
               density="compact"
               pageSizeOptions={[25, 50, 100]}

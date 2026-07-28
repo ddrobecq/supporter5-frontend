@@ -35,6 +35,10 @@ function RedirectByParam({ paramName, toPrefix }: RedirectByParamProps) {
   return <Navigate to={`${toPrefix}/${resolvedId}`} replace />;
 }
 
+function EmptyRoute() {
+  return null;
+}
+
 const ENTITY_ROUTES: EntityRouteDefinition[] = [
   { shortPath: 'joueurs', adminPath: 'admin/joueurs', paramName: 'joueurId', PageComponent: JoueurPage },
   { shortPath: 'clubs', adminPath: 'admin/clubs', paramName: 'clubId', PageComponent: ClubPage },
@@ -59,6 +63,8 @@ function App() {
           <Route path="/admin/home" element={<HomePage />} />
           <Route path="/calendrier" element={<Navigate to="/admin/calendrier" replace />} />
           <Route path="/admin/calendrier" element={<CalendrierPage />} />
+          <Route path="/rencontres/:rencontreId" element={<RedirectByParam paramName="rencontreId" toPrefix="/admin/rencontres" />} />
+          <Route path="/admin/rencontres/:rencontreId" element={<EmptyRoute />} />
           {ENTITY_ROUTES.map(({ shortPath, adminPath, paramName, PageComponent }) => (
             <Route key={adminPath}>
               <Route path={`/${shortPath}`} element={<Navigate to={`/${adminPath}`} replace />} />

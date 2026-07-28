@@ -1,0 +1,31 @@
+export interface RencontreDetailRow {
+  RECLEUNIK: number;
+  DATE: string | null;
+  HEURE: string | null;
+  ETAT: number;
+  DOMICILE: string;
+  EXTERIEUR: string;
+  BUTDOM: number;
+  BUTEXT: number;
+  TABDOM: number;
+  TABEXT: number;
+  IDCIRC: string | null;
+  TUCLEUNIK: number;
+  SAISON: string;
+  READMIN: number | null;
+  COMMENT: string | null;
+  VID_ID: number | null;
+  PADOMSource: string | null;
+  PAEXTSource: string | null;
+  COCLEUNIK: number;
+  TOUR_NOM: string;
+  TYPE_TOUR: number;
+  DOMICILE_ABREGE: string;
+  EXTERIEUR_ABREGE: string;
+  DOMICILE_FOND: string | number | null;
+  DOMICILE_TEXTE: string | number | null;
+  EXTERIEUR_FOND: string | number | null;
+  EXTERIEUR_TEXTE: string | number | null;
+  DOMICILE_NOM_EFFECTIF: string;
+  EXTERIEUR_NOM_EFFECTIF: string;
+}

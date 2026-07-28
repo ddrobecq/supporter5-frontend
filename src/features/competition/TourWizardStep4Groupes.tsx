@@ -118,7 +118,7 @@ export function TourWizardStep4Groupes({
 
     const allerRetour = Number(tourDef?.ALLER_RETOUR ?? 0) === 1;
     const computedDefault = allerRetour
-      ? Math.max(0, (2 * normalizedNbEquipe) - 1)
+      ? Math.max(0, (2 * normalizedNbEquipe) - 2)
       : Math.max(0, normalizedNbEquipe - 1);
 
     if (normalizeInteger(nbMatch) !== computedDefault) {
