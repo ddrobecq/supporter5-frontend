@@ -21,6 +21,7 @@ import { DateInputField, fromInputDateToDisplay, toInputDateFromDisplay } from '
 import { useEntityImage } from '../../lib/useEntityImage';
 import {
   fetchCalendarByDate,
+  fetchTourClassement,
   updateCalendarHeure,
   updateCalendarScore,
   updateCalendarStatus,
@@ -33,7 +34,7 @@ import {
 } from './HeureCell';
 import { ScoreCell, type ScoreDraft } from './ScoreCell';
 import { StatusCell } from './StatusCell';
-import type { CalendrierRow } from './types';
+import type { CalendrierRow, TourClassementRow } from './types';
 
 const DEFAULT_SORT_MODEL: GridSortModel = [{ field: 'HEURE', sort: 'asc' }];
 const CALENDRIER_DATE_STORAGE_KEY = 'supporter:calendrier:selected-date';
@@ -155,6 +156,31 @@ function areScoreDraftsEqual(left: ScoreDraft, right: ScoreDraft): boolean {
 
 function canEditScore(etat: number): boolean {
   return etat !== 4 && etat !== 5;
+}
+
+function resolveCompetitionSeasonLabel(saison: unknown, coAnnee: unknown): string {
+  const season = String(saison ?? '').trim();
+  if (!season) return '';
+  if (Number(coAnnee) === 1) {
+    const match = season.match(/^(\d{4})-(\d{4})$/);
+    if (match) return match[1];
+  }
+  return season;
+}
+
+function buildClassementBlockLabel(row: CalendrierRow | null): string {
+  if (!row) return '';
+
+  const circ = String(row.CIRC ?? '').trim();
+  const tour = String(row.TOUR_NOM ?? '').trim();
+  const competition = String(row.COMPET_NOM ?? '').trim();
+  const season = resolveCompetitionSeasonLabel(row.SAISON, row.CO_ANNEE);
+  const competitionWithSeason = [competition, season].filter((part) => part.length > 0).join(' ');
+
+  const core = [tour, competitionWithSeason].filter((part) => part.length > 0).join(' de ');
+  if (!core) return '';
+  if (!circ) return core;
+  return `${circ} de ${core}`;
 }
 
 function parseRowDateTime(dateValue: string, heureValue: string): Date | null {
@@ -281,6 +307,74 @@ function ClubCell({
   );
 }
 
+function ClassementClubCell({
+  clubId,
+  clubName,
+}: {
+  clubId: string;
+  clubName: string;
+}) {
+  const { src } = useEntityImage('club', clubId);
+
+  return (
+    <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', minWidth: 0 }}>
+      <Box
+        sx={{
+          width: 18,
+          height: 18,
+          minWidth: 18,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          mr: 0.75,
+          flexShrink: 0,
+        }}
+      >
+        {src ? (
+          <Box
+            component="img"
+            src={src}
+            alt={clubName}
+            sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+          />
+        ) : (
+          <ShieldOutlinedIcon sx={{ fontSize: 15, color: 'text.disabled' }} />
+        )}
+      </Box>
+      <Box sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+        {clubName}
+      </Box>
+    </Box>
+  );
+}
+
+function normalizeGroupName(value: unknown): string {
+  return String(value ?? '').trim();
+}
+
+function hasMultipleGroups(rows: TourClassementRow[]): boolean {
+  const groups = new Set(
+    rows
+      .map((row) => normalizeGroupName(row.GROUPE))
+      .filter((group) => group.length > 0),
+  );
+  return groups.size > 1;
+}
+
+function resolveMatchGroup(rows: TourClassementRow[], match: CalendrierRow | null): string | null {
+  if (!match) return null;
+  const domId = String(match.DOMICILE ?? '').trim();
+  const extId = String(match.EXTERIEUR ?? '').trim();
+
+  const domGroup = normalizeGroupName(rows.find((row) => String(row.IDCLUB ?? '').trim() === domId)?.GROUPE);
+  const extGroup = normalizeGroupName(rows.find((row) => String(row.IDCLUB ?? '').trim() === extId)?.GROUPE);
+
+  if (domGroup && extGroup && domGroup === extGroup) return domGroup;
+  if (domGroup) return domGroup;
+  if (extGroup) return extGroup;
+  return null;
+}
+
 export function CalendrierPage() {
   const navigate = useNavigate();
   const [date, setDate] = useState<string>(() => getInitialCalendrierDate());
@@ -297,18 +391,56 @@ export function CalendrierPage() {
   const [statusDraft, setStatusDraft] = useState<number>(5);
   const [rowModified, setRowModified] = useState<Record<string, boolean>>({});
   const [sortModel, setSortModel] = useState(DEFAULT_SORT_MODEL);
+  const [selectedRowId, setSelectedRowId] = useState<string | number | null>(null);
+  const [classementRows, setClassementRows] = useState<TourClassementRow[]>([]);
+  const [classementLoading, setClassementLoading] = useState(false);
+  const [classementTourId, setClassementTourId] = useState<number | null>(null);
+  const [classementGroup, setClassementGroup] = useState<string | null>(null);
   const savingScoreRowIdRef = useRef<string | number | null>(null);
   const savedIconTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const classementCacheRef = useRef<Map<number, TourClassementRow[]>>(new Map());
+  const classementRequestTokenRef = useRef(0);
   const gridWrapperRef = useRef<HTMLDivElement | null>(null);
   const [statusAnchors, setStatusAnchors] = useState<StatusAnchor[]>([]);
   const scoreInitialDraftRef = useRef<ScoreDraft | null>(null);
   const heureInitialDraftRef = useRef<string>('');
   const statusInitialValueRef = useRef<number | null>(null);
+  const previousTourGroupRef = useRef<{ tourId: number | null; group: string | null }>({ tourId: null, group: null });
 
   const isDefaultHeureSort =
     sortModel.length === 1 && sortModel[0].field === 'HEURE' && sortModel[0].sort === 'asc';
 
   const orderedRows = useMemo(() => getSortedRows(rows, sortModel), [rows, sortModel]);
+  const selectedRow = useMemo(
+    () => rows.find((row) => String(row.RECLEUNIK) === String(selectedRowId ?? '')) ?? null,
+    [rows, selectedRowId],
+  );
+  const activeTourId = useMemo(() => {
+    const candidate = Number(selectedRow?.TUCLEUNIK ?? 0);
+    if (!Number.isInteger(candidate) || candidate <= 0) {
+      return null;
+    }
+    return candidate;
+  }, [selectedRow]);
+  const classementHasMultipleGroups = useMemo(() => hasMultipleGroups(classementRows), [classementRows]);
+  const selectedMatchGroup = useMemo(
+    () => resolveMatchGroup(classementRows, selectedRow),
+    [classementRows, selectedRow],
+  );
+  const classementBlockLabel = useMemo(
+    () => buildClassementBlockLabel(selectedRow),
+    [selectedRow],
+  );
+  const displayedClassementRows = useMemo(() => {
+    if (!classementHasMultipleGroups || !classementGroup) {
+      return classementRows;
+    }
+    return classementRows.filter((row) => normalizeGroupName(row.GROUPE) === classementGroup);
+  }, [classementHasMultipleGroups, classementGroup, classementRows]);
+  const useRatioGoalAverage = useMemo(
+    () => Number(classementRows[0]?.TDCalculDiffBut ?? 1) === 2,
+    [classementRows],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -325,6 +457,92 @@ export function CalendrierPage() {
 
     return () => controller.abort();
   }, [date]);
+
+  const loadClassementForTour = useCallback(async (tourId: number, force = false) => {
+    if (!Number.isInteger(tourId) || tourId <= 0) {
+      setClassementRows([]);
+      setClassementTourId(null);
+      return;
+    }
+
+    if (!force) {
+      const cached = classementCacheRef.current.get(tourId);
+      if (cached) {
+        setClassementRows(cached);
+        setClassementTourId(tourId);
+        return;
+      }
+    }
+
+    const token = ++classementRequestTokenRef.current;
+    setClassementLoading(true);
+    try {
+      const data = await fetchTourClassement(tourId);
+      if (token !== classementRequestTokenRef.current) {
+        return;
+      }
+      classementCacheRef.current.set(tourId, data);
+      setClassementRows(data);
+      setClassementTourId(tourId);
+    } catch {
+      if (token !== classementRequestTokenRef.current) {
+        return;
+      }
+      setError('Impossible de charger le classement du tour.');
+      setClassementRows([]);
+      setClassementTourId(null);
+    } finally {
+      if (token === classementRequestTokenRef.current) {
+        setClassementLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (rows.length === 0) {
+      setSelectedRowId(null);
+      setClassementRows([]);
+      setClassementTourId(null);
+      return;
+    }
+
+    const currentExists = rows.some((row) => String(row.RECLEUNIK) === String(selectedRowId ?? ''));
+    if (!currentExists) {
+      setSelectedRowId(rows[0].RECLEUNIK);
+    }
+  }, [rows, selectedRowId]);
+
+  useEffect(() => {
+    if (activeTourId == null) {
+      setClassementRows([]);
+      setClassementTourId(null);
+      setClassementGroup(null);
+      return;
+    }
+
+    void loadClassementForTour(activeTourId, false);
+  }, [activeTourId, loadClassementForTour]);
+
+  useEffect(() => {
+    if (activeTourId == null) {
+      previousTourGroupRef.current = { tourId: null, group: null };
+      setClassementGroup(null);
+      return;
+    }
+
+    const nextGroup = classementHasMultipleGroups ? selectedMatchGroup : null;
+    setClassementGroup(nextGroup);
+
+    const previous = previousTourGroupRef.current;
+    const sameTour = previous.tourId === activeTourId;
+    const groupChanged = previous.group !== nextGroup;
+
+    previousTourGroupRef.current = { tourId: activeTourId, group: nextGroup };
+
+    if (sameTour && groupChanged && nextGroup) {
+      void loadClassementForTour(activeTourId, true);
+    }
+  }, [activeTourId, classementHasMultipleGroups, selectedMatchGroup, loadClassementForTour]);
 
   useEffect(() => () => {
     Object.values(savedIconTimersRef.current).forEach((timer) => clearTimeout(timer));
@@ -555,6 +773,9 @@ export function CalendrierPage() {
           ? { ...item, ETAT: effectiveStatus }
           : item
       )));
+      if (activeTourId != null && Number(row.TUCLEUNIK) === activeTourId) {
+        void loadClassementForTour(activeTourId, true);
+      }
       setRowStatusWithAutoHide(rowId, 'saved');
     } catch {
       setError('Impossible d\'enregistrer le statut.');
@@ -678,6 +899,9 @@ export function CalendrierPage() {
             }
           : item
       )));
+      if (activeTourId != null && Number(row.TUCLEUNIK) === activeTourId) {
+        void loadClassementForTour(activeTourId, true);
+      }
       setRowStatusWithAutoHide(rowId, 'saved');
     } catch {
       setError('Impossible d\'enregistrer le score.');
@@ -809,6 +1033,120 @@ export function CalendrierPage() {
     },
   ], [editingHeureRowId, editingScoreRowId, editingStatusRowId, heureDraftDigits, rowModified, scoreDraft, statusDraft]);
 
+  const classementColumns = useMemo<GridColDef<TourClassementRow>[]>(() => {
+    const columns: GridColDef<TourClassementRow>[] = [
+    {
+      field: 'PAClassement',
+      headerName: '#',
+      width: 50,
+      align: 'center',
+      headerAlign: 'center',
+      valueGetter: (_value, row) => Number(row.PAClassement ?? 0),
+    },
+    {
+      field: 'CLUB',
+      headerName: 'Club',
+      flex: 1,
+      minWidth: 130,
+      renderCell: (params) => (
+        <ClassementClubCell
+          clubId={String(params.row.IDCLUB ?? '')}
+          clubName={String(params.row.CLUB ?? '')}
+        />
+      ),
+    },
+    {
+      field: 'PANbPoints',
+      headerName: 'Pts',
+      width: 56,
+      align: 'center',
+      headerAlign: 'center',
+      valueGetter: (_value, row) => Number(row.PANbPoints ?? 0),
+    },
+    {
+      field: 'PANbMatch',
+      headerName: 'J',
+      width: 48,
+      align: 'center',
+      headerAlign: 'center',
+      valueGetter: (_value, row) => Number(row.PANbMatch ?? 0),
+    },
+    {
+      field: 'PANbV',
+      headerName: 'V',
+      width: 48,
+      align: 'center',
+      headerAlign: 'center',
+      valueGetter: (_value, row) => Number(row.PANbVD ?? 0) + Number(row.PANbVE ?? 0),
+    },
+    {
+      field: 'PANbN',
+      headerName: 'N',
+      width: 48,
+      align: 'center',
+      headerAlign: 'center',
+      valueGetter: (_value, row) => Number(row.PANbND ?? 0) + Number(row.PANbNE ?? 0),
+    },
+    {
+      field: 'PANbD',
+      headerName: 'D',
+      width: 48,
+      align: 'center',
+      headerAlign: 'center',
+      valueGetter: (_value, row) => Number(row.PANbDD ?? 0) + Number(row.PANbDE ?? 0),
+    },
+    {
+      field: 'PANbBP',
+      headerName: 'BP',
+      width: 52,
+      align: 'center',
+      headerAlign: 'center',
+      valueGetter: (_value, row) => Number(row.PANbBP ?? 0),
+    },
+    {
+      field: 'PANbBC',
+      headerName: 'BC',
+      width: 52,
+      align: 'center',
+      headerAlign: 'center',
+      valueGetter: (_value, row) => Number(row.PANbBC ?? 0),
+    },
+    {
+      field: 'PADiff',
+      headerName: 'Diff',
+      width: 56,
+      align: 'center',
+      headerAlign: 'center',
+      valueGetter: (_value, row) => Number(row.PADiff ?? 0),
+      valueFormatter: (value) => {
+        const numeric = Number(value ?? 0);
+        if (!Number.isFinite(numeric)) return '0';
+        if (numeric > 0) return `+${numeric}`;
+        return String(numeric);
+      },
+    },
+    {
+      field: 'PARatio',
+      headerName: 'Ratio',
+      width: 64,
+      align: 'center',
+      headerAlign: 'center',
+      valueGetter: (_value, row) => Number(row.PARatio ?? 0),
+      valueFormatter: (value) => {
+        const numeric = Number(value ?? 0);
+        if (!Number.isFinite(numeric)) return '0';
+        return numeric.toFixed(2);
+      },
+    },
+  ];
+
+    return columns.filter((column) => {
+      if (column.field === 'PADiff') return !useRatioGoalAverage;
+      if (column.field === 'PARatio') return useRatioGoalAverage;
+      return true;
+    });
+  }, [useRatioGoalAverage]);
+
   return (
     <Stack spacing={2}>
       <Stack
@@ -879,8 +1217,15 @@ export function CalendrierPage() {
               sortModel={sortModel}
               onSortModelChange={(model) => setSortModel(model)}
               getRowId={(row) => row.RECLEUNIK}
-              getRowClassName={(params) => rowStatusClass(Number(params.row.ETAT))}
+              getRowClassName={(params) => {
+                const statusClass = rowStatusClass(Number(params.row.ETAT));
+                const isSelected = String(params.row.RECLEUNIK) === String(selectedRowId ?? '');
+                return isSelected ? `${statusClass} selected-calendar-row` : statusClass;
+              }}
               disableRowSelectionOnClick
+              onRowClick={(params) => {
+                setSelectedRowId(params.row.RECLEUNIK);
+              }}
               onRowDoubleClick={(params) => {
                 navigate(`/admin/rencontres/${encodeURIComponent(String(params.row.RECLEUNIK ?? ''))}`);
               }}
@@ -899,6 +1244,9 @@ export function CalendrierPage() {
                 '& .MuiDataGrid-row.status-en-attente .MuiDataGrid-cell': { color: 'text.secondary' },
                 '& .MuiDataGrid-row.status-programmee .MuiDataGrid-cell': { color: 'text.secondary' },
                 '& .MuiDataGrid-row.status-non-jouee .MuiDataGrid-cell': { color: 'text.disabled' },
+                '& .MuiDataGrid-row.selected-calendar-row': {
+                  backgroundColor: 'action.hover',
+                },
                 ...(isDefaultHeureSort
                   ? {
                       '& .MuiDataGrid-columnHeader[data-field="HEURE"] .MuiDataGrid-iconButtonContainer': {
@@ -947,6 +1295,32 @@ export function CalendrierPage() {
               ))}
             </Box>
           </Box>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <Stack spacing={1.25}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {activeTourId == null
+                ? 'Sélectionnez un match dans la liste du calendrier pour afficher le classement.'
+                : `${classementBlockLabel || 'Classement du tour'}${classementTourId === activeTourId ? '' : ' - chargement...'}`}
+            </Typography>
+
+            <Box sx={{ height: 320, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+              <DataGrid
+                rows={displayedClassementRows}
+                columns={classementColumns}
+                loading={classementLoading}
+                getRowId={(row) => row.PACLEUNIK}
+                disableColumnMenu
+                disableRowSelectionOnClick
+                hideFooter
+                density="compact"
+                sx={{ width: '100%' }}
+              />
+            </Box>
+          </Stack>
         </CardContent>
       </Card>
     </Stack>

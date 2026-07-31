@@ -28,6 +28,7 @@ export type JoueurRow = Record<string, unknown>;
 export interface PosteOption {
   POS_ID: number;
   POS_NOM: string;
+  POS_TYPE?: number;
 }
 
 export interface IntegrityConstraint {

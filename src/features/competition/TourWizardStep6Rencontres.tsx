@@ -14,6 +14,7 @@ import {
 import { type GridColDef, type GridRowId } from '@mui/x-data-grid';
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
+import { formatDateShort } from '../../components/DateInputField';
 import { toErrorMessage } from '../../components/useEntityPage';
 import {
   type CreateTourMatchPayload,
@@ -70,12 +71,7 @@ function parseDateInput(value: unknown): string {
 }
 
 function formatDateDisplay(value: unknown): string {
-  const dbDate = parseDateInput(value);
-  if (!dbDate) {
-    return String(value ?? '').trim();
-  }
-  const [yyyy, mm, dd] = dbDate.split('-');
-  return `${dd}/${mm}/${yyyy}`;
+  return formatDateShort(value);
 }
 
 function normalizeHeure(value: string | null | undefined): string {

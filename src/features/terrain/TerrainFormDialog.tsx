@@ -6,7 +6,7 @@ import {
   TextField,
 } from '@mui/material';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import type { TerrainRow } from './types';
@@ -22,6 +22,7 @@ interface TerrainFormDialogProps {
   onDirtyChange?: (dirty: boolean) => void;
   onClose: () => void;
   onSubmit: (payload: TerrainRow) => Promise<void>;
+  saveCount?: number;
 }
 
 export function TerrainFormDialog({
@@ -34,6 +35,7 @@ export function TerrainFormDialog({
   onDirtyChange,
   onClose,
   onSubmit,
+  saveCount = 0,
 }: TerrainFormDialogProps) {
   const [values, setValues] = useState<TerrainRow>({});
   const [saving, setSaving] = useState(false);
@@ -103,6 +105,10 @@ export function TerrainFormDialog({
       setSaving(false);
     }
   };
+
+  const handleSaveRef = useRef(handleSave);
+  handleSaveRef.current = handleSave;
+  useEffect(() => { if (saveCount > 0) void handleSaveRef.current(); }, [saveCount]);
 
   const handleVilleSelect = (ville: Record<string, unknown>) => {
     // Update both IDVILLE and VILLE_NOM when selecting a ville

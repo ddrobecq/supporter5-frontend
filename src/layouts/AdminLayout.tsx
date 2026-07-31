@@ -16,11 +16,13 @@ import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import StadiumRoundedIcon from '@mui/icons-material/StadiumRounded';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
 import SportsIcon from '@mui/icons-material/Sports';
+import RuleRoundedIcon from '@mui/icons-material/RuleRounded';
 import {
   AppBar,
   Box,
   Button,
   Dialog,
+  DialogActions,
   DialogContent,
   DialogTitle,
   IconButton,
@@ -36,6 +38,7 @@ import type { GridRowId } from '@mui/x-data-grid';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { authStore } from '../features/auth/authStore';
+import { emitTabSaveRequest } from '../lib/useTabMetaEvents';
 import { NatioPage } from '../features/natio/NatioPage';
 import { NatioTabFormPane } from '../features/natio/NatioTabFormPane';
 import { VillePage } from '../features/ville/VillePage';
@@ -54,6 +57,8 @@ import { EpreuvePage } from '../features/epreuve/EpreuvePage';
 import { EpreuveTabFormPane } from '../features/epreuve/EpreuveTabFormPane';
 import { CompetitionPage } from '../features/competition/CompetitionPage';
 import { CompetitionTabFormPane } from '../features/competition/CompetitionTabFormPane';
+import { TourDefPage } from '../features/tourdef/TourDefPage';
+import { TourDefTabFormPane } from '../features/tourdef/TourDefTabFormPane';
 import { JoueurPage } from '../features/joueur/JoueurPage';
 import { JoueurTabFormPane } from '../features/joueur/JoueurTabFormPane';
 import { RencontreTabFormPane } from '../features/rencontre/RencontreTabFormPane';
@@ -82,7 +87,7 @@ interface TabMeta {
   icon: ReactNode;
 }
 
-type PickerEntityKey = 'joueur' | 'arbitre' | 'epreuve' | 'competition' | 'club' | 'natio' | 'ville' | 'terrain' | 'devise' | 'circ';
+type PickerEntityKey = 'joueur' | 'arbitre' | 'epreuve' | 'competition' | 'tourdef' | 'club' | 'natio' | 'ville' | 'terrain' | 'devise' | 'circ';
 
 interface PickerOpenPayload {
   rowId: GridRowId;
@@ -110,6 +115,7 @@ const TAB_META: Record<string, TabMeta> = {
   '/admin/circ': { label: 'Circonstances', icon: <EventNoteRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/epreuve': { label: 'Épreuves', icon: <MilitaryTechIcon sx={{ fontSize: 14 }} /> },
   '/admin/competitions': { label: 'Competitions', icon: <EmojiEventsIcon sx={{ fontSize: 14 }} /> },
+  '/admin/tourdefs': { label: 'Defs Tour', icon: <RuleRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/calendrier': { label: 'Calendrier', icon: <CalendarMonthIcon sx={{ fontSize: 14 }} /> },
   '/admin/rencontres': { label: 'Rencontres', icon: <SportsSoccerRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/joueurs': { label: 'Joueurs', icon: <PersonRoundedIcon sx={{ fontSize: 14 }} /> },
@@ -165,6 +171,18 @@ const PICKER_ENTITY_DEFINITIONS: PickerEntityDefinition[] = [
     renderPage: (onOpenInTab) => <CompetitionPage variant="modalPicker" onOpenInTab={onOpenInTab} />,
     renderTabPane: ({ tab, decodedId, active }) => (
       <CompetitionTabFormPane key={tab.key} tabPath={tab.path} competitionId={decodedId} active={active} />
+    ),
+  },
+  {
+    key: 'tourdef',
+    basePath: '/admin/tourdefs',
+    shortPath: '/tourdefs',
+    modalTitle: 'Selectionner une Definition de Tour',
+    closeAriaLabel: 'Fermer la liste des definitions de tour',
+    titleIcon: <RuleRoundedIcon sx={{ fontSize: 18 }} />,
+    renderPage: (onOpenInTab) => <TourDefPage variant="modalPicker" onOpenInTab={onOpenInTab} />,
+    renderTabPane: ({ tab, decodedId, active }) => (
+      <TourDefTabFormPane key={tab.key} tabPath={tab.path} tourDefId={decodedId} active={active} />
     ),
   },
   {
@@ -263,6 +281,8 @@ function normalizeRoutePath(path: string): string {
       return '/admin/epreuve';
     case '/competitions':
       return '/admin/competitions';
+    case '/tourdefs':
+      return '/admin/tourdefs';
     case '/calendrier':
       return '/admin/calendrier';
     case '/joueurs':
@@ -298,6 +318,8 @@ export function AdminLayout() {
   const [compactSearchAction, setCompactSearchAction] = useState(false);
   const [pickerModal, setPickerModal] = useState<PickerEntityKey | null>(null);
   const [dirtyTabsByPath, setDirtyTabsByPath] = useState<Record<string, boolean>>({});
+  const [closeConfirmTabKey, setCloseConfirmTabKey] = useState<string | null>(null);
+  const [savingBeforeClose, setSavingBeforeClose] = useState(false);
   const tabCounterRef = useRef(0);
   const [tabs, setTabs] = useState<NavTab[]>([
     {
@@ -328,6 +350,7 @@ export function AdminLayout() {
   const isCircActive = isEntityActive('circ');
   const isEpreuveActive = isEntityActive('epreuve');
   const isCompetitionActive = isEntityActive('competition');
+  const isTourDefActive = isEntityActive('tourdef');
   const activeTab = typeof activeTabKey === 'string' ? tabs.find((tab) => tab.key === activeTabKey) : undefined;
   const isDynamicFormPath = (path: string) => (
     path.startsWith('/admin/rencontres/')
@@ -340,7 +363,7 @@ export function AdminLayout() {
     if (!row) return;
 
     const updateCompactState = () => {
-      const buttonCount = 9 + QUICK_ACTIONS.length;
+      const buttonCount = 10 + QUICK_ACTIONS.length;
       const spacingPx = 8;
       const totalSpacing = spacingPx * Math.max(0, buttonCount - 1);
       const widthPerButton = (Math.max(0, row.clientWidth) - totalSpacing) / buttonCount;
@@ -415,11 +438,9 @@ export function AdminLayout() {
     navigate(normalizedPath);
   };
 
-  const closeTab = (tabKey: string) => {
+  const doCloseTab = (tabKey: string) => {
     const tab = tabs.find((item) => item.key === tabKey);
-    if (!tab || !tab.closable) {
-      return;
-    }
+    if (!tab) return;
 
     const currentIndex = tabs.findIndex((item) => item.key === tabKey);
     const fallbackTab = tabs[currentIndex - 1] ?? tabs[currentIndex + 1] ?? tabs.find((item) => item.key === HOME_TAB_KEY);
@@ -439,6 +460,16 @@ export function AdminLayout() {
         setActiveTabKey(false);
       }
     }
+  };
+
+  const closeTab = (tabKey: string) => {
+    const tab = tabs.find((item) => item.key === tabKey);
+    if (!tab || !tab.closable) return;
+    if (dirtyTabsByPath[tab.path]) {
+      setCloseConfirmTabKey(tabKey);
+      return;
+    }
+    doCloseTab(tabKey);
   };
 
   useEffect(() => {
@@ -471,6 +502,22 @@ export function AdminLayout() {
     window.addEventListener('supporter:tab-label', handler);
     return () => window.removeEventListener('supporter:tab-label', handler);
   }, []);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<{ path?: string }>;
+      const path = customEvent.detail?.path;
+      if (!path || !closeConfirmTabKey) return;
+      const confirmTab = tabs.find((item) => item.key === closeConfirmTabKey);
+      if (!confirmTab || normalizeRoutePath(confirmTab.path) !== normalizeRoutePath(path)) return;
+      setSavingBeforeClose(false);
+      setCloseConfirmTabKey(null);
+      doCloseTab(closeConfirmTabKey);
+    };
+
+    window.addEventListener('supporter:tab-save-done', handler);
+    return () => window.removeEventListener('supporter:tab-save-done', handler);
+  }, [closeConfirmTabKey, tabs]);
 
   const handleOpenPickerEntityInTab = (entityKey: PickerEntityKey) => ({ rowId, label }: PickerOpenPayload) => {
     const entity = pickerDefinitionByKey.get(entityKey);
@@ -726,6 +773,24 @@ export function AdminLayout() {
               </Button>
             </Tooltip>
 
+            <Tooltip title="Defs Tour" disableHoverListener={!compactNavButtons}>
+              <Button
+                size="small"
+                variant={isTourDefActive ? 'contained' : 'outlined'}
+                color={isTourDefActive ? 'primary' : 'inherit'}
+                startIcon={compactNavButtons ? undefined : <RuleRoundedIcon />}
+                sx={{
+                  minWidth: 36,
+                  px: compactNavButtons ? 1 : 1.25,
+                  '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
+                }}
+                aria-label="Definitions de Tour"
+                onClick={() => setPickerModal('tourdef')}
+              >
+                {compactNavButtons ? <RuleRoundedIcon /> : 'Defs Tour'}
+              </Button>
+            </Tooltip>
+
             <Tooltip title="Calendrier" disableHoverListener={!compactNavButtons}>
               <Button
                 size="small"
@@ -945,6 +1010,50 @@ export function AdminLayout() {
             </DialogContent>
           </>
         ) : null}
+      </Dialog>
+
+      <Dialog
+        open={Boolean(closeConfirmTabKey)}
+        onClose={() => { if (!savingBeforeClose) setCloseConfirmTabKey(null); }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Modifications non enregistrees</DialogTitle>
+        <DialogContent>
+          Voulez-vous enregistrer les modifications avant de fermer cet onglet ?
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setCloseConfirmTabKey(null)}
+            disabled={savingBeforeClose}
+            color="inherit"
+          >
+            Annuler
+          </Button>
+          <Button
+            onClick={() => {
+              if (!closeConfirmTabKey) return;
+              doCloseTab(closeConfirmTabKey);
+              setCloseConfirmTabKey(null);
+            }}
+            disabled={savingBeforeClose}
+            color="error"
+          >
+            Fermer sans enregistrer
+          </Button>
+          <Button
+            variant="contained"
+            disabled={savingBeforeClose}
+            onClick={() => {
+              const confirmTab = tabs.find((item) => item.key === closeConfirmTabKey);
+              if (!confirmTab) return;
+              setSavingBeforeClose(true);
+              emitTabSaveRequest(confirmTab.path);
+            }}
+          >
+            {savingBeforeClose ? 'Enregistrement...' : 'Enregistrer et fermer'}
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );

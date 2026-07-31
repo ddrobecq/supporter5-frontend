@@ -22,7 +22,7 @@ import {
   useTheme,
 } from '@mui/material';
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { DateInputField } from '../../components/DateInputField';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
@@ -45,6 +45,7 @@ interface JoueurFormDialogProps {
   onDirtyChange?: (dirty: boolean) => void;
   onClose: () => void;
   onSubmit: (payload: JoueurRow) => Promise<void>;
+  saveCount?: number;
 }
 
 type VilleTarget = 'birth' | 'death';
@@ -98,6 +99,7 @@ export function JoueurFormDialog({
   onDirtyChange,
   onClose,
   onSubmit,
+  saveCount = 0,
 }: JoueurFormDialogProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -567,6 +569,10 @@ export function JoueurFormDialog({
       setSaving(false);
     }
   };
+
+  const handleSaveRef = useRef(handleSave);
+  handleSaveRef.current = handleSave;
+  useEffect(() => { if (saveCount > 0) void handleSaveRef.current(); }, [saveCount]);
 
   const content = (
     <>

@@ -17,11 +17,13 @@ export async function fetchJoueursGrid(
   season: string,
   search: string,
   signal?: AbortSignal,
+  posType?: number,
 ): Promise<JoueurGridRow[]> {
   const { data } = await http.get<GridResponse<JoueurGridRow>>(`${env.joueurPublicResource}/grid`, {
     params: {
       season,
       ...(search ? { search } : {}),
+      ...(posType != null ? { posType } : {}),
     },
     signal,
   });

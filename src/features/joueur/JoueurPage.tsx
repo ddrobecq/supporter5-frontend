@@ -32,9 +32,11 @@ function detectSelectedRow(rows: JoueurGridRow[], selection: GridRowId[]): Joueu
 interface JoueurPageProps {
   variant?: 'page' | 'modalPicker';
   onOpenInTab?: (payload: { rowId: GridRowId; label: string }) => void;
+  filterPosteType?: number;
+  initialSeason?: string;
 }
 
-export function JoueurPage({ variant = 'page', onOpenInTab }: JoueurPageProps) {
+export function JoueurPage({ variant = 'page', onOpenInTab, filterPosteType, initialSeason }: JoueurPageProps) {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const actionButtonsRowRef = useRef<HTMLDivElement | null>(null);
   const [compactActionButtons, setCompactActionButtons] = useState(false);
@@ -129,8 +131,11 @@ export function JoueurPage({ variant = 'page', onOpenInTab }: JoueurPageProps) {
     void fetchSaisons(controller.signal)
       .then((data) => {
         setSeasons(data);
-        if (!selectedSeason && data.length > 0) {
-          setSelectedSeason(String(data[0].SAISON ?? ''));
+        if (!selectedSeason) {
+          const target = initialSeason && data.some((s) => String(s.SAISON) === initialSeason)
+            ? initialSeason
+            : data.length > 0 ? String(data[0].SAISON ?? '') : '';
+          setSelectedSeason(target);
         }
       })
       .catch((error: unknown) => {
@@ -160,7 +165,7 @@ export function JoueurPage({ variant = 'page', onOpenInTab }: JoueurPageProps) {
     const controller = new AbortController();
     const timeout = window.setTimeout(() => {
       setLoading(true);
-      void fetchJoueursGrid(selectedSeason, search.trim(), controller.signal)
+      void fetchJoueursGrid(selectedSeason, search.trim(), controller.signal, filterPosteType)
         .then((data) => {
           setRows(data);
           setSelection([]);
@@ -222,7 +227,7 @@ export function JoueurPage({ variant = 'page', onOpenInTab }: JoueurPageProps) {
     if (!selectedSeason) return;
     setLoading(true);
     try {
-      const data = await fetchJoueursGrid(selectedSeason, search.trim());
+      const data = await fetchJoueursGrid(selectedSeason, search.trim(), undefined, filterPosteType);
       setRows(data);
       setSelection([]);
     } catch (error) {

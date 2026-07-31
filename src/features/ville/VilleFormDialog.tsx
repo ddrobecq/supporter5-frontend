@@ -5,7 +5,7 @@ import {
   Stack,
   TextField,
 } from '@mui/material';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import type { VilleRow } from './types';
@@ -22,6 +22,7 @@ interface VilleFormDialogProps {
   onDirtyChange?: (dirty: boolean) => void;
   onClose: () => void;
   onSubmit: (payload: VilleRow) => Promise<void>;
+  saveCount?: number;
 }
 
 export function VilleFormDialog({
@@ -35,6 +36,7 @@ export function VilleFormDialog({
   onDirtyChange,
   onClose,
   onSubmit,
+  saveCount = 0,
 }: VilleFormDialogProps) {
   const [values, setValues] = useState<VilleRow>({});
   const [saving, setSaving] = useState(false);
@@ -142,6 +144,10 @@ export function VilleFormDialog({
       setSaving(false);
     }
   };
+
+  const handleSaveRef = useRef(handleSave);
+  handleSaveRef.current = handleSave;
+  useEffect(() => { if (saveCount > 0) void handleSaveRef.current(); }, [saveCount]);
 
   const content = (
     <>

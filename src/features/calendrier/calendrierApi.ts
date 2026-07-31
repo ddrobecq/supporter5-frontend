@@ -1,5 +1,5 @@
 import { http } from '../../lib/http';
-import type { CalendrierRow } from './types';
+import type { CalendrierRow, TourClassementRow } from './types';
 
 interface CalendarResponse {
   data: CalendrierRow[];
@@ -48,4 +48,9 @@ export async function updateCalendarStatus(
   payload: UpdateStatusPayload,
 ): Promise<void> {
   await http.put(`/api/admin/rencontres/${encodeURIComponent(String(id))}`, payload);
+}
+
+export async function fetchTourClassement(tourId: string | number): Promise<TourClassementRow[]> {
+  const { data } = await http.get<{ data: TourClassementRow[] }>(`/api/admin/tours/${encodeURIComponent(String(tourId))}/participants`);
+  return data.data ?? [];
 }

@@ -1,5 +1,6 @@
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { useCallback, useEffect, useState } from 'react';
+import { emitTabSaveDone } from '../../lib/useTabMetaEvents';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { toErrorMessage } from '../../components/useEntityPage';
@@ -29,6 +30,16 @@ export function JoueurTabFormPane({ tabPath, joueurId, active }: JoueurTabFormPa
   const [natioDatas, setNatioDatas] = useState<NatioRow[]>([]);
   const [posteOptions, setPosteOptions] = useState<PosteOption[]>([]);
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
+  const [saveCount, setSaveCount] = useState(0);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ev = e as CustomEvent<{ path?: string }>;
+      if (ev.detail?.path === tabPath) setSaveCount((c) => c + 1);
+    };
+    window.addEventListener('supporter:tab-save-request', handler);
+    return () => window.removeEventListener('supporter:tab-save-request', handler);
+  }, [tabPath]);
 
   const reloadRow = useCallback(async () => {
     setLoading(true);
@@ -90,10 +101,12 @@ export function JoueurTabFormPane({ tabPath, joueurId, active }: JoueurTabFormPa
               setLabel(resolveJoueurLabel(refreshed, String(joueurId)));
               setDirty(false);
               setSnackbar({ severity: 'success', message: 'Joueur mis a jour.' });
+              emitTabSaveDone(tabPath);
             } catch (error) {
               setSnackbar({ severity: 'error', message: toErrorMessage(error) });
             }
           }}
+          saveCount={saveCount}
         />
       ) : null}
 

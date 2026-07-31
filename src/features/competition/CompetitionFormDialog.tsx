@@ -9,7 +9,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { getEntityImageUrl, useEntityImage } from '../../lib/useEntityImage';
@@ -27,6 +27,7 @@ interface CompetitionFormDialogProps {
   onDirtyChange?: (dirty: boolean) => void;
   onClose: () => void;
   onSubmit: (payload: CompetitionRow) => Promise<void>;
+  saveCount?: number;
 }
 
 export function CompetitionFormDialog({
@@ -40,6 +41,7 @@ export function CompetitionFormDialog({
   onDirtyChange,
   onClose,
   onSubmit,
+  saveCount = 0,
 }: CompetitionFormDialogProps) {
   const [values, setValues] = useState<CompetitionRow>({});
   const [saving, setSaving] = useState(false);
@@ -158,6 +160,10 @@ export function CompetitionFormDialog({
       setSaving(false);
     }
   };
+
+  const handleSaveRef = useRef(handleSave);
+  handleSaveRef.current = handleSave;
+  useEffect(() => { if (saveCount > 0) void handleSaveRef.current(); }, [saveCount]);
 
   const content = (
     <>

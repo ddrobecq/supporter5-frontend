@@ -40,5 +40,5 @@ export function resolveNatioId(row: NatioRow): string | number | undefined {
 
 export function buildNatioFormFields(source?: NatioRow): string[] {
   const sourceFields = source ? Object.keys(source) : [];
-  return [...sourceFields, 'NALOCAL', 'NAT_DRAPEAU'].filter((f, i, a) => a.indexOf(f) === i);
+  return [...sourceFields, 'NALOCAL', 'NAT_ISO', 'NAT_DRAPEAU'].filter((f, i, a) => a.indexOf(f) === i);
 }

@@ -1,5 +1,12 @@
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
-import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
+import AutorenewRoundedIcon from '@mui/icons-material/AutorenewRounded';
+import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
+import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
+import HealingRoundedIcon from '@mui/icons-material/HealingRounded';
+import ReportRoundedIcon from '@mui/icons-material/ReportRounded';
+import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
+import SquareRoundedIcon from '@mui/icons-material/SquareRounded';
+import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
 import {
   Box,
   Button,
@@ -11,15 +18,22 @@ import {
   Select,
   Stack,
   Switch,
+  Tab,
+  Tabs,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material/styles';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactElement } from 'react';
+import { emitTabSaveDone } from '../../lib/useTabMetaEvents';
 import { useNavigate } from 'react-router-dom';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
-import { DateInputField, fromInputDateToDisplay, toInputDateFromDisplay } from '../../components/DateInputField';
+import { DataGrid } from '@mui/x-data-grid';
+import type { GridColDef } from '@mui/x-data-grid';
+import { DateInputField, formatDateShort, fromInputDateToDisplay, toInputDateFromDisplay } from '../../components/DateInputField';
 import { TimeInputField } from '../../components/TimeInputField';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { useTabMetaEvents } from '../../lib/useTabMetaEvents';
@@ -32,8 +46,10 @@ import {
   fetchCompetitionWizardData,
 } from '../competition/competitionApi';
 import type { CircOptionRow, CompetitionTourRow } from '../competition/types';
-import { fetchRencontreDetailById, updateRencontreDetail } from './rencontreApi';
-import type { RencontreDetailRow } from './types';
+import { fetchRencontreDetailById, fetchRencontreHighlightsById, fetchRencontreTourMatches, updateRencontreDetail, deleteRencontreEvent } from './rencontreApi';
+import type { RencontreDetailRow, RencontreHighlightEventRow, RencontreHighlightsRow, TourMatchWithNamesRow } from './types';
+import { RencontreCompositionTab, type CompositionTabActions } from './RencontreCompositionTab';
+import { EventFormDialog } from './EventFormDialog';
 
 interface RencontreTabFormPaneProps {
   tabPath: string;
@@ -69,6 +85,100 @@ const STATUS_OPTIONS = [
   { value: 5, label: 'Programmee' },
   { value: 4, label: 'Non jouee' },
 ] as const;
+
+type RencontreTabKey = 'info' | 'highlights' | 'composition' | 'resume' | 'programme';
+
+function formatEventMinute(eventRow: RencontreHighlightEventRow): string {
+  const minute = Number(eventRow.MINUTE ?? 0);
+  if (!Number.isFinite(minute) || minute <= 0) {
+    return '';
+  }
+  return `${Math.trunc(minute)}'`;
+}
+
+function getEventVisual(typeEvent: number): { icon: ReactElement; color: string; backgroundColor: string } {
+  if (typeEvent === 1) {
+    return {
+      icon: <SportsSoccerRoundedIcon fontSize="inherit" />,
+      color: '#0f766e',
+      backgroundColor: '#ccfbf1',
+    };
+  }
+  if (typeEvent === 2) {
+    return {
+      icon: <AutorenewRoundedIcon fontSize="inherit" />,
+      color: '#1d4ed8',
+      backgroundColor: '#dbeafe',
+    };
+  }
+  if (typeEvent === 3) {
+    return {
+      icon: <SquareRoundedIcon fontSize="inherit" />,
+      color: '#eab308',
+      backgroundColor: '#fefce8',
+    };
+  }
+  if (typeEvent === 4) {
+    return {
+      icon: <ReportRoundedIcon fontSize="inherit" />,
+      color: '#ea580c',
+      backgroundColor: '#ffedd5',
+    };
+  }
+  if (typeEvent === 5) {
+    return {
+      icon: <SquareRoundedIcon fontSize="inherit" />,
+      color: '#dc2626',
+      backgroundColor: '#fee2e2',
+    };
+  }
+  if (typeEvent === 6) {
+    return {
+      icon: <FlagRoundedIcon fontSize="inherit" />,
+      color: '#7c3aed',
+      backgroundColor: '#ede9fe',
+    };
+  }
+  if (typeEvent === 7) {
+    return {
+      icon: <TaskAltRoundedIcon fontSize="inherit" />,
+      color: '#16a34a',
+      backgroundColor: '#dcfce7',
+    };
+  }
+  if (typeEvent === 8) {
+    return {
+      icon: <CancelRoundedIcon fontSize="inherit" />,
+      color: '#b91c1c',
+      backgroundColor: '#fee2e2',
+    };
+  }
+  if (typeEvent === 9) {
+    return {
+      icon: <HealingRoundedIcon fontSize="inherit" />,
+      color: '#be185d',
+      backgroundColor: '#fce7f3',
+    };
+  }
+  return {
+    icon: <FlagRoundedIcon fontSize="inherit" />,
+    color: '#4b5563',
+    backgroundColor: '#f3f4f6',
+  };
+}
+
+function buildEventCardSx(align: 'left' | 'right'): SxProps<Theme> {
+  return {
+    border: '1px solid',
+    borderColor: 'divider',
+    borderRadius: 1,
+    px: 0.75,
+    py: 0.5,
+    maxWidth: '100%',
+    minHeight: 32,
+    textAlign: align,
+  };
+}
 
 function toNonNegativeIntegerString(value: unknown): string {
   const numeric = Number(value);
@@ -155,8 +265,8 @@ function buildDraftFromDetail(detail: RencontreDetailRow): RencontreDraft {
     date: toDisplayDate(detail.DATE),
     heure: toDisplayHeure(detail.HEURE),
     saison: String(detail.SAISON ?? '').trim(),
-    competitionId: String(detail.COCLEUNIK ?? '').trim(),
-    tourId: String(detail.TUCLEUNIK ?? '').trim(),
+    competitionId: Number(detail.COCLEUNIK) > 0 ? String(detail.COCLEUNIK).trim() : '',
+    tourId: Number(detail.TUCLEUNIK) > 0 ? String(detail.TUCLEUNIK).trim() : '',
     circId: String(detail.IDCIRC ?? '').trim(),
     comment: String(detail.COMMENT ?? ''),
     readmin: readmin >= 1 && readmin <= 4 ? readmin : 1,
@@ -181,16 +291,43 @@ function getDraftSignature(draft: RencontreDraft, adminDecisionEnabled: boolean)
   });
 }
 
+function programmeRowStatusClass(etat: number): string {
+  switch (Number(etat)) {
+    case 2: return 'status-en-cours';
+    case 3: return 'status-terminee';
+    case 4: return 'status-non-jouee';
+    case 5: return 'status-programmee';
+    default: return 'status-en-attente';
+  }
+}
+
+function ProgrammeClubCell({ clubId, clubName, alignRight = false }: { clubId: string; clubName: string; alignRight?: boolean }) {
+  const { src } = useEntityImage('club', clubId);
+  const logo = (
+    <Box sx={{ width: 22, height: 22, minWidth: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      {src
+        ? <Box component="img" src={src} alt={clubName} sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+        : <ShieldOutlinedIcon sx={{ fontSize: 18, color: 'text.disabled' }} />}
+    </Box>
+  );
+  return (
+    <Box sx={{ width: '100%', display: 'flex', justifyContent: alignRight ? 'flex-end' : 'flex-start' }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minWidth: 0 }}>
+        {alignRight
+          ? (<><Box sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'right' }}>{clubName}</Box>{logo}</>)
+          : (<>{logo}<Box sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{clubName}</Box></>)}
+      </Stack>
+    </Box>
+  );
+}
+
 function ClubInlineLine({
   clubId,
   clubName,
   clubShortName,
   clubFond,
   clubTexte,
-  butValue,
-  tabValue,
-  onButChange,
-  onTabChange,
+  align,
   onOpenClub,
 }: {
   clubId: string;
@@ -198,10 +335,7 @@ function ClubInlineLine({
   clubShortName: string;
   clubFond: unknown;
   clubTexte: unknown;
-  butValue: string;
-  tabValue: string;
-  onButChange: (value: string) => void;
-  onTabChange: (value: string) => void;
+  align: 'left' | 'right';
   onOpenClub: () => void;
 }) {
   const { src } = useEntityImage('club', clubId);
@@ -210,34 +344,54 @@ function ClubInlineLine({
   const textColor = normalizeColorCode(clubTexte, '#111827');
 
   return (
-    <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minWidth: 0, width: '100%', flexWrap: 'nowrap' }}>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minWidth: 0, flex: 1 }}>
-        <Box
-          sx={{
-            width: 36,
-            height: 36,
-            minWidth: 36,
-            borderRadius: 1,
-            border: '1px solid',
-            borderColor: 'divider',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            bgcolor: '#fafafa',
-          }}
-        >
-          {src ? (
-            <Box component="img" src={src} alt={clubName} sx={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain' }} />
-          ) : (
-            <ShieldOutlinedIcon sx={{ color: 'text.disabled' }} />
-          )}
-        </Box>
+    <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minWidth: 0, width: '100%', justifyContent: align === 'right' ? 'flex-end' : 'flex-start' }}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: 'center',
+          minWidth: 0,
+          width: '100%',
+          flexDirection: align === 'right' ? 'row-reverse' : 'row',
+          justifyContent: align === 'right' ? 'flex-end' : 'flex-start',
+        }}
+      >
+        <Tooltip title={tooltipLabel}>
+          <IconButton
+            size="small"
+            onClick={onOpenClub}
+            aria-label={tooltipLabel}
+            sx={{ p: 0, borderRadius: 1 }}
+          >
+            <Box
+              sx={{
+                width: 36,
+                height: 36,
+                minWidth: 36,
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: 'divider',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: '#fafafa',
+              }}
+            >
+              {src ? (
+                <Box component="img" src={src} alt={clubName} sx={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain' }} />
+              ) : (
+                <ShieldOutlinedIcon sx={{ color: 'text.disabled' }} />
+              )}
+            </Box>
+          </IconButton>
+        </Tooltip>
 
         <Typography
           variant="body1"
           sx={{
             fontWeight: 600,
             flex: 1,
+            width: '100%',
             minWidth: 0,
             whiteSpace: 'nowrap',
             overflow: 'hidden',
@@ -247,51 +401,11 @@ function ClubInlineLine({
             borderRadius: 1,
             px: 1,
             py: 0.25,
+            textAlign: align === 'right' ? 'right' : 'left',
           }}
         >
           {clubName}
         </Typography>
-
-        <Tooltip title={tooltipLabel}>
-          <IconButton size="small" onClick={onOpenClub} aria-label={tooltipLabel}>
-            <ShieldRoundedIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      </Stack>
-
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'nowrap' }}>
-        <TextField
-          label="But"
-          size="small"
-          type="text"
-          value={butValue}
-          onChange={(event) => onButChange(toTwoDigitsNonNegative(event.target.value))}
-          slotProps={{
-            htmlInput: {
-              inputMode: 'numeric',
-              pattern: '[0-9]*',
-              maxLength: 2,
-              style: { textAlign: 'center' },
-            },
-          }}
-          sx={{ width: 68 }}
-        />
-        <TextField
-          label="Tab"
-          size="small"
-          type="text"
-          value={tabValue}
-          onChange={(event) => onTabChange(toTwoDigitsNonNegative(event.target.value))}
-          slotProps={{
-            htmlInput: {
-              inputMode: 'numeric',
-              pattern: '[0-9]*',
-              maxLength: 2,
-              style: { textAlign: 'center' },
-            },
-          }}
-          sx={{ width: 68 }}
-        />
       </Stack>
     </Stack>
   );
@@ -313,6 +427,18 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
   const [circOptions, setCircOptions] = useState<CircOptionRow[]>([]);
   const [optionsLoading, setOptionsLoading] = useState(false);
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
+  const [initialLoadError, setInitialLoadError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<RencontreTabKey>('info');
+  const [isCompositionDirty, setIsCompositionDirty] = useState(false);
+  const [isCompositionSaving, setIsCompositionSaving] = useState(false);
+  const compositionActionsRef = useRef<CompositionTabActions | null>(null);
+  const [highlights, setHighlights] = useState<RencontreHighlightsRow | null>(null);
+  const [highlightsLoading, setHighlightsLoading] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const [eventDialogOpen, setEventDialogOpen] = useState(false);
+  const [eventDialogMode, setEventDialogMode] = useState<'create' | 'edit'>('create');
+  const [tourMatches, setTourMatches] = useState<TourMatchWithNamesRow[]>([]);
+  const [tourMatchesLoading, setTourMatchesLoading] = useState(false);
 
   const loadCompetitionsForSeason = useCallback(async (season: string): Promise<CompetitionOption[]> => {
     const data = await fetchCompetition('', season);
@@ -336,26 +462,17 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
 
   const reloadAll = useCallback(async () => {
     setLoading(true);
+    setInitialLoadError(null);
     try {
       const loadedDetail = await fetchRencontreDetailById(rencontreId);
       const nextDraft = buildDraftFromDetail(loadedDetail);
       const readmin = Number(loadedDetail.READMIN ?? 0) || 0;
       const initialAdminEnabled = readmin > 0;
 
-      const [wizardData, competitions, tours, circs] = await Promise.all([
-        fetchCompetitionWizardData(),
-        loadCompetitionsForSeason(nextDraft.saison),
-        loadToursForCompetition(nextDraft.competitionId),
-        loadCircsForTour(nextDraft.tourId),
-      ]);
-
+      // Populate the core form first so the page never stays blocked on secondary option calls.
       setDetail(loadedDetail);
       setDraft(nextDraft);
       setAdminDecisionEnabled(initialAdminEnabled);
-      setSeasonOptions((wizardData.saisons ?? []).map((item) => String(item.SAISON ?? '').trim()).filter(Boolean));
-      setCompetitionOptions(competitions);
-      setTourOptions(tours);
-      setCircOptions(circs);
 
       const signature = getDraftSignature(nextDraft, initialAdminEnabled);
       initialSignatureRef.current = signature;
@@ -363,8 +480,29 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       const domLabel = String(loadedDetail.DOMICILE_ABREGE ?? '').trim() || String(loadedDetail.DOMICILE_NOM_EFFECTIF ?? '').trim();
       const extLabel = String(loadedDetail.EXTERIEUR_ABREGE ?? '').trim() || String(loadedDetail.EXTERIEUR_NOM_EFFECTIF ?? '').trim();
       setLabel(`${domLabel} - ${extLabel}`);
+
+      setOptionsLoading(true);
+      try {
+        const [wizardData, competitions, tours, circs] = await Promise.all([
+          fetchCompetitionWizardData(),
+          loadCompetitionsForSeason(nextDraft.saison),
+          loadToursForCompetition(nextDraft.competitionId),
+          loadCircsForTour(nextDraft.tourId),
+        ]);
+
+        setSeasonOptions((wizardData.saisons ?? []).map((item) => String(item.SAISON ?? '').trim()).filter(Boolean));
+        setCompetitionOptions(competitions);
+        setTourOptions(tours);
+        setCircOptions(circs);
+      } catch (error) {
+        setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+      } finally {
+        setOptionsLoading(false);
+      }
     } catch (error) {
-      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+      const message = toErrorMessage(error);
+      setInitialLoadError(message);
+      setSnackbar({ severity: 'error', message });
     } finally {
       setLoading(false);
     }
@@ -375,14 +513,45 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     return () => setDirty(false);
   }, [reloadAll, setDirty]);
 
+  useEffect(() => {
+    if (!detail || !active) {
+      return;
+    }
+
+    const isSupportedClubMatch = Number(detail.IS_SUPPORTED_CLUB_MATCH ?? 0) === 1;
+    if (!isSupportedClubMatch) {
+      setHighlights(null);
+      setActiveTab('info');
+      return;
+    }
+
+    setHighlightsLoading(true);
+    void fetchRencontreHighlightsById(detail.RECLEUNIK)
+      .then((data) => setHighlights(data))
+      .catch((error) => setSnackbar({ severity: 'error', message: toErrorMessage(error) }))
+      .finally(() => setHighlightsLoading(false));
+
+    setTourMatchesLoading(true);
+    void fetchRencontreTourMatches(detail.RECLEUNIK)
+      .then((data) => setTourMatches(data))
+      .catch((error) => setSnackbar({ severity: 'error', message: toErrorMessage(error) }))
+      .finally(() => setTourMatchesLoading(false));
+  }, [active, detail]);
+
+  useEffect(() => {
+    if (Number(detail?.IS_SUPPORTED_CLUB_MATCH ?? 0) !== 1 && activeTab !== 'info') {
+      setActiveTab('info');
+    }
+  }, [activeTab, detail]);
+
   const isDirty = useMemo(() => {
     if (!draft) return false;
     return getDraftSignature(draft, adminDecisionEnabled) !== initialSignatureRef.current;
   }, [draft, adminDecisionEnabled]);
 
   useEffect(() => {
-    setDirty(isDirty);
-  }, [isDirty, setDirty]);
+    setDirty(isDirty || isCompositionDirty);
+  }, [isDirty, isCompositionDirty, setDirty]);
 
   const handleSeasonChange = async (nextSeason: string) => {
     if (!draft) return;
@@ -473,6 +642,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
 
       await reloadAll();
       setSnackbar({ severity: 'success', message: 'Rencontre enregistree.' });
+      emitTabSaveDone(tabPath);
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
     } finally {
@@ -480,11 +650,46 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     }
   };
 
+  const anyDirty = isDirty || isCompositionDirty;
+  const anySaving = saving || isCompositionSaving;
+
+  const handleGlobalSave = async () => {
+    if (activeTab === 'composition' && compositionActionsRef.current) {
+      setIsCompositionSaving(true);
+      try {
+        await compositionActionsRef.current.save();
+      } catch { /* error shown inside composition tab */ }
+      finally { setIsCompositionSaving(false); }
+    } else {
+      await handleSave();
+    }
+  };
+
+  const handleGlobalCancel = () => {
+    if (activeTab === 'composition' && compositionActionsRef.current) {
+      compositionActionsRef.current.reset();
+    } else {
+      resetDraft();
+    }
+  };
+
+  const handleSaveRef = useRef(handleGlobalSave);
+  handleSaveRef.current = handleGlobalSave;
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ev = e as CustomEvent<{ path?: string }>;
+      if (ev.detail?.path === tabPath) void handleSaveRef.current();
+    };
+    window.addEventListener('supporter:tab-save-request', handler);
+    return () => window.removeEventListener('supporter:tab-save-request', handler);
+  }, [tabPath]);
+
   if (!active) {
     return <Box sx={{ display: 'none' }} />;
   }
 
-  if (loading || !detail || !draft) {
+  if (loading) {
     return (
       <Box sx={{ py: 1 }}>
         <Typography variant="body2" color="text.secondary">Chargement de la rencontre...</Typography>
@@ -492,191 +697,575 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     );
   }
 
+  if (!detail || !draft) {
+    return (
+      <Stack spacing={1} sx={{ py: 1 }}>
+        <Typography variant="body2" color="error.main">
+          {initialLoadError ? `Impossible de charger la rencontre: ${initialLoadError}` : 'Impossible de charger la rencontre.'}
+        </Typography>
+        <Box>
+          <Button size="small" variant="outlined" onClick={() => void reloadAll()}>
+            Reessayer
+          </Button>
+        </Box>
+      </Stack>
+    );
+  }
+
+  const isSupportedClubMatch = Number(detail.IS_SUPPORTED_CLUB_MATCH ?? 0) === 1;
+
+  const programmeColumns: GridColDef<TourMatchWithNamesRow>[] = [
+    {
+      field: 'DATE',
+      headerName: 'Date',
+      width: 100,
+      valueFormatter: (value: unknown) => formatDateShort(value),
+    },
+    {
+      field: 'HEURE',
+      headerName: 'Heure',
+      width: 68,
+      align: 'center',
+      headerAlign: 'center',
+      valueFormatter: (value: unknown) => {
+        const raw = String(value ?? '').trim();
+        if (!raw) return '';
+        // "HHMM" → "HHhMM"
+        if (/^([01]\d|2[0-3])([0-5]\d)$/.test(raw)) return `${raw.slice(0, 2)}h${raw.slice(2, 4)}`;
+        // "HH:MM" or "HH:MM:SS"
+        const m = raw.match(/^([01]\d|2[0-3]):([0-5]\d)/);
+        if (m) return `${m[1]}h${m[2]}`;
+        // "HHhMM" already formatted
+        if (/^([01]\d|2[0-3])h([0-5]\d)/i.test(raw)) return raw.slice(0, 5);
+        return raw;
+      },
+    },
+    {
+      field: 'DOMICILE_NOM',
+      headerName: 'Domicile',
+      headerAlign: 'right',
+      minWidth: 120,
+      flex: 1,
+      sortable: false,
+      renderCell: (params) => (
+        <ProgrammeClubCell clubId={String(params.row.DOMICILE ?? '')} clubName={String(params.row.DOMICILE_NOM ?? '')} alignRight />
+      ),
+    },
+    {
+      field: 'score',
+      headerName: 'Score',
+      width: 72,
+      align: 'center',
+      headerAlign: 'center',
+      sortable: false,
+      valueGetter: (_value: unknown, row: TourMatchWithNamesRow) => {
+        if (Number(row.ETAT) !== 3 && Number(row.ETAT) !== 2) return '-';
+        return `${row.BUTDOM} - ${row.BUTEXT}`;
+      },
+    },
+    {
+      field: 'EXTERIEUR_NOM',
+      headerName: 'Extérieur',
+      minWidth: 120,
+      flex: 1,
+      sortable: false,
+      renderCell: (params) => (
+        <ProgrammeClubCell clubId={String(params.row.EXTERIEUR ?? '')} clubName={String(params.row.EXTERIEUR_NOM ?? '')} />
+      ),
+    },
+  ];
+
+  const orderedEvents = [...(highlights?.EVENTS ?? [])].sort((a, b) => {
+    const minuteA = Number(a.MINUTE ?? 0);
+    const minuteB = Number(b.MINUTE ?? 0);
+    if (minuteA !== minuteB) {
+      return minuteA - minuteB;
+    }
+    return Number(a.EVCLEUNIK ?? 0) - Number(b.EVCLEUNIK ?? 0);
+  });
+  const showTabs = isSupportedClubMatch;
+  const showInfoContent = !showTabs || activeTab === 'info';
+  const showResumeContent = showTabs && activeTab === 'resume';
+  const showCompositionContent = showTabs && activeTab === 'composition';
+  const showProgrammeContent = showTabs && activeTab === 'programme';
+
   return (
     <Stack spacing={1.5}>
-      <ClubInlineLine
-        clubId={detail.DOMICILE}
-        clubName={detail.DOMICILE_NOM_EFFECTIF}
-        clubShortName={String(detail.DOMICILE_ABREGE ?? '').trim()}
-        clubFond={detail.DOMICILE_FOND}
-        clubTexte={detail.DOMICILE_TEXTE}
-        butValue={draft.butDom}
-        tabValue={draft.tabDom}
-        onButChange={(value) => setDraft((prev) => (prev ? { ...prev, butDom: value } : prev))}
-        onTabChange={(value) => setDraft((prev) => (prev ? { ...prev, tabDom: value } : prev))}
-        onOpenClub={() => {
-          navigate(`/admin/clubs/${encodeURIComponent(String(detail.DOMICILE))}`);
-        }}
-      />
-
-      <ClubInlineLine
-        clubId={detail.EXTERIEUR}
-        clubName={detail.EXTERIEUR_NOM_EFFECTIF}
-        clubShortName={String(detail.EXTERIEUR_ABREGE ?? '').trim()}
-        clubFond={detail.EXTERIEUR_FOND}
-        clubTexte={detail.EXTERIEUR_TEXTE}
-        butValue={draft.butExt}
-        tabValue={draft.tabExt}
-        onButChange={(value) => setDraft((prev) => (prev ? { ...prev, butExt: value } : prev))}
-        onTabChange={(value) => setDraft((prev) => (prev ? { ...prev, tabExt: value } : prev))}
-        onOpenClub={() => {
-          navigate(`/admin/clubs/${encodeURIComponent(String(detail.EXTERIEUR))}`);
-        }}
-      />
-
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.25, rowGap: 2, alignItems: 'flex-start', justifyContent: 'flex-start' }}>
-        <FormControl size="small" sx={{ width: 180, flex: '0 0 auto' }}>
-          <InputLabel id="rencontre-status-label">Statut</InputLabel>
-          <Select
-            labelId="rencontre-status-label"
-            label="Statut"
-            value={draft.etat}
-            onChange={(event) => setDraft((prev) => (prev ? { ...prev, etat: Number(event.target.value) } : prev))}
-          >
-            {STATUS_OPTIONS.map((option) => (
-              <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        <DateInputField
-          label="Date"
-          value={draft.date}
-          onChange={(nextValue) => setDraft((prev) => (prev ? { ...prev, date: nextValue } : prev))}
-          sx={{ width: 170, flex: '0 0 auto' }}
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.25, alignItems: 'center' }}>
+        <ClubInlineLine
+          clubId={detail.DOMICILE}
+          clubName={detail.DOMICILE_NOM_EFFECTIF}
+          clubShortName={String(detail.DOMICILE_ABREGE ?? '').trim()}
+          clubFond={detail.DOMICILE_FOND}
+          clubTexte={detail.DOMICILE_TEXTE}
+          align="right"
+          onOpenClub={() => {
+            navigate(`/admin/clubs/${encodeURIComponent(String(detail.DOMICILE))}`);
+          }}
         />
 
-        <TimeInputField
-          label="Heure"
-          value={draft.heure}
-          onChange={(nextValue) => setDraft((prev) => (prev ? { ...prev, heure: nextValue } : prev))}
-          sx={{ width: 130, flex: '0 0 auto' }}
+        <ClubInlineLine
+          clubId={detail.EXTERIEUR}
+          clubName={detail.EXTERIEUR_NOM_EFFECTIF}
+          clubShortName={String(detail.EXTERIEUR_ABREGE ?? '').trim()}
+          clubFond={detail.EXTERIEUR_FOND}
+          clubTexte={detail.EXTERIEUR_TEXTE}
+          align="left"
+          onOpenClub={() => {
+            navigate(`/admin/clubs/${encodeURIComponent(String(detail.EXTERIEUR))}`);
+          }}
         />
-
-        <FormControl size="small" sx={{ width: 170, flex: '0 0 auto' }}>
-          <InputLabel id="rencontre-saison-label">Saison</InputLabel>
-          <Select
-            labelId="rencontre-saison-label"
-            label="Saison"
-            value={draft.saison}
-            onChange={(event) => {
-              void handleSeasonChange(String(event.target.value ?? ''));
-            }}
-          >
-            {seasonOptions.map((season) => (
-              <MenuItem key={season} value={season}>{season}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
       </Box>
 
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.25, rowGap: 2, alignItems: 'flex-start', justifyContent: 'flex-start' }}>
-        <FormControl size="small" sx={{ width: 300, flex: '0 0 auto' }}>
-          <InputLabel id="rencontre-competition-label">Competition</InputLabel>
-          <Select
-            labelId="rencontre-competition-label"
-            label="Competition"
-            value={draft.competitionId}
-            onChange={(event) => {
-              void handleCompetitionChange(String(event.target.value ?? ''));
-            }}
-          >
-            <MenuItem value="">(Aucune)</MenuItem>
-            {competitionOptions.map((competition) => (
-              <MenuItem key={competition.id} value={competition.id}>{competition.label}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+      <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+        <TextField
+          label="Tab dom"
+          size="small"
+          type="text"
+          value={draft.tabDom}
+          onChange={(event) => setDraft((prev) => (prev ? { ...prev, tabDom: toTwoDigitsNonNegative(event.target.value) } : prev))}
+          slotProps={{
+            htmlInput: {
+              inputMode: 'numeric',
+              pattern: '[0-9]*',
+              maxLength: 2,
+              style: { textAlign: 'center' },
+            },
+          }}
+          sx={{ width: 82 }}
+        />
+        <TextField
+          label="But dom"
+          size="small"
+          type="text"
+          value={draft.butDom}
+          onChange={(event) => setDraft((prev) => (prev ? { ...prev, butDom: toTwoDigitsNonNegative(event.target.value) } : prev))}
+          slotProps={{
+            htmlInput: {
+              inputMode: 'numeric',
+              pattern: '[0-9]*',
+              maxLength: 2,
+              style: { textAlign: 'center' },
+            },
+          }}
+          sx={{ width: 82 }}
+        />
+        <TextField
+          label="But ext"
+          size="small"
+          type="text"
+          value={draft.butExt}
+          onChange={(event) => setDraft((prev) => (prev ? { ...prev, butExt: toTwoDigitsNonNegative(event.target.value) } : prev))}
+          slotProps={{
+            htmlInput: {
+              inputMode: 'numeric',
+              pattern: '[0-9]*',
+              maxLength: 2,
+              style: { textAlign: 'center' },
+            },
+          }}
+          sx={{ width: 82 }}
+        />
+        <TextField
+          label="Tab ext"
+          size="small"
+          type="text"
+          value={draft.tabExt}
+          onChange={(event) => setDraft((prev) => (prev ? { ...prev, tabExt: toTwoDigitsNonNegative(event.target.value) } : prev))}
+          slotProps={{
+            htmlInput: {
+              inputMode: 'numeric',
+              pattern: '[0-9]*',
+              maxLength: 2,
+              style: { textAlign: 'center' },
+            },
+          }}
+          sx={{ width: 82 }}
+        />
+      </Stack>
 
-        <FormControl size="small" sx={{ width: 260, flex: '0 0 auto' }}>
-          <InputLabel id="rencontre-tour-label">Tour</InputLabel>
-          <Select
-            labelId="rencontre-tour-label"
-            label="Tour"
-            value={draft.tourId}
-            onChange={(event) => {
-              void handleTourChange(String(event.target.value ?? ''));
-            }}
-          >
-            <MenuItem value="">(Aucun)</MenuItem>
-            {tourOptions.map((tour) => (
-              <MenuItem key={tour.TUCLEUNIK} value={String(tour.TUCLEUNIK)}>{String(tour.TOUR ?? '').trim() || `Tour ${tour.TUCLEUNIK}`}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+      {showTabs ? (
+        <Tabs
+          value={activeTab}
+          onChange={(_event, value: RencontreTabKey) => setActiveTab(value)}
+          sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36 } }}
+        >
+          <Tab value="info" label="Informations" />
+          <Tab value="highlights" label="Faits marquants" />
+          <Tab value="composition" label="Composition" />
+          <Tab value="resume" label="Résumé" />
+          <Tab value="programme" label="Programme" />
+        </Tabs>
+      ) : null}
 
-        <FormControl size="small" sx={{ width: 260, flex: '0 0 auto' }}>
-          <InputLabel id="rencontre-circ-label">Circonstance</InputLabel>
-          <Select
-            labelId="rencontre-circ-label"
-            label="Circonstance"
-            value={draft.circId}
-            onChange={(event) => setDraft((prev) => (prev ? { ...prev, circId: String(event.target.value ?? '') } : prev))}
-          >
-            <MenuItem value="">(Aucune)</MenuItem>
-            {circOptions.map((circ) => (
-              <MenuItem key={circ.IDCIRC} value={circ.IDCIRC}>{circ.CIRC}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      </Box>
+      {showInfoContent ? (
+        <>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.25, rowGap: 2, alignItems: 'flex-start', justifyContent: 'flex-start' }}>
+            <FormControl size="small" sx={{ width: 180, flex: '0 0 auto' }}>
+              <InputLabel id="rencontre-status-label">Statut</InputLabel>
+              <Select
+                labelId="rencontre-status-label"
+                label="Statut"
+                value={draft.etat}
+                onChange={(event) => setDraft((prev) => (prev ? { ...prev, etat: Number(event.target.value) } : prev))}
+              >
+                {STATUS_OPTIONS.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25} sx={{ alignItems: { xs: 'stretch', md: 'center' } }}>
-        <FormControlLabel
-          control={(
-            <Switch
-              checked={adminDecisionEnabled}
-              onChange={(_event, checked) => setAdminDecisionEnabled(checked)}
+            <DateInputField
+              label="Date"
+              value={draft.date}
+              onChange={(nextValue) => setDraft((prev) => (prev ? { ...prev, date: nextValue } : prev))}
+              sx={{ width: 170, flex: '0 0 auto' }}
             />
-          )}
-          label="Decision administrative"
+
+            <TimeInputField
+              label="Heure"
+              value={draft.heure}
+              onChange={(nextValue) => setDraft((prev) => (prev ? { ...prev, heure: nextValue } : prev))}
+              sx={{ width: 130, flex: '0 0 auto' }}
+            />
+
+            <FormControl size="small" sx={{ width: 170, flex: '0 0 auto' }}>
+              <InputLabel id="rencontre-saison-label">Saison</InputLabel>
+              <Select
+                labelId="rencontre-saison-label"
+                label="Saison"
+                value={draft.saison}
+                onChange={(event) => {
+                  void handleSeasonChange(String(event.target.value ?? ''));
+                }}
+              >
+                {seasonOptions.map((season) => (
+                  <MenuItem key={season} value={season}>{season}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.25, rowGap: 2, alignItems: 'flex-start', justifyContent: 'flex-start' }}>
+            <FormControl size="small" sx={{ width: 300, flex: '0 0 auto' }}>
+              <InputLabel id="rencontre-competition-label">Competition</InputLabel>
+              <Select
+                labelId="rencontre-competition-label"
+                label="Competition"
+                value={draft.competitionId}
+                onChange={(event) => {
+                  void handleCompetitionChange(String(event.target.value ?? ''));
+                }}
+              >
+                <MenuItem value="">Match amical</MenuItem>
+                {competitionOptions.map((competition) => (
+                  <MenuItem key={competition.id} value={competition.id}>{competition.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl size="small" sx={{ width: 260, flex: '0 0 auto' }} disabled={!draft.competitionId}>
+              <InputLabel id="rencontre-tour-label">Tour</InputLabel>
+              <Select
+                labelId="rencontre-tour-label"
+                label="Tour"
+                value={draft.tourId}
+                onChange={(event) => {
+                  void handleTourChange(String(event.target.value ?? ''));
+                }}
+              >
+                <MenuItem value="">(Aucun)</MenuItem>
+                {tourOptions.map((tour) => (
+                  <MenuItem key={tour.TUCLEUNIK} value={String(tour.TUCLEUNIK)}>{String(tour.TOUR ?? '').trim() || `Tour ${tour.TUCLEUNIK}`}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl size="small" sx={{ width: 260, flex: '0 0 auto' }} disabled={!draft.competitionId}>
+              <InputLabel id="rencontre-circ-label">Circonstance</InputLabel>
+              <Select
+                labelId="rencontre-circ-label"
+                label="Circonstance"
+                value={draft.circId}
+                onChange={(event) => setDraft((prev) => (prev ? { ...prev, circId: String(event.target.value ?? '') } : prev))}
+              >
+                <MenuItem value="">(Aucune)</MenuItem>
+                {circOptions.map((circ) => (
+                  <MenuItem key={circ.IDCIRC} value={circ.IDCIRC}>{circ.CIRC}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25} sx={{ alignItems: { xs: 'stretch', md: 'center' } }}>
+            <FormControlLabel
+              control={(
+                <Switch
+                  checked={adminDecisionEnabled}
+                  onChange={(_event, checked) => setAdminDecisionEnabled(checked)}
+                />
+              )}
+              label="Decision administrative"
+            />
+
+            {adminDecisionEnabled ? (
+              <FormControl size="small" sx={{ width: { xs: '100%', md: 420 } }}>
+                <InputLabel id="rencontre-readmin-label">Decision</InputLabel>
+                <Select
+                  labelId="rencontre-readmin-label"
+                  label="Decision"
+                  value={draft.readmin}
+                  onChange={(event) => setDraft((prev) => (prev ? { ...prev, readmin: Number(event.target.value) } : prev))}
+                >
+                  <MenuItem value={1}>{`Victoire de ${detail.DOMICILE_NOM_EFFECTIF}`}</MenuItem>
+                  <MenuItem value={2}>{`Victoire de ${detail.EXTERIEUR_NOM_EFFECTIF}`}</MenuItem>
+                  <MenuItem value={3}>Nul pour les 2 equipes</MenuItem>
+                  <MenuItem value={4}>Defaites pour les 2 equipes</MenuItem>
+                </Select>
+              </FormControl>
+            ) : null}
+          </Stack>
+
+          <TextField
+            label="Commentaire"
+            value={draft.comment}
+            onChange={(event) => setDraft((prev) => (prev ? { ...prev, comment: event.target.value } : prev))}
+            fullWidth
+            multiline
+            minRows={3}
+            maxRows={7}
+            slotProps={{ htmlInput: { lang: 'fr', spellCheck: true } }}
+          />
+        </>
+      ) : null}
+
+      {showCompositionContent ? (
+        <RencontreCompositionTab
+          rencontreId={rencontreId}
+          active={showCompositionContent}
+          season={draft.saison}
+          onDirtyChange={setIsCompositionDirty}
+          actionsRef={compositionActionsRef}
         />
+      ) : null}
 
-        {adminDecisionEnabled ? (
-          <FormControl size="small" sx={{ width: { xs: '100%', md: 420 } }}>
-            <InputLabel id="rencontre-readmin-label">Decision</InputLabel>
-            <Select
-              labelId="rencontre-readmin-label"
-              label="Decision"
-              value={draft.readmin}
-              onChange={(event) => setDraft((prev) => (prev ? { ...prev, readmin: Number(event.target.value) } : prev))}
-            >
-              <MenuItem value={1}>{`Victoire de ${detail.DOMICILE_NOM_EFFECTIF}`}</MenuItem>
-              <MenuItem value={2}>{`Victoire de ${detail.EXTERIEUR_NOM_EFFECTIF}`}</MenuItem>
-              <MenuItem value={3}>Nul pour les 2 equipes</MenuItem>
-              <MenuItem value={4}>Defaites pour les 2 equipes</MenuItem>
-            </Select>
-          </FormControl>
-        ) : null}
-      </Stack>
+      {showResumeContent ? (
+        <Stack spacing={1.5}>
+          <TextField
+            label="Résumé"
+            value={draft.comment}
+            onChange={(event) => setDraft((prev) => (prev ? { ...prev, comment: event.target.value } : prev))}
+            fullWidth
+            multiline
+            minRows={6}
+            maxRows={20}
+            placeholder="Aucun résumé pour cette rencontre."
+            slotProps={{ htmlInput: { lang: 'fr', spellCheck: true } }}
+          />
+        </Stack>
+      ) : null}
 
-      <TextField
-        label="Commentaire"
-        value={draft.comment}
-        onChange={(event) => setDraft((prev) => (prev ? { ...prev, comment: event.target.value } : prev))}
-        fullWidth
-        multiline
-        minRows={3}
-        maxRows={7}
-      />
+      {showTabs && activeTab === 'highlights' ? (
+        <Stack spacing={1}>
+          {detail?.IS_SUPPORTED_CLUB_MATCH === 1 ? (
+            <Stack direction="row" spacing={1}>
+              <Button size="small" variant="outlined" onClick={() => { setEventDialogMode('create'); setEventDialogOpen(true); }}>Ajouter</Button>
+              <Button size="small" variant="outlined"
+                disabled={selectedEventId == null}
+                onClick={() => { setEventDialogMode('edit'); setEventDialogOpen(true); }}
+              >Modifier</Button>
+              <Button size="small" variant="outlined" color="error"
+                disabled={selectedEventId == null}
+                onClick={() => {
+                  if (selectedEventId == null || !detail) return;
+                  void deleteRencontreEvent(detail.RECLEUNIK, selectedEventId)
+                    .then((data) => { setHighlights(data); setSelectedEventId(null); })
+                    .catch((err) => setSnackbar({ severity: 'error', message: toErrorMessage(err) }));
+                }}
+              >Supprimer</Button>
+            </Stack>
+          ) : null}
+          {highlightsLoading ? (
+            <Typography variant="body2" color="text.secondary">Chargement des faits marquants...</Typography>
+          ) : null}
 
-      <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
-        <Button
-          variant="outlined"
-          color="inherit"
-          onClick={resetDraft}
-          disabled={!isDirty || saving || optionsLoading}
-        >
-          Annuler
-        </Button>
-        <Button
-          variant="contained"
-          onClick={() => void handleSave()}
-          disabled={!isDirty || saving || optionsLoading}
-        >
-          {saving ? 'Enregistrement...' : 'Enregistrer'}
-        </Button>
-      </Stack>
+          {!highlightsLoading && orderedEvents.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">Aucun fait marquant pour cette rencontre.</Typography>
+          ) : null}
+
+          {!highlightsLoading && orderedEvents.length > 0 ? (
+            <Stack spacing={0.75}>
+              {orderedEvents.map((eventRow) => {
+                const isHomeEvent = eventRow.SIDE === 'home';
+                const eventText = eventRow.TEXT || String(eventRow.COMMENT ?? '');
+                const visual = getEventVisual(Number(eventRow.TYPE_EVENT ?? 0));
+                const minuteText = formatEventMinute(eventRow) || '-';
+                const isSelected = selectedEventId === eventRow.EVCLEUNIK;
+
+                const card = (
+                  <Box
+                    sx={{
+                      ...buildEventCardSx(isHomeEvent ? 'right' : 'left'),
+                      cursor: 'pointer',
+                      outline: isSelected ? '2px solid' : 'none',
+                      outlineColor: 'primary.main',
+                    }}
+                    onClick={() => setSelectedEventId(isSelected ? null : eventRow.EVCLEUNIK)}
+                    onDoubleClick={() => { setSelectedEventId(eventRow.EVCLEUNIK); setEventDialogMode('edit'); setEventDialogOpen(true); }}
+                  >
+                    <Stack
+                      direction="row"
+                      spacing={0.75}
+                      sx={{
+                        alignItems: 'center',
+                        justifyContent: isHomeEvent ? 'flex-end' : 'flex-start',
+                      }}
+                    >
+                      {isHomeEvent ? (
+                        <>
+                          <Typography variant="body2" sx={{ lineHeight: 1.2, overflowWrap: 'anywhere' }}>{eventText}</Typography>
+                          <Box
+                            sx={{
+                              width: 18,
+                              height: 18,
+                              minWidth: 18,
+                              borderRadius: '50%',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: 14,
+                              color: visual.color,
+                              bgcolor: visual.backgroundColor,
+                            }}
+                          >
+                            {visual.icon}
+                          </Box>
+                        </>
+                      ) : (
+                        <>
+                          <Box
+                            sx={{
+                              width: 18,
+                              height: 18,
+                              minWidth: 18,
+                              borderRadius: '50%',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: 14,
+                              color: visual.color,
+                              bgcolor: visual.backgroundColor,
+                            }}
+                          >
+                            {visual.icon}
+                          </Box>
+                          <Typography variant="body2" sx={{ lineHeight: 1.2, overflowWrap: 'anywhere' }}>{eventText}</Typography>
+                        </>
+                      )}
+                    </Stack>
+                  </Box>
+                );
+
+                return (
+                  <Box
+                    key={eventRow.EVCLEUNIK}
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: { xs: 'minmax(0,1fr) 56px minmax(0,1fr)', md: 'minmax(0,1fr) 68px minmax(0,1fr)' },
+                      columnGap: 0.75,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Box sx={{ minWidth: 0 }}>
+                      {isHomeEvent ? card : null}
+                    </Box>
+
+                    <Box sx={{ textAlign: 'center' }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+                        {minuteText}
+                      </Typography>
+                    </Box>
+
+                    <Box sx={{ minWidth: 0 }}>
+                      {!isHomeEvent ? card : null}
+                    </Box>
+                  </Box>
+                );
+              })}
+            </Stack>
+          ) : null}
+        </Stack>
+      ) : null}
+
+      {showProgrammeContent ? (
+        <Box sx={{ bgcolor: '#ffffff', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+          <Stack spacing={0.75}>
+            {tourMatchesLoading ? (
+              <Typography variant="body2" color="text.secondary">Chargement du programme...</Typography>
+            ) : null}
+            {!tourMatchesLoading && tourMatches.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">Aucune autre rencontre pour ce tour et cette circonstance.</Typography>
+            ) : null}
+            {!tourMatchesLoading && tourMatches.length > 0 ? (
+              <Box sx={{ height: 260 }}>
+                <DataGrid
+                  rows={tourMatches}
+                  columns={programmeColumns}
+                  loading={tourMatchesLoading}
+                  getRowId={(row) => row.RECLEUNIK}
+                  getRowClassName={(params) => programmeRowStatusClass(Number(params.row.ETAT))}
+                  disableRowSelectionOnClick
+                  onRowDoubleClick={(params) => {
+                    navigate(`/admin/rencontres/${encodeURIComponent(String(params.id))}`);
+                  }}
+                  disableColumnMenu
+                  density="compact"
+                  pageSizeOptions={[10, 25, 50]}
+                  sx={{
+                    width: '100%',
+                    '& .MuiDataGrid-cell': { cursor: 'default' },
+                    '& .MuiDataGrid-row.status-terminee .MuiDataGrid-cell': { color: 'common.black' },
+                    '& .MuiDataGrid-row.status-en-cours .MuiDataGrid-cell': { color: 'success.main' },
+                    '& .MuiDataGrid-row.status-en-attente .MuiDataGrid-cell': { color: 'text.secondary' },
+                    '& .MuiDataGrid-row.status-programmee .MuiDataGrid-cell': { color: 'text.secondary' },
+                    '& .MuiDataGrid-row.status-non-jouee .MuiDataGrid-cell': { color: 'text.disabled' },
+                  }}
+                />
+              </Box>
+            ) : null}
+          </Stack>
+        </Box>
+      ) : null}
+
+      {showTabs && anyDirty ? (
+        <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end', pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Button
+            variant="outlined"
+            color="inherit"
+            onClick={handleGlobalCancel}
+            disabled={anySaving || optionsLoading}
+          >
+            Annuler
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => void handleGlobalSave()}
+            disabled={anySaving || optionsLoading}
+          >
+            {anySaving ? 'Enregistrement...' : 'Enregistrer'}
+          </Button>
+        </Stack>
+      ) : null}
+
+      {detail?.IS_SUPPORTED_CLUB_MATCH === 1 ? (
+        <EventFormDialog
+          open={eventDialogOpen}
+          onClose={() => setEventDialogOpen(false)}
+          onSaved={(data) => { setHighlights(data); setSelectedEventId(null); setEventDialogOpen(false); }}
+          rencontreId={rencontreId}
+          event={eventDialogMode === 'edit' ? (orderedEvents.find((e) => e.EVCLEUNIK === selectedEventId) ?? null) : null}
+        />
+      ) : null}
 
       <AppFeedbackSnackbar value={snackbar} onClose={() => setSnackbar(null)} />
     </Stack>

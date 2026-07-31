@@ -1,5 +1,6 @@
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { useCallback, useEffect, useState } from 'react';
+import { emitTabSaveDone } from '../../lib/useTabMetaEvents';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { toErrorMessage } from '../../components/useEntityPage';
@@ -20,6 +21,16 @@ export function CircTabFormPane({ tabPath, circId, active }: CircTabFormPaneProp
   const [loading, setLoading] = useState(true);
   const [row, setRow] = useState<CircRow | undefined>(undefined);
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
+  const [saveCount, setSaveCount] = useState(0);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ev = e as CustomEvent<{ path?: string }>;
+      if (ev.detail?.path === tabPath) setSaveCount((c) => c + 1);
+    };
+    window.addEventListener('supporter:tab-save-request', handler);
+    return () => window.removeEventListener('supporter:tab-save-request', handler);
+  }, [tabPath]);
 
   const reloadRow = useCallback(async () => {
     setLoading(true);
@@ -52,6 +63,7 @@ export function CircTabFormPane({ tabPath, circId, active }: CircTabFormPaneProp
       setLabel(resolveCircLabel(refreshed));
       setSnackbar({ severity: 'success', message: 'Circonstance mise a jour.' });
       setDirty(false);
+      emitTabSaveDone(tabPath);
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
     }
@@ -74,6 +86,7 @@ export function CircTabFormPane({ tabPath, circId, active }: CircTabFormPaneProp
           onDirtyChange={(dirty) => setDirty(dirty)}
           onClose={() => { void reloadRow(); }}
           onSubmit={handleSubmit}
+          saveCount={saveCount}
         />
       ) : null}
 

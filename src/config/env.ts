@@ -23,6 +23,8 @@ export const env = {
   qualifAdminResource: import.meta.env.VITE_QUALIF_ADMIN_RESOURCE ?? '/api/admin/qualifs',
   tourPublicResource: import.meta.env.VITE_TOUR_PUBLIC_RESOURCE ?? '/api/tours',
   tourAdminResource: import.meta.env.VITE_TOUR_ADMIN_RESOURCE ?? '/api/admin/tours',
+  tourDefPublicResource: import.meta.env.VITE_TOURDEF_PUBLIC_RESOURCE ?? '/api/tourdefs',
+  tourDefAdminResource: import.meta.env.VITE_TOURDEF_ADMIN_RESOURCE ?? '/api/admin/tourdefs',
   competitionPublicResource: import.meta.env.VITE_COMPETITION_PUBLIC_RESOURCE ?? '/api/competitions',
   competitionAdminResource: import.meta.env.VITE_COMPETITION_ADMIN_RESOURCE ?? '/api/admin/competitions',
 };

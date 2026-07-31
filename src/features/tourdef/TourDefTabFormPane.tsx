@@ -1,31 +1,31 @@
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { useCallback, useEffect, useState } from 'react';
-import { emitTabSaveDone } from '../../lib/useTabMetaEvents';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { toErrorMessage } from '../../components/useEntityPage';
-import { useTabMetaEvents } from '../../lib/useTabMetaEvents';
-import { EpreuveFormDialog } from './EpreuveFormDialog';
-import { fetchEpreuveById, updateEpreuve } from './epreuveApi';
-import type { EpreuveRow } from './types';
+import { emitTabSaveDone, useTabMetaEvents } from '../../lib/useTabMetaEvents';
+import { TourDefFormDialog } from './TourDefFormDialog';
+import { fetchTourDefById, updateTourDef } from './tourDefApi';
+import type { TourDefRow } from './types';
+import { resolveTourDefLabel } from './tourDefUi';
 
-interface EpreuveTabFormPaneProps {
+interface TourDefTabFormPaneProps {
   tabPath: string;
-  epreuveId: string;
+  tourDefId: string;
   active: boolean;
 }
 
-export function EpreuveTabFormPane({ tabPath, epreuveId, active }: EpreuveTabFormPaneProps) {
+export function TourDefTabFormPane({ tabPath, tourDefId, active }: TourDefTabFormPaneProps) {
   const { setDirty, setLabel } = useTabMetaEvents(tabPath);
   const [loading, setLoading] = useState(true);
-  const [row, setRow] = useState<EpreuveRow | undefined>(undefined);
+  const [row, setRow] = useState<TourDefRow | undefined>(undefined);
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
   const [saveCount, setSaveCount] = useState(0);
 
   useEffect(() => {
-    const handler = (e: Event) => {
-      const ev = e as CustomEvent<{ path?: string }>;
-      if (ev.detail?.path === tabPath) setSaveCount((c) => c + 1);
+    const handler = (event: Event) => {
+      const payload = event as CustomEvent<{ path?: string }>;
+      if (payload.detail?.path === tabPath) setSaveCount((count) => count + 1);
     };
     window.addEventListener('supporter:tab-save-request', handler);
     return () => window.removeEventListener('supporter:tab-save-request', handler);
@@ -34,10 +34,8 @@ export function EpreuveTabFormPane({ tabPath, epreuveId, active }: EpreuveTabFor
   const reloadRow = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchEpreuveById(epreuveId);
+      const data = await fetchTourDefById(tourDefId);
       setRow(data);
-      const label = String(data.EPREUVE ?? '').trim() || String(epreuveId);
-      setLabel(label);
       setDirty(false);
       return true;
     } catch (error) {
@@ -46,7 +44,7 @@ export function EpreuveTabFormPane({ tabPath, epreuveId, active }: EpreuveTabFor
     } finally {
       setLoading(false);
     }
-  }, [epreuveId, setDirty, setLabel]);
+  }, [tourDefId, setDirty]);
 
   useEffect(() => {
     void reloadRow();
@@ -55,36 +53,37 @@ export function EpreuveTabFormPane({ tabPath, epreuveId, active }: EpreuveTabFor
     };
   }, [reloadRow, setDirty]);
 
+  const handleSubmit = async (payload: TourDefRow) => {
+    try {
+      await updateTourDef(tourDefId, payload);
+      const refreshed = await fetchTourDefById(tourDefId);
+      setRow(refreshed);
+      setLabel(resolveTourDefLabel(refreshed));
+      setSnackbar({ severity: 'success', message: 'Definition de tour mise a jour.' });
+      setDirty(false);
+      emitTabSaveDone(tabPath);
+    } catch (error) {
+      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+    }
+  };
+
   return (
     <Box sx={{ display: active ? 'block' : 'none' }}>
       {loading ? (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
           <CircularProgress size={16} />
-          <Typography variant="body2" color="text.secondary">Chargement de l'epreuve...</Typography>
+          <Typography variant="body2" color="text.secondary">Chargement de la definition de tour...</Typography>
         </Box>
       ) : row ? (
-        <EpreuveFormDialog
+        <TourDefFormDialog
           open
           mode="edit"
           embedded
-          primaryKey="IDEPREUVE"
+          primaryKey="TDCLEUNIK"
           initialData={row}
           onDirtyChange={(dirty) => setDirty(dirty)}
           onClose={() => { void reloadRow(); }}
-          onSubmit={async (payload) => {
-            try {
-              await updateEpreuve(epreuveId, payload);
-              const refreshed = await fetchEpreuveById(epreuveId);
-              setRow(refreshed);
-              const label = String(refreshed.EPREUVE ?? '').trim() || String(epreuveId);
-              setLabel(label);
-              setDirty(false);
-              setSnackbar({ severity: 'success', message: 'Epreuve mise a jour.' });
-              emitTabSaveDone(tabPath);
-            } catch (error) {
-              setSnackbar({ severity: 'error', message: toErrorMessage(error) });
-            }
-          }}
+          onSubmit={handleSubmit}
           saveCount={saveCount}
         />
       ) : null}

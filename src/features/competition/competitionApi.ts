@@ -145,6 +145,36 @@ export async function fetchTourDefById(tourDefId: string | number): Promise<Tour
   return data;
 }
 
+export interface CreateTourDefPayload {
+  NOM: string;
+  ALLER_RETOUR: number;
+  VALEUR_VD: number;
+  VALEUR_VE: number;
+  VALEUR_ND: number;
+  VALEUR_NE: number;
+  VALEUR_DD: number;
+  VALEUR_DE: number;
+  BONUS_TYPE: number;
+  BONUS_NB_BUT: number;
+  VALEUR_BONUS_V: number;
+  VALEUR_BONUS_N: number;
+  VALEUR_BONUS_D: number;
+  DUREE_TPS_REG: number;
+  DUREE_TPS_PROLONG: number;
+  CLASS_GAD: number;
+  TDTYPETOUR: number;
+  VALEUR_BE: number;
+  FIN_PROLONG: number;
+  FIN_TPS_REG: number;
+  TDCLEFTRI: string;
+  TDCalculDiffBut: number;
+}
+
+export async function createTourDef(payload: CreateTourDefPayload): Promise<TourDefRow | undefined> {
+  const { data } = await http.post<TourDefRow>('/api/admin/tourdefs', payload);
+  return data;
+}
+
 export async function fetchTourParticipants(tourId: string | number): Promise<TourParticipantRow[]> {
   const { data } = await http.get<{ data: TourParticipantRow[] }>(`${env.tourAdminResource}/${tourId}/participants`);
   return data.data ?? [];

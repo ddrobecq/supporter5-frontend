@@ -9,7 +9,7 @@ import {
   Typography,
 } from '@mui/material';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getEntityImageUrl, useEntityImage } from '../../lib/useEntityImage';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
@@ -32,6 +32,7 @@ interface EpreuveFormDialogProps {
   onDirtyChange?: (dirty: boolean) => void;
   onClose: () => void;
   onSubmit: (payload: EpreuveRow) => Promise<void>;
+  saveCount?: number;
 }
 
 export function EpreuveFormDialog({
@@ -43,6 +44,7 @@ export function EpreuveFormDialog({
   onDirtyChange,
   onClose,
   onSubmit,
+  saveCount = 0,
 }: EpreuveFormDialogProps) {
   const [values, setValues] = useState<EpreuveRow>({});
   const [saving, setSaving] = useState(false);
@@ -140,6 +142,10 @@ export function EpreuveFormDialog({
       setSaving(false);
     }
   };
+
+  const handleSaveRef = useRef(handleSave);
+  handleSaveRef.current = handleSave;
+  useEffect(() => { if (saveCount > 0) void handleSaveRef.current(); }, [saveCount]);
 
   const content = (
     <>

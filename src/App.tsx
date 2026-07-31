@@ -14,6 +14,7 @@ import { CompetitionPage } from './features/competition/CompetitionPage';
 import { JoueurPage } from './features/joueur/JoueurPage';
 import { CalendrierPage } from './features/calendrier/CalendrierPage';
 import { ClubPage } from './features/club/ClubPage';
+import { TourDefPage } from './features/tourdef/TourDefPage';
 import { AdminLayout } from './layouts/AdminLayout';
 
 interface EntityRouteDefinition {
@@ -50,6 +51,7 @@ const ENTITY_ROUTES: EntityRouteDefinition[] = [
   { shortPath: 'circ', adminPath: 'admin/circ', paramName: 'circId', PageComponent: CircPage },
   { shortPath: 'epreuve', adminPath: 'admin/epreuve', paramName: 'epreuveId', PageComponent: EpreuvePage },
   { shortPath: 'competitions', adminPath: 'admin/competitions', paramName: 'competitionId', PageComponent: CompetitionPage },
+  { shortPath: 'tourdefs', adminPath: 'admin/tourdefs', paramName: 'tourDefId', PageComponent: TourDefPage },
 ];
 
 function App() {

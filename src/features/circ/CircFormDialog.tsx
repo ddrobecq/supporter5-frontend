@@ -1,5 +1,5 @@
 import { Box, Button, MenuItem, Stack, TextField } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import { CIRC_TYPE_OPTIONS } from './circColumnsHelper';
@@ -14,9 +14,10 @@ interface CircFormDialogProps {
   onDirtyChange?: (dirty: boolean) => void;
   onClose: () => void;
   onSubmit: (payload: CircRow) => Promise<void>;
+  saveCount?: number;
 }
 
-export function CircFormDialog({ open, mode, embedded = false, primaryKey, initialData, onDirtyChange, onClose, onSubmit }: CircFormDialogProps) {
+export function CircFormDialog({ open, mode, embedded = false, primaryKey, initialData, onDirtyChange, onClose, onSubmit, saveCount = 0 }: CircFormDialogProps) {
   const [values, setValues] = useState<CircRow>({});
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -72,6 +73,10 @@ export function CircFormDialog({ open, mode, embedded = false, primaryKey, initi
       setSaving(false);
     }
   };
+
+  const handleSaveRef = useRef(handleSave);
+  handleSaveRef.current = handleSave;
+  useEffect(() => { if (saveCount > 0) void handleSaveRef.current(); }, [saveCount]);
 
   const content = (
     <>

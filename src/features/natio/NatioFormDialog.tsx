@@ -8,9 +8,10 @@ import {
   TextField,
 } from '@mui/material';
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { useDirtySignature } from '../../lib/useDirtySignature';
+import { useEntityImage } from '../../lib/useEntityImage';
 import type { NatioRow } from './types';
 
 function svgToDataUrl(svg: string): string {
@@ -80,13 +81,6 @@ function asSvgText(value: unknown): string {
   return '';
 }
 
-function asPreviewSrc(value: unknown): string {
-  const svgText = asSvgText(value);
-  if (svgText) return svgToDataUrl(svgText);
-  if (typeof value === 'string') return value.trim();
-  return '';
-}
-
 interface NatioFormDialogProps {
   open: boolean;
   mode: 'create' | 'edit';
@@ -97,6 +91,7 @@ interface NatioFormDialogProps {
   onDirtyChange?: (dirty: boolean) => void;
   onClose: () => void;
   onSubmit: (payload: NatioRow) => Promise<void>;
+  saveCount?: number;
 }
 
 export function NatioFormDialog({
@@ -109,11 +104,15 @@ export function NatioFormDialog({
   onDirtyChange,
   onClose,
   onSubmit,
+  saveCount = 0,
 }: NatioFormDialogProps) {
   const [values, setValues] = useState<NatioRow>({});
   const [saving, setSaving] = useState(false);
   const [flagPreview, setFlagPreview] = useState('');
   const [flagSvgContent, setFlagSvgContent] = useState('');
+  const editId = mode === 'edit' && primaryKey ? (initialData?.[primaryKey] as string | number | undefined) : undefined;
+  const existingFlagImage = useEntityImage('natio', editId);
+  const displayFlagSrc = flagSvgContent.trim() ? flagPreview : (existingFlagImage.src ?? '');
   const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, onDirtyChange);
 
   const labelsByField: Record<string, string> = {
@@ -123,6 +122,8 @@ export function NatioFormDialog({
     PAYS: 'Nom',
     NOM: 'Nom',
     NALOCAL: 'Pays local',
+    CODE_ISO: 'Code ISO',
+    NAT_ISO: 'Code ISO',
     NAT_DRAPEAU: 'Drapeau (SVG)',
   };
 
@@ -148,13 +149,17 @@ export function NatioFormDialog({
     () => resolvedFields.find((field) => field === 'NALOCAL'),
     [resolvedFields],
   );
+  const codeIsoField = useMemo(
+    () => resolvedFields.find((field) => field === 'NAT_ISO'),
+    [resolvedFields],
+  );
   const flagField = useMemo(
     () => resolvedFields.find((field) => field === 'NAT_DRAPEAU'),
     [resolvedFields],
   );
   const customFields = useMemo(
-    () => new Set([codeField, nameField, localField, flagField].filter(Boolean) as string[]),
-    [codeField, nameField, localField, flagField],
+    () => new Set([codeField, nameField, localField, codeIsoField, flagField].filter(Boolean) as string[]),
+    [codeField, nameField, localField, codeIsoField, flagField],
   );
 
   useEffect(() => {
@@ -169,8 +174,8 @@ export function NatioFormDialog({
     const rawFlagValue = initial.NAT_DRAPEAU;
     const resolvedSvg = asSvgText(rawFlagValue);
     setValues(initial);
-    setFlagSvgContent(resolvedSvg);
-    setFlagPreview(asPreviewSrc(rawFlagValue));
+    setFlagSvgContent('');
+    setFlagPreview('');
 
     const signature = JSON.stringify({ ...initial, NAT_DRAPEAU: resolvedSvg.trim() || '' });
     setInitialSignature(signature);
@@ -217,6 +222,10 @@ export function NatioFormDialog({
     }
   };
 
+  const handleSaveRef = useRef(handleSave);
+  handleSaveRef.current = handleSave;
+  useEffect(() => { if (saveCount > 0) void handleSaveRef.current(); }, [saveCount]);
+
   const content = (
     <>
       <Box
@@ -246,10 +255,10 @@ export function NatioFormDialog({
                 justifySelf: 'start',
               }}
             >
-              {flagPreview.trim() ? (
+              {displayFlagSrc ? (
                 <Box
                   component="img"
-                  src={flagPreview}
+                  src={displayFlagSrc}
                   alt="Apercu du drapeau"
                   sx={{
                     width: '100%',
@@ -312,6 +321,20 @@ export function NatioFormDialog({
                   disabled={mode === 'edit' && primaryKey === codeField}
                   size="small"
                   fullWidth
+                />
+              ) : null}
+
+              {codeIsoField ? (
+                <TextField
+                  label={labelsByField[codeIsoField]}
+                  value={String(values[codeIsoField] ?? '')}
+                  onChange={(e) => {
+                    const next = e.target.value.slice(0, 3).toUpperCase();
+                    setValues((prev) => ({ ...prev, [codeIsoField]: next }));
+                  }}
+                  size="small"
+                  fullWidth
+                  slotProps={{ htmlInput: { maxLength: 3 } }}
                 />
               ) : null}
 

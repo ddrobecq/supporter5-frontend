@@ -6,7 +6,7 @@ import {
   TextField,
 } from '@mui/material';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
@@ -25,6 +25,7 @@ interface ArbitreFormDialogProps {
   onDirtyChange?: (dirty: boolean) => void;
   onClose: () => void;
   onSubmit: (payload: ArbitreRow) => Promise<void>;
+  saveCount?: number;
 }
 
 function capitalizeFirstLetter(value: string): string {
@@ -43,6 +44,7 @@ export function ArbitreFormDialog({
   onDirtyChange,
   onClose,
   onSubmit,
+  saveCount = 0,
 }: ArbitreFormDialogProps) {
   const [values, setValues] = useState<ArbitreRow>({});
   const [saving, setSaving] = useState(false);
@@ -176,6 +178,10 @@ export function ArbitreFormDialog({
       setSaving(false);
     }
   };
+
+  const handleSaveRef = useRef(handleSave);
+  handleSaveRef.current = handleSave;
+  useEffect(() => { if (saveCount > 0) void handleSaveRef.current(); }, [saveCount]);
 
   const content = (
     <>

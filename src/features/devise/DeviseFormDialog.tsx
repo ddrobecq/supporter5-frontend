@@ -1,5 +1,5 @@
 import { Box, Button, FormControlLabel, Stack, Switch, TextField } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import type { DeviseRow } from './types';
@@ -13,6 +13,7 @@ interface DeviseFormDialogProps {
   onDirtyChange?: (dirty: boolean) => void;
   onClose: () => void;
   onSubmit: (payload: DeviseRow) => Promise<void>;
+  saveCount?: number;
 }
 
 export function DeviseFormDialog({
@@ -24,6 +25,7 @@ export function DeviseFormDialog({
   onDirtyChange,
   onClose,
   onSubmit,
+  saveCount = 0,
 }: DeviseFormDialogProps) {
   const [values, setValues] = useState<DeviseRow>({});
   const [saving, setSaving] = useState(false);
@@ -81,6 +83,10 @@ export function DeviseFormDialog({
       setSaving(false);
     }
   };
+
+  const handleSaveRef = useRef(handleSave);
+  handleSaveRef.current = handleSave;
+  useEffect(() => { if (saveCount > 0) void handleSaveRef.current(); }, [saveCount]);
 
   const title = mode === 'create' ? 'Nouvelle Devise' : 'Modifier une Devise';
 

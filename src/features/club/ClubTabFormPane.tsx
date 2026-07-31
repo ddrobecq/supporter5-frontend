@@ -24,10 +24,11 @@ import {
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { emitTabSaveDone } from '../../lib/useTabMetaEvents';
 import jerseySvgSource from '../../../img/jersey.svg?raw';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
-import { DateInputField } from '../../components/DateInputField';
+import { DateInputField, formatDateShort } from '../../components/DateInputField';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { toErrorMessage } from '../../components/useEntityPage';
@@ -78,8 +79,6 @@ interface ClubTerrainDialogDraft {
   terrainId: string;
   terrainName: string;
 }
-
-const MONTHS_FR_SHORT = ['jan', 'fev', 'mar', 'avr', 'mai', 'jun', 'jul', 'aou', 'sep', 'oct', 'nov', 'dec'];
 
 function normalizeColorCode(raw: unknown, fallback: string): string {
   const value = String(raw ?? '').trim();
@@ -343,22 +342,7 @@ async function extractDominantColorsFromImage(src: string): Promise<{ fond: stri
 }
 
 function formatClubDate(value: unknown): string {
-  const text = String(value ?? '').trim();
-  const compactMatch = text.match(/^(\d{4})(\d{2})(\d{2})$/);
-  const dashedMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  const parts = compactMatch ?? dashedMatch;
-  if (!parts) return text;
-
-  const year = Number(parts[1]);
-  const month = Number(parts[2]);
-  const day = Number(parts[3]);
-  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day) || month < 1 || month > 12) {
-    return text;
-  }
-
-  const dd = String(day).padStart(2, '0');
-  const mmm = MONTHS_FR_SHORT[month - 1] ?? '---';
-  return `${dd}-${mmm}-${year}`;
+  return formatDateShort(value);
 }
 
 function formatDateForInput(value: unknown): string {
@@ -407,6 +391,15 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
   const [terrainHistoryLoading, setTerrainHistoryLoading] = useState(false);
   const [nameHistorySelection, setNameHistorySelection] = useState<GridRowId[]>([]);
   const [terrainHistorySelection, setTerrainHistorySelection] = useState<GridRowId[]>([]);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ev = e as CustomEvent<{ path?: string }>;
+      if (ev.detail?.path === tabPath) void handleProfileSaveRef.current?.();
+    };
+    window.addEventListener('supporter:tab-save-request', handler);
+    return () => window.removeEventListener('supporter:tab-save-request', handler);
+  }, [tabPath]);
   const [villeSelectorOpen, setVilleSelectorOpen] = useState(false);
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
   const [nameDialogOpen, setNameDialogOpen] = useState(false);
@@ -487,12 +480,16 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       setLabel(String(updated.CLUB_ABREGE ?? '').trim() || String(clubId));
       setDirty(false);
       setSnackbar({ severity: 'success', message: 'Club mis a jour.' });
+      emitTabSaveDone(tabPath);
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
     } finally {
       setSavingProfile(false);
     }
   };
+
+  const handleProfileSaveRef = useRef(handleProfileSave);
+  handleProfileSaveRef.current = handleProfileSave;
 
   const handleProfileReset = () => {
     setProfileDraft(createClubProfileDraft(row));
