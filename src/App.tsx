@@ -15,6 +15,7 @@ import { JoueurPage } from './features/joueur/JoueurPage';
 import { CalendrierPage } from './features/calendrier/CalendrierPage';
 import { ClubPage } from './features/club/ClubPage';
 import { TourDefPage } from './features/tourdef/TourDefPage';
+import { ConfigurationPage } from './features/configuration/ConfigurationPage';
 import { AdminLayout } from './layouts/AdminLayout';
 
 interface EntityRouteDefinition {
@@ -63,6 +64,8 @@ function App() {
         <Route element={<AdminLayout />}>
           <Route path="/accueil" element={<Navigate to="/admin/home" replace />} />
           <Route path="/admin/home" element={<HomePage />} />
+          <Route path="/configuration" element={<Navigate to="/admin/configuration" replace />} />
+          <Route path="/admin/configuration" element={<ConfigurationPage />} />
           <Route path="/calendrier" element={<Navigate to="/admin/calendrier" replace />} />
           <Route path="/admin/calendrier" element={<CalendrierPage />} />
           <Route path="/rencontres/:rencontreId" element={<RedirectByParam paramName="rencontreId" toPrefix="/admin/rencontres" />} />

@@ -107,6 +107,7 @@ interface PickerEntityDefinition {
 
 const TAB_META: Record<string, TabMeta> = {
   '/admin/home': { label: 'Accueil', icon: <HomeRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/configuration': { label: 'Configuration', icon: <SettingsRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/natio': { label: 'Pays', icon: <FlagRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/ville': { label: 'Villes', icon: <LocationCityRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/arbitre': { label: 'Arbitres', icon: <SportsIcon sx={{ fontSize: 14 }} /> },
@@ -265,6 +266,8 @@ function normalizeRoutePath(path: string): string {
   switch (normalized) {
     case '/accueil':
       return '/admin/home';
+    case '/configuration':
+      return '/admin/configuration';
     case '/natio':
       return '/admin/natio';
     case '/ville':
@@ -332,6 +335,7 @@ export function AdminLayout() {
   const [activeTabKey, setActiveTabKey] = useState<string | false>(HOME_TAB_KEY);
   const pickerDefinitionByKey = new Map(PICKER_ENTITY_DEFINITIONS.map((entity) => [entity.key, entity]));
   const isHomeActive = location.pathname === '/admin/home' || location.pathname === '/accueil';
+  const isConfigurationActive = location.pathname === '/admin/configuration' || location.pathname === '/configuration';
   const isCalendrierActive = location.pathname === '/admin/calendrier' || location.pathname === '/calendrier';
   const isEntityActive = (entityKey: PickerEntityKey) => {
     const entity = pickerDefinitionByKey.get(entityKey);
@@ -567,12 +571,13 @@ export function AdminLayout() {
 
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
               <Button
-                variant="outlined"
-                color="inherit"
+                variant={isConfigurationActive ? 'contained' : 'outlined'}
+                color={isConfigurationActive ? 'primary' : 'inherit'}
                 startIcon={<SettingsRoundedIcon />}
                 sx={{
                   '.MuiButton-startIcon': { mr: { xs: 0, sm: 1 } },
                 }}
+                onClick={() => openTab('/configuration', 'Configuration', { unique: true, uniqueByPath: true })}
               >
                 <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
                   Configuration
