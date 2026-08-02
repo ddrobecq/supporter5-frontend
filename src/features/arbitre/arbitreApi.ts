@@ -1,4 +1,5 @@
 import { env } from '../../config/env';
+import { normalizeImagePayload, updateEntityImageWithFallback } from '../../lib/entityImageApi';
 import { http } from '../../lib/http';
 import type { ArbitreCreateWizardPayload, ArbitreRow, ArbitreSuggestionRow, PaginatedResponse } from './types';
 
@@ -87,7 +88,19 @@ export async function canDeleteArbitre(id: string | number): Promise<CanDeleteRe
 }
 
 export async function createArbitre(payload: ArbitreRow): Promise<ArbitreRow | undefined> {
-  const { data } = await http.post<ArbitreRow>(env.arbitreAdminResource, payload);
+  const image = normalizeImagePayload(payload.ARB_PHOTO);
+  const { ARB_PHOTO: _photo, ...entityPayload } = payload;
+  const { data } = await http.post<ArbitreRow>(env.arbitreAdminResource, entityPayload);
+
+  if (image !== undefined) {
+    const id = (data?.IDARBITRE ?? entityPayload.IDARBITRE) as string | number | undefined;
+    if (id !== undefined && id !== null && String(id).trim() !== '') {
+      await updateEntityImageWithFallback('arbitre', id, image, async () => {
+        await http.put(`${env.arbitreAdminResource}/${id}`, { ARB_PHOTO: image });
+      });
+    }
+  }
+
   return data;
 }
 
@@ -97,7 +110,16 @@ export async function createArbitreWithWizard(payload: ArbitreCreateWizardPayloa
 }
 
 export async function updateArbitre(id: string | number, payload: ArbitreRow): Promise<ArbitreRow | undefined> {
-  const { data } = await http.put<ArbitreRow>(`${env.arbitreAdminResource}/${id}`, payload);
+  const image = normalizeImagePayload(payload.ARB_PHOTO);
+  const { ARB_PHOTO: _photo, ...entityPayload } = payload;
+  const { data } = await http.put<ArbitreRow>(`${env.arbitreAdminResource}/${id}`, entityPayload);
+
+  if (image !== undefined) {
+    await updateEntityImageWithFallback('arbitre', id, image, async () => {
+      await http.put(`${env.arbitreAdminResource}/${id}`, { ARB_PHOTO: image });
+    });
+  }
+
   return data;
 }
 

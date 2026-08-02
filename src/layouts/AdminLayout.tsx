@@ -565,7 +565,7 @@ export function AdminLayout() {
                 Supporter
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
-                v5.0.0.0
+                {'v' + __APP_VERSION__}
               </Typography>
             </Box>
 

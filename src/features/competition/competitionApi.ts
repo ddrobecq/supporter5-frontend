@@ -1,4 +1,5 @@
 import { env } from '../../config/env';
+import { normalizeImagePayload, updateEntityImageWithFallback } from '../../lib/entityImageApi';
 import { http } from '../../lib/http';
 import type {
   CompetitionCreateWizardPayload,
@@ -78,7 +79,16 @@ export async function canDeleteCompetition(id: string | number): Promise<CanDele
 }
 
 export async function updateCompetition(id: string | number, payload: CompetitionRow): Promise<CompetitionRow | undefined> {
-  const { data } = await http.put<CompetitionRow>(`${env.competitionAdminResource}/${id}`, payload);
+  const image = normalizeImagePayload(payload.LOGO);
+  const { LOGO: _logo, ...entityPayload } = payload;
+  const { data } = await http.put<CompetitionRow>(`${env.competitionAdminResource}/${id}`, entityPayload);
+
+  if (image !== undefined) {
+    await updateEntityImageWithFallback('competition', id, image, async () => {
+      await http.put(`${env.competitionAdminResource}/${id}`, { LOGO: image });
+    });
+  }
+
   return data;
 }
 

@@ -50,11 +50,12 @@ export function ArbitreFormDialog({
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [photoDraft, setPhotoDraft] = useState<string | null | undefined>(undefined);
+  const [imageRefreshToken, setImageRefreshToken] = useState(0);
   const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, onDirtyChange);
 
   // ID de l'arbitre en cours d'édition — utilisé pour charger la photo existante de façon asynchrone
   const editId = mode === 'edit' ? (initialData?.IDARBITRE as string | number | undefined) : undefined;
-  const existingPhoto = useEntityImage('arbitre', editId);
+  const existingPhoto = useEntityImage('arbitre', editId, imageRefreshToken);
 
   const labelsByField: Record<string, string> = {
     IDARBITRE: 'Code',
@@ -172,6 +173,10 @@ export function ArbitreFormDialog({
         cleanedValues[photoField] = photoDraft;
       }
       await onSubmit(cleanedValues);
+      if (mode === 'edit' && photoDraft !== undefined) {
+        setPhotoDraft(undefined);
+        setImageRefreshToken((prev) => prev + 1);
+      }
       markClean();
       setErrors({});
     } finally {

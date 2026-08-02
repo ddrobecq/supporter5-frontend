@@ -1,4 +1,5 @@
 import { env } from '../../config/env';
+import { normalizeImagePayload, updateEntityImageWithFallback } from '../../lib/entityImageApi';
 import { http } from '../../lib/http';
 import type {
   CanDeleteResponse,
@@ -122,7 +123,19 @@ export async function deleteJoueurHistory(
 }
 
 export async function createJoueur(payload: JoueurRow): Promise<JoueurRow | undefined> {
-  const { data } = await http.post<JoueurRow>(env.joueurAdminResource, payload);
+  const image = normalizeImagePayload(payload.PHOTO);
+  const { PHOTO: _photo, ...entityPayload } = payload;
+  const { data } = await http.post<JoueurRow>(env.joueurAdminResource, entityPayload);
+
+  if (image !== undefined) {
+    const id = (data?.IDJOUEUR ?? entityPayload.IDJOUEUR) as string | number | undefined;
+    if (id !== undefined && id !== null && String(id).trim() !== '') {
+      await updateEntityImageWithFallback('joueurrg', id, image, async () => {
+        await http.put(`${env.joueurAdminResource}/${id}`, { PHOTO: image });
+      });
+    }
+  }
+
   return data;
 }
 
@@ -132,7 +145,16 @@ export async function createJoueurWithWizard(payload: JoueurCreateWizardPayload)
 }
 
 export async function updateJoueur(id: string | number, payload: JoueurRow): Promise<JoueurRow | undefined> {
-  const { data } = await http.put<JoueurRow>(`${env.joueurAdminResource}/${id}`, payload);
+  const image = normalizeImagePayload(payload.PHOTO);
+  const { PHOTO: _photo, ...entityPayload } = payload;
+  const { data } = await http.put<JoueurRow>(`${env.joueurAdminResource}/${id}`, entityPayload);
+
+  if (image !== undefined) {
+    await updateEntityImageWithFallback('joueurrg', id, image, async () => {
+      await http.put(`${env.joueurAdminResource}/${id}`, { PHOTO: image });
+    });
+  }
+
   return data;
 }
 

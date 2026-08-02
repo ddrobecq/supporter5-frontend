@@ -31,6 +31,7 @@ import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { DateInputField, formatDateShort } from '../../components/DateInputField';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
+import { updateEntityImage } from '../../lib/entityImageApi';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { useTabMetaEvents } from '../../lib/useTabMetaEvents';
 import { useEntityImage } from '../../lib/useEntityImage';
@@ -418,15 +419,17 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
   const [terrainDeleteSaving, setTerrainDeleteSaving] = useState(false);
   const [terrainSelectorOpen, setTerrainSelectorOpen] = useState(false);
   const [clubImageDraft, setClubImageDraft] = useState<string | null | undefined>(undefined);
+  const [clubImageRefreshToken, setClubImageRefreshToken] = useState(0);
   const fondColorInputRef = useRef<HTMLInputElement | null>(null);
   const texteColorInputRef = useRef<HTMLInputElement | null>(null);
   const profileSignatureRef = useRef('');
-  const clubImage = useEntityImage('club', clubId);
+  const clubImage = useEntityImage('club', clubId, clubImageRefreshToken);
   const currentFondColor = profileDraft.fond;
   const currentTexteColor = profileDraft.texte;
   const kitVisualSrc = createJerseyVisualDataUri(currentFondColor, currentTexteColor, profileDraft.name);
 
-  const isProfileDirty = getClubProfileSignature(profileDraft) !== profileSignatureRef.current;
+  const isProfileDirty =
+    getClubProfileSignature(profileDraft) !== profileSignatureRef.current || clubImageDraft !== undefined;
 
   const handlePickFondColor = () => {
     fondColorInputRef.current?.click();
@@ -474,8 +477,15 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
         fond: cssColorToDbColor(profileDraft.fond),
         texte: cssColorToDbColor(profileDraft.texte),
       });
+
+      if (clubImageDraft !== undefined) {
+        await updateEntityImage('club', clubId, clubImageDraft);
+        setClubImageRefreshToken((prev) => prev + 1);
+      }
+
       setRow(updated);
       setProfileDraft(createClubProfileDraft(updated));
+      setClubImageDraft(undefined);
       profileSignatureRef.current = getClubProfileSignature(createClubProfileDraft(updated));
       setLabel(String(updated.CLUB_ABREGE ?? '').trim() || String(clubId));
       setDirty(false);

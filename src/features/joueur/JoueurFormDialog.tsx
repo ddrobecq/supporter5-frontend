@@ -111,6 +111,7 @@ export function JoueurFormDialog({
   const [birthVilleName, setBirthVilleName] = useState('');
   const [deathVilleName, setDeathVilleName] = useState('');
   const [photoDraft, setPhotoDraft] = useState<string | null | undefined>(undefined);
+  const [imageRefreshToken, setImageRefreshToken] = useState(0);
   const [historyRows, setHistoryRows] = useState<JoueurHistoryRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historySelection, setHistorySelection] = useState<GridRowId[]>([]);
@@ -125,7 +126,7 @@ export function JoueurFormDialog({
   const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, onDirtyChange);
 
   const editId = mode === 'edit' ? (initialData?.IDJOUEUR as string | number | undefined) : undefined;
-  const existingPhoto = useEntityImage('joueurrg', editId);
+  const existingPhoto = useEntityImage('joueurrg', editId, imageRefreshToken);
 
   const countryOptions = useMemo(() => {
     return natioDatas.map((natio) => ({
@@ -564,6 +565,10 @@ export function JoueurFormDialog({
         payload.PHOTO = photoDraft;
       }
       await onSubmit(payload);
+      if (mode === 'edit' && photoDraft !== undefined) {
+        setPhotoDraft(undefined);
+        setImageRefreshToken((prev) => prev + 1);
+      }
       markClean();
     } finally {
       setSaving(false);

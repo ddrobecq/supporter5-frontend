@@ -47,10 +47,11 @@ export function CompetitionFormDialog({
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [logoDraft, setLogoDraft] = useState<string | null | undefined>(undefined);
+  const [imageRefreshToken, setImageRefreshToken] = useState(0);
   const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, onDirtyChange);
 
   const editId = mode === 'edit' ? (initialData?.COCLEUNIK as string | number | undefined) : undefined;
-  const existingLogo = useEntityImage('competition', editId);
+  const existingLogo = useEntityImage('competition', editId, imageRefreshToken);
 
   useEffect(() => {
     if (!open) {
@@ -155,6 +156,10 @@ export function CompetitionFormDialog({
         payload.LOGO = logoDraft;
       }
       await onSubmit(payload);
+      if (mode === 'edit' && logoDraft !== undefined) {
+        setLogoDraft(undefined);
+        setImageRefreshToken((prev) => prev + 1);
+      }
       markClean();
     } finally {
       setSaving(false);

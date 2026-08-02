@@ -110,8 +110,9 @@ export function NatioFormDialog({
   const [saving, setSaving] = useState(false);
   const [flagPreview, setFlagPreview] = useState('');
   const [flagSvgContent, setFlagSvgContent] = useState('');
+  const [imageRefreshToken, setImageRefreshToken] = useState(0);
   const editId = mode === 'edit' && primaryKey ? (initialData?.[primaryKey] as string | number | undefined) : undefined;
-  const existingFlagImage = useEntityImage('natio', editId);
+  const existingFlagImage = useEntityImage('natio', editId, imageRefreshToken);
   const displayFlagSrc = flagSvgContent.trim() ? flagPreview : (existingFlagImage.src ?? '');
   const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, onDirtyChange);
 
@@ -216,6 +217,11 @@ export function NatioFormDialog({
         }
       }
       await onSubmit(payload);
+      if (mode === 'edit') {
+        setFlagSvgContent('');
+        setFlagPreview('');
+        setImageRefreshToken((prev) => prev + 1);
+      }
       markClean();
     } finally {
       setSaving(false);

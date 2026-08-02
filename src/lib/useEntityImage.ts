@@ -24,6 +24,7 @@ export interface EntityImageState {
 export function useEntityImage(
   entityType: string,
   id: string | number | null | undefined,
+  refreshToken?: unknown,
 ): EntityImageState {
   const [state, setState] = useState<EntityImageState>({
     src: null,
@@ -44,9 +45,13 @@ export function useEntityImage(
     let cancelled = false;
     setState({ src: null, loading: true, error: false });
 
-    const url = `${env.apiBaseUrl}/api/images/${encodeURIComponent(entityType)}/${encodeURIComponent(String(id))}`;
+    const baseUrl = `${env.apiBaseUrl}/api/images/${encodeURIComponent(entityType)}/${encodeURIComponent(String(id))}`;
+    const hasRefreshToken = refreshToken !== undefined && refreshToken !== null;
+    const url = hasRefreshToken
+      ? `${baseUrl}?v=${encodeURIComponent(String(refreshToken))}`
+      : baseUrl;
 
-    fetch(url)
+    fetch(url, { cache: 'no-store' })
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.blob();
@@ -68,7 +73,7 @@ export function useEntityImage(
     return () => {
       cancelled = true;
     };
-  }, [entityType, id]);
+  }, [entityType, id, refreshToken]);
 
   // Nettoyage final à la désinstallation du composant
   useEffect(

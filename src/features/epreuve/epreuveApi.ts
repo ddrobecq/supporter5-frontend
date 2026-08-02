@@ -1,4 +1,5 @@
 import { env } from '../../config/env';
+import { normalizeImagePayload, updateEntityImageWithFallback } from '../../lib/entityImageApi';
 import { http } from '../../lib/http';
 import type { EpreuveCreateWizardPayload, EpreuveRow, EpreuveSuggestionRow, PaginatedResponse } from './types';
 
@@ -41,7 +42,19 @@ export async function canDeleteEpreuve(id: string | number): Promise<CanDeleteRe
 }
 
 export async function createEpreuve(payload: EpreuveRow): Promise<EpreuveRow | undefined> {
-  const { data } = await http.post<EpreuveRow>(env.epreuveAdminResource, payload);
+  const image = normalizeImagePayload(payload.EPR_VISUEL);
+  const { EPR_VISUEL: _visual, ...entityPayload } = payload;
+  const { data } = await http.post<EpreuveRow>(env.epreuveAdminResource, entityPayload);
+
+  if (image !== undefined) {
+    const id = (data?.IDEPREUVE ?? entityPayload.IDEPREUVE) as string | number | undefined;
+    if (id !== undefined && id !== null && String(id).trim() !== '') {
+      await updateEntityImageWithFallback('epreuve', id, image, async () => {
+        await http.put(`${env.epreuveAdminResource}/${id}`, { EPR_VISUEL: image });
+      });
+    }
+  }
+
   return data;
 }
 
@@ -51,7 +64,16 @@ export async function createEpreuveWithWizard(payload: EpreuveCreateWizardPayloa
 }
 
 export async function updateEpreuve(id: string | number, payload: EpreuveRow): Promise<EpreuveRow | undefined> {
-  const { data } = await http.put<EpreuveRow>(`${env.epreuveAdminResource}/${id}`, payload);
+  const image = normalizeImagePayload(payload.EPR_VISUEL);
+  const { EPR_VISUEL: _visual, ...entityPayload } = payload;
+  const { data } = await http.put<EpreuveRow>(`${env.epreuveAdminResource}/${id}`, entityPayload);
+
+  if (image !== undefined) {
+    await updateEntityImageWithFallback('epreuve', id, image, async () => {
+      await http.put(`${env.epreuveAdminResource}/${id}`, { EPR_VISUEL: image });
+    });
+  }
+
   return data;
 }
 

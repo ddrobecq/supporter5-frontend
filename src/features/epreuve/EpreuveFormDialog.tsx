@@ -50,10 +50,11 @@ export function EpreuveFormDialog({
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [visuelDraft, setVisuelDraft] = useState<string | null | undefined>(undefined);
+  const [imageRefreshToken, setImageRefreshToken] = useState(0);
   const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, onDirtyChange);
 
   const editId = mode === 'edit' ? (initialData?.IDEPREUVE as string | number | undefined) : undefined;
-  const existingPhoto = useEntityImage('epreuve', editId);
+  const existingPhoto = useEntityImage('epreuve', editId, imageRefreshToken);
 
   useEffect(() => {
     if (!open) {
@@ -137,6 +138,10 @@ export function EpreuveFormDialog({
         payload.EPR_VISUEL = visuelDraft;
       }
       await onSubmit(payload);
+      if (mode === 'edit' && visuelDraft !== undefined) {
+        setVisuelDraft(undefined);
+        setImageRefreshToken((prev) => prev + 1);
+      }
       markClean();
     } finally {
       setSaving(false);
