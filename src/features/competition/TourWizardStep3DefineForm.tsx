@@ -795,8 +795,7 @@ export function TourWizardStep3DefineForm({
                         }}
                       >
                         <ListItemText
-                          primary={item.label}
-                          primaryTypographyProps={{ variant: 'body2', noWrap: true }}
+                          primary={<Typography variant="body2" noWrap>{item.label}</Typography>}
                         />
                       </ListItemButton>
                     ))}
@@ -859,8 +858,7 @@ export function TourWizardStep3DefineForm({
                             }}
                           >
                             <ListItemText
-                              primary={`${rule.direction === '-' ? '↓' : '↑'} ${getSortFieldLabel(rule.field)}`}
-                              primaryTypographyProps={{ variant: 'body2', noWrap: true }}
+                              primary={<Typography variant="body2" noWrap>{`${rule.direction === '-' ? '↓' : '↑'} ${getSortFieldLabel(rule.field)}`}</Typography>}
                             />
                           </ListItemButton>
                         );

@@ -1,10 +1,8 @@
 import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded';
-import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
 import {
   Avatar,
   Box,
-  Button,
   CircularProgress,
   Dialog,
   DialogContent,
@@ -99,6 +97,7 @@ function PitchSlot({ code, label, x, y, player, onDrop, onRemove, setDragSource 
         cursor: player ? 'default' : 'pointer',
         userSelect: 'none',
       }}
+      title={label}
       onDragOver={(e) => { e.preventDefault(); setOver(true); }}
       onDragLeave={() => setOver(false)}
       onDrop={(e) => {
@@ -275,7 +274,7 @@ export function RencontreCompositionTab({ rencontreId, active, season, onDirtyCh
     setComposition((prev) => ({ ...prev, ENTRAINEUR: id }));
     setSquad((prev) => {
       if (prev.some((p) => p.IDJOUEUR === id)) return prev;
-      return [...prev, { IDJOUEUR: id, NOM: id, PRENOM: '', SURNOM: null, POSTE: 5 }];
+      return [...prev, { IDJOUEUR: id, NOM: id, PRENOM: '', SURNOM: null, POSTE: 5, POS_TYPE: 2 }];
     });
     setCoachPickerOpen(false);
   }, []);

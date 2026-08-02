@@ -552,7 +552,7 @@ export function TourDefFormDialog({
                   }}
                   onDoubleClick={() => handleAddSortFieldByName(item.field)}
                 >
-                  <ListItemText primary={item.label} primaryTypographyProps={{ variant: 'body2', noWrap: true }} />
+                  <ListItemText primary={<Typography variant="body2" noWrap>{item.label}</Typography>} />
                 </ListItemButton>
               ))}
             </List>
@@ -590,8 +590,7 @@ export function TourDefFormDialog({
                       onDoubleClick={() => handleRemoveSortFieldByName(rule.field)}
                     >
                       <ListItemText
-                        primary={`${rule.direction === '-' ? '↓' : '↑'} ${getSortFieldLabel(rule.field)}`}
-                        primaryTypographyProps={{ variant: 'body2', noWrap: true }}
+                        primary={<Typography variant="body2" noWrap>{`${rule.direction === '-' ? '↓' : '↑'} ${getSortFieldLabel(rule.field)}`}</Typography>}
                       />
                     </ListItemButton>
                   );
