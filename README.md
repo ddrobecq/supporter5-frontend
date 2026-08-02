@@ -18,10 +18,68 @@ Si les dependances ne sont pas encore installees:
 npm install
 ```
 
-## Regles UX projet
+## Build pour deploiement AWS Amplify
 
-- Toujours mettre le focus sur le premier champ de saisie d'une page au chargement.
-- Pour les actions principales (`Nouveau`, `Ouvrir`, `Supprimer`) :
-	- afficher les boutons sur une seule ligne, repartis sur toute la largeur disponible ;
-	- en largeur reduite, afficher uniquement l'icone ;
-	- en mode icone seule, afficher un tooltip au survol avec le libelle du bouton.
+### Build local (verification)
+
+Depuis le dossier `front`:
+
+```bash
+npm ci
+npm run build
+```
+
+Le build de production est genere dans le dossier `dist`.
+
+### Variables d'environnement (Vite)
+
+Dans AWS Amplify, definir les variables `VITE_*` utilisees par l'application.
+Exemple minimal:
+
+- `VITE_API_BASE_URL=https://votre-api.example.com`
+
+Si besoin, ajouter aussi les ressources API surchargeables (noms presentes dans `src/config/env.ts`).
+
+### Configuration Amplify (Console)
+
+Dans l'app Amplify:
+
+1. Connecter le repository Git et la branche a deployer.
+2. Build image: laisser l'image par defaut (Node 20 recommande).
+3. Build settings:
+	 - Base directory: `front`
+	 - Build command: `npm ci && npm run build`
+	 - Artifacts directory: `dist`
+
+### Configuration via `amplify.yml` (option recommande)
+
+A la racine du repository (ou dans la configuration Amplify), utiliser:
+
+```yaml
+version: 1
+frontend:
+	phases:
+		preBuild:
+			commands:
+				- cd front
+				- npm ci
+		build:
+			commands:
+				- npm run build
+	artifacts:
+		baseDirectory: front/dist
+		files:
+			- '**/*'
+	cache:
+		paths:
+			- front/node_modules/**/*
+```
+
+### Redirection SPA (React Router)
+
+Configurer une regle de rewrite dans Amplify pour eviter les 404 sur refresh:
+
+- Source address: `/<*>`
+- Target address: `/index.html`
+- Type: `200 (Rewrite)`
+
