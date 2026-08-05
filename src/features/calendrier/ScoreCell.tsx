@@ -17,6 +17,7 @@ interface ScoreCellProps {
   draft: ScoreDraft;
   onStartEdit: () => void;
   onDraftChange: (patch: Partial<ScoreDraft>) => void;
+  onUserInput: () => void;
   onCommit: () => Promise<void> | void;
   onCancel: () => void;
   onMoveVertical: (direction: 'up' | 'down') => Promise<void> | void;
@@ -91,7 +92,7 @@ function renderScoreDisplay(row: CalendrierRow): ReactNode {
   );
 }
 
-export function ScoreCell({ row, isEditing, canEdit, draft, onStartEdit, onDraftChange, onCommit, onCancel, onMoveVertical }: ScoreCellProps) {
+export function ScoreCell({ row, isEditing, canEdit, draft, onStartEdit, onDraftChange, onUserInput, onCommit, onCancel, onMoveVertical }: ScoreCellProps) {
   const tabDomRef = useRef<HTMLInputElement | null>(null);
   const butDomRef = useRef<HTMLInputElement | null>(null);
   const butExtRef = useRef<HTMLInputElement | null>(null);
@@ -129,6 +130,10 @@ export function ScoreCell({ row, isEditing, canEdit, draft, onStartEdit, onDraft
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (/^\d$/.test(event.key) || event.key === 'Backspace' || event.key === 'Delete') {
+      onUserInput();
+    }
+
     if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();

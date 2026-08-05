@@ -133,9 +133,9 @@ function rowStatusClass(etat: number): string {
 }
 
 function scoreToInputValue(value: unknown): string {
-  if (value === null || value === undefined) return '';
+  if (value === null || value === undefined) return '0';
   const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return '';
+  if (!Number.isFinite(numeric)) return '0';
   return String(Math.max(0, Math.trunc(numeric)));
 }
 
@@ -213,11 +213,19 @@ function getStatusAfterScoreEdit(row: CalendrierRow): number {
   }
 
   const rowDateTime = parseRowDateTime(String(row.DATE ?? ''), String(row.HEURE ?? ''));
+  const now = new Date();
+
   if (!rowDateTime) {
+    // No valid time: fall back to date-only — if the date is strictly in the past, the match is over.
+    const dateStr = String(row.DATE ?? '');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (new Date(dateStr) < startOfToday) {
+        return 3;
+      }
+    }
     return currentStatus;
   }
-
-  const now = new Date();
   const twoHoursAgo = new Date(now.getTime() - (2 * 60 * 60 * 1000));
 
   if (rowDateTime <= twoHoursAgo) {
@@ -714,9 +722,8 @@ export function CalendrierPage() {
   const updateScoreDraft = (rowId: string | number, patch: Partial<ScoreDraft>): void => {
     setScoreDraft((prev) => {
       const next = { ...prev, ...patch };
-      const initial = scoreInitialDraftRef.current;
-      const modified = initial ? !areScoreDraftsEqual(next, initial) : false;
-      setRowModifiedFlag(rowId, modified);
+      // Any keystroke counts as a modification, even if the resulting value is unchanged.
+      setRowModifiedFlag(rowId, true);
       return next;
     });
   };
@@ -1013,6 +1020,7 @@ export function CalendrierPage() {
             draft={scoreDraft}
             onStartEdit={() => startScoreEdit(row)}
             onDraftChange={(patch) => updateScoreDraft(row.RECLEUNIK, patch)}
+            onUserInput={() => setRowModifiedFlag(row.RECLEUNIK, true)}
             onCommit={() => commitScoreEdit(row)}
             onCancel={() => cancelScoreEdit(row)}
             onMoveVertical={(direction) => moveScoreEditToAdjacentRow(row, direction)}
