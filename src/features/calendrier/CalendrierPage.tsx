@@ -147,13 +147,6 @@ function parseScoreInputValue(value: string): number {
   return Math.trunc(numeric);
 }
 
-function areScoreDraftsEqual(left: ScoreDraft, right: ScoreDraft): boolean {
-  return left.tabDom === right.tabDom
-    && left.butDom === right.butDom
-    && left.butExt === right.butExt
-    && left.tabExt === right.tabExt;
-}
-
 function canEditScore(etat: number): boolean {
   return etat !== 4 && etat !== 5;
 }
