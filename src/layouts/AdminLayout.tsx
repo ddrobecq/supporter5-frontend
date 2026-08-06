@@ -39,6 +39,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { authStore } from '../features/auth/authStore';
 import { emitTabSaveRequest } from '../lib/useTabMetaEvents';
+import { useEntityImage } from '../lib/useEntityImage';
 import { NatioPage } from '../features/natio/NatioPage';
 import { NatioTabFormPane } from '../features/natio/NatioTabFormPane';
 import { VillePage } from '../features/ville/VillePage';
@@ -314,6 +315,7 @@ function resolveTabMetaPath(path: string): string {
 export function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const monacoLogo = useEntityImage('club', '0001');
   const logout = authStore((s) => s.logout);
   const navButtonsRowRef = useRef<HTMLDivElement | null>(null);
   const searchAreaRef = useRef<HTMLDivElement | null>(null);
@@ -560,7 +562,28 @@ export function AdminLayout() {
       >
         <AppBar position="static" color="inherit" elevation={1}>
           <Toolbar sx={{ justifyContent: 'space-between' }}>
-            <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'baseline' }}>
+            <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'center' }}>
+              <Box
+                sx={{
+                  width: 28,
+                  height: 28,
+                  minWidth: 28,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {monacoLogo.src ? (
+                  <Box
+                    component="img"
+                    src={monacoLogo.src}
+                    alt="AS Monaco"
+                    sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                  />
+                ) : (
+                  <ShieldRoundedIcon sx={{ fontSize: 22, color: 'text.secondary' }} />
+                )}
+              </Box>
               <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: 0.2 }}>
                 Supporter
               </Typography>
