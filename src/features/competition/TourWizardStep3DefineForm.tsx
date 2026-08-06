@@ -410,15 +410,15 @@ export function TourWizardStep3DefineForm({
     const finProlongLabel = FIN_PROLONG_OPTIONS.find((opt) => opt.value === form.finProlong)?.label ?? 'But en Or';
     const bonusLabel = BONUS_TYPE_OPTIONS.find((opt) => opt.value === form.bonusType)?.label ?? 'Aucun';
     const modeCalculLabel = form.tdCalculDiffBut === 2
-      ? 'Ratio : Buts Pour / Buts Contre'
-      : 'Différence : Buts Pour - Buts Contre';
+      ? 'Ratio (Buts Pour / Buts Contre'
+      : 'Différence (Buts Pour - Buts Contre';
     const scopeLabel = form.classGadScope === 2 ? 'Général' : 'Direct';
 
     const lines: string[] = [
       `Durée: ${form.dureeRegTime} min de temps réglementaire${form.finTpsReg === 2 ? `, puis ${form.dureeProlongTime} min de prolongation` : ''}.`,
-      `Issue du match: ${finTpsRegLabel}${form.finTpsReg === 2 ? `, avec fin de prolongation par ${finProlongLabel}` : ''}.`,
+      `Si égalité à la fin du temps réglementaire : ${finTpsRegLabel}${form.finTpsReg === 2 ? `, et à la fin de la prolongation ${finProlongLabel}` : ''}.`,
       `Points: V domicile ${form.valeurVD}, V extérieur ${form.valeurVE}, N domicile ${form.valeurND}, N extérieur ${form.valeurNE}, D domicile ${form.valeurDD}, D extérieur ${form.valeurDE}.`,
-      `Goalaverage: calcul ${modeCalculLabel.toLowerCase()}, scope ${scopeLabel}${form.valeurBe ? ', avec prise en compte des buts à l\'extérieur' : ''}.`,
+      `Goalaverage par ${modeCalculLabel}, scope ${scopeLabel}${form.valeurBe ? ', avec prise en compte des buts à l\'extérieur' : ''}.`,
       form.allerRetour ? 'Format aller/retour activé.' : 'Format aller simple.',
     ];
 
