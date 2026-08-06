@@ -599,9 +599,13 @@ export function TourWizardDialog({
             <TourWizardStep4Groupes
               tourType={draft.type}
               tourDefId={draft.tourDefKey}
+              nbParticipants={draft.participants}
               nbEquipe={draft.nbEquipe}
               nbGroupe={draft.nbGroupe}
               nbMatch={draft.nbMatch}
+              onNbEquipeChange={(value) => {
+                setDraft((prev) => ({ ...prev, nbEquipe: value }));
+              }}
               onNbGroupeChange={(value) => {
                 setDraft((prev) => ({ ...prev, nbGroupe: value }));
               }}

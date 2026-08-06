@@ -9,9 +9,11 @@ import type { TourDefRow } from './types';
 interface TourWizardStep4GroupesProps {
   tourType: 'ligue' | 'eliminatoire';
   tourDefId: number;
+  nbParticipants: number;
   nbEquipe: number;
   nbGroupe: number;
   nbMatch: number;
+  onNbEquipeChange: (value: number) => void;
   onNbGroupeChange: (value: number) => void;
   onNbMatchChange: (value: number) => void;
   onGroupNamesChange?: (value: string[]) => void;
@@ -53,9 +55,11 @@ function makeAutoLabel(base: GroupNameBase, numbering: Exclude<GroupNumbering, '
 export function TourWizardStep4Groupes({
   tourType,
   tourDefId,
+  nbParticipants,
   nbEquipe,
   nbGroupe,
   nbMatch,
+  onNbEquipeChange,
   onNbGroupeChange,
   onNbMatchChange,
   onGroupNamesChange,
@@ -71,6 +75,7 @@ export function TourWizardStep4Groupes({
   const [maxPerGroupInput, setMaxPerGroupInput] = useState<string>('0');
   const [maxPerGroupTouched, setMaxPerGroupTouched] = useState(false);
 
+  const normalizedNbParticipants = Math.max(0, normalizeInteger(nbParticipants));
   const normalizedNbEquipe = Math.max(0, normalizeInteger(nbEquipe));
   const normalizedNbGroupe = Math.max(1, normalizeInteger(nbGroupe) || 1);
   const isSingleGroup = normalizedNbGroupe === 1;
@@ -126,24 +131,34 @@ export function TourWizardStep4Groupes({
     }
   }, [tourDef, nbMatchTouched, normalizedNbEquipe, nbMatch, onNbMatchChange]);
 
-  const maxPerGroup = useMemo(() => {
+  const computedMaxPerGroupFromParticipants = useMemo(() => {
     if (normalizedNbGroupe <= 1) {
-      return normalizedNbEquipe;
+      return normalizedNbParticipants;
     }
-    return Math.ceil(normalizedNbEquipe / normalizedNbGroupe);
-  }, [normalizedNbEquipe, normalizedNbGroupe]);
+    return Math.ceil(normalizedNbParticipants / normalizedNbGroupe);
+  }, [normalizedNbParticipants, normalizedNbGroupe]);
+
+  useEffect(() => {
+    if (maxPerGroupTouched) {
+      return;
+    }
+
+    if (normalizedNbEquipe !== computedMaxPerGroupFromParticipants) {
+      onNbEquipeChange(computedMaxPerGroupFromParticipants);
+    }
+  }, [computedMaxPerGroupFromParticipants, maxPerGroupTouched, normalizedNbEquipe, onNbEquipeChange]);
 
   useEffect(() => {
     if (isSingleGroup) {
       setMaxPerGroupTouched(false);
-      setMaxPerGroupInput(String(maxPerGroup));
+      setMaxPerGroupInput(String(normalizedNbEquipe));
       return;
     }
 
     if (!maxPerGroupTouched) {
-      setMaxPerGroupInput(String(maxPerGroup));
+      setMaxPerGroupInput(String(normalizedNbEquipe));
     }
-  }, [isSingleGroup, maxPerGroup, maxPerGroupTouched]);
+  }, [isSingleGroup, maxPerGroupTouched, normalizedNbEquipe]);
 
   useEffect(() => {
     if (groupNumbering !== 'custom') {
@@ -222,6 +237,7 @@ export function TourWizardStep4Groupes({
             setMaxPerGroupTouched(true);
             const parsed = Math.max(1, Math.min(99, normalizeInteger(event.target.value) || 1));
             setMaxPerGroupInput(String(parsed));
+            onNbEquipeChange(parsed);
           }}
           slotProps={{ htmlInput: { min: 1, max: 99, step: 1 } }}
           sx={{ width: { xs: '100%', md: 280 } }}
