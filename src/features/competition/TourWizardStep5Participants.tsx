@@ -1,31 +1,65 @@
-import { Box, Button, MenuItem, Stack, TextField, Tooltip } from '@mui/material';
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
-import { type GridColDef, type GridRowId } from '@mui/x-data-grid';
+import { type GridRowId } from '@mui/x-data-grid';
 import { useEffect, useMemo, useState } from 'react';
-import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { toErrorMessage } from '../../components/useEntityPage';
-import { addTourParticipant, fetchTourParticipants, removeTourParticipants } from './competitionApi';
+import { addTourParticipant, fetchCompetition, fetchCompetitionTours, fetchCompetitionWizardData, fetchTourParticipants, removeTourParticipants } from './competitionApi';
+import { useProgrammedParticipantLabels } from './useProgrammedParticipantLabels';
+import { TourParticipantGrid } from './TourParticipantGrid';
 import { ClubSelectionDialog } from './ClubSelectionDialog';
-import type { TourParticipantRow } from './types';
+import type { CompetitionRow, CompetitionTourRow, TourParticipantRow } from './types';
 
 interface TourWizardStep5ParticipantsProps {
   tourId: number;
+  competitionId: number;
+  currentTourOrder: number;
+  competitionSeason: string;
   nbGroupe: number;
   groupNames: string[];
   onError?: (message: string) => void;
+}
+
+function getParticipantLabel(row: TourParticipantRow): string {
+  const clubName = String(row.CLUB ?? '').trim();
+  if (clubName) return clubName;
+  const source = String(row.PASource ?? '').trim();
+  return source ? `Programme (${source})` : '(Participant programme)';
+}
+
+function getDistinctSourceGroups(rows: TourParticipantRow[]): string[] {
+  return Array.from(new Set(rows.map((row) => String(row.GROUPE ?? '').trim())))
+    .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+}
+
+function getDistinctRanks(rows: TourParticipantRow[]): number[] {
+  const values = rows
+    .map((row) => Number(row.PAClassement ?? 0))
+    .filter((rank) => Number.isInteger(rank) && rank > 0);
+  return Array.from(new Set(values)).sort((a, b) => a - b);
 }
 
 function buildDefaultGroupNames(count: number): string[] {
   return Array.from({ length: count }, (_, index) => `Groupe ${index + 1}`);
 }
 
-export function TourWizardStep5Participants({ tourId, nbGroupe, groupNames, onError }: TourWizardStep5ParticipantsProps) {
+export function TourWizardStep5Participants({ tourId, competitionId, currentTourOrder, competitionSeason, nbGroupe, groupNames, onError }: TourWizardStep5ParticipantsProps) {
   const [rows, setRows] = useState<TourParticipantRow[]>([]);
   const [selection, setSelection] = useState<GridRowId[]>([]);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
+  const [programDialogOpen, setProgramDialogOpen] = useState(false);
+  const [seasonOptions, setSeasonOptions] = useState<string[]>([]);
+  const [programSeason, setProgramSeason] = useState<string>('');
+  const [programCompetitions, setProgramCompetitions] = useState<CompetitionRow[]>([]);
+  const [programCompetitionId, setProgramCompetitionId] = useState<string>('');
+  const [programTours, setProgramTours] = useState<CompetitionTourRow[]>([]);
+  const [programTourId, setProgramTourId] = useState<string>('');
+  const [programSourceParticipants, setProgramSourceParticipants] = useState<TourParticipantRow[]>([]);
+  const [programSourceRanks, setProgramSourceRanks] = useState<string[]>([]);
+  const getLabel = useProgrammedParticipantLabels(rows, competitionId, competitionSeason, onError);
 
   const normalizedNbGroupe = Math.max(1, Number(nbGroupe) || 1);
   const hasMultipleGroups = normalizedNbGroupe > 1;
@@ -68,13 +102,6 @@ export function TourWizardStep5Participants({ tourId, nbGroupe, groupNames, onEr
     [hasMultipleGroups, selectedGroupId],
   );
 
-  const columns = useMemo<GridColDef<TourParticipantRow>[]>(
-    () => [
-      { field: 'CLUB', headerName: participantsHeaderLabel, flex: 1, minWidth: 260 },
-    ],
-    [participantsHeaderLabel],
-  );
-
   const visibleRows = useMemo(() => {
     if (!hasMultipleGroups) {
       return rows;
@@ -84,6 +111,112 @@ export function TourWizardStep5Participants({ tourId, nbGroupe, groupNames, onEr
     }
     return rows.filter((row) => String(row.GROUPE ?? '').trim() === selectedGroupId);
   }, [rows, hasMultipleGroups, selectedGroupId]);
+
+  const sourceRankOptions = useMemo(() => getDistinctRanks(programSourceParticipants), [programSourceParticipants]);
+
+  const selectedProgramTour = useMemo(() => {
+    const selectedId = String(programTourId ?? '').trim();
+    return selectedId ? programTours.find((tour) => String(tour.TUCLEUNIK ?? '') === selectedId) : undefined;
+  }, [programTourId, programTours]);
+
+  const isSelectedProgramTourEliminatoire = Number(selectedProgramTour?.TYPE_ID ?? 0) === 2;
+
+  const sourceRankSelectOptions = useMemo(
+    () => isSelectedProgramTourEliminatoire
+      ? [{ value: '1', label: 'Vainqueur' }, { value: '2', label: 'Perdant' }]
+      : sourceRankOptions.map((rank) => ({ value: String(rank), label: String(rank) })),
+    [isSelectedProgramTourEliminatoire, sourceRankOptions],
+  );
+
+  const possibleProgrammedClubsByGroup = useMemo(() => {
+    const selectedRanks = Array.from(new Set(programSourceRanks.map(Number).filter((rank) => Number.isInteger(rank) && rank > 0)));
+    if (selectedRanks.length === 0) return [] as Array<{ group: string; clubs: string[] }>;
+    const grouped = new Map<string, string[]>();
+    programSourceParticipants
+      .filter((row) => selectedRanks.includes(Number(row.PAClassement ?? 0)))
+      .forEach((row) => {
+        const group = String(row.GROUPE ?? '').trim();
+        const current = grouped.get(group) ?? [];
+        const label = getParticipantLabel(row);
+        if (label) current.push(label);
+        grouped.set(group, current);
+      });
+    return Array.from(grouped.entries())
+      .sort((a, b) => a[0].localeCompare(b[0], 'fr', { sensitivity: 'base' }))
+      .map(([group, clubs]) => ({ group, clubs }));
+  }, [programSourceParticipants, programSourceRanks]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchCompetitionWizardData()
+      .then((data) => {
+        if (cancelled) return;
+        const seasons = (data.saisons ?? []).map((row) => String(row.SAISON ?? '').trim()).filter(Boolean);
+        setSeasonOptions(seasons);
+        const preferred = String(competitionSeason ?? '').trim();
+        setProgramSeason(seasons.includes(preferred) ? preferred : (seasons[0] ?? ''));
+      })
+      .catch((error) => { if (!cancelled) onError?.(toErrorMessage(error)); });
+    return () => { cancelled = true; };
+  }, [competitionSeason, onError]);
+
+  useEffect(() => {
+    if (!programSeason) { setProgramCompetitions([]); setProgramCompetitionId(''); return; }
+    let cancelled = false;
+    void fetchCompetition('', programSeason)
+      .then((data) => {
+        if (cancelled) return;
+        const competitionRows = data.data ?? [];
+        setProgramCompetitions(competitionRows);
+        const currentId = String(competitionId ?? '').trim();
+        const hasCurrentCompetition = competitionRows.some((row) => String(row.COCLEUNIK ?? '').trim() === currentId);
+        const firstId = competitionRows[0]?.COCLEUNIK == null ? '' : String(competitionRows[0].COCLEUNIK).trim();
+        setProgramCompetitionId((current) => {
+          if (current && competitionRows.some((row) => String(row.COCLEUNIK ?? '').trim() === current)) return current;
+          return hasCurrentCompetition ? currentId : firstId;
+        });
+      })
+      .catch((error) => { if (!cancelled) { onError?.(toErrorMessage(error)); setProgramCompetitions([]); setProgramCompetitionId(''); } });
+    return () => { cancelled = true; };
+  }, [competitionId, programSeason, onError]);
+
+  useEffect(() => {
+    const compId = Number(programCompetitionId);
+    if (!Number.isInteger(compId) || compId <= 0) { setProgramTours([]); setProgramTourId(''); return; }
+    let cancelled = false;
+    void fetchCompetitionTours(compId)
+      .then((tourRows) => {
+        if (cancelled) return;
+        setProgramTours(tourRows);
+        const sorted = [...tourRows].sort((a, b) => Number(a.TU_ORDRE ?? 0) - Number(b.TU_ORDRE ?? 0) || Number(a.TUCLEUNIK ?? 0) - Number(b.TUCLEUNIK ?? 0));
+        const previousTour = sorted.filter((tour) => Number(tour.TU_ORDRE ?? 0) < Number(currentTourOrder ?? 0)).pop();
+        const defaultTourId = previousTour ? String(previousTour.TUCLEUNIK ?? '').trim() : '';
+        setProgramTourId((current) => {
+          if (current && tourRows.some((row) => String(row.TUCLEUNIK) === current)) return current;
+          return defaultTourId || '';
+        });
+      })
+      .catch((error) => { if (!cancelled) { onError?.(toErrorMessage(error)); setProgramTours([]); setProgramTourId(''); } });
+    return () => { cancelled = true; };
+  }, [currentTourOrder, programCompetitionId, onError]);
+
+  useEffect(() => {
+    const sourceTourId = Number(programTourId);
+    if (!Number.isInteger(sourceTourId) || sourceTourId <= 0) { setProgramSourceParticipants([]); setProgramSourceRanks([]); return; }
+    let cancelled = false;
+    void fetchTourParticipants(sourceTourId)
+      .then((sourceRows) => { if (!cancelled) setProgramSourceParticipants(sourceRows); })
+      .catch((error) => { if (!cancelled) { onError?.(toErrorMessage(error)); setProgramSourceParticipants([]); } });
+    return () => { cancelled = true; };
+  }, [programTourId, onError]);
+
+  useEffect(() => {
+    if (sourceRankSelectOptions.length === 0) { setProgramSourceRanks([]); return; }
+    setProgramSourceRanks((current) => {
+      const valid = current.filter((value) => sourceRankSelectOptions.some((option) => option.value === value));
+      return valid.length > 0 ? Array.from(new Set(valid)) : [sourceRankSelectOptions[0].value];
+    });
+  }, [sourceRankSelectOptions]);
 
   const loadParticipants = async () => {
     if (!Number.isInteger(tourId) || tourId <= 0) {
@@ -121,18 +254,60 @@ export function TourWizardStep5Participants({ tourId, nbGroupe, groupNames, onEr
   };
 
   const handleRemoveSelection = async () => {
-    const clubIds = selection.map((value) => String(value));
-    if (clubIds.length === 0) {
+    const participantIds = selection.map((value) => Number(value));
+    if (participantIds.length === 0) {
       onError?.('Sélectionnez au moins un club à supprimer.');
       return;
     }
 
     try {
-      await removeTourParticipants(tourId, clubIds);
+      await removeTourParticipants(tourId, [], participantIds);
       setSelection([]);
       await loadParticipants();
     } catch (error) {
       onError?.(toErrorMessage(error));
+    }
+  };
+
+  const handleAddProgrammedParticipant = async () => {
+    const sourceTourId = Number(programTourId);
+    const selectedRanks = Array.from(new Set(programSourceRanks.map(Number).filter((rank) => Number.isInteger(rank) && rank > 0)));
+
+    if (!Number.isInteger(sourceTourId) || sourceTourId <= 0) {
+      onError?.('Sélectionnez un tour source.');
+      return;
+    }
+    if (selectedRanks.length === 0) {
+      onError?.('Sélectionnez au moins un classement source.');
+      return;
+    }
+
+    const sourceGroups = getDistinctSourceGroups(programSourceParticipants);
+    const sourcesToCreate: string[] = [];
+    sourceGroups.forEach((groupName) => {
+      selectedRanks.forEach((rank) => {
+        if (programSourceParticipants.some((row) => String(row.GROUPE ?? '').trim() === groupName && Number(row.PAClassement ?? 0) === rank)) {
+          sourcesToCreate.push(`${sourceTourId},${groupName},${rank}`);
+        }
+      });
+    });
+
+    if (sourcesToCreate.length === 0) {
+      onError?.('Aucun participant source pour ce classement.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      for (const paSource of sourcesToCreate) {
+        await addTourParticipant(tourId, '', hasMultipleGroups ? selectedGroupId : '', paSource);
+      }
+      setProgramDialogOpen(false);
+      await loadParticipants();
+    } catch (error) {
+      onError?.(toErrorMessage(error));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -171,6 +346,17 @@ export function TourWizardStep5Participants({ tourId, nbGroupe, groupNames, onEr
             </Button>
           </span>
         </Tooltip>
+        <Tooltip title="Ajouter un participant programme">
+          <Button
+            size="small"
+            variant="outlined"
+            sx={{ minWidth: 0, px: 1.1 }}
+            onClick={() => setProgramDialogOpen(true)}
+            disabled={saving || loading || (hasMultipleGroups && !selectedGroupId)}
+          >
+            Ajouter un participant programme
+          </Button>
+        </Tooltip>
         <Tooltip title="Supprimer">
           <Button
             size="small"
@@ -186,21 +372,18 @@ export function TourWizardStep5Participants({ tourId, nbGroupe, groupNames, onEr
       </Stack>
 
       <Box sx={{ height: 260, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-        <EntityDataGrid<TourParticipantRow>
+        <TourParticipantGrid
           rows={visibleRows}
-          columns={columns}
           loading={loading}
-          getRowId={(row) => row.IDCLUB}
           selection={selection}
           onSelectionChange={setSelection}
+          getLabel={getLabel}
+          headerLabel={participantsHeaderLabel}
           onRowClick={(rowId) => {
             const key = String(rowId);
             setSelection((prev) => {
               const exists = prev.some((id) => String(id) === key);
-              if (exists) {
-                return prev.filter((id) => String(id) !== key);
-              }
-              return [...prev, rowId];
+              return exists ? prev.filter((id) => String(id) !== key) : [...prev, rowId];
             });
           }}
           disableRowSelectionOnClick
@@ -217,6 +400,81 @@ export function TourWizardStep5Participants({ tourId, nbGroupe, groupNames, onEr
           void handleAddClub(clubId);
         }}
       />
+
+      <Dialog
+        open={programDialogOpen}
+        onClose={() => { if (!saving) setProgramDialogOpen(false); }}
+        fullWidth
+        maxWidth="md"
+      >
+        <DialogTitle>Ajouter un participant programme</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1.25} sx={{ pt: 1 }}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={1}>
+              <FormControl size="small" sx={{ minWidth: 170 }}>
+                <InputLabel id="prog5-season-label">Saison</InputLabel>
+                <Select labelId="prog5-season-label" label="Saison" value={programSeason} onChange={(event) => setProgramSeason(String(event.target.value ?? ''))}>
+                  {seasonOptions.map((season) => (<MenuItem key={season} value={season}>{season}</MenuItem>))}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 220 }}>
+                <InputLabel id="prog5-competition-label">Competition</InputLabel>
+                <Select labelId="prog5-competition-label" label="Competition" value={programCompetitionId} onChange={(event) => setProgramCompetitionId(String(event.target.value ?? ''))}>
+                  {programCompetitions.map((competition) => {
+                    const id = String(competition.COCLEUNIK ?? '').trim();
+                    const name = String(competition.NOM ?? '').trim();
+                    const season = String(competition.SAISON ?? '').trim();
+                    return <MenuItem key={id} value={id}>{[name, season].filter(Boolean).join(' ') || id}</MenuItem>;
+                  })}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel id="prog5-tour-label">Tour</InputLabel>
+                <Select labelId="prog5-tour-label" label="Tour" value={programTourId} onChange={(event) => setProgramTourId(String(event.target.value ?? ''))}>
+                  <MenuItem value="">(Aucun)</MenuItem>
+                  {programTours.map((tour) => (<MenuItem key={tour.TUCLEUNIK} value={String(tour.TUCLEUNIK)}>{String(tour.TOUR ?? '').trim() || `Tour ${tour.TUCLEUNIK}`}</MenuItem>))}
+                </Select>
+              </FormControl>
+            </Stack>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={1}>
+              <FormControl size="small" sx={{ minWidth: 160 }}>
+                <InputLabel id="prog5-rank-label">Classement</InputLabel>
+                <Select
+                  labelId="prog5-rank-label"
+                  label="Classement"
+                  multiple
+                  value={programSourceRanks}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setProgramSourceRanks(Array.isArray(value) ? value.map(String) : String(value ?? '').split(',').map((e) => e.trim()).filter(Boolean));
+                  }}
+                  renderValue={(selected) => {
+                    const vals = Array.isArray(selected) ? selected.map(String) : String(selected ?? '').split(',').map((e) => e.trim()).filter(Boolean);
+                    return sourceRankSelectOptions.filter((o) => vals.includes(o.value)).map((o) => o.label).join(' / ');
+                  }}
+                >
+                  {sourceRankSelectOptions.map((option) => (<MenuItem key={`rank-${option.value}`} value={option.value}>{option.label}</MenuItem>))}
+                </Select>
+              </FormControl>
+            </Stack>
+            <Stack spacing={0.25}>
+              <Typography variant="caption" color="text.secondary">Clubs possibles par groupe</Typography>
+              {possibleProgrammedClubsByGroup.length > 0
+                ? possibleProgrammedClubsByGroup.map((entry) => (
+                  <Typography key={`possible-${entry.group || '__empty__'}`} variant="caption" color="text.secondary">
+                    {entry.group || '(Aucun groupe)'}: {entry.clubs.length > 0 ? entry.clubs.join(' / ') : '-'}
+                  </Typography>
+                ))
+                : <Typography variant="caption" color="text.secondary">Indetermine pour l instant</Typography>
+              }
+            </Stack>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setProgramDialogOpen(false)} disabled={saving} color="inherit">Annuler</Button>
+          <Button variant="contained" onClick={() => void handleAddProgrammedParticipant()} disabled={saving || loading}>Ajouter</Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }
