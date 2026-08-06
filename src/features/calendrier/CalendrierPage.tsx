@@ -240,10 +240,12 @@ function ClubCell({
   clubId,
   clubName,
   alignRight = false,
+  italic = false,
 }: {
   clubId: string;
   clubName: string;
   alignRight?: boolean;
+  italic?: boolean;
 }) {
   const { src } = useEntityImage('club', clubId);
 
@@ -252,7 +254,7 @@ function ClubCell({
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minWidth: 0 }}>
         {alignRight ? (
           <>
-            <Box sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'right' }}>{clubName}</Box>
+            <Box sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'right', fontStyle: italic ? 'italic' : 'normal' }}>{clubName}</Box>
             <Box
               sx={{
                 width: 22,
@@ -269,7 +271,7 @@ function ClubCell({
                   component="img"
                   src={src}
                   alt={clubName}
-                  sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                  sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', fontStyle: italic ? 'italic' : 'normal' }}
                 />
               ) : (
                 <ShieldOutlinedIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
@@ -300,7 +302,7 @@ function ClubCell({
                 <ShieldOutlinedIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
               )}
             </Box>
-            <Box sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{clubName}</Box>
+            <Box sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontStyle: italic ? 'italic' : 'normal' }}>{clubName}</Box>
           </>
         )}
       </Stack>
@@ -992,6 +994,10 @@ export function CalendrierPage() {
           clubId={String(params.row.DOMICILE ?? '')}
           clubName={String(params.row.DOMICILE_NOM ?? '')}
           alignRight
+          italic={
+            String(params.row.PADOMSource ?? '').trim().length > 0
+            && String(params.row.DOMICILE ?? '').trim().length === 0
+          }
         />
       ),
     },
@@ -1029,7 +1035,14 @@ export function CalendrierPage() {
       resizable: false,
       sortable: true,
       renderCell: (params) => (
-        <ClubCell clubId={String(params.row.EXTERIEUR ?? '')} clubName={String(params.row.EXTERIEUR_NOM ?? '')} />
+        <ClubCell
+          clubId={String(params.row.EXTERIEUR ?? '')}
+          clubName={String(params.row.EXTERIEUR_NOM ?? '')}
+          italic={
+            String(params.row.PAEXTSource ?? '').trim().length > 0
+            && String(params.row.EXTERIEUR ?? '').trim().length === 0
+          }
+        />
       ),
     },
   ], [editingHeureRowId, editingScoreRowId, editingStatusRowId, heureDraftDigits, rowModified, scoreDraft, statusDraft]);

@@ -16,6 +16,8 @@ export interface CalendrierRow {
   BUTEXT: number;
   TABDOM: number;
   TABEXT: number;
+  PADOMSource?: string | null;
+  PAEXTSource?: string | null;
   DOMICILE_NOM: string;
   EXTERIEUR_NOM: string;
 }

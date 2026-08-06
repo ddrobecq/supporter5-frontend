@@ -632,6 +632,8 @@ export function TourWizardDialog({
           {!loading && stepIndex === STEP_RENCONTRES ? (
             <TourWizardStep6Rencontres
               tourId={activeTourId}
+              competitionId={Number(competitionId) || 0}
+              currentTourOrder={Number(draft.ordre) || 0}
               tourType={draft.type}
               competitionSeason={String(competitionSeason ?? '').trim()}
               tourStartDate={toApiDate(draft.dateDebut) ?? ''}

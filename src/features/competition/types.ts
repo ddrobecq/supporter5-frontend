@@ -82,6 +82,8 @@ export interface TourParticipantRow {
   IDCLUB: string;
   CLUB: string;
   GROUPE: string;
+  PASource?: string;
+  PAClassement?: number;
 }
 
 export interface CircOptionRow {

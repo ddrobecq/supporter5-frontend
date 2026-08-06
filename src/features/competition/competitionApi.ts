@@ -190,14 +190,27 @@ export async function fetchTourParticipants(tourId: string | number): Promise<To
   return data.data ?? [];
 }
 
-export async function addTourParticipant(tourId: string | number, clubId: string, groupe = ''): Promise<TourParticipantRow> {
-  const { data } = await http.post<TourParticipantRow>(`${env.tourAdminResource}/${tourId}/participants`, { clubId, groupe });
+export async function addTourParticipant(
+  tourId: string | number,
+  clubId: string,
+  groupe = '',
+  paSource = '',
+): Promise<TourParticipantRow> {
+  const { data } = await http.post<TourParticipantRow>(`${env.tourAdminResource}/${tourId}/participants`, {
+    clubId,
+    groupe,
+    paSource,
+  });
   return data;
 }
 
-export async function removeTourParticipants(tourId: string | number, clubIds: string[]): Promise<number> {
+export async function removeTourParticipants(
+  tourId: string | number,
+  clubIds: string[],
+  participantIds: Array<string | number> = [],
+): Promise<number> {
   const { data } = await http.delete<{ removed: number }>(`${env.tourAdminResource}/${tourId}/participants`, {
-    data: { clubIds },
+    data: { clubIds, participantIds },
   });
   return Number(data.removed ?? 0);
 }
