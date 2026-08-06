@@ -1,5 +1,6 @@
 import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
+import SportsIcon from '@mui/icons-material/Sports';
 import {
   Avatar,
   Box,
@@ -15,9 +16,11 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { toErrorMessage } from '../../components/useEntityPage';
-import { fetchRencontreComposition, fetchRencontreSquad, saveRencontreComposition } from './rencontreApi';
+import { fetchRencontreComposition, fetchRencontreSquad, saveRencontreComposition, fetchArbitreById, upsertRencontreArbitre } from './rencontreApi';
 import type { CompositionMap, SquadPlayerRow } from './types';
+import { NatioFlag } from '../../components/NatioFlag';
 import { JoueurPage } from '../joueur/JoueurPage';
+import { ArbitrePage } from '../arbitre/ArbitrePage';
 
 // Position slots on the pitch with their percentage coordinates (x%, y%)
 // Pitch is shown top=attack, bottom=goalkeeper
@@ -169,6 +172,25 @@ function PitchSlot({ code, label, x, y, player, onDrop, onRemove, setDragSource 
 
 // ---------------------------------------------------------------------------
 
+function ArbitreInlineDisplay({ idarbitre, data }: { idarbitre: string; data: { NOM: string; PRENOM: string; IDNATIO: string } | null }) {
+  const { src } = useEntityImage('arbitre', idarbitre);
+  const nom = data?.NOM?.trim() ? data.NOM.toUpperCase() : idarbitre;
+  const prenom = data?.PRENOM?.trim() ?? '';
+  return (
+    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', minWidth: 0 }}>
+      <Avatar src={src ?? undefined} sx={{ width: 30, height: 30, bgcolor: 'grey.300', flexShrink: 0 }}>
+        {!src && <SportsIcon sx={{ fontSize: 18 }} />}
+      </Avatar>
+      <Typography variant="body2" sx={{ fontSize: 11, fontWeight: 600 }}>
+        {nom}{prenom ? ` ${prenom}` : ''}
+      </Typography>
+      {data?.IDNATIO ? <NatioFlag idnatio={data.IDNATIO} /> : null}
+    </Stack>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
 export interface CompositionTabActions {
   save: () => Promise<void>;
   reset: () => void;
@@ -190,6 +212,8 @@ export function RencontreCompositionTab({ rencontreId, active, season, onDirtyCh
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [coachPickerOpen, setCoachPickerOpen] = useState(false);
+  const [arbitrePickerOpen, setArbitrePickerOpen] = useState(false);
+  const [arbitreData, setArbitreData] = useState<{ NOM: string; PRENOM: string; IDNATIO: string } | null>(null);
   const dragSourceRef = useRef<string>('');
   const initialCompositionRef = useRef<CompositionMap>({});
   const savingRef = useRef(false);
@@ -269,6 +293,8 @@ export function RencontreCompositionTab({ rencontreId, active, season, onDirtyCh
   const coachId = (composition['ENTRAINEUR'] as string | null | undefined) ?? null;
   const coachPlayer = coachId ? playerById.get(coachId) : null;
 
+  const idarbitreId = String(composition['IDARBITRE'] ?? '').trim() || null;
+
   const handleCoachSelect = useCallback((rowId: string | number) => {
     const id = String(rowId);
     setComposition((prev) => ({ ...prev, ENTRAINEUR: id }));
@@ -278,6 +304,28 @@ export function RencontreCompositionTab({ rencontreId, active, season, onDirtyCh
     });
     setCoachPickerOpen(false);
   }, []);
+
+  const handleArbitreSelect = useCallback(async (rowId: string | number) => {
+    const id = String(rowId).trim();
+    setArbitrePickerOpen(false);
+    try {
+      await upsertRencontreArbitre(rencontreId, id);
+      setComposition((prev) => ({ ...prev, IDARBITRE: id }));
+    } catch (err) {
+      setError(toErrorMessage(err));
+    }
+  }, [rencontreId]);
+
+  // ---------------------------------------------------------------------------
+  // Dirty tracking
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (!idarbitreId) { setArbitreData(null); return; }
+    void fetchArbitreById(idarbitreId).then((arbitre) => {
+      if (arbitre) setArbitreData({ NOM: String(arbitre.NOM ?? '').trim(), PRENOM: String(arbitre.PRENOM ?? '').trim(), IDNATIO: String(arbitre.IDNATIO ?? '').trim() });
+    });
+  }, [idarbitreId]);
 
   // ---------------------------------------------------------------------------
   // Dirty tracking
@@ -540,6 +588,32 @@ export function RencontreCompositionTab({ rencontreId, active, season, onDirtyCh
             </Tooltip>
           </Box>
 
+          {/* Arbitre slot */}
+          <Box sx={{ mt: 1 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Arbitre</Typography>
+            <Tooltip title="Cliquer pour sélectionner l'arbitre">
+              <Box
+                onClick={() => setArbitrePickerOpen(true)}
+                sx={{
+                  display: 'flex', alignItems: 'center', gap: 0.75,
+                  height: 44, px: 1, borderRadius: 1,
+                  border: '1.5px dashed', borderColor: idarbitreId ? 'secondary.main' : 'divider',
+                  bgcolor: 'background.default',
+                  cursor: 'pointer',
+                  '&:hover': { bgcolor: 'action.hover' },
+                }}
+              >
+                {idarbitreId ? (
+                  <ArbitreInlineDisplay idarbitre={idarbitreId} data={arbitreData} />
+                ) : (
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
+                    Cliquer pour sélectionner
+                  </Typography>
+                )}
+              </Box>
+            </Tooltip>
+          </Box>
+
           {saving ? (
             <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <CircularProgress size={14} />
@@ -574,6 +648,33 @@ export function RencontreCompositionTab({ rencontreId, active, season, onDirtyCh
             filterPosteType={2}
             initialSeason={season}
             onOpenInTab={({ rowId }) => handleCoachSelect(rowId)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Arbitre picker modal */}
+      <Dialog
+        open={arbitrePickerOpen}
+        onClose={() => setArbitrePickerOpen(false)}
+        fullWidth
+        maxWidth="xl"
+        slotProps={{ paper: { sx: { height: '80vh' } } }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <SportsIcon />
+          Sélectionner l'arbitre
+          <IconButton
+            aria-label="Fermer"
+            onClick={() => setArbitrePickerOpen(false)}
+            sx={{ ml: 'auto' }}
+          >
+            ×
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
+          <ArbitrePage
+            variant="modalPicker"
+            onOpenInTab={({ rowId }) => void handleArbitreSelect(rowId)}
           />
         </DialogContent>
       </Dialog>

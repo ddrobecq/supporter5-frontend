@@ -39,6 +39,23 @@ export async function fetchRencontreSquad(rencontreId: string | number): Promise
   return data.data;
 }
 
+export async function fetchArbitreById(idarbitre: string): Promise<{ IDARBITRE: string; NOM: string; PRENOM: string; IDNATIO: string } | null> {
+  try {
+    const { data } = await http.get<{ IDARBITRE: string; NOM: string; PRENOM: string; IDNATIO: string }>(`/api/arbitre/${encodeURIComponent(idarbitre)}`);
+    return data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function updateMatchArbitre(macleunik: number, idarbitre: string | null): Promise<void> {
+  await http.put(`/api/admin/matchs/${encodeURIComponent(String(macleunik))}`, { IDARBITRE: idarbitre || null });
+}
+
+export async function upsertRencontreArbitre(rencontreId: string | number, idarbitre: string | null): Promise<void> {
+  await http.put(`/api/admin/rencontres/${encodeURIComponent(String(rencontreId))}/arbitre`, { IDARBITRE: idarbitre || null });
+}
+
 export interface EventPayload {
   adversaire: number;
   minute: number;
