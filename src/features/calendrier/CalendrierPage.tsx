@@ -678,6 +678,7 @@ export function CalendrierPage() {
       return;
     }
 
+    setSelectedRowId(row.RECLEUNIK);
     setEditingStatusRowId(null);
     setEditingHeureRowId(null);
     setEditingScoreRowId(row.RECLEUNIK);
@@ -705,6 +706,7 @@ export function CalendrierPage() {
   };
 
   const startHeureEdit = (row: CalendrierRow): void => {
+    setSelectedRowId(row.RECLEUNIK);
     setEditingStatusRowId(null);
     setEditingScoreRowId(null);
     setEditingHeureRowId(row.RECLEUNIK);
@@ -737,6 +739,7 @@ export function CalendrierPage() {
   };
 
   const startStatusEdit = (row: CalendrierRow): void => {
+    setSelectedRowId(row.RECLEUNIK);
     setEditingScoreRowId(null);
     setEditingHeureRowId(null);
     setEditingStatusRowId(row.RECLEUNIK);
