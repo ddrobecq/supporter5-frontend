@@ -414,6 +414,14 @@ export function CalendrierPage() {
     sortModel.length === 1 && sortModel[0].field === 'HEURE' && sortModel[0].sort === 'asc';
 
   const orderedRows = useMemo(() => getSortedRows(rows, sortModel), [rows, sortModel]);
+  const isCompactMatchList = rows.length < 10;
+  const compactMatchListHeight = useMemo(() => {
+    const visibleRows = Math.max(rows.length, 1);
+    // Approximate DataGrid chrome in compact density (header + footer + paddings).
+    const estimatedGridChrome = 116;
+    const estimatedRowHeight = 33;
+    return Math.max(220, estimatedGridChrome + (visibleRows * estimatedRowHeight));
+  }, [rows.length]);
   const selectedRow = useMemo(
     () => rows.find((row) => String(row.RECLEUNIK) === String(selectedRowId ?? '')) ?? null,
     [rows, selectedRowId],
@@ -1223,7 +1231,15 @@ export function CalendrierPage() {
         <CardContent>
           {error ? <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert> : null}
 
-          <Box ref={gridWrapperRef} sx={{ mt: 2, height: 'calc(100vh - 270px)', minHeight: 420, position: 'relative' }}>
+          <Box
+            ref={gridWrapperRef}
+            sx={{
+              mt: 2,
+              height: isCompactMatchList ? compactMatchListHeight : 'calc(100vh - 270px)',
+              minHeight: isCompactMatchList ? 220 : 420,
+              position: 'relative',
+            }}
+          >
             <DataGrid
               rows={rows}
               columns={columns}
