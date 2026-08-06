@@ -9,7 +9,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { http } from '../../lib/http';
 import { toErrorMessage } from '../../components/useEntityPage';
 
@@ -25,6 +25,10 @@ interface RestartBackendResponse {
   scheduledInMs?: number;
 }
 
+interface BackendVersionResponse {
+  version?: string;
+}
+
 function isAllowedSqliteFile(file: File): boolean {
   const lower = file.name.toLowerCase();
   return lower.endsWith('.sqlite') || lower.endsWith('.db');
@@ -36,6 +40,28 @@ export function ConfigurationPage() {
   const [restartLoading, setRestartLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [backendVersion, setBackendVersion] = useState<string>('...');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void http.get<BackendVersionResponse>('/api/admin/system/version')
+      .then(({ data }) => {
+        if (cancelled) {
+          return;
+        }
+        setBackendVersion(String(data.version ?? '').trim() || 'unknown');
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setBackendVersion('unknown');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleImport = async () => {
     if (!file) {
@@ -104,6 +130,16 @@ export function ConfigurationPage() {
   return (
     <Stack spacing={2}>
       <Typography variant="h5" sx={{ fontWeight: 700 }}>Configuration</Typography>
+
+      <Card>
+        <CardContent>
+          <Stack spacing={0.5}>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>Version</Typography>
+            <Typography variant="body2">Front: v{__APP_VERSION__}</Typography>
+            <Typography variant="body2">Back: v{backendVersion}</Typography>
+          </Stack>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent>
