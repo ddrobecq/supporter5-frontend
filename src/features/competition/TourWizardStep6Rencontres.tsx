@@ -1,8 +1,14 @@
 import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import AutorenewRoundedIcon from '@mui/icons-material/AutorenewRounded';
 import {
   Box,
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   FormControl,
   InputLabel,
   MenuItem,
@@ -33,8 +39,10 @@ interface TourWizardStep6RencontresProps {
   tourId: number;
   competitionId: number;
   tourType: 'ligue' | 'eliminatoire';
+  isAllerRetour: boolean;
   competitionSeason: string;
   tourStartDate: string;
+  tourEndDate: string;
   tourDefaultHeure: string;
   nbGroupe: number;
   groupNames: string[];
@@ -140,8 +148,10 @@ export function TourWizardStep6Rencontres({
   tourId,
   competitionId,
   tourType,
+  isAllerRetour,
   competitionSeason,
   tourStartDate,
+  tourEndDate,
   tourDefaultHeure,
   nbGroupe,
   groupNames,
@@ -159,6 +169,7 @@ export function TourWizardStep6Rencontres({
   const [pending, setPending] = useState<PendingRencontre | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [retourConfirmOpen, setRetourConfirmOpen] = useState(false);
   const [pendingAutoSelectIndex, setPendingAutoSelectIndex] = useState<number | null>(null);
   const participantsGridRef = useRef<HTMLDivElement | null>(null);
 
@@ -350,6 +361,8 @@ export function TourWizardStep6Rencontres({
     const selectedCirc = normalizeCircId(selectedCircId);
     return rencontreRows.filter((row) => normalizeCircId(row.IDCIRC) === selectedCirc);
   }, [rencontreRows, selectedCircId]);
+
+  const canGenerateRetour = tourType !== 'ligue' && isAllerRetour;
 
   const gridRows = useMemo<RencontresGridRow[]>(() => {
     const rows = filteredRencontreRows.map((match) => {
@@ -622,6 +635,108 @@ export function TourWizardStep6Rencontres({
     }
   };
 
+  const generateRetourMatches = async () => {
+    if (!canGenerateRetour) {
+      return;
+    }
+
+    const endDate = normalizeDate(tourEndDate);
+    if (!endDate) {
+      onError?.('La date de fin du tour est requise pour creer les matches retour.');
+      return;
+    }
+
+    const allerRows = rencontreRows.filter((row) => {
+      const id = Number(row.RECLEUNIK ?? 0);
+      return Number.isInteger(id) && id > 0 && normalizeCircId(row.IDCIRC) !== 'E02';
+    });
+
+    if (allerRows.length === 0) {
+      onError?.('Aucun match aller saisi a dupliquer.');
+      return;
+    }
+
+    const buildIdentityKey = (
+      domicile: string,
+      exterieur: string,
+      domSource: string,
+      extSource: string,
+    ): string => [domicile, exterieur, domSource, extSource].map((part) => part.trim()).join('|');
+
+    const existingRetourKeys = new Set(
+      rencontreRows
+        .filter((row) => normalizeCircId(row.IDCIRC) === 'E02')
+        .map((row) => buildIdentityKey(
+          String(row.DOMICILE ?? ''),
+          String(row.EXTERIEUR ?? ''),
+          String(row.PADOMSource ?? ''),
+          String(row.PAEXTSource ?? ''),
+        )),
+    );
+
+    const createdKeys = new Set<string>();
+    const payloads: CreateTourMatchPayload[] = [];
+
+    allerRows.forEach((aller) => {
+      const nextDomicile = String(aller.EXTERIEUR ?? '').trim();
+      const nextExterieur = String(aller.DOMICILE ?? '').trim();
+      const nextDomSource = String(aller.PAEXTSource ?? '').trim();
+      const nextExtSource = String(aller.PADOMSource ?? '').trim();
+
+      if (!nextDomicile && !nextDomSource) {
+        return;
+      }
+      if (!nextExterieur && !nextExtSource) {
+        return;
+      }
+
+      const key = buildIdentityKey(nextDomicile, nextExterieur, nextDomSource, nextExtSource);
+      if (existingRetourKeys.has(key) || createdKeys.has(key)) {
+        return;
+      }
+
+      createdKeys.add(key);
+      payloads.push({
+        DATE: endDate,
+        HEURE: null,
+        DOMICILE: nextDomicile,
+        EXTERIEUR: nextExterieur,
+        BUTDOM: 0,
+        BUTEXT: 0,
+        TABDOM: 0,
+        TABEXT: 0,
+        ETAT: Number(aller.ETAT) === 1 ? 1 : 5,
+        TUCLEUNIK: tourId,
+        SAISON: String(competitionSeason ?? '').trim(),
+        READMIN: 0,
+        COMMENT: '',
+        VID_ID: null,
+        IDCIRC: 'E02',
+        PADOMSource: nextDomSource,
+        PAEXTSource: nextExtSource,
+      });
+    });
+
+    if (payloads.length === 0) {
+      onError?.('Aucun match retour a creer (deja presents ou donnees invalides).');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await Promise.all(payloads.map((payload) => createTourRencontre(payload)));
+      setPending(null);
+      setSelectedParticipantId('');
+      setParticipantSelection([]);
+      setSelectedRencontre([]);
+      await reloadData();
+    } catch (error) {
+      onError?.(toErrorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const onClubGridKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.code !== 'Space' && event.key !== ' ') {
       return;
@@ -664,20 +779,39 @@ export function TourWizardStep6Rencontres({
           </FormControl>
         ) : null}
 
-        <FormControl fullWidth size="small">
-          <InputLabel id="circ-select-label">Nom de la Manche</InputLabel>
-          <Select
-            labelId="circ-select-label"
-            label="Nom de la Manche"
-            value={selectedCircId}
-            onChange={(event) => setSelectedCircId(String(event.target.value ?? ''))}
-          >
-            <MenuItem value="">(Aucune)</MenuItem>
-            {circOptions.map((circ) => (
-              <MenuItem key={circ.IDCIRC} value={circ.IDCIRC}>{circ.CIRC}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <Stack direction="row" spacing={1} sx={{ flex: 1, minWidth: 0, alignItems: 'center' }}>
+          <FormControl size="small" sx={{ flex: 1, minWidth: 0 }}>
+            <InputLabel id="circ-select-label">Nom de la Manche</InputLabel>
+            <Select
+              labelId="circ-select-label"
+              label="Nom de la Manche"
+              value={selectedCircId}
+              onChange={(event) => setSelectedCircId(String(event.target.value ?? ''))}
+            >
+              <MenuItem value="">(Aucune)</MenuItem>
+              {circOptions.map((circ) => (
+                <MenuItem key={circ.IDCIRC} value={circ.IDCIRC}>{circ.CIRC}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {canGenerateRetour ? (
+            <Tooltip title="Creer les matches retour depuis les matches aller">
+              <span>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<AutorenewRoundedIcon />}
+                  sx={{ minWidth: 0, px: 1.1, whiteSpace: 'nowrap', flexShrink: 0 }}
+                  onClick={() => setRetourConfirmOpen(true)}
+                  disabled={saving || loading}
+                >
+                  Generer retours
+                </Button>
+              </span>
+            </Tooltip>
+          ) : null}
+        </Stack>
       </Stack>
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25} sx={{ minHeight: 0 }}>
@@ -758,6 +892,35 @@ export function TourWizardStep6Rencontres({
           </Box>
         </Box>
       </Stack>
+
+      <Dialog
+        open={retourConfirmOpen}
+        onClose={() => {
+          if (!saving) {
+            setRetourConfirmOpen(false);
+          }
+        }}
+      >
+        <DialogTitle>Generer les matches retour</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Confirmez-vous la creation automatique des matches retour a partir des matches aller deja saisis ?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRetourConfirmOpen(false)} disabled={saving} color="inherit">Annuler</Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              setRetourConfirmOpen(false);
+              void generateRetourMatches();
+            }}
+            disabled={saving}
+          >
+            Confirmer
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }

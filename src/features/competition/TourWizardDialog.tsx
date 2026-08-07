@@ -23,7 +23,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { DateInputField, fromInputDateToDisplay, toInputDateFromDisplay } from '../../components/DateInputField';
 import { TimeInputField } from '../../components/TimeInputField';
 import { toErrorMessage } from '../../components/useEntityPage';
-import { createCompetitionTour, fetchCompetitionTourById, updateCompetitionTour } from './competitionApi';
+import { createCompetitionTour, fetchCompetitionTourById, fetchTourDefById, updateCompetitionTour } from './competitionApi';
 import { TourWizardStep3DefineForm } from './TourWizardStep3DefineForm';
 import { TourWizardStep4Groupes } from './TourWizardStep4Groupes';
 import { TourWizardStep4Classement } from './TourWizardStep4Classement';
@@ -202,6 +202,7 @@ export function TourWizardDialog({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [finalTouched, setFinalTouched] = useState(false);
   const [initialTourType, setInitialTourType] = useState<TourType>('ligue');
+  const [isAllerRetour, setIsAllerRetour] = useState(false);
   const [groupNames, setGroupNames] = useState<string[]>([]);
 
   useEffect(() => {
@@ -216,6 +217,7 @@ export function TourWizardDialog({
       const nextDraft = createDefaultDraft(proposedTourId, proposedOrder);
       setDraft(nextDraft);
       setInitialTourType(nextDraft.type);
+      setIsAllerRetour(false);
       return;
     }
 
@@ -238,6 +240,37 @@ export function TourWizardDialog({
         setLoading(false);
       });
   }, [open, mode, initialTourId, proposedTourId, proposedOrder]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const tourDefId = Number(draft.tourDefKey ?? 0);
+    if (!Number.isInteger(tourDefId) || tourDefId <= 0) {
+      setIsAllerRetour(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    void fetchTourDefById(tourDefId)
+      .then((tourDef) => {
+        if (!cancelled) {
+          setIsAllerRetour(Number(tourDef?.ALLER_RETOUR ?? 0) === 1);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setIsAllerRetour(false);
+          onError(toErrorMessage(error));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, draft.tourDefKey, onError]);
 
   useEffect(() => {
     if (finalTouched) return;
@@ -641,8 +674,10 @@ export function TourWizardDialog({
               tourId={activeTourId}
               competitionId={Number(competitionId) || 0}
               tourType={draft.type}
+              isAllerRetour={isAllerRetour}
               competitionSeason={String(competitionSeason ?? '').trim()}
               tourStartDate={toApiDate(draft.dateDebut) ?? ''}
+              tourEndDate={toApiDate(draft.dateFin) ?? ''}
               tourDefaultHeure={String(draft.heureMatches ?? '').trim()}
               nbGroupe={draft.nbGroupe}
               groupNames={groupNames}
