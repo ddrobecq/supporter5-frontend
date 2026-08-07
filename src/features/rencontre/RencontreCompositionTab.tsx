@@ -1,6 +1,5 @@
 import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
-import SportsIcon from '@mui/icons-material/Sports';
 import {
   Avatar,
   Box,
@@ -22,11 +21,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { http } from '../../lib/http';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { toErrorMessage } from '../../components/useEntityPage';
-import { fetchRencontreComposition, fetchRencontreSquad, saveRencontreComposition, fetchArbitreById, upsertRencontreArbitre } from './rencontreApi';
+import { fetchRencontreComposition, fetchRencontreSquad, saveRencontreComposition } from './rencontreApi';
 import type { CompositionMap, SquadPlayerRow } from './types';
 import { NatioFlag } from '../../components/NatioFlag';
 import { JoueurPage } from '../joueur/JoueurPage';
-import { ArbitrePage } from '../arbitre/ArbitrePage';
 
 // Position slots on the pitch with their percentage coordinates (x%, y%)
 // Pitch is shown top=attack, bottom=goalkeeper
@@ -205,23 +203,6 @@ function CoachInlineDisplay({ player }: { player: SquadPlayerRow }) {
   );
 }
 
-function ArbitreInlineDisplay({ idarbitre, data }: { idarbitre: string; data: { NOM: string; PRENOM: string; IDNATIO: string } | null }) {
-  const { src } = useEntityImage('arbitre', idarbitre);
-  const nom = data?.NOM?.trim() ? data.NOM.toUpperCase() : idarbitre;
-  const prenom = data?.PRENOM?.trim() ?? '';
-  return (
-    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', minWidth: 0 }}>
-      <Avatar src={src ?? undefined} sx={{ width: 30, height: 30, bgcolor: 'grey.300', flexShrink: 0 }}>
-        {!src && <SportsIcon sx={{ fontSize: 18 }} />}
-      </Avatar>
-      <Typography variant="body2" sx={{ fontSize: 11, fontWeight: 600 }}>
-        {nom}{prenom ? ` ${prenom}` : ''}
-      </Typography>
-      {data?.IDNATIO ? <NatioFlag idnatio={data.IDNATIO} /> : null}
-    </Stack>
-  );
-}
-
 // ---------------------------------------------------------------------------
 
 export interface CompositionTabActions {
@@ -263,8 +244,6 @@ export function RencontreCompositionTab({
   const [error, setError] = useState<string | null>(null);
   const [showOpponentCompositionOnMobile, setShowOpponentCompositionOnMobile] = useState(false);
   const [coachPickerOpen, setCoachPickerOpen] = useState(false);
-  const [arbitrePickerOpen, setArbitrePickerOpen] = useState(false);
-  const [arbitreData, setArbitreData] = useState<{ NOM: string; PRENOM: string; IDNATIO: string } | null>(null);
   const dragSourceRef = useRef<string>('');
   const initialCompositionRef = useRef<CompositionMap>(_initialCompositionCache.get(rencontreId) ?? {});
   const savingRef = useRef(false);
@@ -354,8 +333,6 @@ export function RencontreCompositionTab({
 
   const coachId = (composition['ENTRAINEUR'] as string | null | undefined) ?? null;
   const coachPlayer = coachId ? playerById.get(coachId) : null;
-
-  const idarbitreId = String(composition['IDARBITRE'] ?? '').trim() || null;
   const opponentComposition = String(composition['MACOMPOADVERSAIRE'] ?? '');
   const normalizedSupportedClubName = String(supportedClubName ?? '').trim() || 'le club supporte';
   const normalizedOpponentClubName = String(opponentClubName ?? '').trim() || 'l adversaire';
@@ -376,28 +353,6 @@ export function RencontreCompositionTab({
     });
     setCoachPickerOpen(false);
   }, []);
-
-  const handleArbitreSelect = useCallback(async (rowId: string | number) => {
-    const id = String(rowId).trim();
-    setArbitrePickerOpen(false);
-    try {
-      await upsertRencontreArbitre(rencontreId, id);
-      setComposition((prev) => ({ ...prev, IDARBITRE: id }));
-    } catch (err) {
-      setError(toErrorMessage(err));
-    }
-  }, [rencontreId]);
-
-  // ---------------------------------------------------------------------------
-  // Dirty tracking
-  // ---------------------------------------------------------------------------
-
-  useEffect(() => {
-    if (!idarbitreId) { setArbitreData(null); return; }
-    void fetchArbitreById(idarbitreId).then((arbitre) => {
-      if (arbitre) setArbitreData({ NOM: String(arbitre.NOM ?? '').trim(), PRENOM: String(arbitre.PRENOM ?? '').trim(), IDNATIO: String(arbitre.IDNATIO ?? '').trim() });
-    });
-  }, [idarbitreId]);
 
   // ---------------------------------------------------------------------------
   // Dirty tracking
@@ -478,10 +433,23 @@ export function RencontreCompositionTab({
         />
       ) : null}
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) 360px' }, gap: 1.5, alignItems: 'start' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+          flexWrap: { md: 'wrap' },
+          gap: 1.5,
+          alignItems: { xs: 'stretch', md: 'flex-start' },
+        }}
+      >
         {showSupportedComposition ? (
-          <Box sx={{ minWidth: 0 }}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '170px minmax(0, 1fr)', md: '170px minmax(0, 1fr) 160px' }, gap: 1.5, alignItems: 'start' }}>
+          <Box
+            sx={{
+              minWidth: { xs: 0, md: 634 },
+              flex: { md: '1 1 634px' },
+            }}
+          >
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '170px minmax(0, 1fr)', md: '170px auto' }, gap: 1.5, alignItems: 'start', justifyContent: 'start' }}>
         {/* ── Left: available players list ── */}
           <Stack spacing={0.5} sx={{ width: '100%', maxWidth: 170 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Joueurs disponibles</Typography>
@@ -538,8 +506,19 @@ export function RencontreCompositionTab({
           </Box>
         </Stack>
 
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(280px, 420px) 160px' },
+            columnGap: 1.5,
+            rowGap: 1,
+            alignItems: 'start',
+            width: { xs: '100%', md: 'min(100%, 592px)' },
+            justifySelf: 'start',
+          }}
+        >
         {/* ── Center: pitch ── */}
-        <Box sx={{ maxWidth: 420, width: '100%', justifySelf: 'center' }}>
+        <Box sx={{ maxWidth: 420, width: '100%', justifySelf: 'start' }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Terrain</Typography>
           <Box
             sx={{
@@ -599,33 +578,13 @@ export function RencontreCompositionTab({
         </Box>
 
         {/* ── Right: bench + coach ── */}
-        <Stack spacing={0.5} sx={{ gridColumn: { xs: '1 / -1', md: 'auto' } }}>
-          {/* Arbitre slot */}
-          <Box sx={{ mt: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Arbitre</Typography>
-            <Tooltip title="Cliquer pour sélectionner l'arbitre">
-              <Box
-                onClick={() => setArbitrePickerOpen(true)}
-                sx={{
-                  display: 'flex', alignItems: 'center', gap: 0.75,
-                  height: 44, px: 1, borderRadius: 1,
-                  border: '1.5px dashed', borderColor: idarbitreId ? 'secondary.main' : 'divider',
-                  bgcolor: 'background.default',
-                  cursor: 'pointer',
-                  '&:hover': { bgcolor: 'action.hover' },
-                }}
-              >
-                {idarbitreId ? (
-                  <ArbitreInlineDisplay idarbitre={idarbitreId} data={arbitreData} />
-                ) : (
-                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
-                    Cliquer pour sélectionner
-                  </Typography>
-                )}
-              </Box>
-            </Tooltip>
-          </Box>
-
+        <Stack
+          spacing={0.5}
+          sx={{
+            gridColumn: { xs: '1 / -1', md: 'auto' },
+            alignSelf: 'start',
+          }}
+        >
           {/* Coach slot */}
           <Box sx={{ mt: 1 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Entraîneur</Typography>
@@ -714,12 +673,20 @@ export function RencontreCompositionTab({
             </Box>
           ) : null}
         </Stack>
+        </Box>
             </Box>
           </Box>
         ) : null}
 
         {showOpponentComposition ? (
-          <Stack spacing={0.5}>
+          <Stack
+            spacing={0.5}
+            sx={{
+              width: { xs: '100%', md: 'clamp(10ch, 26vw, 360px)' },
+              minWidth: { md: '10ch' },
+              flex: { md: '0 1 360px' },
+            }}
+          >
             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Compo adversaire</Typography>
             <TextField
               value={opponentComposition}
@@ -762,32 +729,6 @@ export function RencontreCompositionTab({
         </DialogContent>
       </Dialog>
 
-      {/* Arbitre picker modal */}
-      <Dialog
-        open={arbitrePickerOpen}
-        onClose={() => setArbitrePickerOpen(false)}
-        fullWidth
-        maxWidth="xl"
-        slotProps={{ paper: { sx: { height: '80vh' } } }}
-      >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <SportsIcon />
-          Sélectionner l'arbitre
-          <IconButton
-            aria-label="Fermer"
-            onClick={() => setArbitrePickerOpen(false)}
-            sx={{ ml: 'auto' }}
-          >
-            ×
-          </IconButton>
-        </DialogTitle>
-        <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
-          <ArbitrePage
-            variant="modalPicker"
-            onOpenInTab={({ rowId }) => void handleArbitreSelect(rowId)}
-          />
-        </DialogContent>
-      </Dialog>
     </Stack>
   );
 }

@@ -1,5 +1,6 @@
 export interface RencontreDetailRow {
   RECLEUNIK: number;
+  MACLEUNIK: number | null;
   DATE: string | null;
   HEURE: string | null;
   ETAT: number;
@@ -28,6 +29,14 @@ export interface RencontreDetailRow {
   EXTERIEUR_TEXTE: string | number | null;
   DOMICILE_NOM_EFFECTIF: string;
   EXTERIEUR_NOM_EFFECTIF: string;
+  IDARBITRE: string | null;
+  ARBITRE_NOM: string;
+  ARBITRE_PRENOM: string;
+  TECLEUNIK: string | null;
+  TERRAIN_NOM: string;
+  TERRAIN_VILLE: string;
+  TERRAIN_DISPLAY: string;
+  NBSPECT: number;
   SUPPORTED_CLUB_ID: string;
   IS_SUPPORTED_CLUB_MATCH: number;
   SUPPORTED_CLUB_SIDE: 'home' | 'away' | 'none';

@@ -56,6 +56,17 @@ export async function upsertRencontreArbitre(rencontreId: string | number, idarb
   await http.put(`/api/admin/rencontres/${encodeURIComponent(String(rencontreId))}/arbitre`, { IDARBITRE: idarbitre || null });
 }
 
+export interface RencontreMatchMetaPayload {
+  IDARBITRE?: string | null;
+  TECLEUNIK?: string | null;
+  NBSPECT?: number;
+  LIEU?: string | null;
+}
+
+export async function upsertRencontreMatchMeta(rencontreId: string | number, payload: RencontreMatchMetaPayload): Promise<void> {
+  await http.put(`/api/admin/rencontres/${encodeURIComponent(String(rencontreId))}/match-meta`, payload);
+}
+
 export interface EventPayload {
   adversaire: number;
   minute: number;

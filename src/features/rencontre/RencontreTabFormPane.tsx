@@ -1,8 +1,10 @@
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
+import ClearRoundedIcon from '@mui/icons-material/ClearRounded';
 import AutorenewRoundedIcon from '@mui/icons-material/AutorenewRounded';
 import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
 import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
 import HealingRoundedIcon from '@mui/icons-material/HealingRounded';
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import ReportRoundedIcon from '@mui/icons-material/ReportRounded';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
 import SquareRoundedIcon from '@mui/icons-material/SquareRounded';
@@ -10,6 +12,10 @@ import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
 import {
   Box,
   Button,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  InputAdornment,
   FormControl,
   FormControlLabel,
   IconButton,
@@ -46,10 +52,13 @@ import {
   fetchCompetitionWizardData,
 } from '../competition/competitionApi';
 import type { CircOptionRow, CompetitionTourRow } from '../competition/types';
-import { fetchRencontreDetailById, fetchRencontreHighlightsById, fetchRencontreTourMatches, updateRencontreDetail, deleteRencontreEvent } from './rencontreApi';
+import { fetchRencontreDetailById, fetchRencontreHighlightsById, fetchRencontreTourMatches, updateRencontreDetail, deleteRencontreEvent, upsertRencontreMatchMeta } from './rencontreApi';
 import type { RencontreDetailRow, RencontreHighlightEventRow, RencontreHighlightsRow, TourMatchWithNamesRow } from './types';
 import { RencontreCompositionTab, type CompositionTabActions } from './RencontreCompositionTab';
 import { EventFormDialog } from './EventFormDialog';
+import { ArbitrePage } from '../arbitre/ArbitrePage';
+import { TerrainPage } from '../terrain/TerrainPage';
+import { ArbitreIdentityDisplay } from '../../components/ArbitreIdentityDisplay';
 
 interface RencontreTabFormPaneProps {
   tabPath: string;
@@ -71,6 +80,12 @@ interface RencontreDraft {
   circId: string;
   comment: string;
   readmin: number;
+  arbitreId: string;
+  arbitreLabel: string;
+  terrainId: string;
+  terrainLabel: string;
+  nbSpect: string;
+  houseClosed: boolean;
 }
 
 interface CompetitionOption {
@@ -256,6 +271,10 @@ function buildCompetitionLabel(row: Record<string, unknown>): string {
 
 function buildDraftFromDetail(detail: RencontreDetailRow): RencontreDraft {
   const readmin = Number(detail.READMIN ?? 0) || 0;
+  const arbitreNom = String(detail.ARBITRE_NOM ?? '').trim();
+  const arbitrePrenom = String(detail.ARBITRE_PRENOM ?? '').trim();
+  const arbitreLabel = [arbitreNom, arbitrePrenom].filter(Boolean).join(' ').trim();
+  const houseClosed = Number(detail.NBSPECT ?? 0) === -1;
   return {
     butDom: toNonNegativeIntegerString(detail.BUTDOM),
     butExt: toNonNegativeIntegerString(detail.BUTEXT),
@@ -270,6 +289,12 @@ function buildDraftFromDetail(detail: RencontreDetailRow): RencontreDraft {
     circId: String(detail.IDCIRC ?? '').trim(),
     comment: String(detail.COMMENT ?? ''),
     readmin: readmin >= 1 && readmin <= 4 ? readmin : 1,
+    arbitreId: String(detail.IDARBITRE ?? '').trim(),
+    arbitreLabel,
+    terrainId: String(detail.TECLEUNIK ?? '').trim(),
+    terrainLabel: String(detail.TERRAIN_DISPLAY ?? detail.TERRAIN_NOM ?? '').trim(),
+    nbSpect: houseClosed ? '0' : toNonNegativeIntegerString(detail.NBSPECT),
+    houseClosed,
   };
 }
 
@@ -288,6 +313,10 @@ function getDraftSignature(draft: RencontreDraft, adminDecisionEnabled: boolean)
     circId: String(draft.circId ?? '').trim(),
     comment: String(draft.comment ?? ''),
     readmin: adminDecisionEnabled ? Number(draft.readmin) || 1 : 0,
+    arbitreId: String(draft.arbitreId ?? '').trim(),
+    terrainId: String(draft.terrainId ?? '').trim(),
+    nbSpect: Number(toNonNegativeIntegerString(draft.nbSpect)),
+    houseClosed: Boolean(draft.houseClosed),
   });
 }
 
@@ -437,6 +466,8 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
   const [eventDialogMode, setEventDialogMode] = useState<'create' | 'edit'>('create');
+  const [arbitrePickerOpen, setArbitrePickerOpen] = useState(false);
+  const [terrainPickerOpen, setTerrainPickerOpen] = useState(false);
   const [tourMatches, setTourMatches] = useState<TourMatchWithNamesRow[]>([]);
   const [tourMatchesLoading, setTourMatchesLoading] = useState(false);
 
@@ -639,6 +670,14 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
         READMIN: readminValue,
         COMMENT: String(draft.comment ?? ''),
       });
+
+      if (Number(detail.IS_SUPPORTED_CLUB_MATCH ?? 0) === 1) {
+        await upsertRencontreMatchMeta(detail.RECLEUNIK, {
+          IDARBITRE: String(draft.arbitreId ?? '').trim() || null,
+          TECLEUNIK: String(draft.terrainId ?? '').trim() || null,
+          NBSPECT: draft.houseClosed ? -1 : Number(toNonNegativeIntegerString(draft.nbSpect)),
+        });
+      }
 
       await reloadAll();
       setSnackbar({ severity: 'success', message: 'Rencontre enregistree.' });
@@ -1016,7 +1055,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
             </FormControl>
           </Box>
 
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25} sx={{ alignItems: { xs: 'stretch', md: 'center' } }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.25, alignItems: 'center' }}>
             <FormControlLabel
               control={(
                 <Switch
@@ -1025,10 +1064,11 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
                 />
               )}
               label="Decision administrative"
+              sx={{ flexShrink: 0 }}
             />
 
             {adminDecisionEnabled ? (
-              <FormControl size="small" sx={{ width: { xs: '100%', md: 420 } }}>
+              <FormControl size="small" sx={{ width: 'auto', flex: '1 1 320px', minWidth: 260, maxWidth: '100%' }}>
                 <InputLabel id="rencontre-readmin-label">Decision</InputLabel>
                 <Select
                   labelId="rencontre-readmin-label"
@@ -1043,18 +1083,134 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
                 </Select>
               </FormControl>
             ) : null}
-          </Stack>
+          </Box>
 
-          <TextField
-            label="Commentaire"
-            value={draft.comment}
-            onChange={(event) => setDraft((prev) => (prev ? { ...prev, comment: event.target.value } : prev))}
-            fullWidth
-            multiline
-            minRows={3}
-            maxRows={7}
-            slotProps={{ htmlInput: { lang: 'fr', spellCheck: true } }}
-          />
+          {isSupportedClubMatch ? (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.25, rowGap: 2, alignItems: 'flex-start', justifyContent: 'flex-start' }}>
+                <Box sx={{ width: '100%', minWidth: 0 }}>
+                  <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: 'text.secondary' }}>Arbitre</Typography>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      minHeight: 56,
+                      px: 1,
+                      py: 0.75,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 1,
+                      bgcolor: 'background.paper',
+                    }}
+                  >
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <ArbitreIdentityDisplay arbitreId={draft.arbitreId} compact />
+                    </Box>
+                    <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
+                      <Tooltip title="Choisir l'arbitre">
+                        <IconButton size="small" onClick={() => setArbitrePickerOpen(true)} aria-label="Choisir l'arbitre">
+                          <SearchRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Effacer l'arbitre">
+                        <span>
+                          <IconButton
+                            size="small"
+                            onClick={() => setDraft((prev) => (prev ? { ...prev, arbitreId: '', arbitreLabel: '' } : prev))}
+                            disabled={!draft.arbitreId}
+                            aria-label="Effacer l'arbitre"
+                          >
+                            <ClearRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </Stack>
+                  </Box>
+                </Box>
+
+                <Box sx={{ width: '100%', minWidth: 0 }}>
+                  <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: 'text.secondary' }}>Stade</Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, flexWrap: 'wrap' }}>
+                    <TextField
+                      value={draft.terrainLabel || draft.terrainId}
+                      placeholder="Aucun stade"
+                      size="small"
+                      sx={{ flex: '1 1 360px', minWidth: 260 }}
+                      slotProps={{
+                        input: {
+                          readOnly: true,
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <Stack direction="row" spacing={0.25}>
+                                <Tooltip title="Choisir le stade">
+                                  <IconButton size="small" onClick={() => setTerrainPickerOpen(true)} aria-label="Choisir le stade">
+                                    <SearchRoundedIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title="Effacer le stade">
+                                  <span>
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => setDraft((prev) => (prev ? { ...prev, terrainId: '', terrainLabel: '' } : prev))}
+                                      disabled={!draft.terrainId}
+                                      aria-label="Effacer le stade"
+                                    >
+                                      <ClearRoundedIcon fontSize="small" />
+                                    </IconButton>
+                                  </span>
+                                </Tooltip>
+                              </Stack>
+                            </InputAdornment>
+                          ),
+                        },
+                      }}
+                    />
+
+                    <FormControlLabel
+                      control={(
+                        <Switch
+                          checked={draft.houseClosed}
+                          onChange={(_event, checked) => setDraft((prev) => (prev ? { ...prev, houseClosed: checked } : prev))}
+                        />
+                      )}
+                      label="à huis clos"
+                    />
+
+                    {!draft.houseClosed ? (
+                      <TextField
+                        label="Nombre de spectateurs"
+                        size="small"
+                        type="text"
+                        value={draft.nbSpect}
+                        onChange={(event) => setDraft((prev) => (prev ? { ...prev, nbSpect: toNonNegativeIntegerString(event.target.value) } : prev))}
+                        slotProps={{
+                          htmlInput: {
+                            inputMode: 'numeric',
+                            pattern: '[0-9]*',
+                            maxLength: 7,
+                          },
+                        }}
+                        sx={{ width: 170, flex: '0 0 auto' }}
+                        InputProps={{
+                          endAdornment: <InputAdornment position="end">spect</InputAdornment>,
+                        }}
+                      />
+                    ) : null}
+                  </Box>
+                </Box>
+            </Box>
+          ) : (
+            <TextField
+              label="Commentaire"
+              value={draft.comment}
+              onChange={(event) => setDraft((prev) => (prev ? { ...prev, comment: event.target.value } : prev))}
+              fullWidth
+              multiline
+              minRows={3}
+              maxRows={7}
+              slotProps={{ htmlInput: { lang: 'fr', spellCheck: true } }}
+            />
+          )}
         </>
       ) : null}
 
@@ -1289,6 +1445,52 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
           event={eventDialogMode === 'edit' ? (orderedEvents.find((e) => e.EVCLEUNIK === selectedEventId) ?? null) : null}
         />
       ) : null}
+
+      <Dialog
+        open={arbitrePickerOpen}
+        onClose={() => setArbitrePickerOpen(false)}
+        fullWidth
+        maxWidth="xl"
+        slotProps={{ paper: { sx: { height: '80vh' } } }}
+      >
+        <DialogTitle>Sélectionner l'arbitre</DialogTitle>
+        <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
+          <ArbitrePage
+            variant="modalPicker"
+            onOpenInTab={({ rowId, label }) => {
+              setDraft((prev) => (prev ? {
+                ...prev,
+                arbitreId: String(rowId),
+                arbitreLabel: String(label ?? '').trim(),
+              } : prev));
+              setArbitrePickerOpen(false);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={terrainPickerOpen}
+        onClose={() => setTerrainPickerOpen(false)}
+        fullWidth
+        maxWidth="xl"
+        slotProps={{ paper: { sx: { height: '80vh' } } }}
+      >
+        <DialogTitle>Sélectionner le stade</DialogTitle>
+        <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
+          <TerrainPage
+            variant="modalPicker"
+            onOpenInTab={({ rowId, label }) => {
+              setDraft((prev) => (prev ? {
+                ...prev,
+                terrainId: String(rowId),
+                terrainLabel: String(label ?? '').trim(),
+              } : prev));
+              setTerrainPickerOpen(false);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       <AppFeedbackSnackbar value={snackbar} onClose={() => setSnackbar(null)} />
     </Stack>

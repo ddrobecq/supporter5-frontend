@@ -5,7 +5,7 @@ import { TerrainFormDialog } from './TerrainFormDialog';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
 import { createAndOpenInTab, useEntityPage } from '../../components/useEntityPage';
 import type { TerrainRow } from './types';
-import { buildTerrainFormFields, detectTerrainPrimaryKey, resolveTerrainId, resolveTerrainLabel } from './terrainUi';
+import { buildTerrainFormFields, detectTerrainPrimaryKey, resolveTerrainDisplay, resolveTerrainId, resolveTerrainLabel } from './terrainUi';
 
 interface TerrainPageProps {
   variant?: 'page' | 'modalPicker';
@@ -79,7 +79,7 @@ export function TerrainPage({ variant = 'page', onOpenInTab }: TerrainPageProps)
   const openInTabFromRowId = (rowId: GridRowId) => {
     if (!onOpenInTab) return;
     const selectedRow = page.rows.find((row) => toComparableId(getRowId(row)) === toComparableId(rowId));
-    const label = selectedRow ? resolveTerrainLabel(selectedRow) : String(rowId);
+    const label = selectedRow ? resolveTerrainDisplay(selectedRow) : String(rowId);
     onOpenInTab({ rowId, label });
   };
 
