@@ -748,6 +748,7 @@ export function TourWizardStep6Rencontres({
               getRowId={(row) => row.RECLEUNIK}
               selection={selectedRencontre}
               onSelectionChange={setSelectedRencontre}
+              onRowClick={(rowId) => setSelectedRencontre([rowId])}
               disableRowSelectionOnClick
               editMode="cell"
               processRowUpdate={persistRencontreRowUpdate}

@@ -64,6 +64,7 @@ import { TourDefTabFormPane } from '../features/tourdef/TourDefTabFormPane';
 import { JoueurPage } from '../features/joueur/JoueurPage';
 import { JoueurTabFormPane } from '../features/joueur/JoueurTabFormPane';
 import { RencontreTabFormPane } from '../features/rencontre/RencontreTabFormPane';
+import { TerrainPickerDialog } from '../features/terrain/TerrainPickerDialog';
 
 const QUICK_ACTIONS = [
   { label: 'Joueurs', icon: <PersonRoundedIcon />, path: '/joueurs' },
@@ -1025,7 +1026,7 @@ export function AdminLayout() {
       </Box>
 
       <Dialog
-        open={Boolean(activePickerEntity)}
+        open={Boolean(activePickerEntity) && activePickerEntity?.key !== 'terrain'}
         onClose={() => setPickerModal(null)}
         fullWidth
         maxWidth="xl"
@@ -1058,6 +1059,14 @@ export function AdminLayout() {
           </>
         ) : null}
       </Dialog>
+
+      {activePickerEntity?.key === 'terrain' ? (
+        <TerrainPickerDialog
+          open
+          onClose={() => setPickerModal(null)}
+          onSelect={handleOpenPickerEntityInTab('terrain')}
+        />
+      ) : null}
 
       <Dialog
         open={Boolean(closeConfirmTabKey)}

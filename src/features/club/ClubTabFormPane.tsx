@@ -52,7 +52,7 @@ import {
   updateClubProfile,
 } from './clubApi';
 import type { ClubNameHistoryRow, ClubProfileRow, ClubTerrainHistoryRow } from './types';
-import { TerrainSelector } from '../terrain/TerrainSelector';
+import { TerrainPickerDialog } from '../terrain/TerrainPickerDialog';
 
 interface ClubTabFormPaneProps {
   tabPath: string;
@@ -811,8 +811,12 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     }
   };
 
-  const handleTerrainSelected = (terrain: { id: string; name: string }) => {
-    setTerrainDialogDraft((prev) => ({ ...prev, terrainId: terrain.id, terrainName: terrain.name }));
+  const handleTerrainSelected = (terrain: { rowId: GridRowId; label: string }) => {
+    setTerrainDialogDraft((prev) => ({
+      ...prev,
+      terrainId: String(terrain.rowId),
+      terrainName: String(terrain.label ?? '').trim(),
+    }));
     setTerrainSelectorOpen(false);
   };
 
@@ -1290,7 +1294,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
         onSelect={handleVilleSelect}
       />
 
-      <TerrainSelector
+      <TerrainPickerDialog
         open={terrainSelectorOpen}
         onClose={() => setTerrainSelectorOpen(false)}
         onSelect={handleTerrainSelected}
