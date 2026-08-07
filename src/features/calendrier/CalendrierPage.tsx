@@ -378,6 +378,12 @@ function resolveMatchGroup(rows: TourClassementRow[], match: CalendrierRow | nul
   return null;
 }
 
+function isProgrammedUnresolvedSide(sourceValue: unknown, clubIdValue: unknown): boolean {
+  const source = String(sourceValue ?? '').trim();
+  const clubId = String(clubIdValue ?? '').trim();
+  return source.length > 0 && clubId.length === 0;
+}
+
 export function CalendrierPage() {
   const navigate = useNavigate();
   const [date, setDate] = useState<string>(() => getInitialCalendrierDate());
@@ -426,6 +432,14 @@ export function CalendrierPage() {
     () => rows.find((row) => String(row.RECLEUNIK) === String(selectedRowId ?? '')) ?? null,
     [rows, selectedRowId],
   );
+  const isSelectedProgrammedEncounter = useMemo(() => {
+    if (!selectedRow) {
+      return false;
+    }
+
+    return isProgrammedUnresolvedSide(selectedRow.PADOMSource, selectedRow.DOMICILE)
+      || isProgrammedUnresolvedSide(selectedRow.PAEXTSource, selectedRow.EXTERIEUR);
+  }, [selectedRow]);
   const activeTourId = useMemo(() => {
     const candidate = Number(selectedRow?.TUCLEUNIK ?? 0);
     if (!Number.isInteger(candidate) || candidate <= 0) {
@@ -524,6 +538,13 @@ export function CalendrierPage() {
   }, [rows, selectedRowId]);
 
   useEffect(() => {
+    if (isSelectedProgrammedEncounter) {
+      setClassementRows([]);
+      setClassementTourId(null);
+      setClassementGroup(null);
+      return;
+    }
+
     if (activeTourId == null) {
       setClassementRows([]);
       setClassementTourId(null);
@@ -532,9 +553,15 @@ export function CalendrierPage() {
     }
 
     void loadClassementForTour(activeTourId, false);
-  }, [activeTourId, loadClassementForTour]);
+  }, [activeTourId, isSelectedProgrammedEncounter, loadClassementForTour]);
 
   useEffect(() => {
+    if (isSelectedProgrammedEncounter) {
+      previousTourGroupRef.current = { tourId: activeTourId, group: null };
+      setClassementGroup(null);
+      return;
+    }
+
     if (activeTourId == null) {
       previousTourGroupRef.current = { tourId: null, group: null };
       setClassementGroup(null);
@@ -553,7 +580,7 @@ export function CalendrierPage() {
     if (sameTour && groupChanged && nextGroup) {
       void loadClassementForTour(activeTourId, true);
     }
-  }, [activeTourId, classementHasMultipleGroups, selectedMatchGroup, loadClassementForTour]);
+  }, [activeTourId, classementHasMultipleGroups, isSelectedProgrammedEncounter, selectedMatchGroup, loadClassementForTour]);
 
   useEffect(() => () => {
     Object.values(savedIconTimersRef.current).forEach((timer) => clearTimeout(timer));
@@ -1331,31 +1358,33 @@ export function CalendrierPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent>
-          <Stack spacing={1.25}>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              {activeTourId == null
-                ? 'Sélectionnez un match dans la liste du calendrier pour afficher le classement.'
-                : `${classementBlockLabel || 'Classement du tour'}${classementTourId === activeTourId ? '' : ' - chargement...'}`}
-            </Typography>
+      {!isSelectedProgrammedEncounter ? (
+        <Card>
+          <CardContent>
+            <Stack spacing={1.25}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                {activeTourId == null
+                  ? 'Sélectionnez un match dans la liste du calendrier pour afficher le classement.'
+                  : `${classementBlockLabel || 'Classement du tour'}${classementTourId === activeTourId ? '' : ' - chargement...'}`}
+              </Typography>
 
-            <Box sx={{ height: 320, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-              <DataGrid
-                rows={displayedClassementRows}
-                columns={classementColumns}
-                loading={classementLoading}
-                getRowId={(row) => row.PACLEUNIK}
-                disableColumnMenu
-                disableRowSelectionOnClick
-                hideFooter
-                density="compact"
-                sx={{ width: '100%' }}
-              />
-            </Box>
-          </Stack>
-        </CardContent>
-      </Card>
+              <Box sx={{ height: 320, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                <DataGrid
+                  rows={displayedClassementRows}
+                  columns={classementColumns}
+                  loading={classementLoading}
+                  getRowId={(row) => row.PACLEUNIK}
+                  disableColumnMenu
+                  disableRowSelectionOnClick
+                  hideFooter
+                  density="compact"
+                  sx={{ width: '100%' }}
+                />
+              </Box>
+            </Stack>
+          </CardContent>
+        </Card>
+      ) : null}
     </Stack>
   );
 }
