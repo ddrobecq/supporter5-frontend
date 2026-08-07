@@ -1184,6 +1184,9 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
                         value={draft.nbSpect}
                         onChange={(event) => setDraft((prev) => (prev ? { ...prev, nbSpect: toNonNegativeIntegerString(event.target.value) } : prev))}
                         slotProps={{
+                          input: {
+                            endAdornment: <InputAdornment position="end">spect</InputAdornment>,
+                          },
                           htmlInput: {
                             inputMode: 'numeric',
                             pattern: '[0-9]*',
@@ -1191,9 +1194,6 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
                           },
                         }}
                         sx={{ width: 170, flex: '0 0 auto' }}
-                        InputProps={{
-                          endAdornment: <InputAdornment position="end">spect</InputAdornment>,
-                        }}
                       />
                     ) : null}
                   </Box>
