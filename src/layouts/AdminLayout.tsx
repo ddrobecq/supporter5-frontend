@@ -11,6 +11,7 @@ import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
+import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import StadiumRoundedIcon from '@mui/icons-material/StadiumRounded';
@@ -604,6 +605,24 @@ export function AdminLayout() {
               >
                 <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
                   Configuration
+                </Box>
+              </Button>
+
+              <Button
+                variant="outlined"
+                color="inherit"
+                startIcon={<RefreshRoundedIcon />}
+                sx={{
+                  minWidth: { xs: 40, sm: 'auto' },
+                  px: { xs: 1, sm: 1.5 },
+                  '.MuiButton-startIcon': { mr: { xs: 0, sm: 1 } },
+                }}
+                onClick={() => {
+                  window.location.reload();
+                }}
+              >
+                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                  Refresh
                 </Box>
               </Button>
 
