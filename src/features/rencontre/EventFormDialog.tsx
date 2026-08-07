@@ -25,7 +25,7 @@ import {
   Typography,
 } from '@mui/material';
 import type { ReactElement } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NumberInputField } from '../../components/NumberInputField';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { createRencontreEvent, updateRencontreEvent, type EventPayload, fetchRencontreSquad } from './rencontreApi';
@@ -95,6 +95,7 @@ export function EventFormDialog({ open, onClose, onSaved, rencontreId, event }: 
   const [squadLoading, setSquadLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const adversaireRef = useRef<HTMLInputElement>(null);
 
   // Load squad on open
   useEffect(() => {
@@ -168,6 +169,13 @@ export function EventFormDialog({ open, onClose, onSaved, rencontreId, event }: 
     }
   };
 
+  // Focus adversaire checkbox on open
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => adversaireRef.current?.focus(), 0);
+    }
+  }, [open]);
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>{isEdit ? 'Modifier l\'événement' : 'Ajouter un événement'}</DialogTitle>
@@ -176,7 +184,7 @@ export function EventFormDialog({ open, onClose, onSaved, rencontreId, event }: 
           {error ? <Typography color="error" variant="body2">{error}</Typography> : null}
 
           <FormControlLabel
-            control={<Checkbox checked={adversaire} onChange={(e) => setAdversaire(e.target.checked)} />}
+            control={<Checkbox checked={adversaire} onChange={(e) => setAdversaire(e.target.checked)} slotProps={{ input: { ref: adversaireRef } }} />}
             label="Action concernant l'adversaire"
           />
 

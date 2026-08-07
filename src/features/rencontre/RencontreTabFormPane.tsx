@@ -42,7 +42,7 @@ import {
   fetchCircByTourType,
   fetchCompetition,
   fetchCompetitionTourById,
-  fetchCompetitionTours,
+  fetchCompetitionToursPublic,
   fetchCompetitionWizardData,
 } from '../competition/competitionApi';
 import type { CircOptionRow, CompetitionTourRow } from '../competition/types';
@@ -450,7 +450,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
 
   const loadToursForCompetition = useCallback(async (competitionId: string): Promise<CompetitionTourRow[]> => {
     if (!competitionId) return [];
-    return fetchCompetitionTours(competitionId);
+    return fetchCompetitionToursPublic(competitionId);
   }, []);
 
   const loadCircsForTour = useCallback(async (tourId: string): Promise<CircOptionRow[]> => {
@@ -644,6 +644,9 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       setSnackbar({ severity: 'success', message: 'Rencontre enregistree.' });
       emitTabSaveDone(tabPath);
     } catch (error) {
+      // Temporary log: pinpoint which request fails
+      const ax = error as { response?: { status?: number; data?: unknown; config?: { url?: string; method?: string } } };
+      console.error('[handleSave ERR]', ax.response?.status, ax.response?.config?.method, ax.response?.config?.url, ax.response?.data);
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
     } finally {
       setSaving(false);
@@ -654,23 +657,29 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
   const anySaving = saving || isCompositionSaving;
 
   const handleGlobalSave = async () => {
-    if (activeTab === 'composition' && compositionActionsRef.current) {
+    const saveCompo = isCompositionDirty && compositionActionsRef.current;
+
+    if (saveCompo) {
       setIsCompositionSaving(true);
-      try {
-        await compositionActionsRef.current.save();
-      } catch { /* error shown inside composition tab */ }
-      finally { setIsCompositionSaving(false); }
-    } else {
-      await handleSave();
+    }
+
+    try {
+      // Run both saves concurrently when both are dirty.
+      await Promise.all([
+        isDirty ? handleSave() : Promise.resolve(),
+        saveCompo ? compositionActionsRef.current!.save() : Promise.resolve(),
+      ]);
+    } catch { /* errors shown inline by each section */ }
+    finally {
+      if (saveCompo) setIsCompositionSaving(false);
     }
   };
 
   const handleGlobalCancel = () => {
-    if (activeTab === 'composition' && compositionActionsRef.current) {
+    if (compositionActionsRef.current) {
       compositionActionsRef.current.reset();
-    } else {
-      resetDraft();
     }
+    resetDraft();
   };
 
   const handleSaveRef = useRef(handleGlobalSave);
@@ -788,6 +797,16 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
   const showResumeContent = showTabs && activeTab === 'resume';
   const showCompositionContent = showTabs && activeTab === 'composition';
   const showProgrammeContent = showTabs && activeTab === 'programme';
+  const supportedClubName = detail.SUPPORTED_CLUB_SIDE === 'home'
+    ? detail.DOMICILE_NOM_EFFECTIF
+    : detail.SUPPORTED_CLUB_SIDE === 'away'
+      ? detail.EXTERIEUR_NOM_EFFECTIF
+      : '';
+  const opponentClubName = detail.SUPPORTED_CLUB_SIDE === 'home'
+    ? detail.EXTERIEUR_NOM_EFFECTIF
+    : detail.SUPPORTED_CLUB_SIDE === 'away'
+      ? detail.DOMICILE_NOM_EFFECTIF
+      : '';
 
   return (
     <Stack spacing={1.5}>
@@ -1039,14 +1058,18 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
         </>
       ) : null}
 
-      {showCompositionContent ? (
-        <RencontreCompositionTab
-          rencontreId={rencontreId}
-          active={showCompositionContent}
-          season={draft.saison}
-          onDirtyChange={setIsCompositionDirty}
-          actionsRef={compositionActionsRef}
-        />
+      {showTabs ? (
+        <Box sx={{ display: showCompositionContent ? 'block' : 'none' }}>
+          <RencontreCompositionTab
+            rencontreId={rencontreId}
+            active={showCompositionContent}
+            season={draft?.saison ?? ''}
+            supportedClubName={supportedClubName}
+            opponentClubName={opponentClubName}
+            onDirtyChange={setIsCompositionDirty}
+            actionsRef={compositionActionsRef}
+          />
+        </Box>
       ) : null}
 
       {showResumeContent ? (

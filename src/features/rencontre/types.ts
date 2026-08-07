@@ -78,6 +78,7 @@ export interface SquadPlayerRow {
   SURNOM: string | null;
   POSTE: number | null;
   POS_TYPE: number | null;
+  IDNATIO?: string | null;
 }
 
 export type CompositionMap = Record<string, string | null>;

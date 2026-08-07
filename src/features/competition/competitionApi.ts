@@ -108,6 +108,13 @@ export async function fetchCompetitionTours(competitionId: string | number): Pro
   return data.data ?? [];
 }
 
+export async function fetchCompetitionToursPublic(competitionId: string | number): Promise<CompetitionTourRow[]> {
+  const { data } = await http.get<{ data: CompetitionTourRow[] }>(
+    `${env.tourPublicResource}/competition/${competitionId}`,
+  );
+  return data.data ?? [];
+}
+
 export async function canDeleteCompetitionTour(tourId: string | number): Promise<CanDeleteResponse> {
   const { data } = await http.get<CanDeleteResponse>(`${env.tourAdminResource}/${tourId}/can-delete`);
   return data;

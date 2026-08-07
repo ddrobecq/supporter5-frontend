@@ -8,12 +8,18 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   IconButton,
   Stack,
+  Switch,
+  TextField,
   Tooltip,
   Typography,
+  useMediaQuery,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { http } from '../../lib/http';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { fetchRencontreComposition, fetchRencontreSquad, saveRencontreComposition, fetchArbitreById, upsertRencontreArbitre } from './rencontreApi';
@@ -172,6 +178,33 @@ function PitchSlot({ code, label, x, y, player, onDrop, onRemove, setDragSource 
 
 // ---------------------------------------------------------------------------
 
+function CoachInlineDisplay({ player }: { player: SquadPlayerRow }) {
+  const nom = player.NOM?.trim() ? player.NOM.toUpperCase() : player.IDJOUEUR;
+  const prenom = player.PRENOM?.trim() ?? '';
+  const [idnatio, setIdnatio] = useState<string | null>(() => player.IDNATIO?.trim() || null);
+
+  // Fetch IDNATIO if missing (happens when coach was added manually without full squad data)
+  useEffect(() => {
+    if (idnatio || !player.IDJOUEUR) return;
+    void http.get<Record<string, unknown>>(`/api/joueurs/${encodeURIComponent(player.IDJOUEUR)}`)
+      .then(({ data }) => {
+        const natio = String(data?.IDNATIO ?? '').trim();
+        if (natio) setIdnatio(natio);
+      })
+      .catch(() => { /* noop */ });
+  }, [player.IDJOUEUR, idnatio]);
+
+  return (
+    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', minWidth: 0 }}>
+      <PlayerAvatar playerId={player.IDJOUEUR} size={30} />
+      <Typography variant="body2" sx={{ fontSize: 11, fontWeight: 600 }}>
+        {nom}{prenom ? ` ${prenom}` : ''}
+      </Typography>
+      {idnatio ? <NatioFlag idnatio={idnatio} /> : null}
+    </Stack>
+  );
+}
+
 function ArbitreInlineDisplay({ idarbitre, data }: { idarbitre: string; data: { NOM: string; PRENOM: string; IDNATIO: string } | null }) {
   const { src } = useEntityImage('arbitre', idarbitre);
   const nom = data?.NOM?.trim() ? data.NOM.toUpperCase() : idarbitre;
@@ -201,32 +234,61 @@ interface RencontreCompositionTabProps {
   rencontreId: string;
   active: boolean;
   season?: string;
+  supportedClubName?: string;
+  opponentClubName?: string;
   onDirtyChange?: (dirty: boolean) => void;
   actionsRef?: React.MutableRefObject<CompositionTabActions | null>;
 }
 
-export function RencontreCompositionTab({ rencontreId, active, season, onDirtyChange, actionsRef }: RencontreCompositionTabProps) {
-  const [squad, setSquad] = useState<SquadPlayerRow[]>([]);
-  const [composition, setComposition] = useState<CompositionMap>({});
+// Module-level caches survive component unmount/remount (main-tab switches, hot-reload, etc.)
+const _compositionCache = new Map<string, CompositionMap>();
+const _squadCache = new Map<string, SquadPlayerRow[]>();
+const _initialCompositionCache = new Map<string, CompositionMap>();
+
+export function RencontreCompositionTab({
+  rencontreId,
+  active,
+  season,
+  supportedClubName,
+  opponentClubName,
+  onDirtyChange,
+  actionsRef,
+}: RencontreCompositionTabProps) {
+  const theme = useTheme();
+  const isNarrowViewport = useMediaQuery(theme.breakpoints.down('md'));
+  const [squad, setSquad] = useState<SquadPlayerRow[]>(() => _squadCache.get(rencontreId) ?? []);
+  const [composition, setComposition] = useState<CompositionMap>(() => _compositionCache.get(rencontreId) ?? {});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showOpponentCompositionOnMobile, setShowOpponentCompositionOnMobile] = useState(false);
   const [coachPickerOpen, setCoachPickerOpen] = useState(false);
   const [arbitrePickerOpen, setArbitrePickerOpen] = useState(false);
   const [arbitreData, setArbitreData] = useState<{ NOM: string; PRENOM: string; IDNATIO: string } | null>(null);
   const dragSourceRef = useRef<string>('');
-  const initialCompositionRef = useRef<CompositionMap>({});
+  const initialCompositionRef = useRef<CompositionMap>(_initialCompositionCache.get(rencontreId) ?? {});
   const savingRef = useRef(false);
+  const hasLoadedRef = useRef(false);
 
-  // Load data when tab becomes active
+  // Reset load guard when rencontreId changes so fresh data is fetched for a new match.
   useEffect(() => {
-    if (!active) return;
+    hasLoadedRef.current = !!_compositionCache.get(rencontreId);
+    setShowOpponentCompositionOnMobile(false);
+  }, [rencontreId]);
+
+  // Load data only once per rencontreId — never reload on tab switch to preserve unsaved changes.
+  useEffect(() => {
+    if (!active || hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
     setLoading(true);
     setError(null);
     void Promise.all([
       fetchRencontreSquad(rencontreId),
       fetchRencontreComposition(rencontreId),
     ]).then(([squadData, compoData]) => {
+      _squadCache.set(rencontreId, squadData);
+      _compositionCache.set(rencontreId, compoData);
+      _initialCompositionCache.set(rencontreId, compoData);
       setSquad(squadData);
       setComposition(compoData);
       initialCompositionRef.current = compoData;
@@ -294,6 +356,16 @@ export function RencontreCompositionTab({ rencontreId, active, season, onDirtyCh
   const coachPlayer = coachId ? playerById.get(coachId) : null;
 
   const idarbitreId = String(composition['IDARBITRE'] ?? '').trim() || null;
+  const opponentComposition = String(composition['MACOMPOADVERSAIRE'] ?? '');
+  const normalizedSupportedClubName = String(supportedClubName ?? '').trim() || 'le club supporte';
+  const normalizedOpponentClubName = String(opponentClubName ?? '').trim() || 'l adversaire';
+  const showSupportedComposition = true;
+  const showOpponentComposition = !isNarrowViewport || showOpponentCompositionOnMobile;
+  const mobileSwitchTargetClubName = showOpponentCompositionOnMobile ? normalizedSupportedClubName : normalizedOpponentClubName;
+
+  const handleOpponentCompositionChange = useCallback((value: string) => {
+    setComposition((prev) => ({ ...prev, MACOMPOADVERSAIRE: value }));
+  }, []);
 
   const handleCoachSelect = useCallback((rowId: string | number) => {
     const id = String(rowId);
@@ -348,6 +420,8 @@ export function RencontreCompositionTab({ rencontreId, active, season, onDirtyCh
     try {
       await saveRencontreComposition(rencontreId, composition);
       initialCompositionRef.current = { ...composition };
+      _compositionCache.set(rencontreId, { ...composition });
+      _initialCompositionCache.set(rencontreId, { ...composition });
     } catch (err) {
       setError(toErrorMessage(err));
       throw err;
@@ -358,8 +432,17 @@ export function RencontreCompositionTab({ rencontreId, active, season, onDirtyCh
   };
 
   const handleReset = useCallback(() => {
-    setComposition(initialCompositionRef.current);
-  }, []);
+    const initial = initialCompositionRef.current;
+    setComposition(initial);
+    _compositionCache.set(rencontreId, initial);
+  }, [rencontreId]);
+
+  // Keep module cache in sync with every local change so remounts restore the latest draft.
+  useEffect(() => {
+    if (Object.keys(composition).length > 0) {
+      _compositionCache.set(rencontreId, composition);
+    }
+  }, [composition, rencontreId]);
 
   useEffect(() => {
     if (!actionsRef) return;
@@ -383,9 +466,24 @@ export function RencontreCompositionTab({ rencontreId, active, season, onDirtyCh
     <Stack spacing={1.5}>
       {error ? <Typography variant="body2" color="error.main">{error}</Typography> : null}
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: '200px 1fr 160px', gap: 1.5, alignItems: 'start' }}>
+      {isNarrowViewport ? (
+        <FormControlLabel
+          control={(
+            <Switch
+              checked={showOpponentCompositionOnMobile}
+              onChange={(event) => setShowOpponentCompositionOnMobile(event.target.checked)}
+            />
+          )}
+          label={`Voir la composition de ${mobileSwitchTargetClubName}`}
+        />
+      ) : null}
+
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) 360px' }, gap: 1.5, alignItems: 'start' }}>
+        {showSupportedComposition ? (
+          <Box sx={{ minWidth: 0 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '170px minmax(0, 1fr)', md: '170px minmax(0, 1fr) 160px' }, gap: 1.5, alignItems: 'start' }}>
         {/* ── Left: available players list ── */}
-        <Stack spacing={0.5}>
+          <Stack spacing={0.5} sx={{ width: '100%', maxWidth: 170 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Joueurs disponibles</Typography>
           <Box
             sx={{
@@ -441,7 +539,7 @@ export function RencontreCompositionTab({ rencontreId, active, season, onDirtyCh
         </Stack>
 
         {/* ── Center: pitch ── */}
-        <Box>
+        <Box sx={{ maxWidth: 420, width: '100%', justifySelf: 'center' }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Terrain</Typography>
           <Box
             sx={{
@@ -501,8 +599,60 @@ export function RencontreCompositionTab({ rencontreId, active, season, onDirtyCh
         </Box>
 
         {/* ── Right: bench + coach ── */}
-        <Stack spacing={0.5}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Remplaçants</Typography>
+        <Stack spacing={0.5} sx={{ gridColumn: { xs: '1 / -1', md: 'auto' } }}>
+          {/* Arbitre slot */}
+          <Box sx={{ mt: 1 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Arbitre</Typography>
+            <Tooltip title="Cliquer pour sélectionner l'arbitre">
+              <Box
+                onClick={() => setArbitrePickerOpen(true)}
+                sx={{
+                  display: 'flex', alignItems: 'center', gap: 0.75,
+                  height: 44, px: 1, borderRadius: 1,
+                  border: '1.5px dashed', borderColor: idarbitreId ? 'secondary.main' : 'divider',
+                  bgcolor: 'background.default',
+                  cursor: 'pointer',
+                  '&:hover': { bgcolor: 'action.hover' },
+                }}
+              >
+                {idarbitreId ? (
+                  <ArbitreInlineDisplay idarbitre={idarbitreId} data={arbitreData} />
+                ) : (
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
+                    Cliquer pour sélectionner
+                  </Typography>
+                )}
+              </Box>
+            </Tooltip>
+          </Box>
+
+          {/* Coach slot */}
+          <Box sx={{ mt: 1 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Entraîneur</Typography>
+            <Tooltip title="Cliquer pour sélectionner l'entraîneur">
+              <Box
+                onClick={() => setCoachPickerOpen(true)}
+                sx={{
+                  display: 'flex', alignItems: 'center', gap: 0.75,
+                  height: 44, px: 1, borderRadius: 1,
+                  border: '1.5px dashed', borderColor: coachPlayer ? 'primary.main' : 'divider',
+                  bgcolor: coachPlayer ? 'primary.50' : 'background.default',
+                  cursor: 'pointer',
+                  '&:hover': { bgcolor: 'action.hover' },
+                }}
+              >
+                {coachPlayer ? (
+                  <CoachInlineDisplay player={coachPlayer} />
+                ) : (
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
+                    Cliquer pour sélectionner
+                  </Typography>
+                )}
+              </Box>
+            </Tooltip>
+          </Box>
+
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mt: 1 }}>Remplaçants</Typography>
 
           <Stack spacing={0.5}>
             {REMP_CODES.map((code) => {
@@ -557,63 +707,6 @@ export function RencontreCompositionTab({ rencontreId, active, season, onDirtyCh
             })}
           </Stack>
 
-          {/* Coach slot */}
-          <Box sx={{ mt: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Entraîneur</Typography>
-            <Tooltip title="Cliquer pour sélectionner l'entraîneur">
-              <Box
-                onClick={() => setCoachPickerOpen(true)}
-                sx={{
-                  display: 'flex', alignItems: 'center', gap: 0.75,
-                  height: 44, px: 1, borderRadius: 1,
-                  border: '1.5px dashed', borderColor: coachPlayer ? 'primary.main' : 'divider',
-                  bgcolor: coachPlayer ? 'primary.50' : 'background.default',
-                  cursor: 'pointer',
-                  '&:hover': { bgcolor: 'action.hover' },
-                }}
-              >
-                {coachPlayer ? (
-                  <>
-                    <PlayerAvatar playerId={coachPlayer.IDJOUEUR} size={30} />
-                    <Typography variant="body2" sx={{ fontSize: 11 }}>
-                      {playerLabel(coachPlayer)}
-                    </Typography>
-                  </>
-                ) : (
-                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
-                    Cliquer pour sélectionner
-                  </Typography>
-                )}
-              </Box>
-            </Tooltip>
-          </Box>
-
-          {/* Arbitre slot */}
-          <Box sx={{ mt: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Arbitre</Typography>
-            <Tooltip title="Cliquer pour sélectionner l'arbitre">
-              <Box
-                onClick={() => setArbitrePickerOpen(true)}
-                sx={{
-                  display: 'flex', alignItems: 'center', gap: 0.75,
-                  height: 44, px: 1, borderRadius: 1,
-                  border: '1.5px dashed', borderColor: idarbitreId ? 'secondary.main' : 'divider',
-                  bgcolor: 'background.default',
-                  cursor: 'pointer',
-                  '&:hover': { bgcolor: 'action.hover' },
-                }}
-              >
-                {idarbitreId ? (
-                  <ArbitreInlineDisplay idarbitre={idarbitreId} data={arbitreData} />
-                ) : (
-                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
-                    Cliquer pour sélectionner
-                  </Typography>
-                )}
-              </Box>
-            </Tooltip>
-          </Box>
-
           {saving ? (
             <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <CircularProgress size={14} />
@@ -621,6 +714,23 @@ export function RencontreCompositionTab({ rencontreId, active, season, onDirtyCh
             </Box>
           ) : null}
         </Stack>
+            </Box>
+          </Box>
+        ) : null}
+
+        {showOpponentComposition ? (
+          <Stack spacing={0.5}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Compo adversaire</Typography>
+            <TextField
+              value={opponentComposition}
+              onChange={(event) => handleOpponentCompositionChange(event.target.value)}
+              multiline
+              minRows={isNarrowViewport ? 14 : 24}
+              placeholder="Saisir la composition de l'adversaire"
+              fullWidth
+            />
+          </Stack>
+        ) : null}
       </Box>
 
       {/* Coach picker modal */}
