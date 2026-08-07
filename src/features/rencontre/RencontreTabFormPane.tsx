@@ -57,8 +57,8 @@ import type { RencontreDetailRow, RencontreHighlightEventRow, RencontreHighlight
 import { RencontreCompositionTab, type CompositionTabActions } from './RencontreCompositionTab';
 import { EventFormDialog } from './EventFormDialog';
 import { ArbitrePage } from '../arbitre/ArbitrePage';
-import { TerrainPage } from '../terrain/TerrainPage';
 import { ArbitreIdentityDisplay } from '../../components/ArbitreIdentityDisplay';
+import { TerrainPickerDialog } from '../terrain/TerrainPickerDialog';
 
 interface RencontreTabFormPaneProps {
   tabPath: string;
@@ -1469,28 +1469,17 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
         </DialogContent>
       </Dialog>
 
-      <Dialog
+      <TerrainPickerDialog
         open={terrainPickerOpen}
         onClose={() => setTerrainPickerOpen(false)}
-        fullWidth
-        maxWidth="xl"
-        slotProps={{ paper: { sx: { height: '80vh' } } }}
-      >
-        <DialogTitle>Sélectionner le stade</DialogTitle>
-        <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
-          <TerrainPage
-            variant="modalPicker"
-            onOpenInTab={({ rowId, label }) => {
-              setDraft((prev) => (prev ? {
-                ...prev,
-                terrainId: String(rowId),
-                terrainLabel: String(label ?? '').trim(),
-              } : prev));
-              setTerrainPickerOpen(false);
-            }}
-          />
-        </DialogContent>
-      </Dialog>
+        onSelect={({ rowId, label }) => {
+          setDraft((prev) => (prev ? {
+            ...prev,
+            terrainId: String(rowId),
+            terrainLabel: String(label ?? '').trim(),
+          } : prev));
+        }}
+      />
 
       <AppFeedbackSnackbar value={snackbar} onClose={() => setSnackbar(null)} />
     </Stack>

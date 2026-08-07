@@ -1,5 +1,5 @@
 ﻿import type { GridColDef, GridRowId } from '@mui/x-data-grid';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { createTerrain, deleteTerrain, fetchTerrain, fetchTerrainById, updateTerrain, canDeleteTerrain } from './terrainApi';
 import { TerrainFormDialog } from './TerrainFormDialog';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
@@ -39,6 +39,18 @@ export function TerrainPage({ variant = 'page', onOpenInTab }: TerrainPageProps)
   );
 
   const primaryKey = useMemo(() => detectTerrainPrimaryKey(page.rows), [page.rows]);
+
+  useEffect(() => {
+    if (variant !== 'modalPicker') {
+      return;
+    }
+
+    const handle = window.setTimeout(() => {
+      page.searchInputRef.current?.focus();
+    }, 120);
+
+    return () => window.clearTimeout(handle);
+  }, [page.searchInputRef, variant]);
 
   const columns = useMemo<GridColDef[]>(() => {
     const first = page.rows[0];
