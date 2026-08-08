@@ -18,7 +18,7 @@ import {
   useTheme,
 } from '@mui/material';
 import type { GridColDef, GridPaginationModel, GridRowClassNameParams, GridRowId, GridValidRowModel } from '@mui/x-data-grid';
-import type { ReactNode, RefObject } from 'react';
+import { useEffect, useRef, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { EntityDataGrid } from './EntityDataGrid';
 import { EntitySearchBar } from './EntitySearchBar';
 import { AppFeedbackSnackbar } from './AppFeedbackSnackbar';
@@ -125,6 +125,126 @@ export function EntityPageLayout<Row extends GridValidRowModel>({
     || (compactActionButtons && !(actionsInlineWithSearch && isDesktop));
   const hasActionRow = showActions && !actionsInlineWithSearch;
   const fitToContainer = hideTitle && actionsInlineWithSearch;
+  const pickerRowsSignatureRef = useRef('');
+
+  const movePickerSelection = (delta: 1 | -1) => {
+    if (!fitToContainer || rows.length === 0) {
+      return;
+    }
+
+    const selectedId = selection.at(0);
+    const currentIndex = selectedId === undefined
+      ? -1
+      : rows.findIndex((row) => getRowId(row) === selectedId);
+    const fallbackIndex = delta > 0 ? 0 : rows.length - 1;
+    const nextIndex = currentIndex < 0
+      ? fallbackIndex
+      : Math.max(0, Math.min(rows.length - 1, currentIndex + delta));
+    const nextId = getRowId(rows[nextIndex]);
+
+    if (selection.length === 1 && selection[0] === nextId) {
+      return;
+    }
+    onSelectionChange([nextId]);
+  };
+
+  const handlePickerSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (!fitToContainer) {
+      return;
+    }
+
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      return;
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      event.stopPropagation();
+      movePickerSelection(1);
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      event.stopPropagation();
+      movePickerSelection(-1);
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      event.stopPropagation();
+      onOpen();
+    }
+  };
+
+  const handlePickerKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!fitToContainer) {
+      return;
+    }
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      return;
+    }
+
+    const target = event.target as HTMLElement | null;
+    if (!target) {
+      return;
+    }
+    if (target.tagName === 'TEXTAREA') {
+      return;
+    }
+    if (target.closest('.MuiDataGrid-cell--editing, .MuiDataGrid-editInputCell')) {
+      return;
+    }
+
+    if (event.key !== 'Enter') {
+      return;
+    }
+
+    event.preventDefault();
+    onOpen();
+  };
+
+  useEffect(() => {
+    if (!fitToContainer || !searchInputRef) {
+      return;
+    }
+
+    // In picker dialogs, force focus after mount so typing can start immediately.
+    const timer = window.setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 120);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [fitToContainer, searchInputRef]);
+
+  useEffect(() => {
+    if (!fitToContainer) {
+      return;
+    }
+
+    const signature = rows.map((row) => String(getRowId(row))).join('|');
+    if (pickerRowsSignatureRef.current === signature) {
+      return;
+    }
+    pickerRowsSignatureRef.current = signature;
+
+    if (rows.length === 0) {
+      if (selection.length > 0) {
+        onSelectionChange([]);
+      }
+      return;
+    }
+
+    const firstRowId = getRowId(rows[0]);
+    if (selection.length === 1 && selection[0] === firstRowId) {
+      return;
+    }
+
+    onSelectionChange([firstRowId]);
+  }, [fitToContainer, rows, selection, getRowId, onSelectionChange]);
 
   const renderActionButtons = () => (
     <Stack ref={actionButtonsRowRef} direction="row" spacing={1} sx={{ width: '100%' }}>
@@ -166,7 +286,11 @@ export function EntityPageLayout<Row extends GridValidRowModel>({
   );
 
   return (
-    <Stack spacing={2} sx={fitToContainer ? { height: '100%', minHeight: 0, minWidth: 0 } : undefined}>
+    <Stack
+      spacing={2}
+      sx={fitToContainer ? { height: '100%', minHeight: 0, minWidth: 0 } : undefined}
+      onKeyDown={handlePickerKeyDown}
+    >
       {showHeader ? (
         <Stack
           direction="row"
@@ -199,6 +323,7 @@ export function EntityPageLayout<Row extends GridValidRowModel>({
                 onChange={onSearchChange}
                 inputRef={searchInputRef}
                 autoFocus
+                onKeyDown={handlePickerSearchKeyDown}
                 sx={{
                   width: actionsInlineWithSearch ? 'auto' : { xs: '52vw', md: '100%' },
                   flex: actionsInlineWithSearch ? '1 1 0px' : undefined,

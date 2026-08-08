@@ -103,6 +103,40 @@ export function EntityDataGrid<RowModel extends GridValidRowModel>({
           onSelectionChange([params.id]);
         }
       }}
+      onCellKeyDown={(params, event) => {
+        if (editMode) {
+          return;
+        }
+
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          window.requestAnimationFrame(() => {
+            const activeElement = document.activeElement as HTMLElement | null;
+            const focusedRowElement = activeElement?.closest<HTMLElement>('.MuiDataGrid-row[data-id]');
+            const focusedIdAttr = focusedRowElement?.getAttribute('data-id');
+            if (!focusedIdAttr) {
+              return;
+            }
+
+            const focusedRow = rows.find((row) => String(getRowId(row)) === focusedIdAttr);
+            const nextId = focusedRow ? getRowId(focusedRow) : focusedIdAttr;
+            if (selection.length === 1 && selection[0] === nextId) {
+              return;
+            }
+            onSelectionChange([nextId]);
+          });
+          return;
+        }
+
+        if (event.key !== 'Enter') {
+          return;
+        }
+
+        (event as { defaultMuiPrevented?: boolean }).defaultMuiPrevented = true;
+        event.preventDefault();
+        event.stopPropagation();
+        onSelectionChange([params.id]);
+        onRowDoubleClick?.(params.id);
+      }}
       getRowClassName={getRowClassName}
       density={density}
       label={label}

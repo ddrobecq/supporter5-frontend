@@ -343,8 +343,8 @@ function ProgrammeClubCell({ clubId, clubName, alignRight = false }: { clubId: s
     <Box sx={{ width: '100%', display: 'flex', justifyContent: alignRight ? 'flex-end' : 'flex-start' }}>
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minWidth: 0 }}>
         {alignRight
-          ? (<><Box sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'right' }}>{clubName}</Box>{logo}</>)
-          : (<>{logo}<Box sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{clubName}</Box></>)}
+          ? (<><Box sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'right', fontSize: '1.15rem' }}>{clubName}</Box>{logo}</>)
+          : (<>{logo}<Box sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '1.15rem' }}>{clubName}</Box></>)}
       </Stack>
     </Box>
   );
@@ -418,6 +418,7 @@ function ClubInlineLine({
         <Typography
           variant="body1"
           sx={{
+            fontSize: '1.25rem',
             fontWeight: 600,
             flex: 1,
             width: '100%',

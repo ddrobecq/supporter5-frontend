@@ -46,7 +46,11 @@ export function NatioPage({ variant = 'page', onOpenInTab }: NatioPageProps) {
     const allFields = Object.keys(first);
     const codeField = allFields.find((f) => ['IDNATIO', 'NATIO', 'CODE'].includes(f));
     const nameField = allFields.find((f) => ['PAYS', 'NOM', 'NATIO_NOM'].includes(f));
-    const visibleFields = allFields.filter((field) => field !== 'NALOCAL' && field !== 'NAT_DRAPEAU');
+    const visibleFields = allFields.filter((field) => {
+      if (field === 'NALOCAL' || field === 'NAT_DRAPEAU') return false;
+      if (variant === 'modalPicker' && field === 'NAT_ISO') return false;
+      return true;
+    });
     const orderedFields = [codeField, nameField, ...visibleFields].filter(
       (field, index, array): field is string => Boolean(field) && array.indexOf(field) === index,
     );
@@ -59,7 +63,7 @@ export function NatioPage({ variant = 'page', onOpenInTab }: NatioPageProps) {
       flex: index === 1 ? 1 : undefined,
       sortable: true,
     }));
-  }, [page.rows]);
+  }, [page.rows, variant]);
 
   const formFields = useMemo<string[]>(() => {
     const source = page.activeRow ?? page.rows[0];
