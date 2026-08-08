@@ -319,9 +319,13 @@ export function AdminLayout() {
   const location = useLocation();
   const monacoLogo = useEntityImage('club', '0001');
   const logout = authStore((s) => s.logout);
+  const topToolbarRef = useRef<HTMLDivElement | null>(null);
+  const topBrandRef = useRef<HTMLDivElement | null>(null);
+  const topActionsMeasureRef = useRef<HTMLDivElement | null>(null);
   const navButtonsRowRef = useRef<HTMLDivElement | null>(null);
   const searchAreaRef = useRef<HTMLDivElement | null>(null);
   const [compactNavButtons, setCompactNavButtons] = useState(false);
+  const [compactTopActions, setCompactTopActions] = useState(false);
   const [compactSearchAction, setCompactSearchAction] = useState(false);
   const [pickerModal, setPickerModal] = useState<PickerEntityKey | null>(null);
   const [dirtyTabsByPath, setDirtyTabsByPath] = useState<Record<string, boolean>>({});
@@ -537,6 +541,27 @@ export function AdminLayout() {
   const activePickerEntity = pickerModal ? pickerDefinitionByKey.get(pickerModal) ?? null : null;
 
   useEffect(() => {
+    const toolbar = topToolbarRef.current;
+    const brand = topBrandRef.current;
+    const actionsMeasure = topActionsMeasureRef.current;
+    if (!toolbar || !brand || !actionsMeasure) return;
+
+    const updateCompactState = () => {
+      const availableWidth = Math.max(0, toolbar.clientWidth - brand.clientWidth - 24);
+      const requiredWidth = actionsMeasure.scrollWidth;
+      setCompactTopActions(availableWidth < requiredWidth);
+    };
+
+    updateCompactState();
+    const observer = new ResizeObserver(updateCompactState);
+    observer.observe(toolbar);
+    observer.observe(brand);
+    observer.observe(actionsMeasure);
+
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
     const area = searchAreaRef.current;
     if (!area) return;
 
@@ -563,8 +588,8 @@ export function AdminLayout() {
         }}
       >
         <AppBar position="static" color="inherit" elevation={1}>
-          <Toolbar sx={{ justifyContent: 'space-between' }}>
-            <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'center' }}>
+          <Toolbar ref={topToolbarRef} sx={{ justifyContent: 'space-between', position: 'relative' }}>
+            <Box ref={topBrandRef} sx={{ display: 'flex', gap: 1.25, alignItems: 'center' }}>
               <Box
                 sx={{
                   width: 28,
@@ -595,56 +620,85 @@ export function AdminLayout() {
             </Box>
 
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              <Button
-                variant={isConfigurationActive ? 'contained' : 'outlined'}
-                color={isConfigurationActive ? 'primary' : 'inherit'}
-                startIcon={<SettingsRoundedIcon />}
-                sx={{
-                  '.MuiButton-startIcon': { mr: { xs: 0, sm: 1 } },
-                }}
-                onClick={() => openTab('/configuration', 'Configuration', { unique: true, uniqueByPath: true })}
-              >
-                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+              <Tooltip title="Configuration" disableHoverListener={!compactTopActions}>
+                <Button
+                  variant={isConfigurationActive ? 'contained' : 'outlined'}
+                  color={isConfigurationActive ? 'primary' : 'inherit'}
+                  startIcon={compactTopActions ? undefined : <SettingsRoundedIcon />}
+                  sx={{
+                    minWidth: 40,
+                    px: compactTopActions ? 1 : 1.5,
+                    '.MuiButton-startIcon': { mr: compactTopActions ? 0 : 1 },
+                  }}
+                  aria-label="Configuration"
+                  onClick={() => openTab('/configuration', 'Configuration', { unique: true, uniqueByPath: true })}
+                >
+                  {compactTopActions ? <SettingsRoundedIcon /> : 'Configuration'}
+                </Button>
+              </Tooltip>
+
+              <Tooltip title="Refresh" disableHoverListener={!compactTopActions}>
+                <Button
+                  variant="outlined"
+                  color="inherit"
+                  startIcon={compactTopActions ? undefined : <RefreshRoundedIcon />}
+                  sx={{
+                    minWidth: 40,
+                    px: compactTopActions ? 1 : 1.5,
+                    '.MuiButton-startIcon': { mr: compactTopActions ? 0 : 1 },
+                  }}
+                  aria-label="Refresh"
+                  onClick={() => {
+                    window.location.reload();
+                  }}
+                >
+                  {compactTopActions ? <RefreshRoundedIcon /> : 'Refresh'}
+                </Button>
+              </Tooltip>
+
+              <Tooltip title="Deconnexion" disableHoverListener={!compactTopActions}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={compactTopActions ? undefined : <LogoutRoundedIcon />}
+                  sx={{
+                    minWidth: 40,
+                    px: compactTopActions ? 1 : 1.5,
+                    '.MuiButton-startIcon': { mr: compactTopActions ? 0 : 1 },
+                  }}
+                  aria-label="Deconnexion"
+                  onClick={() => {
+                    logout();
+                    navigate('/login');
+                  }}
+                >
+                  {compactTopActions ? <LogoutRoundedIcon /> : 'Deconnexion'}
+                </Button>
+              </Tooltip>
+            </Box>
+
+            <Box
+              ref={topActionsMeasureRef}
+              sx={{
+                position: 'absolute',
+                visibility: 'hidden',
+                pointerEvents: 'none',
+                whiteSpace: 'nowrap',
+                height: 0,
+                overflow: 'hidden',
+              }}
+            >
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Button variant={isConfigurationActive ? 'contained' : 'outlined'} color={isConfigurationActive ? 'primary' : 'inherit'} startIcon={<SettingsRoundedIcon />} sx={{ minWidth: 40, px: 1.5, '.MuiButton-startIcon': { mr: 1 } }}>
                   Configuration
-                </Box>
-              </Button>
-
-              <Button
-                variant="outlined"
-                color="inherit"
-                startIcon={<RefreshRoundedIcon />}
-                sx={{
-                  minWidth: { xs: 40, sm: 'auto' },
-                  px: { xs: 1, sm: 1.5 },
-                  '.MuiButton-startIcon': { mr: { xs: 0, sm: 1 } },
-                }}
-                onClick={() => {
-                  window.location.reload();
-                }}
-              >
-                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                </Button>
+                <Button variant="outlined" color="inherit" startIcon={<RefreshRoundedIcon />} sx={{ minWidth: 40, px: 1.5, '.MuiButton-startIcon': { mr: 1 } }}>
                   Refresh
-                </Box>
-              </Button>
-
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<LogoutRoundedIcon />}
-                sx={{
-                  minWidth: { xs: 40, sm: 'auto' },
-                  px: { xs: 1, sm: 1.5 },
-                  '.MuiButton-startIcon': { mr: { xs: 0, sm: 1 } },
-                }}
-                onClick={() => {
-                  logout();
-                  navigate('/login');
-                }}
-              >
-                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                </Button>
+                <Button variant="contained" color="primary" startIcon={<LogoutRoundedIcon />} sx={{ minWidth: 40, px: 1.5, '.MuiButton-startIcon': { mr: 1 } }}>
                   Deconnexion
-                </Box>
-              </Button>
+                </Button>
+              </Box>
             </Box>
           </Toolbar>
         </AppBar>

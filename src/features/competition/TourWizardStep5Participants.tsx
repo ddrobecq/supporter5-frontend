@@ -131,16 +131,31 @@ export function TourWizardStep5Participants({ tourId, competitionId, currentTour
   const possibleProgrammedClubsByGroup = useMemo(() => {
     const selectedRanks = Array.from(new Set(programSourceRanks.map(Number).filter((rank) => Number.isInteger(rank) && rank > 0)));
     if (selectedRanks.length === 0) return [] as Array<{ group: string; clubs: string[] }>;
+    const sourceGroups = getDistinctSourceGroups(programSourceParticipants);
     const grouped = new Map<string, string[]>();
-    programSourceParticipants
-      .filter((row) => selectedRanks.includes(Number(row.PAClassement ?? 0)))
-      .forEach((row) => {
-        const group = String(row.GROUPE ?? '').trim();
-        const current = grouped.get(group) ?? [];
-        const label = getParticipantLabel(row);
-        if (label) current.push(label);
-        grouped.set(group, current);
-      });
+
+    sourceGroups.forEach((groupName) => {
+      const rowsForSelectedRanks = programSourceParticipants.filter(
+        (row) => String(row.GROUPE ?? '').trim() === groupName && selectedRanks.includes(Number(row.PAClassement ?? 0)),
+      );
+
+      // If no participant currently matches the requested rank, all participants of the source group remain potential candidates.
+      const rowsForDisplay = rowsForSelectedRanks.length > 0
+        ? rowsForSelectedRanks
+        : programSourceParticipants.filter((row) => String(row.GROUPE ?? '').trim() === groupName);
+
+      const labels = Array.from(
+        new Set(
+          rowsForDisplay
+            .map((row) => getParticipantLabel(row))
+            .map((label) => String(label ?? '').trim())
+            .filter(Boolean),
+        ),
+      );
+
+      grouped.set(groupName, labels);
+    });
+
     return Array.from(grouped.entries())
       .sort((a, b) => a[0].localeCompare(b[0], 'fr', { sensitivity: 'base' }))
       .map(([group, clubs]) => ({ group, clubs }));
@@ -283,19 +298,17 @@ export function TourWizardStep5Participants({ tourId, competitionId, currentTour
     }
 
     const sourceGroups = getDistinctSourceGroups(programSourceParticipants);
+    if (sourceGroups.length === 0) {
+      onError?.('Aucun groupe source disponible pour ce tour.');
+      return;
+    }
+
     const sourcesToCreate: string[] = [];
     sourceGroups.forEach((groupName) => {
       selectedRanks.forEach((rank) => {
-        if (programSourceParticipants.some((row) => String(row.GROUPE ?? '').trim() === groupName && Number(row.PAClassement ?? 0) === rank)) {
-          sourcesToCreate.push(`${sourceTourId},${groupName},${rank}`);
-        }
+        sourcesToCreate.push(`${sourceTourId},${groupName},${rank}`);
       });
     });
-
-    if (sourcesToCreate.length === 0) {
-      onError?.('Aucun participant source pour ce classement.');
-      return;
-    }
 
     setSaving(true);
     try {
@@ -458,11 +471,15 @@ export function TourWizardStep5Participants({ tourId, competitionId, currentTour
               </FormControl>
             </Stack>
             <Stack spacing={0.25}>
-              <Typography variant="caption" color="text.secondary">Clubs possibles par groupe</Typography>
+              <Typography variant="caption" color="text.secondary">
+                {isSelectedProgramTourEliminatoire ? 'Clubs possibles' : 'Clubs possibles par groupe'}
+              </Typography>
               {possibleProgrammedClubsByGroup.length > 0
                 ? possibleProgrammedClubsByGroup.map((entry) => (
                   <Typography key={`possible-${entry.group || '__empty__'}`} variant="caption" color="text.secondary">
-                    {entry.group || '(Aucun groupe)'}: {entry.clubs.length > 0 ? entry.clubs.join(' / ') : '-'}
+                    {isSelectedProgramTourEliminatoire
+                      ? (entry.clubs.length > 0 ? entry.clubs.join(' / ') : '-')
+                      : `${entry.group || '(Aucun groupe)'}: ${entry.clubs.length > 0 ? entry.clubs.join(' / ') : '-'}`}
                   </Typography>
                 ))
                 : <Typography variant="caption" color="text.secondary">Indetermine pour l instant</Typography>
