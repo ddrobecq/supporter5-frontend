@@ -5,6 +5,7 @@ import AutoFixHighRoundedIcon from '@mui/icons-material/AutoFixHighRounded';
 import FormatColorFillRoundedIcon from '@mui/icons-material/FormatColorFillRounded';
 import FormatColorTextRoundedIcon from '@mui/icons-material/FormatColorTextRounded';
 import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
+import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
 import {
   Box,
@@ -980,7 +981,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
                     paste: 'Coller un ecusson depuis le presse-papiers',
                     clear: 'Supprimer l ecusson',
                   }}
-                  fallback={<SportsSoccerRoundedIcon sx={{ fontSize: 40, color: 'text.disabled' }} />}
+                  fallback={<ShieldRoundedIcon sx={{ width: '100%', height: '100%', p: 1.5, color: 'text.disabled' }} />}
                   sx={{ bgcolor: '#f5f5f5' }}
                 />
 
