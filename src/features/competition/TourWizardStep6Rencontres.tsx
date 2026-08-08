@@ -1,6 +1,8 @@
 import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import AutorenewRoundedIcon from '@mui/icons-material/AutorenewRounded';
+import NavigateBeforeRoundedIcon from '@mui/icons-material/NavigateBeforeRounded';
+import NavigateNextRoundedIcon from '@mui/icons-material/NavigateNextRounded';
 import {
   Box,
   Button,
@@ -10,6 +12,7 @@ import {
   DialogContentText,
   DialogTitle,
   FormControl,
+  IconButton,
   InputLabel,
   MenuItem,
   Select,
@@ -44,6 +47,7 @@ interface TourWizardStep6RencontresProps {
   tourStartDate: string;
   tourEndDate: string;
   tourDefaultHeure: string;
+  nbMatch: number;
   nbGroupe: number;
   groupNames: string[];
   onError?: (message: string) => void;
@@ -153,6 +157,7 @@ export function TourWizardStep6Rencontres({
   tourStartDate,
   tourEndDate,
   tourDefaultHeure,
+  nbMatch,
   nbGroupe,
   groupNames,
   onError,
@@ -176,6 +181,7 @@ export function TourWizardStep6Rencontres({
   const typeId = tourType === 'eliminatoire' ? 2 : 1;
   const normalizedNbGroupe = Math.max(1, Number(nbGroupe) || 1);
   const hasMultipleGroups = normalizedNbGroupe > 1;
+  const normalizedNbMatch = Math.max(0, Number(nbMatch) || 0);
 
   const effectiveGroupNames = useMemo(() => {
     if (!hasMultipleGroups) {
@@ -211,9 +217,13 @@ export function TourWizardStep6Rencontres({
         fetchCircByTourType(typeId),
       ]);
 
+      const filteredCircRows = tourType === 'ligue' && normalizedNbMatch > 0
+        ? circRows.slice(0, normalizedNbMatch)
+        : circRows;
+
       setParticipants(participantRows);
       setRencontres(rencontreRows);
-      setCircOptions(circRows);
+      setCircOptions(filteredCircRows);
       setSelectedRencontre([]);
     } catch (error) {
       onError?.(toErrorMessage(error));
@@ -224,7 +234,7 @@ export function TourWizardStep6Rencontres({
 
   useEffect(() => {
     void reloadData();
-  }, [tourId, typeId]);
+  }, [tourId, typeId, tourType, normalizedNbMatch]);
 
   useEffect(() => {
     setSelectedParticipantId('');
@@ -251,6 +261,60 @@ export function TourWizardStep6Rencontres({
     setPending(null);
     setSelectedRencontre([]);
   }, [selectedCircId]);
+
+  useEffect(() => {
+    if (!selectedCircId) {
+      return;
+    }
+    const exists = circOptions.some((circ) => normalizeCircId(circ.IDCIRC) === selectedCircId);
+    if (!exists) {
+      setSelectedCircId('');
+    }
+  }, [circOptions, selectedCircId]);
+
+  const selectedCircIndex = useMemo(() => {
+    return circOptions.findIndex((circ) => normalizeCircId(circ.IDCIRC) === selectedCircId);
+  }, [circOptions, selectedCircId]);
+
+  const canSelectPreviousCirc = useMemo(() => {
+    if (circOptions.length === 0) {
+      return false;
+    }
+    if (selectedCircIndex < 0) {
+      return true;
+    }
+    return selectedCircIndex > 0;
+  }, [circOptions, selectedCircIndex]);
+
+  const canSelectNextCirc = useMemo(() => {
+    if (circOptions.length === 0) {
+      return false;
+    }
+    if (selectedCircIndex < 0) {
+      return true;
+    }
+    return selectedCircIndex < circOptions.length - 1;
+  }, [circOptions, selectedCircIndex]);
+
+  const selectAdjacentCirc = (direction: -1 | 1) => {
+    if (circOptions.length === 0) {
+      return;
+    }
+
+    const fallbackIndex = direction > 0 ? 0 : circOptions.length - 1;
+    const targetIndex = selectedCircIndex >= 0 ? selectedCircIndex + direction : fallbackIndex;
+
+    if (targetIndex < 0 || targetIndex >= circOptions.length) {
+      return;
+    }
+
+    const targetCircId = normalizeCircId(circOptions[targetIndex]?.IDCIRC);
+    if (!targetCircId) {
+      return;
+    }
+
+    setSelectedCircId(targetCircId);
+  };
 
   const participantById = useMemo(() => {
     const map = new Map<string, TourParticipantRow>();
@@ -794,6 +858,34 @@ export function TourWizardStep6Rencontres({
               ))}
             </Select>
           </FormControl>
+
+          <Tooltip title="Manche precedente">
+            <span>
+              <IconButton
+                size="small"
+                sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, flexShrink: 0 }}
+                onClick={() => selectAdjacentCirc(-1)}
+                disabled={saving || loading || !canSelectPreviousCirc}
+                aria-label="Selectionner la manche precedente"
+              >
+                <NavigateBeforeRoundedIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+
+          <Tooltip title="Manche suivante">
+            <span>
+              <IconButton
+                size="small"
+                sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, flexShrink: 0 }}
+                onClick={() => selectAdjacentCirc(1)}
+                disabled={saving || loading || !canSelectNextCirc}
+                aria-label="Selectionner la manche suivante"
+              >
+                <NavigateNextRoundedIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
 
           {canGenerateRetour ? (
             <Tooltip title="Creer les matches retour depuis les matches aller">

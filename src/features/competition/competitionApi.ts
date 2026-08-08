@@ -227,11 +227,14 @@ export async function fetchCircByTourType(typeId: number): Promise<CircOptionRow
     params: { limit: 500, sort: 'IDCIRC', order: 'asc', page: 1 },
   });
   return (data.data ?? [])
-    .map((row) => ({
+    .map((row) => {
+      const parsedType = Number(row.TYPE_TOUR);
+      return {
       IDCIRC: String(row.IDCIRC ?? '').trim(),
       CIRC: String(row.CIRC ?? '').trim(),
-      TYPE_TOUR: Number(row.TYPE_TOUR ?? 1) || 1,
-    }))
+      TYPE_TOUR: Number.isFinite(parsedType) ? parsedType : 1,
+    };
+    })
     .filter((row) => row.TYPE_TOUR === typeId)
     .sort((a, b) => a.IDCIRC.localeCompare(b.IDCIRC, 'fr', { sensitivity: 'base' }));
 }

@@ -53,7 +53,7 @@ export function CircFormDialog({ open, mode, embedded = false, primaryKey, initi
     if (!code) nextErrors.IDCIRC = 'Abréviation requise';
     if (code.length > 3) nextErrors.IDCIRC = '3 caractères max';
     if (!circ) nextErrors.CIRC = 'Circonstances requises';
-    if (![1, 2].includes(typeTour)) nextErrors.TYPE_TOUR = 'Type invalide';
+    if (![0, 1, 2].includes(typeTour)) nextErrors.TYPE_TOUR = 'Type invalide';
 
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;

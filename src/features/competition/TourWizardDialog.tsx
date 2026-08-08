@@ -679,6 +679,7 @@ export function TourWizardDialog({
               tourStartDate={toApiDate(draft.dateDebut) ?? ''}
               tourEndDate={toApiDate(draft.dateFin) ?? ''}
               tourDefaultHeure={String(draft.heureMatches ?? '').trim()}
+              nbMatch={draft.nbMatch}
               nbGroupe={draft.nbGroupe}
               groupNames={groupNames}
               onError={onError}

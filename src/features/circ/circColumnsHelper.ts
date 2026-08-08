@@ -1,12 +1,16 @@
 import type { GridColDef } from '@mui/x-data-grid';
 
 export const CIRC_TYPE_OPTIONS = [
+  { value: 0, label: 'Autre' },
   { value: 1, label: 'Ligue' },
   { value: 2, label: 'Eliminatoire' },
 ] as const;
 
 export function formatCircType(value: unknown): string {
-  const numeric = Number(value);
+  const numeric = Number(String(value ?? '').trim());
+  if (numeric === 0) {
+    return 'Autre';
+  }
   const option = CIRC_TYPE_OPTIONS.find((entry) => entry.value === numeric);
   return option?.label ?? String(value ?? '');
 }
