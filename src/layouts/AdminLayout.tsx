@@ -41,6 +41,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { authStore } from '../features/auth/authStore';
 import { emitTabSaveRequest } from '../lib/useTabMetaEvents';
 import { useEntityImage } from '../lib/useEntityImage';
+import { supportedClubStore } from '../features/system/supportedClubStore';
 import { NatioPage } from '../features/natio/NatioPage';
 import { NatioTabFormPane } from '../features/natio/NatioTabFormPane';
 import { VillePage } from '../features/ville/VillePage';
@@ -64,6 +65,7 @@ import { TourDefTabFormPane } from '../features/tourdef/TourDefTabFormPane';
 import { JoueurPage } from '../features/joueur/JoueurPage';
 import { JoueurTabFormPane } from '../features/joueur/JoueurTabFormPane';
 import { RencontreTabFormPane } from '../features/rencontre/RencontreTabFormPane';
+import { RencontreCreateWizardDialog } from '../features/rencontre/RencontreCreateWizardDialog';
 import { TerrainPickerDialog } from '../features/terrain/TerrainPickerDialog';
 
 const QUICK_ACTIONS = [
@@ -317,7 +319,9 @@ function resolveTabMetaPath(path: string): string {
 export function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const monacoLogo = useEntityImage('club', '0001');
+  const supportedClubId = supportedClubStore((s) => s.clubId);
+  const loadSupportedClub = supportedClubStore((s) => s.load);
+  const monacoLogo = useEntityImage('club', supportedClubId || '0001');
   const logout = authStore((s) => s.logout);
   const topToolbarRef = useRef<HTMLDivElement | null>(null);
   const topBrandRef = useRef<HTMLDivElement | null>(null);
@@ -328,6 +332,7 @@ export function AdminLayout() {
   const [compactTopActions, setCompactTopActions] = useState(false);
   const [compactSearchAction, setCompactSearchAction] = useState(false);
   const [pickerModal, setPickerModal] = useState<PickerEntityKey | null>(null);
+  const [rencontreWizardOpen, setRencontreWizardOpen] = useState(false);
   const [dirtyTabsByPath, setDirtyTabsByPath] = useState<Record<string, boolean>>({});
   const [closeConfirmTabKey, setCloseConfirmTabKey] = useState<string | null>(null);
   const [savingBeforeClose, setSavingBeforeClose] = useState(false);
@@ -369,6 +374,10 @@ export function AdminLayout() {
     || PICKER_ENTITY_DEFINITIONS.some((entity) => path.startsWith(`${entity.basePath}/`))
   );
   const activeTabIsDynamicForm = Boolean(activeTab?.path && isDynamicFormPath(activeTab.path)) || isDynamicFormPath(location.pathname);
+
+  useEffect(() => {
+    void loadSupportedClub();
+  }, [loadSupportedClub]);
 
   useEffect(() => {
     const row = navButtonsRowRef.current;
@@ -943,6 +952,8 @@ export function AdminLayout() {
                       } else {
                         openTab(action.path, action.label);
                       }
+                    } else if (action.label === 'Matchs') {
+                      setRencontreWizardOpen(true);
                     }
                   }}
                 >
@@ -1121,6 +1132,14 @@ export function AdminLayout() {
           onSelect={handleOpenPickerEntityInTab('terrain')}
         />
       ) : null}
+
+      <RencontreCreateWizardDialog
+        open={rencontreWizardOpen}
+        onClose={() => setRencontreWizardOpen(false)}
+        onCreated={async (createdId, label) => {
+          openTab(`/admin/rencontres/${encodeURIComponent(String(createdId))}`, label || 'Rencontre', { unique: true, uniqueByPath: true });
+        }}
+      />
 
       <Dialog
         open={Boolean(closeConfirmTabKey)}

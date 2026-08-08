@@ -65,6 +65,7 @@ interface DateInputFieldProps {
   label: string;
   value: string;
   onChange: (nextValue: string) => void;
+  autoFocus?: boolean;
   size?: TextFieldProps['size'];
   fullWidth?: boolean;
   disabled?: boolean;
@@ -81,6 +82,7 @@ export function DateInputField({
   label,
   value,
   onChange,
+  autoFocus = false,
   size = 'small',
   fullWidth = false,
   disabled = false,
@@ -105,6 +107,7 @@ export function DateInputField({
       <TextField
         label={label}
         value={displayValue}
+        autoFocus={autoFocus}
         onChange={(event) => {
           if (focused) onChange(normalizeDisplayDateInput(event.target.value));
         }}

@@ -2,6 +2,13 @@ import { http } from '../../lib/http';
 import type { TourMatchRow } from '../competition/types';
 import type { CompositionMap, RencontreDetailRow, RencontreHighlightsRow, SquadPlayerRow, TourMatchWithNamesRow } from './types';
 
+export type CreateRencontrePayload = Omit<TourMatchRow, 'RECLEUNIK'>;
+
+export async function createRencontre(payload: CreateRencontrePayload): Promise<TourMatchRow | undefined> {
+  const { data } = await http.post<TourMatchRow>('/api/admin/rencontres', payload);
+  return data;
+}
+
 export async function fetchRencontreDetailById(rencontreId: string | number): Promise<RencontreDetailRow> {
   const { data } = await http.get<RencontreDetailRow>(`/api/rencontres/${encodeURIComponent(String(rencontreId))}/detail`);
   return data;
