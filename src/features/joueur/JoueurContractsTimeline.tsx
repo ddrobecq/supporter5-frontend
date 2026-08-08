@@ -22,6 +22,53 @@ function formatDate(value: string): string {
   return `${iso[3]}/${iso[2]}/${iso[1]}`;
 }
 
+function normalizeLabel(value: unknown): string {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+function formatCompactAmount(value: number): string {
+  const rounded = Math.round(value * 10) / 10;
+  const text = rounded.toFixed(1).replace(/\.0$/, '');
+  return text.replace('.', ',');
+}
+
+function formatMoneyForSummary(amountValue: unknown, deviseSymbole: unknown): string {
+  const amount = Number(amountValue ?? 0);
+  if (!Number.isFinite(amount) || amount <= 0) return '';
+
+  const devise = String(deviseSymbole ?? '').trim();
+  if (amount >= 1_000_000) {
+    return `${formatCompactAmount(amount / 1_000_000)} M${devise}`;
+  }
+  if (amount >= 1_000) {
+    return `${formatCompactAmount(amount / 1_000)} k${devise}`;
+  }
+  return `${formatCompactAmount(amount)} ${devise}`.trim();
+}
+
+function isTransferTransaction(row: JoueurTransactionRow): boolean {
+  const label = normalizeLabel(row.TYT_LIBELLE);
+  return label.includes('transfert');
+}
+
+function isContractTransaction(row: JoueurTransactionRow): boolean {
+  const label = normalizeLabel(row.TYT_LIBELLE);
+  return label.includes('contrat');
+}
+
+function getStatusPhrase(row: JoueurTransactionRow): string {
+  const status = Number(row.STATUT);
+  return status === 1
+    ? String(row.TYT_PHRASE_DEPART ?? '').trim()
+    : status === 2
+      ? String(row.TYT_PHRASE_ARRIVEE ?? '').trim()
+      : String(row.TYT_PHRASE_NEUTRE ?? '').trim();
+}
+
 function getStatusMeta(row: JoueurTransactionRow): {
   icon: typeof ArrowForwardRoundedIcon;
   sx: SxProps<Theme>;
@@ -66,13 +113,7 @@ function getStatusMeta(row: JoueurTransactionRow): {
 }
 
 function buildSummary(row: JoueurTransactionRow): string {
-  const status = Number(row.STATUT);
-  const phrase = status === 1
-    ? String(row.TYT_PHRASE_DEPART ?? '').trim()
-    : status === 2
-      ? String(row.TYT_PHRASE_ARRIVEE ?? '').trim()
-      : String(row.TYT_PHRASE_NEUTRE ?? '').trim();
-
+  const phrase = getStatusPhrase(row);
   return phrase || String(row.TYT_LIBELLE ?? '').trim() || `Type ${row.TYPE}`;
 }
 
@@ -130,6 +171,20 @@ export function JoueurContractsTimeline({
           const StatusIcon = statusMeta.icon;
           const hasClub = Boolean(String(row.IDCLUB ?? '').trim() || String(row.CLUB_NOM ?? '').trim());
           const isSelected = Number(selectedTransactionId ?? 0) === Number(row.TNCLEUNIK);
+          const transferPhrase = getStatusPhrase(row);
+          const transferIndemnites = formatMoneyForSummary(row.INDEMNITES, row.DEVISE_SYMBOLE);
+          const showTransferAmountAfterClub = Boolean(
+            isTransferTransaction(row)
+            && transferPhrase
+            && transferIndemnites,
+          );
+          const contractPhrase = getStatusPhrase(row);
+          const contractSalary = formatMoneyForSummary(row.SALAIRE, row.DEVISE_SYMBOLE);
+          const showContractAmount = Boolean(
+            isContractTransaction(row)
+            && contractPhrase
+            && contractSalary,
+          );
 
           return (
             <Box
@@ -187,15 +242,33 @@ export function JoueurContractsTimeline({
 
                 {hasClub ? (
                   <Stack direction="row" spacing={0.8} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>{buildSummaryWithEcheance(row)}</Typography>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      {showTransferAmountAfterClub ? transferPhrase : buildSummaryWithEcheance(row)}
+                    </Typography>
                     <ClubIdentityInline
                       clubId={row.IDCLUB}
                       clubName={row.CLUB_NOM}
                       size={22}
                     />
+                    {showTransferAmountAfterClub ? (
+                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                        {`pour ${transferIndemnites}`}
+                      </Typography>
+                    ) : null}
+                    {!showTransferAmountAfterClub && showContractAmount ? (
+                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                        {`pour ${contractSalary} de salaire mensuel`}
+                      </Typography>
+                    ) : null}
                   </Stack>
                 ) : (
-                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>{buildSummaryWithEcheance(row)}</Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    {showTransferAmountAfterClub
+                      ? `${transferPhrase} pour ${transferIndemnites}`
+                      : showContractAmount
+                        ? `${buildSummaryWithEcheance(row)} pour ${contractSalary} de salaire mensuel`
+                        : buildSummaryWithEcheance(row)}
+                  </Typography>
                 )}
               </Stack>
             </Box>
