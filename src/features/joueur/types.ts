@@ -23,6 +23,66 @@ export interface JoueurHistoryRow {
   ROUGETOTAL: number;
 }
 
+export interface JoueurTransactionRow {
+  TNCLEUNIK: number;
+  DATE: string;
+  SAISON: string;
+  TYPE: number;
+  STATUT: number;
+  IDCLUB: string | null;
+  CLUB_NOM: string;
+  CLUB_IDNATIO: string | null;
+  SALAIRE: number | null;
+  INDEMNITES: number | null;
+  DVCLEUNIK: number;
+  DEVISE_SYMBOLE: string;
+  TN_ECHEANCE: string | null;
+  TYT_LIBELLE: string;
+  TYT_STATUT: number | null;
+  TYT_CLUB: number | null;
+  TYT_PHRASE_DEPART: string | null;
+  TYT_PHRASE_ARRIVEE: string | null;
+  TYT_PHRASE_NEUTRE: string | null;
+}
+
+export interface JoueurTransactionTypeOption {
+  TYT_CLEUNIK: number;
+  TYT_LIBELLE: string;
+  TYT_VISIBLE: number;
+  TYT_STATUT: number;
+  TYT_SALAIRE: number | null;
+  TYT_CLUB: number;
+  TYT_INDEMNITES: number;
+  TYT_ECHEANCE: number;
+  TYT_PHRASE_DEPART: string | null;
+  TYT_PHRASE_ARRIVEE: string | null;
+  TYT_PHRASE_NEUTRE: string | null;
+}
+
+export interface JoueurTransactionDeviseOption {
+  DVCLEUNIK: number;
+  NOM: string;
+  SYMBOLE: string;
+  DVDEFAUT: number;
+}
+
+export interface JoueurTransactionOptions {
+  types: JoueurTransactionTypeOption[];
+  devises: JoueurTransactionDeviseOption[];
+  defaultDeviseId: number | null;
+}
+
+export interface JoueurTransactionUpsertPayload {
+  date: string;
+  type: number;
+  statut?: number;
+  idClub?: string | null;
+  salaire?: number | null;
+  indemnites?: number | null;
+  deviseId: number;
+  echeance?: string | null;
+}
+
 export type JoueurRow = Record<string, unknown>;
 
 export interface PosteOption {

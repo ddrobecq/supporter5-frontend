@@ -104,6 +104,7 @@ export function JoueurTabFormPane({ tabPath, joueurId, active }: JoueurTabFormPa
               emitTabSaveDone(tabPath);
             } catch (error) {
               setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+              throw error;
             }
           }}
           saveCount={saveCount}

@@ -10,7 +10,7 @@ import type { ClubGridRow } from '../club/types';
 interface ClubSelectionDialogProps {
   open: boolean;
   onClose: () => void;
-  onSelect: (clubId: string) => void;
+  onSelect: (clubId: string, club?: ClubGridRow) => void;
 }
 
 export function ClubSelectionDialog({ open, onClose, onSelect }: ClubSelectionDialogProps) {
@@ -87,7 +87,8 @@ export function ClubSelectionDialog({ open, onClose, onSelect }: ClubSelectionDi
   const commitSelection = () => {
     const selected = selection.length > 0 ? String(selection[0]) : '';
     if (!selected) return;
-    onSelect(selected);
+    const selectedRow = rows.find((row) => String(row.IDCLUB) === selected);
+    onSelect(selected, selectedRow);
     onClose();
   };
 
@@ -119,7 +120,9 @@ export function ClubSelectionDialog({ open, onClose, onSelect }: ClubSelectionDi
                 selection={selection}
                 onSelectionChange={setSelection}
                 onRowDoubleClick={(rowId) => {
-                  onSelect(String(rowId));
+                  const selectedId = String(rowId);
+                  const selectedRow = rows.find((row) => String(row.IDCLUB) === selectedId);
+                  onSelect(selectedId, selectedRow);
                   onClose();
                 }}
                 getRowId={(row) => row.IDCLUB}

@@ -8,6 +8,9 @@ import type {
   JoueurHistoryRow,
   JoueurGridRow,
   JoueurRow,
+  JoueurTransactionOptions,
+  JoueurTransactionRow,
+  JoueurTransactionUpsertPayload,
   PaginatedResponse,
   PosteOption,
   SaisonRow,
@@ -96,6 +99,40 @@ export async function fetchJoueurSuggestions(search: string, signal?: AbortSigna
 export async function fetchJoueurHistory(id: string | number): Promise<JoueurHistoryRow[]> {
   const { data } = await http.get<GridResponse<JoueurHistoryRow>>(`${env.joueurPublicResource}/${id}/history`);
   return data.data ?? [];
+}
+
+export async function fetchJoueurTransactions(id: string | number): Promise<JoueurTransactionRow[]> {
+  const { data } = await http.get<GridResponse<JoueurTransactionRow>>(`${env.joueurPublicResource}/${id}/transactions`);
+  return data.data ?? [];
+}
+
+export async function fetchJoueurTransactionOptions(id: string | number): Promise<JoueurTransactionOptions> {
+  const { data } = await http.get<JoueurTransactionOptions>(`${env.joueurPublicResource}/${id}/transactions/options`);
+  return data;
+}
+
+export async function createJoueurTransaction(
+  id: string | number,
+  payload: JoueurTransactionUpsertPayload,
+): Promise<JoueurTransactionRow> {
+  const { data } = await http.post<JoueurTransactionRow>(`${env.joueurAdminResource}/${id}/transactions`, payload);
+  return data;
+}
+
+export async function updateJoueurTransaction(
+  id: string | number,
+  transactionId: string | number,
+  payload: JoueurTransactionUpsertPayload,
+): Promise<JoueurTransactionRow> {
+  const { data } = await http.put<JoueurTransactionRow>(`${env.joueurAdminResource}/${id}/transactions/${transactionId}`, payload);
+  return data;
+}
+
+export async function deleteJoueurTransaction(
+  id: string | number,
+  transactionId: string | number,
+): Promise<void> {
+  await http.delete(`${env.joueurAdminResource}/${id}/transactions/${transactionId}`);
 }
 
 export async function createJoueurHistory(
