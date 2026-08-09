@@ -18,19 +18,23 @@ import {
   DialogTitle,
   IconButton,
   Stack,
+  Tab,
+  Tabs,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useMediaQuery, useTheme } from '@mui/material';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import jerseySvgSource from '../../../img/jersey.svg?raw';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { DateInputField, formatDateShort } from '../../components/DateInputField';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
+import { MatchDataGrid } from '../../components/MatchDataGrid';
+import { buildMatchGridColumns } from '../../components/matchGridColumns';
 import { updateEntityImage } from '../../lib/entityImageApi';
 import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
@@ -41,6 +45,7 @@ import { TerrainVilleSelector } from '../terrain/TerrainVilleSelector';
 import type { VilleRow } from '../ville/types';
 import {
   createClubTerrainHistory,
+  fetchClubMatches,
   createClubNameHistory,
   deleteClubTerrainHistory,
   deleteClubNameHistory,
@@ -51,7 +56,7 @@ import {
   updateClubNameHistory,
   updateClubProfile,
 } from './clubApi';
-import type { ClubNameHistoryRow, ClubProfileRow, ClubTerrainHistoryRow } from './types';
+import type { ClubMatchRow, ClubNameHistoryRow, ClubProfileRow, ClubTerrainHistoryRow } from './types';
 import { TerrainPickerDialog } from '../terrain/TerrainPickerDialog';
 
 interface ClubTabFormPaneProps {
@@ -59,6 +64,8 @@ interface ClubTabFormPaneProps {
   clubId: string;
   active: boolean;
 }
+
+type ClubTabKey = 'info' | 'matches';
 
 interface ClubProfileDraft {
   name: string;
@@ -408,10 +415,13 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
   const [natioRows, setNatioRows] = useState<NatioRow[]>([]);
   const [nameHistoryRows, setNameHistoryRows] = useState<ClubNameHistoryRow[]>([]);
   const [terrainHistoryRows, setTerrainHistoryRows] = useState<ClubTerrainHistoryRow[]>([]);
+  const [matchRows, setMatchRows] = useState<ClubMatchRow[]>([]);
   const [nameHistoryLoading, setNameHistoryLoading] = useState(false);
   const [terrainHistoryLoading, setTerrainHistoryLoading] = useState(false);
+  const [matchesLoading, setMatchesLoading] = useState(false);
   const [nameHistorySelection, setNameHistorySelection] = useState<GridRowId[]>([]);
   const [terrainHistorySelection, setTerrainHistorySelection] = useState<GridRowId[]>([]);
+  const [activeTab, setActiveTab] = useState<ClubTabKey>('info');
 
   const [villeSelectorOpen, setVilleSelectorOpen] = useState(false);
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
@@ -570,6 +580,42 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     },
   ];
 
+  const matchColumns = useMemo<GridColDef<ClubMatchRow>[]>(() => buildMatchGridColumns<ClubMatchRow>({
+    date: {
+      enabled: true,
+      width: 110,
+      sortable: true,
+      renderCell: (matchRow) => formatClubDate(matchRow.DATE),
+    },
+    circ: {
+      enabled: true,
+      width: 260,
+      sortable: true,
+      field: 'CIRC_COMPLET',
+      headerName: 'Circonstance complete',
+    },
+    score: {
+      mode: 'readonly',
+      sortable: false,
+      valueGetter: (matchRow) => {
+        const etat = Number(matchRow.ETAT ?? 0);
+        if (etat === 1 || etat === 5) {
+          return '-vs-';
+        }
+        if (etat === 4) {
+          return '';
+        }
+        const hasPenalties = Number(matchRow.TABDOM ?? 0) > 0 || Number(matchRow.TABEXT ?? 0) > 0;
+        if (hasPenalties) {
+          return `${Number(matchRow.TABDOM ?? 0)} ${Number(matchRow.BUTDOM ?? 0)}-${Number(matchRow.BUTEXT ?? 0)} ${Number(matchRow.TABEXT ?? 0)}`;
+        }
+        return `${Number(matchRow.BUTDOM ?? 0)}-${Number(matchRow.BUTEXT ?? 0)}`;
+      },
+    },
+    domicileHeaderName: 'Dom',
+    exterieurHeaderName: 'Ext',
+  }), []);
+
   const reloadRow = useCallback(async () => {
     setLoading(true);
     try {
@@ -611,6 +657,18 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     }
   }, [clubId]);
 
+  const reloadMatches = useCallback(async () => {
+    setMatchesLoading(true);
+    try {
+      const matches = await fetchClubMatches(clubId);
+      setMatchRows(matches);
+    } catch (error) {
+      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+    } finally {
+      setMatchesLoading(false);
+    }
+  }, [clubId]);
+
   useEffect(() => {
     const controller = new AbortController();
 
@@ -620,12 +678,13 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
 
     void reloadRow();
     void reloadHistories();
+    void reloadMatches();
 
     return () => {
       controller.abort();
       setDirty(false);
     };
-  }, [reloadHistories, reloadRow, setDirty]);
+  }, [reloadHistories, reloadMatches, reloadRow, setDirty]);
 
   useEffect(() => {
     setClubImageDraft(undefined);
@@ -1021,6 +1080,33 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       ) : row ? (
         <Box sx={{ bgcolor: '#ffffff', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
           <Stack spacing={2.25}>
+            <Tabs
+              value={activeTab}
+              onChange={(_event, value: ClubTabKey) => setActiveTab(value)}
+              sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36 } }}
+            >
+              <Tab value="info" label="INFORMATIONS" />
+              <Tab value="matches" label="MATCHES" />
+            </Tabs>
+
+            {activeTab === 'matches' ? (
+              <Box sx={{ height: 520 }}>
+                <MatchDataGrid
+                  rows={matchRows}
+                  columns={matchColumns}
+                  loading={matchesLoading}
+                  getRowId={(matchRow) => matchRow.RECLEUNIK}
+                  openMatchOnDoubleClick
+                  disableRowSelectionOnClick
+                  disableColumnMenu
+                  density="compact"
+                  pageSizeOptions={[25, 50, 100]}
+                />
+              </Box>
+            ) : null}
+
+            {activeTab === 'info' ? (
+            <>
             <Stack spacing={1.25}>
               <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start', justifyContent: 'space-between' }}>
                 <EntityImageFrame
@@ -1103,6 +1189,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
                 onChange={(event) => setProfileDraft((prev) => ({ ...prev, name: event.target.value }))}
                 size="small"
                 fullWidth
+                autoFocus
               />
 
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
@@ -1226,6 +1313,8 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
                 Enregistrer
               </Button>
             </Stack>
+            </>
+            ) : null}
           </Stack>
         </Box>
       ) : null}

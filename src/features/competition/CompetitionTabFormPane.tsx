@@ -14,15 +14,21 @@ import {
   DialogTitle,
   IconButton,
   Stack,
+  Tab,
+  Tabs,
+  TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useMediaQuery, useTheme } from '@mui/material';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
+import { MatchDataGrid } from '../../components/MatchDataGrid';
+import { buildMatchGridColumns } from '../../components/matchGridColumns';
+import { fromInputDateToDisplay, normalizeDisplayDateInput, toInputDateFromDisplay } from '../../components/DateInputField';
 import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { CompetitionFormDialog } from './CompetitionFormDialog';
@@ -30,18 +36,67 @@ import { TourWizardDialog } from './TourWizardDialog';
 import {
   canDeleteCompetitionTour,
   deleteCompetitionTour,
+  fetchCircByTourType,
   fetchCompetitionById,
+  fetchTourParticipants,
+  fetchTourRencontres,
   fetchCompetitionTours,
   fetchCompetitionWizardData,
   moveCompetitionTour,
+  updateTourRencontre,
   updateCompetition,
 } from './competitionApi';
 import type { CompetitionRow, CompetitionTourRow, EpreuveOption, SaisonOption } from './types';
+import type { CalendrierRow } from '../calendrier/types';
+import { heureDigitsToApiValue, isValidHeureDigits, normalizeHeureDigits } from '../calendrier/HeureCell';
+import type { ScoreDraft } from '../calendrier/ScoreCell';
 
 interface CompetitionTabFormPaneProps {
   tabPath: string;
   competitionId: string;
   active: boolean;
+}
+
+type CompetitionTabKey = 'info' | 'deroules';
+
+function rowStatusClass(etat: number): string {
+  switch (Number(etat)) {
+    case 1:
+      return 'status-en-attente';
+    case 2:
+      return 'status-en-cours';
+    case 3:
+      return 'status-terminee';
+    case 5:
+      return 'status-programmee';
+    case 4:
+      return 'status-non-jouee';
+    default:
+      return 'status-default';
+  }
+}
+
+function scoreToInputValue(value: unknown): string {
+  if (value === null || value === undefined) return '0';
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '0';
+  return String(Math.max(0, Math.trunc(numeric)));
+}
+
+function parseScoreInputValue(value: string): number {
+  const trimmed = value.trim();
+  if (!trimmed) return 0;
+  const numeric = Number(trimmed);
+  if (!Number.isFinite(numeric) || numeric < 0) return 0;
+  return Math.trunc(numeric);
+}
+
+function canEditScore(etat: number): boolean {
+  return etat !== 4 && etat !== 5;
+}
+
+function normalizeCircId(value: unknown): string {
+  return String(value ?? '').trim();
 }
 
 function resolveCompetitionLabel(row: CompetitionRow, fallback: string): string {
@@ -67,6 +122,18 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
   const [tourModalEditingId, setTourModalEditingId] = useState<number | undefined>(undefined);
   const [epreuveOptions, setEpreuveOptions] = useState<EpreuveOption[]>([]);
   const [saisonOptions, setSaisonOptions] = useState<SaisonOption[]>([]);
+  const [activeTab, setActiveTab] = useState<CompetitionTabKey>('info');
+  const [tourMatchRows, setTourMatchRows] = useState<CalendrierRow[]>([]);
+  const [tourMatchesLoading, setTourMatchesLoading] = useState(false);
+  const [selectedMatchId, setSelectedMatchId] = useState<string | number | null>(null);
+  const [editingStatusRowId, setEditingStatusRowId] = useState<string | number | null>(null);
+  const [statusDraft, setStatusDraft] = useState<number>(5);
+  const [editingDateRowId, setEditingDateRowId] = useState<string | number | null>(null);
+  const [dateDraft, setDateDraft] = useState<string>('');
+  const [editingHeureRowId, setEditingHeureRowId] = useState<string | number | null>(null);
+  const [heureDraftDigits, setHeureDraftDigits] = useState<string>('');
+  const [editingScoreRowId, setEditingScoreRowId] = useState<string | number | null>(null);
+  const [scoreDraft, setScoreDraft] = useState<ScoreDraft>({ tabDom: '', butDom: '', butExt: '', tabExt: '' });
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
 
   const tourColumns: GridColDef<CompetitionTourRow>[] = [
@@ -112,7 +179,16 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
     try {
       const rows = await fetchCompetitionTours(competitionId);
       setTourRows(rows);
-      setTourSelection([]);
+      setTourSelection((current) => {
+        const selected = String(current[0] ?? '');
+        if (selected && rows.some((tour) => String(tour.TUCLEUNIK) === selected)) {
+          return [current[0]];
+        }
+        if (rows.length > 0) {
+          return [rows[0].TUCLEUNIK];
+        }
+        return [];
+      });
       return true;
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
@@ -145,6 +221,383 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
     : -1;
   const canMoveUp = selectedTourIndex > 0 && !tourMoveSaving && !toursLoading;
   const canMoveDown = selectedTourIndex >= 0 && selectedTourIndex < tourRows.length - 1 && !tourMoveSaving && !toursLoading;
+
+  const orderedMatchRows = useMemo(() => {
+    return [...tourMatchRows].sort((a, b) => {
+      const dateCmp = String(a.DATE ?? '').localeCompare(String(b.DATE ?? ''));
+      if (dateCmp !== 0) return dateCmp;
+      const heureCmp = String(a.HEURE ?? '').localeCompare(String(b.HEURE ?? ''));
+      if (heureCmp !== 0) return heureCmp;
+      return Number(a.RECLEUNIK) - Number(b.RECLEUNIK);
+    });
+  }, [tourMatchRows]);
+
+  const reloadSelectedTourMatches = useCallback(async () => {
+    if (!selectedTourRow) {
+      setTourMatchRows([]);
+      setSelectedMatchId(null);
+      return;
+    }
+
+    setTourMatchesLoading(true);
+    try {
+      const [rencontres, participants, circOptions] = await Promise.all([
+        fetchTourRencontres(selectedTourRow.TUCLEUNIK),
+        fetchTourParticipants(selectedTourRow.TUCLEUNIK),
+        fetchCircByTourType(Number(selectedTourRow.TYPE_ID) || 1),
+      ]);
+
+      const clubNameById = new Map<string, string>();
+      const programNameBySource = new Map<string, string>();
+      participants.forEach((entry) => {
+        const clubId = String(entry.IDCLUB ?? '').trim();
+        const clubName = String(entry.CLUB ?? '').trim();
+        const source = String(entry.PASource ?? '').trim();
+        if (clubId && clubName) {
+          clubNameById.set(clubId, clubName);
+        }
+        if (source) {
+          programNameBySource.set(source, clubName || `Programme (${source})`);
+        }
+      });
+
+      const circById = new Map<string, string>();
+      circOptions.forEach((entry) => {
+        const id = normalizeCircId(entry.IDCIRC);
+        if (id) {
+          circById.set(id, String(entry.CIRC ?? '').trim() || id);
+        }
+      });
+
+      const mappedRows: CalendrierRow[] = rencontres.map((entry) => {
+        const domId = String(entry.DOMICILE ?? '').trim();
+        const extId = String(entry.EXTERIEUR ?? '').trim();
+        const domSource = String(entry.PADOMSource ?? '').trim();
+        const extSource = String(entry.PAEXTSource ?? '').trim();
+        const circId = normalizeCircId(entry.IDCIRC);
+
+        return {
+          RECLEUNIK: entry.RECLEUNIK,
+          TUCLEUNIK: Number(entry.TUCLEUNIK ?? selectedTourRow.TUCLEUNIK),
+          DATE: String(entry.DATE ?? ''),
+          HEURE: String(entry.HEURE ?? ''),
+          ETAT: Number(entry.ETAT ?? 1) || 1,
+          IDCIRC: circId || null,
+          CIRC: circById.get(circId) ?? (circId || null),
+          TOUR_NOM: String(selectedTourRow.TOUR ?? ''),
+          COMPET_NOM: String(row?.NOM ?? ''),
+          SAISON: String(row?.SAISON ?? ''),
+          CO_ANNEE: Number(row?.CO_ANNEE ?? 0) || 0,
+          DOMICILE: domId,
+          EXTERIEUR: extId,
+          BUTDOM: Number(entry.BUTDOM ?? 0) || 0,
+          BUTEXT: Number(entry.BUTEXT ?? 0) || 0,
+          TABDOM: Number(entry.TABDOM ?? 0) || 0,
+          TABEXT: Number(entry.TABEXT ?? 0) || 0,
+          PADOMSource: domSource || null,
+          PAEXTSource: extSource || null,
+          DOMICILE_NOM: clubNameById.get(domId) ?? programNameBySource.get(domSource) ?? domId,
+          EXTERIEUR_NOM: clubNameById.get(extId) ?? programNameBySource.get(extSource) ?? extId,
+        };
+      });
+
+      setTourMatchRows(mappedRows);
+      setSelectedMatchId((current) => {
+        if (current != null && mappedRows.some((match) => String(match.RECLEUNIK) === String(current))) {
+          return current;
+        }
+        return mappedRows[0]?.RECLEUNIK ?? null;
+      });
+    } catch (error) {
+      setTourMatchRows([]);
+      setSelectedMatchId(null);
+      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+    } finally {
+      setTourMatchesLoading(false);
+    }
+  }, [selectedTourRow, row]);
+
+  useEffect(() => {
+    void reloadSelectedTourMatches();
+  }, [reloadSelectedTourMatches]);
+
+  const startStatusEdit = (item: CalendrierRow) => {
+    setEditingDateRowId(null);
+    setEditingHeureRowId(null);
+    setEditingScoreRowId(null);
+    setEditingStatusRowId(item.RECLEUNIK);
+    setStatusDraft(Number(item.ETAT ?? 1));
+  };
+
+  const cancelStatusEdit = () => {
+    setEditingStatusRowId(null);
+  };
+
+  const commitStatusEdit = async (item: CalendrierRow, nextValue?: number) => {
+    const value = typeof nextValue === 'number' ? nextValue : statusDraft;
+    if (value === Number(item.ETAT)) {
+      setEditingStatusRowId(null);
+      return;
+    }
+    try {
+      await updateTourRencontre(item.RECLEUNIK, { ETAT: value });
+      setTourMatchRows((prev) => prev.map((rowItem) => (
+        String(rowItem.RECLEUNIK) === String(item.RECLEUNIK)
+          ? { ...rowItem, ETAT: value }
+          : rowItem
+      )));
+      setEditingStatusRowId(null);
+    } catch (error) {
+      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+    }
+  };
+
+  const startDateEdit = (item: CalendrierRow) => {
+    setEditingStatusRowId(null);
+    setEditingHeureRowId(null);
+    setEditingScoreRowId(null);
+    setEditingDateRowId(item.RECLEUNIK);
+    setDateDraft(fromInputDateToDisplay(String(item.DATE ?? '')));
+  };
+
+  const cancelDateEdit = () => {
+    setEditingDateRowId(null);
+    setDateDraft('');
+  };
+
+  const commitDateEdit = async (item: CalendrierRow) => {
+    const isoDate = toInputDateFromDisplay(dateDraft);
+    if (!isoDate) {
+      setSnackbar({ severity: 'error', message: 'Date invalide.' });
+      return;
+    }
+    if (isoDate === String(item.DATE ?? '')) {
+      setEditingDateRowId(null);
+      return;
+    }
+    try {
+      await updateTourRencontre(item.RECLEUNIK, { DATE: isoDate });
+      setTourMatchRows((prev) => prev.map((rowItem) => (
+        String(rowItem.RECLEUNIK) === String(item.RECLEUNIK)
+          ? { ...rowItem, DATE: isoDate }
+          : rowItem
+      )));
+      setEditingDateRowId(null);
+      setDateDraft('');
+    } catch (error) {
+      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+    }
+  };
+
+  const startHeureEdit = (item: CalendrierRow) => {
+    setEditingStatusRowId(null);
+    setEditingDateRowId(null);
+    setEditingScoreRowId(null);
+    setEditingHeureRowId(item.RECLEUNIK);
+    setHeureDraftDigits(normalizeHeureDigits(item.HEURE));
+  };
+
+  const cancelHeureEdit = () => {
+    setEditingHeureRowId(null);
+    setHeureDraftDigits('');
+  };
+
+  const commitHeureEdit = async (item: CalendrierRow) => {
+    if (!isValidHeureDigits(heureDraftDigits)) {
+      setSnackbar({ severity: 'error', message: 'Heure invalide.' });
+      return;
+    }
+    const nextValue = heureDigitsToApiValue(heureDraftDigits);
+    if (!nextValue || nextValue === String(item.HEURE ?? '')) {
+      setEditingHeureRowId(null);
+      return;
+    }
+    try {
+      await updateTourRencontre(item.RECLEUNIK, { HEURE: nextValue });
+      setTourMatchRows((prev) => prev.map((rowItem) => (
+        String(rowItem.RECLEUNIK) === String(item.RECLEUNIK)
+          ? { ...rowItem, HEURE: nextValue }
+          : rowItem
+      )));
+      setEditingHeureRowId(null);
+      setHeureDraftDigits('');
+    } catch (error) {
+      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+    }
+  };
+
+  const moveHeureEditToAdjacentRow = async (item: CalendrierRow, direction: 'up' | 'down') => {
+    const currentIndex = orderedMatchRows.findIndex((rowItem) => String(rowItem.RECLEUNIK) === String(item.RECLEUNIK));
+    await commitHeureEdit(item);
+    const nextIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (nextIndex < 0 || nextIndex >= orderedMatchRows.length) {
+      return;
+    }
+    startHeureEdit(orderedMatchRows[nextIndex]);
+  };
+
+  const startScoreEdit = (item: CalendrierRow) => {
+    if (!canEditScore(Number(item.ETAT))) {
+      return;
+    }
+    setEditingStatusRowId(null);
+    setEditingDateRowId(null);
+    setEditingHeureRowId(null);
+    setEditingScoreRowId(item.RECLEUNIK);
+    setScoreDraft({
+      tabDom: scoreToInputValue(item.TABDOM),
+      butDom: scoreToInputValue(item.BUTDOM),
+      butExt: scoreToInputValue(item.BUTEXT),
+      tabExt: scoreToInputValue(item.TABEXT),
+    });
+  };
+
+  const cancelScoreEdit = () => {
+    setEditingScoreRowId(null);
+  };
+
+  const commitScoreEdit = async (item: CalendrierRow) => {
+    const payload = {
+      TABDOM: parseScoreInputValue(scoreDraft.tabDom),
+      BUTDOM: parseScoreInputValue(scoreDraft.butDom),
+      BUTEXT: parseScoreInputValue(scoreDraft.butExt),
+      TABEXT: parseScoreInputValue(scoreDraft.tabExt),
+    };
+    try {
+      await updateTourRencontre(item.RECLEUNIK, payload);
+      setTourMatchRows((prev) => prev.map((rowItem) => (
+        String(rowItem.RECLEUNIK) === String(item.RECLEUNIK)
+          ? { ...rowItem, ...payload }
+          : rowItem
+      )));
+      setEditingScoreRowId(null);
+    } catch (error) {
+      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+    }
+  };
+
+  const moveScoreEditToAdjacentRow = async (item: CalendrierRow, direction: 'up' | 'down') => {
+    const currentIndex = orderedMatchRows.findIndex((rowItem) => String(rowItem.RECLEUNIK) === String(item.RECLEUNIK));
+    await commitScoreEdit(item);
+    const step = direction === 'up' ? -1 : 1;
+    for (let index = currentIndex + step; index >= 0 && index < orderedMatchRows.length; index += step) {
+      const nextRow = orderedMatchRows[index];
+      if (!canEditScore(Number(nextRow.ETAT))) continue;
+      startScoreEdit(nextRow);
+      return;
+    }
+  };
+
+  const matchColumns = useMemo<GridColDef<CalendrierRow>[]>(() => buildMatchGridColumns({
+    status: {
+      editingRowId: editingStatusRowId,
+      draftValue: statusDraft,
+      onStartEdit: startStatusEdit,
+      onDraftChange: (_row, nextValue) => setStatusDraft(nextValue),
+      onCommit: commitStatusEdit,
+      onCancel: () => cancelStatusEdit(),
+      sortable: false,
+    },
+    date: {
+      enabled: true,
+      width: 110,
+      sortable: false,
+      renderCell: (item) => {
+        const isEditing = String(editingDateRowId) === String(item.RECLEUNIK);
+        if (isEditing) {
+          const handleDateKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              event.stopPropagation();
+              cancelDateEdit();
+              return;
+            }
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              event.stopPropagation();
+              void commitDateEdit(item);
+            }
+          };
+
+          return (
+            <Box
+              sx={{ width: '100%' }}
+              onBlur={(event) => {
+                const nextFocused = event.relatedTarget as Node | null;
+                if (!event.currentTarget.contains(nextFocused)) {
+                  void commitDateEdit(item);
+                }
+              }}
+            >
+              <TextField
+                value={dateDraft}
+                onChange={(event) => setDateDraft(normalizeDisplayDateInput(event.target.value))}
+                onKeyDown={handleDateKeyDown}
+                autoFocus
+                size="small"
+                sx={{
+                  width: '100%',
+                  '& .MuiInputBase-root': { height: 22, bgcolor: 'grey.200' },
+                  '& .MuiInputBase-input': { py: 0, fontSize: '0.72rem', textAlign: 'center' },
+                  '& .MuiOutlinedInput-notchedOutline': { border: 0 },
+                  '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { border: 0 },
+                  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { border: 0 },
+                }}
+                slotProps={{ htmlInput: { maxLength: 10, placeholder: 'JJ/MM/AAAA' } }}
+              />
+            </Box>
+          );
+        }
+
+        return (
+          <Box
+            sx={{ width: '100%', textAlign: 'center', cursor: 'text' }}
+            onClick={(event) => {
+              event.stopPropagation();
+              startDateEdit(item);
+            }}
+          >
+            {fromInputDateToDisplay(String(item.DATE ?? ''))}
+          </Box>
+        );
+      },
+    },
+    heure: {
+      editingRowId: editingHeureRowId,
+      draftDigits: heureDraftDigits,
+      onStartEdit: startHeureEdit,
+      onDraftChange: (_row, digits) => setHeureDraftDigits(digits),
+      onCommit: commitHeureEdit,
+      onCancel: () => cancelHeureEdit(),
+      onMoveVertical: moveHeureEditToAdjacentRow,
+      sortable: false,
+    },
+    circ: {
+      enabled: true,
+      width: 118,
+      sortable: false,
+    },
+    score: {
+      editingRowId: editingScoreRowId,
+      draft: scoreDraft,
+      canEdit: (row) => canEditScore(Number(row.ETAT)),
+      onStartEdit: startScoreEdit,
+      onDraftChange: (_row, patch) => setScoreDraft((prev) => ({ ...prev, ...patch })),
+      onUserInput: () => undefined,
+      onCommit: commitScoreEdit,
+      onCancel: () => cancelScoreEdit(),
+      onMoveVertical: moveScoreEditToAdjacentRow,
+    },
+  }), [
+    dateDraft,
+    editingDateRowId,
+    editingHeureRowId,
+    editingScoreRowId,
+    editingStatusRowId,
+    heureDraftDigits,
+    scoreDraft,
+    statusDraft,
+  ]);
 
   const openTourCreateModal = () => {
     setTourModalMode('create');
@@ -296,54 +749,97 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
         </Box>
       ) : row ? (
         <Stack spacing={2}>
-          <CompetitionFormDialog
-            open
-            mode="edit"
-            embedded
-            primaryKey="COCLEUNIK"
-            initialData={row}
-            epreuveOptions={epreuveOptions}
-            saisonOptions={saisonOptions}
-            onClose={() => { void reloadRow(); }}
-            onSubmit={async (payload) => {
-              try {
-                await updateCompetition(competitionId, payload);
-                const refreshed = await fetchCompetitionById(competitionId);
-                setRow(refreshed);
-                const label = resolveCompetitionLabel(refreshed, String(competitionId));
-                setLabel(label);
-                setDirty(false);
-                setSnackbar({ severity: 'success', message: 'Competition mise a jour.' });
-                notifySaveDone();
-              } catch (error) {
-                setSnackbar({ severity: 'error', message: toErrorMessage(error) });
-              }
-            }}
-            onDirtyChange={(dirty) => setDirty(dirty)}
-            saveCount={saveRequestCount}
-          />
+          <Tabs
+            value={activeTab}
+            onChange={(_event, value: CompetitionTabKey) => setActiveTab(value)}
+            sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36 } }}
+          >
+            <Tab value="info" label="Informations" />
+            <Tab value="deroules" label="Deroules" />
+          </Tabs>
 
-          <Box sx={{ bgcolor: '#ffffff', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
-            <Stack spacing={0.75}>
-              <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>Tours de la competition</Typography>
-                {tourActions}
-              </Stack>
+          {activeTab === 'info' ? (
+            <CompetitionFormDialog
+              open
+              mode="edit"
+              embedded
+              primaryKey="COCLEUNIK"
+              initialData={row}
+              epreuveOptions={epreuveOptions}
+              saisonOptions={saisonOptions}
+              onClose={() => { void reloadRow(); }}
+              onSubmit={async (payload) => {
+                try {
+                  await updateCompetition(competitionId, payload);
+                  const refreshed = await fetchCompetitionById(competitionId);
+                  setRow(refreshed);
+                  const label = resolveCompetitionLabel(refreshed, String(competitionId));
+                  setLabel(label);
+                  setDirty(false);
+                  setSnackbar({ severity: 'success', message: 'Competition mise a jour.' });
+                  notifySaveDone();
+                } catch (error) {
+                  setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+                }
+              }}
+              onDirtyChange={(dirty) => setDirty(dirty)}
+              saveCount={saveRequestCount}
+            />
+          ) : (
+            <Stack spacing={2}>
+              <Box sx={{ bgcolor: '#ffffff', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+                <Stack spacing={0.75}>
+                  <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>Tours de la competition</Typography>
+                    {tourActions}
+                  </Stack>
 
-              <Box sx={{ height: 260 }}>
-                <EntityDataGrid
-                  rows={tourRows}
-                  columns={tourColumns}
-                  loading={toursLoading}
-                  getRowId={(tour) => tour.TUCLEUNIK}
-                  selection={tourSelection}
-                  onSelectionChange={setTourSelection}
-                  onRowDoubleClick={handleTourRowDoubleClick}
-                  pageSizeOptions={[10, 25, 50]}
-                />
+                  <Box sx={{ height: 260 }}>
+                    <EntityDataGrid
+                      rows={tourRows}
+                      columns={tourColumns}
+                      loading={toursLoading}
+                      getRowId={(tour) => tour.TUCLEUNIK}
+                      selection={tourSelection}
+                      onSelectionChange={setTourSelection}
+                      onRowDoubleClick={handleTourRowDoubleClick}
+                      pageSizeOptions={[10, 25, 50]}
+                    />
+                  </Box>
+                </Stack>
+              </Box>
+
+              <Box sx={{ bgcolor: '#ffffff', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+                <Stack spacing={0.75}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    Rencontres du tour selectionne
+                  </Typography>
+
+                  <Box sx={{ height: 380 }}>
+                    <MatchDataGrid
+                      rows={orderedMatchRows}
+                      columns={matchColumns}
+                      loading={tourMatchesLoading}
+                      getRowId={(rowItem) => rowItem.RECLEUNIK}
+                      openMatchOnDoubleClick
+                      rowSelectionModel={{
+                        type: 'include',
+                        ids: new Set(selectedMatchId != null ? [selectedMatchId] : []),
+                      }}
+                      onRowSelectionModelChange={(model) => {
+                        const first = model.ids.values().next().value;
+                        setSelectedMatchId(first != null ? first : null);
+                      }}
+                      getRowClassName={(params) => rowStatusClass(Number(params.row.ETAT ?? 0))}
+                      disableColumnMenu
+                      density="compact"
+                      pageSizeOptions={[10, 25, 50]}
+                    />
+                  </Box>
+                </Stack>
               </Box>
             </Stack>
-          </Box>
+          )}
         </Stack>
       ) : null}
 

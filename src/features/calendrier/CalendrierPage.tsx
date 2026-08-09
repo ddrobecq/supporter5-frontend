@@ -14,10 +14,11 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { DataGrid, type GridColDef, type GridSortModel } from '@mui/x-data-grid';
+import { type GridColDef, type GridSortModel } from '@mui/x-data-grid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { DateInputField, fromInputDateToDisplay, toInputDateFromDisplay } from '../../components/DateInputField';
+import { MatchDataGrid } from '../../components/MatchDataGrid';
+import { buildMatchGridColumns } from '../../components/matchGridColumns';
 import { useEntityImage } from '../../lib/useEntityImage';
 import {
   fetchCalendarByDate,
@@ -27,13 +28,11 @@ import {
   updateCalendarStatus,
 } from './calendrierApi';
 import {
-  HeureCell,
   heureDigitsToApiValue,
   isValidHeureDigits,
   normalizeHeureDigits,
 } from './HeureCell';
-import { ScoreCell, type ScoreDraft } from './ScoreCell';
-import { StatusCell } from './StatusCell';
+import type { ScoreDraft } from './ScoreCell';
 import type { CalendrierRow, TourClassementRow } from './types';
 
 const DEFAULT_SORT_MODEL: GridSortModel = [{ field: 'HEURE', sort: 'asc' }];
@@ -236,80 +235,6 @@ function getStatusAfterScoreEdit(row: CalendrierRow): number {
   return 1;
 }
 
-function ClubCell({
-  clubId,
-  clubName,
-  alignRight = false,
-  italic = false,
-}: {
-  clubId: string;
-  clubName: string;
-  alignRight?: boolean;
-  italic?: boolean;
-}) {
-  const { src } = useEntityImage('club', clubId);
-
-  return (
-    <Box sx={{ width: '100%', display: 'flex', justifyContent: alignRight ? 'flex-end' : 'flex-start' }}>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minWidth: 0 }}>
-        {alignRight ? (
-          <>
-            <Box sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'right', fontStyle: italic ? 'italic' : 'normal' }}>{clubName}</Box>
-            <Box
-              sx={{
-                width: 22,
-                height: 22,
-                minWidth: 22,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              {src ? (
-                <Box
-                  component="img"
-                  src={src}
-                  alt={clubName}
-                  sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', fontStyle: italic ? 'italic' : 'normal' }}
-                />
-              ) : (
-                <ShieldOutlinedIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
-              )}
-            </Box>
-          </>
-        ) : (
-          <>
-            <Box
-              sx={{
-                width: 22,
-                height: 22,
-                minWidth: 22,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              {src ? (
-                <Box
-                  component="img"
-                  src={src}
-                  alt={clubName}
-                  sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                />
-              ) : (
-                <ShieldOutlinedIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
-              )}
-            </Box>
-            <Box sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontStyle: italic ? 'italic' : 'normal' }}>{clubName}</Box>
-          </>
-        )}
-      </Stack>
-    </Box>
-  );
-}
-
 function ClassementClubCell({
   clubId,
   clubName,
@@ -385,7 +310,6 @@ function isProgrammedUnresolvedSide(sourceValue: unknown, clubIdValue: unknown):
 }
 
 export function CalendrierPage() {
-  const navigate = useNavigate();
   const [date, setDate] = useState<string>(() => getInitialCalendrierDate());
   const [dateDraft, setDateDraft] = useState<string>(() => fromInputDateToDisplay(getInitialCalendrierDate()));
   const [rows, setRows] = useState<CalendrierRow[]>([]);
@@ -973,117 +897,38 @@ export function CalendrierPage() {
     }
   };
 
-  const columns = useMemo<GridColDef<CalendrierRow>[]>(() => [
-    {
-      field: 'ETAT',
-      headerName: 'Statut',
-      width: 90,
+  const columns = useMemo<GridColDef<CalendrierRow>[]>(() => buildMatchGridColumns({
+    status: {
+      editingRowId: editingStatusRowId,
+      draftValue: statusDraft,
+      onStartEdit: startStatusEdit,
+      onDraftChange: (row, nextValue) => updateStatusDraft(row.RECLEUNIK, nextValue),
+      onCommit: commitStatusEdit,
+      onCancel: cancelStatusEdit,
       sortable: true,
-      renderCell: (params) => {
-        const row = params.row;
-        const isEditing = editingStatusRowId === row.RECLEUNIK;
-        return (
-          <StatusCell
-            value={Number(row.ETAT)}
-            isEditing={isEditing}
-            draftValue={statusDraft}
-            onStartEdit={() => startStatusEdit(row)}
-            onDraftChange={(nextValue) => updateStatusDraft(row.RECLEUNIK, nextValue)}
-            onCommit={(nextValue) => commitStatusEdit(row, nextValue)}
-            onCancel={() => cancelStatusEdit(row)}
-          />
-        );
-      },
     },
-    {
-      field: 'HEURE',
-      headerName: 'Heure',
-      width: 70,
-      align: 'center',
-      headerAlign: 'center',
+    heure: {
+      editingRowId: editingHeureRowId,
+      draftDigits: heureDraftDigits,
+      onStartEdit: startHeureEdit,
+      onDraftChange: (row, digits) => updateHeureDraft(row.RECLEUNIK, digits),
+      onCommit: commitHeureEdit,
+      onCancel: cancelHeureEdit,
+      onMoveVertical: moveHeureEditToAdjacentRow,
       sortable: true,
-      renderCell: (params) => {
-        const row = params.row;
-        const isEditing = editingHeureRowId === row.RECLEUNIK;
-        return (
-          <HeureCell
-            value={row.HEURE}
-            isEditing={isEditing}
-            draftDigits={heureDraftDigits}
-            onStartEdit={() => startHeureEdit(row)}
-            onDraftChange={(digits) => updateHeureDraft(row.RECLEUNIK, digits)}
-            onCommit={() => commitHeureEdit(row)}
-            onCancel={() => cancelHeureEdit(row)}
-            onMoveVertical={(direction) => moveHeureEditToAdjacentRow(row, direction)}
-          />
-        );
-      },
     },
-    {
-      field: 'DOMICILE_NOM',
-      headerName: 'Domicile',
-      headerAlign: 'right',
-      minWidth: 120,
-      flex: 1,
-      resizable: false,
-      sortable: true,
-      renderCell: (params) => (
-        <ClubCell
-          clubId={String(params.row.DOMICILE ?? '')}
-          clubName={String(params.row.DOMICILE_NOM ?? '')}
-          alignRight
-          italic={
-            String(params.row.PADOMSource ?? '').trim().length > 0
-            && String(params.row.DOMICILE ?? '').trim().length === 0
-          }
-        />
-      ),
+    score: {
+      editingRowId: editingScoreRowId,
+      draft: scoreDraft,
+      canEdit: (row) => canEditScore(Number(row.ETAT)),
+      onStartEdit: startScoreEdit,
+      onDraftChange: (row, patch) => updateScoreDraft(row.RECLEUNIK, patch),
+      onUserInput: (row) => setRowModifiedFlag(row.RECLEUNIK, true),
+      onCommit: commitScoreEdit,
+      onCancel: cancelScoreEdit,
+      onMoveVertical: moveScoreEditToAdjacentRow,
     },
-    {
-      field: 'SCORE',
-      headerName: 'Score',
-      width: 72,
-      align: 'center',
-      headerAlign: 'center',
-      sortable: false,
-      renderCell: (params) => {
-        const row = params.row;
-        const isEditing = editingScoreRowId === row.RECLEUNIK;
-        return (
-          <ScoreCell
-            row={row}
-            isEditing={isEditing}
-            canEdit={canEditScore(Number(row.ETAT))}
-            draft={scoreDraft}
-            onStartEdit={() => startScoreEdit(row)}
-            onDraftChange={(patch) => updateScoreDraft(row.RECLEUNIK, patch)}
-            onUserInput={() => setRowModifiedFlag(row.RECLEUNIK, true)}
-            onCommit={() => commitScoreEdit(row)}
-            onCancel={() => cancelScoreEdit(row)}
-            onMoveVertical={(direction) => moveScoreEditToAdjacentRow(row, direction)}
-          />
-        );
-      },
-    },
-    {
-      field: 'EXTERIEUR_NOM',
-      headerName: 'Extérieur',
-      minWidth: 120,
-      flex: 1,
-      resizable: false,
-      sortable: true,
-      renderCell: (params) => (
-        <ClubCell
-          clubId={String(params.row.EXTERIEUR ?? '')}
-          clubName={String(params.row.EXTERIEUR_NOM ?? '')}
-          italic={
-            String(params.row.PAEXTSource ?? '').trim().length > 0
-            && String(params.row.EXTERIEUR ?? '').trim().length === 0
-          }
-        />
-      ),
-    },
-  ], [editingHeureRowId, editingScoreRowId, editingStatusRowId, heureDraftDigits, rowModified, scoreDraft, statusDraft]);
+  }), [editingHeureRowId, editingScoreRowId, editingStatusRowId, heureDraftDigits, scoreDraft, statusDraft]);
 
   const classementColumns = useMemo<GridColDef<TourClassementRow>[]>(() => {
     const columns: GridColDef<TourClassementRow>[] = [
@@ -1270,7 +1115,7 @@ export function CalendrierPage() {
               position: 'relative',
             }}
           >
-            <DataGrid
+            <MatchDataGrid
               rows={rows}
               columns={columns}
               loading={loading}
@@ -1286,35 +1131,16 @@ export function CalendrierPage() {
               onRowClick={(params) => {
                 setSelectedRowId(params.row.RECLEUNIK);
               }}
-              onRowDoubleClick={(params) => {
-                navigate(`/admin/rencontres/${encodeURIComponent(String(params.row.RECLEUNIK ?? ''))}`);
-              }}
+              openMatchOnDoubleClick
               disableColumnMenu
               density="compact"
               pageSizeOptions={[25, 50, 100]}
+              isDefaultHeureSort={isDefaultHeureSort}
               sx={{
-                width: '100%',
                 '@keyframes spin': {
                   from: { transform: 'rotate(0deg)' },
                   to: { transform: 'rotate(360deg)' },
                 },
-                '& .MuiDataGrid-cell': { cursor: 'default' },
-                '& .MuiDataGrid-row.status-terminee .MuiDataGrid-cell': { color: 'common.black' },
-                '& .MuiDataGrid-row.status-en-cours .MuiDataGrid-cell': { color: 'success.main' },
-                '& .MuiDataGrid-row.status-en-attente .MuiDataGrid-cell': { color: 'text.secondary' },
-                '& .MuiDataGrid-row.status-programmee .MuiDataGrid-cell': { color: 'text.secondary' },
-                '& .MuiDataGrid-row.status-non-jouee .MuiDataGrid-cell': { color: 'text.disabled' },
-                '& .MuiDataGrid-row.selected-calendar-row': {
-                  backgroundColor: 'action.hover',
-                },
-                ...(isDefaultHeureSort
-                  ? {
-                      '& .MuiDataGrid-columnHeader[data-field="HEURE"] .MuiDataGrid-iconButtonContainer': {
-                        visibility: 'hidden',
-                        width: 0,
-                      },
-                    }
-                  : {}),
               }}
             />
 
@@ -1369,7 +1195,7 @@ export function CalendrierPage() {
               </Typography>
 
               <Box sx={{ height: 320, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                <DataGrid
+                <MatchDataGrid
                   rows={displayedClassementRows}
                   columns={classementColumns}
                   loading={classementLoading}

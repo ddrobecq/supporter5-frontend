@@ -1095,44 +1095,46 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
           {isSupportedClubMatch ? (
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.25, rowGap: 2, alignItems: 'flex-start', justifyContent: 'flex-start' }}>
                 <Box sx={{ width: '100%', minWidth: 0 }}>
-                  <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: 'text.secondary' }}>Arbitre</Typography>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
-                      minHeight: 56,
-                      px: 1,
-                      py: 0.75,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      borderRadius: 1,
-                      bgcolor: 'background.paper',
+                  <TextField
+                    label="Arbitre"
+                    value=""
+                    placeholder={draft.arbitreId ? '' : 'Aucun arbitre'}
+                    size="small"
+                    fullWidth
+                    slotProps={{
+                      input: {
+                        readOnly: true,
+                        startAdornment: draft.arbitreId ? (
+                          <InputAdornment position="start" sx={{ maxWidth: 'calc(100% - 12px)', mr: 0.5 }}>
+                            <ArbitreIdentityDisplay arbitreId={draft.arbitreId} compact inField size={24} />
+                          </InputAdornment>
+                        ) : undefined,
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <Stack direction="row" spacing={0.25}>
+                              <Tooltip title="Choisir l'arbitre">
+                                <IconButton size="small" onClick={() => setArbitrePickerOpen(true)} aria-label="Choisir l'arbitre">
+                                  <SearchRoundedIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Effacer l'arbitre">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => setDraft((prev) => (prev ? { ...prev, arbitreId: '', arbitreLabel: '' } : prev))}
+                                    disabled={!draft.arbitreId}
+                                    aria-label="Effacer l'arbitre"
+                                  >
+                                    <ClearRoundedIcon fontSize="small" />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            </Stack>
+                          </InputAdornment>
+                        ),
+                      },
                     }}
-                  >
-                    <Box sx={{ minWidth: 0, flex: 1 }}>
-                      <ArbitreIdentityDisplay arbitreId={draft.arbitreId} compact />
-                    </Box>
-                    <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
-                      <Tooltip title="Choisir l'arbitre">
-                        <IconButton size="small" onClick={() => setArbitrePickerOpen(true)} aria-label="Choisir l'arbitre">
-                          <SearchRoundedIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Effacer l'arbitre">
-                        <span>
-                          <IconButton
-                            size="small"
-                            onClick={() => setDraft((prev) => (prev ? { ...prev, arbitreId: '', arbitreLabel: '' } : prev))}
-                            disabled={!draft.arbitreId}
-                            aria-label="Effacer l'arbitre"
-                          >
-                            <ClearRoundedIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </Stack>
-                  </Box>
+                  />
                 </Box>
 
                 <Box sx={{ width: '100%', minWidth: 0 }}>

@@ -88,6 +88,13 @@ interface OpenTabOptions {
   uniqueByPath?: boolean;
 }
 
+interface TabOpenEventDetail {
+  path?: string;
+  label?: string;
+  unique?: boolean;
+  uniqueByPath?: boolean;
+}
+
 interface TabMeta {
   label: string;
   icon: ReactNode;
@@ -557,6 +564,24 @@ export function AdminLayout() {
     });
     navigate(normalizedPath);
   };
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<TabOpenEventDetail>;
+      const path = customEvent.detail?.path;
+      if (!path) {
+        return;
+      }
+
+      openTab(path, customEvent.detail?.label, {
+        unique: customEvent.detail?.unique ?? true,
+        uniqueByPath: customEvent.detail?.uniqueByPath ?? true,
+      });
+    };
+
+    window.addEventListener('supporter:tab-open', handler);
+    return () => window.removeEventListener('supporter:tab-open', handler);
+  }, [openTab]);
 
   const doCloseTab = (tabKey: string) => {
     const tab = tabs.find((item) => item.key === tabKey);

@@ -29,6 +29,21 @@ export interface ClubTerrainHistoryRow {
   STADE: string;
 }
 
+export interface ClubMatchRow {
+  RECLEUNIK: number;
+  DATE: string;
+  CIRC_COMPLET: string;
+  DOMICILE: string;
+  EXTERIEUR: string;
+  DOMICILE_NOM: string;
+  EXTERIEUR_NOM: string;
+  BUTDOM: number;
+  BUTEXT: number;
+  TABDOM: number;
+  TABEXT: number;
+  ETAT: number;
+}
+
 export interface ClubSuggestionRow {
   IDCLUB: string;
   CLUB_ABREGE: string;

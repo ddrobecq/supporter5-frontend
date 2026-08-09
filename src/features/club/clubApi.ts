@@ -3,6 +3,7 @@ import { http } from '../../lib/http';
 import type {
   ClubCreateWizardPayload,
   ClubGridRow,
+  ClubMatchRow,
   ClubNameHistoryRow,
   ClubProfileRow,
   ClubSuggestionRow,
@@ -93,6 +94,17 @@ export async function fetchClubTerrainHistory(
   signal?: AbortSignal,
 ): Promise<ClubTerrainHistoryRow[]> {
   const { data } = await http.get<GridResponse<ClubTerrainHistoryRow>>(`${env.clubPublicResource}/grid/${encodeURIComponent(id)}/terrains-history`, {
+    signal,
+    timeout: 30000,
+  });
+  return data.data ?? [];
+}
+
+export async function fetchClubMatches(
+  id: string,
+  signal?: AbortSignal,
+): Promise<ClubMatchRow[]> {
+  const { data } = await http.get<GridResponse<ClubMatchRow>>(`${env.clubPublicResource}/grid/${encodeURIComponent(id)}/matches`, {
     signal,
     timeout: 30000,
   });
