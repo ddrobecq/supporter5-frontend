@@ -288,6 +288,45 @@ export function TourWizardStep6Rencontres({
     }
   }, [hasMultipleGroups, selectedGroup, effectiveGroupNames]);
 
+  const selectedGroupIndex = useMemo(() => {
+    return effectiveGroupNames.findIndex((groupName) => groupName === selectedGroup);
+  }, [effectiveGroupNames, selectedGroup]);
+
+  const canSelectPreviousGroup = useMemo(() => {
+    if (!hasMultipleGroups || effectiveGroupNames.length === 0) {
+      return false;
+    }
+    if (selectedGroupIndex < 0) {
+      return true;
+    }
+    return selectedGroupIndex > 0;
+  }, [effectiveGroupNames, hasMultipleGroups, selectedGroupIndex]);
+
+  const canSelectNextGroup = useMemo(() => {
+    if (!hasMultipleGroups || effectiveGroupNames.length === 0) {
+      return false;
+    }
+    if (selectedGroupIndex < 0) {
+      return true;
+    }
+    return selectedGroupIndex < effectiveGroupNames.length - 1;
+  }, [effectiveGroupNames, hasMultipleGroups, selectedGroupIndex]);
+
+  const selectAdjacentGroup = (direction: -1 | 1) => {
+    if (!hasMultipleGroups || effectiveGroupNames.length === 0) {
+      return;
+    }
+
+    const fallbackIndex = direction > 0 ? 0 : effectiveGroupNames.length - 1;
+    const targetIndex = selectedGroupIndex >= 0 ? selectedGroupIndex + direction : fallbackIndex;
+
+    if (targetIndex < 0 || targetIndex >= effectiveGroupNames.length) {
+      return;
+    }
+
+    setSelectedGroup(effectiveGroupNames[targetIndex] ?? '');
+  };
+
   useEffect(() => {
     // A pending draft is tied to one circumstance; clear it when the selected circumstance changes.
     setSelectedParticipantId('');
@@ -861,20 +900,50 @@ export function TourWizardStep6Rencontres({
 
       <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1.25}>
         {hasMultipleGroups ? (
-          <FormControl size="small" sx={{ width: { xs: '100%', lg: 320 } }}>
-            <InputLabel id="groupe-select-label">Nom du Groupe</InputLabel>
-            <Select
-              labelId="groupe-select-label"
-              label="Nom du Groupe"
-              value={selectedGroup}
-              onChange={(event) => setSelectedGroup(String(event.target.value ?? ''))}
-            >
-              <MenuItem value="">(Aucun)</MenuItem>
-              {effectiveGroupNames.map((groupName) => (
-                <MenuItem key={groupName} value={groupName}>{groupName}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Stack direction="row" spacing={1} sx={{ width: { xs: '100%', lg: 320 }, alignItems: 'center' }}>
+            <FormControl size="small" sx={{ flex: 1, minWidth: 0 }}>
+              <InputLabel id="groupe-select-label">Nom du Groupe</InputLabel>
+              <Select
+                labelId="groupe-select-label"
+                label="Nom du Groupe"
+                value={selectedGroup}
+                onChange={(event) => setSelectedGroup(String(event.target.value ?? ''))}
+              >
+                <MenuItem value="">(Aucun)</MenuItem>
+                {effectiveGroupNames.map((groupName) => (
+                  <MenuItem key={groupName} value={groupName}>{groupName}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <Tooltip title="Groupe precedent">
+              <span>
+                <IconButton
+                  size="small"
+                  sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, flexShrink: 0 }}
+                  onClick={() => selectAdjacentGroup(-1)}
+                  disabled={saving || loading || !canSelectPreviousGroup}
+                  aria-label="Selectionner le groupe precedent"
+                >
+                  <NavigateBeforeRoundedIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+
+            <Tooltip title="Groupe suivant">
+              <span>
+                <IconButton
+                  size="small"
+                  sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, flexShrink: 0 }}
+                  onClick={() => selectAdjacentGroup(1)}
+                  disabled={saving || loading || !canSelectNextGroup}
+                  aria-label="Selectionner le groupe suivant"
+                >
+                  <NavigateNextRoundedIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+          </Stack>
         ) : null}
 
         <Stack direction="row" spacing={1} sx={{ flex: 1, minWidth: 0, alignItems: 'center' }}>
