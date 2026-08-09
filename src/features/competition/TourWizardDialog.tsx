@@ -23,7 +23,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { DateInputField, fromInputDateToDisplay, toInputDateFromDisplay } from '../../components/DateInputField';
 import { TimeInputField } from '../../components/TimeInputField';
 import { toErrorMessage } from '../../components/useEntityPage';
-import { createCompetitionTour, fetchCompetitionTourById, fetchTourDefById, updateCompetitionTour } from './competitionApi';
+import { createCompetitionTour, fetchCompetitionTourById, fetchTourDefById, fetchTourParticipants, updateCompetitionTour } from './competitionApi';
 import { TourWizardStep3DefineForm } from './TourWizardStep3DefineForm';
 import { TourWizardStep4Groupes } from './TourWizardStep4Groupes';
 import { TourWizardStep4Classement } from './TourWizardStep4Classement';
@@ -182,6 +182,15 @@ function createDraftFromDetail(source: CompetitionTourDetailRow, fallbackId: num
   };
 }
 
+function extractDistinctGroupNames(rows: Array<{ GROUPE?: unknown }>): string[] {
+  const values = rows
+    .map((row) => String(row.GROUPE ?? '').trim())
+    .filter((value) => value.length > 0);
+
+  return Array.from(new Set(values))
+    .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base', numeric: true }));
+}
+
 export function TourWizardDialog({
   open,
   mode,
@@ -204,6 +213,7 @@ export function TourWizardDialog({
   const [initialTourType, setInitialTourType] = useState<TourType>('ligue');
   const [isAllerRetour, setIsAllerRetour] = useState(false);
   const [groupNames, setGroupNames] = useState<string[]>([]);
+  const [existingGroupNames, setExistingGroupNames] = useState<string[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -212,6 +222,7 @@ export function TourWizardDialog({
     setErrors({});
     setFinalTouched(false);
     setGroupNames([]);
+    setExistingGroupNames([]);
 
     if (mode === 'create') {
       const nextDraft = createDefaultDraft(proposedTourId, proposedOrder);
@@ -227,11 +238,17 @@ export function TourWizardDialog({
     }
 
     setLoading(true);
-    void fetchCompetitionTourById(initialTourId)
-      .then((detail) => {
+    void Promise.all([
+      fetchCompetitionTourById(initialTourId),
+      fetchTourParticipants(initialTourId),
+    ])
+      .then(([detail, participants]) => {
         const nextDraft = createDraftFromDetail(detail, proposedTourId);
         setDraft(nextDraft);
         setInitialTourType(nextDraft.type);
+        const loadedGroupNames = extractDistinctGroupNames(participants);
+        setGroupNames(loadedGroupNames);
+        setExistingGroupNames(loadedGroupNames);
       })
       .catch((error) => {
         onError(toErrorMessage(error));
@@ -632,6 +649,7 @@ export function TourWizardDialog({
             <TourWizardStep4Groupes
               tourType={draft.type}
               tourDefId={draft.tourDefKey}
+              initialGroupNames={existingGroupNames}
               nbParticipants={draft.participants}
               nbEquipe={draft.nbEquipe}
               nbGroupe={draft.nbGroupe}

@@ -39,6 +39,7 @@ import type { GridRowId } from '@mui/x-data-grid';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { authStore } from '../features/auth/authStore';
+import type { HomePageOutletContext, RecentEntityKind, RecentOpenedRecord } from '../features/home/types';
 import { emitTabSaveRequest } from '../lib/useTabMetaEvents';
 import { useEntityImage } from '../lib/useEntityImage';
 import { supportedClubStore } from '../features/system/supportedClubStore';
@@ -129,6 +130,8 @@ const TAB_META: Record<string, TabMeta> = {
 };
 
 const HOME_TAB_KEY = 'tab-home';
+const RECENT_OPENED_STORAGE_KEY = 'supporter:recent-opened-records:v1';
+const MAX_RECENT_OPENED_RECORDS = 10;
 
 const PICKER_ENTITY_DEFINITIONS: PickerEntityDefinition[] = [
   {
@@ -316,6 +319,83 @@ function resolveTabMetaPath(path: string): string {
   return normalized;
 }
 
+function decodeSegment(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function sanitizeRecentLabel(label: string, fallback: string): string {
+  const trimmed = String(label ?? '').trim();
+  return trimmed || fallback;
+}
+
+function buildRecentOpenedRecord(path: string, label: string): RecentOpenedRecord | null {
+  const normalizedPath = normalizeRoutePath(path);
+
+  if (normalizedPath.startsWith('/admin/rencontres/')) {
+    const entityId = decodeSegment(normalizedPath.slice('/admin/rencontres/'.length));
+    if (!entityId) return null;
+    return {
+      path: normalizedPath,
+      label: sanitizeRecentLabel(label, `Rencontre ${entityId}`),
+      entityKind: 'rencontre',
+      entityId,
+      lastOpenedAt: Date.now(),
+    };
+  }
+
+  for (const entity of PICKER_ENTITY_DEFINITIONS) {
+    const prefix = `${entity.basePath}/`;
+    if (!normalizedPath.startsWith(prefix)) continue;
+
+    const entityId = decodeSegment(normalizedPath.slice(prefix.length));
+    if (!entityId) return null;
+
+    return {
+      path: normalizedPath,
+      label: sanitizeRecentLabel(label, entityId),
+      entityKind: entity.key as RecentEntityKind,
+      entityId,
+      lastOpenedAt: Date.now(),
+    };
+  }
+
+  return null;
+}
+
+function readRecentOpenedRecordsFromStorage(): RecentOpenedRecord[] {
+  try {
+    const raw = window.localStorage.getItem(RECENT_OPENED_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    const normalizedRows = parsed.flatMap((row): RecentOpenedRecord[] => {
+      if (!row || typeof row !== 'object') return [];
+
+      const path = String((row as { path?: unknown }).path ?? '');
+      const label = String((row as { label?: unknown }).label ?? '');
+      const base = buildRecentOpenedRecord(path, label);
+      if (!base) return [];
+
+      const lastOpenedAtRaw = Number((row as { lastOpenedAt?: unknown }).lastOpenedAt);
+      return [{
+        ...base,
+        lastOpenedAt: Number.isFinite(lastOpenedAtRaw) ? lastOpenedAtRaw : Date.now(),
+      }];
+    });
+
+    return normalizedRows
+      .sort((a, b) => b.lastOpenedAt - a.lastOpenedAt)
+      .slice(0, MAX_RECENT_OPENED_RECORDS);
+  } catch {
+    return [];
+  }
+}
+
 export function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -336,6 +416,7 @@ export function AdminLayout() {
   const [dirtyTabsByPath, setDirtyTabsByPath] = useState<Record<string, boolean>>({});
   const [closeConfirmTabKey, setCloseConfirmTabKey] = useState<string | null>(null);
   const [savingBeforeClose, setSavingBeforeClose] = useState(false);
+  const [recentOpenedRecords, setRecentOpenedRecords] = useState<RecentOpenedRecord[]>(() => readRecentOpenedRecordsFromStorage());
   const tabCounterRef = useRef(0);
   const [tabs, setTabs] = useState<NavTab[]>([
     {
@@ -375,9 +456,27 @@ export function AdminLayout() {
   );
   const activeTabIsDynamicForm = Boolean(activeTab?.path && isDynamicFormPath(activeTab.path)) || isDynamicFormPath(location.pathname);
 
+  const rememberOpenedRecord = (path: string, label: string) => {
+    const next = buildRecentOpenedRecord(path, label);
+    if (!next) return;
+    setRecentOpenedRecords((prev) => {
+      const deduped = prev.filter((row) => row.path !== next.path);
+      return [next, ...deduped].slice(0, MAX_RECENT_OPENED_RECORDS);
+    });
+  };
+
   useEffect(() => {
     void loadSupportedClub();
   }, [loadSupportedClub]);
+
+  useEffect(() => {
+    window.localStorage.setItem(RECENT_OPENED_STORAGE_KEY, JSON.stringify(recentOpenedRecords));
+  }, [recentOpenedRecords]);
+
+  useEffect(() => {
+    if (!activeTab) return;
+    rememberOpenedRecord(activeTab.path, activeTab.label);
+  }, [activeTab]);
 
   useEffect(() => {
     const row = navButtonsRowRef.current;
@@ -518,6 +617,15 @@ export function AdminLayout() {
       if (!path || !label) return;
       const normalizedPath = normalizeRoutePath(path);
       setTabs((prev) => prev.map((tab) => (tab.path === normalizedPath ? { ...tab, label } : tab)));
+      setRecentOpenedRecords((prev) => {
+        let changed = false;
+        const next = prev.map((row) => {
+          if (row.path !== normalizedPath || row.label === label) return row;
+          changed = true;
+          return { ...row, label };
+        });
+        return changed ? next : prev;
+      });
     };
 
     window.addEventListener('supporter:tab-label', handler);
@@ -548,6 +656,12 @@ export function AdminLayout() {
   };
 
   const activePickerEntity = pickerModal ? pickerDefinitionByKey.get(pickerModal) ?? null : null;
+  const homeOutletContext: HomePageOutletContext = {
+    recentOpenedRecords,
+    reopenRecentRecord: (record) => {
+      openTab(record.path, record.label, { unique: true, uniqueByPath: true });
+    },
+  };
 
   useEffect(() => {
     const toolbar = topToolbarRef.current;
@@ -1087,7 +1201,7 @@ export function AdminLayout() {
             const decodedId = decodeURIComponent(encodedId);
             return entity.renderTabPane({ tab, decodedId, active: activeTabKey === tab.key });
           }))}
-        {!activeTabIsDynamicForm ? <Outlet /> : null}
+        {!activeTabIsDynamicForm ? <Outlet context={homeOutletContext} /> : null}
       </Box>
 
       <Dialog

@@ -134,6 +134,48 @@ function buildDefaultGroupNames(count: number): string[] {
   return Array.from({ length: count }, (_, index) => `Groupe ${index + 1}`);
 }
 
+function getDistinctNonEmptyGroupNames(rows: TourParticipantRow[]): string[] {
+  const names = rows
+    .map((row) => String(row.GROUPE ?? '').trim())
+    .filter((value) => value.length > 0);
+
+  return Array.from(new Set(names));
+}
+
+function buildEffectiveGroupNames(
+  expectedCount: number,
+  modelGroupNames: string[],
+  existingGroupNames: string[],
+): string[] {
+  const expected = Math.max(1, Number(expectedCount) || 1);
+  const existing = Array.from(new Set(
+    existingGroupNames
+      .map((value) => String(value ?? '').trim())
+      .filter((value) => value.length > 0),
+  ));
+
+  if (existing.length >= expected) {
+    return existing;
+  }
+
+  const merged = [...existing];
+  const model = modelGroupNames
+    .map((value) => String(value ?? '').trim())
+    .filter((value) => value.length > 0);
+  const defaults = buildDefaultGroupNames(expected);
+
+  for (const candidate of [...model, ...defaults]) {
+    if (merged.length >= expected) {
+      break;
+    }
+    if (!merged.includes(candidate)) {
+      merged.push(candidate);
+    }
+  }
+
+  return merged;
+}
+
 function getParticipantIdentityKey(row: TourParticipantRow): string {
   const clubId = String(row.IDCLUB ?? '').trim();
   if (clubId) {
@@ -182,23 +224,15 @@ export function TourWizardStep6Rencontres({
   const normalizedNbGroupe = Math.max(1, Number(nbGroupe) || 1);
   const hasMultipleGroups = normalizedNbGroupe > 1;
   const normalizedNbMatch = Math.max(0, Number(nbMatch) || 0);
+  const existingGroupNames = useMemo(() => getDistinctNonEmptyGroupNames(participants), [participants]);
 
   const effectiveGroupNames = useMemo(() => {
     if (!hasMultipleGroups) {
       return [] as string[];
     }
 
-    const names = groupNames
-      .map((value) => String(value ?? '').trim())
-      .filter((value) => value.length > 0);
-
-    if (names.length >= normalizedNbGroupe) {
-      return names.slice(0, normalizedNbGroupe);
-    }
-
-    const defaults = buildDefaultGroupNames(normalizedNbGroupe);
-    return defaults.map((defaultName, index) => names[index] ?? defaultName);
-  }, [groupNames, hasMultipleGroups, normalizedNbGroupe]);
+    return buildEffectiveGroupNames(normalizedNbGroupe, groupNames, existingGroupNames);
+  }, [groupNames, existingGroupNames, hasMultipleGroups, normalizedNbGroupe]);
 
   const reloadData = async () => {
     if (!Number.isInteger(tourId) || tourId <= 0) {

@@ -1,6 +1,6 @@
 import { Box, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { type GridColDef, type GridRowId } from '@mui/x-data-grid';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { fetchTourDefById } from './competitionApi';
@@ -9,6 +9,7 @@ import type { TourDefRow } from './types';
 interface TourWizardStep4GroupesProps {
   tourType: 'ligue' | 'eliminatoire';
   tourDefId: number;
+  initialGroupNames?: string[];
   nbParticipants: number;
   nbEquipe: number;
   nbGroupe: number;
@@ -27,6 +28,8 @@ interface GroupRow {
   id: number;
   NOM_GROUPE: string;
 }
+
+const GROUP_NAME_BASES: GroupNameBase[] = ['Division', 'Groupe', 'Ligue', 'Poule'];
 
 function normalizeInteger(value: unknown): number {
   const parsed = Number(value);
@@ -52,9 +55,46 @@ function makeAutoLabel(base: GroupNameBase, numbering: Exclude<GroupNumbering, '
   return `${base} ${index + 1}`;
 }
 
+function resolveKnownBase(value: string): GroupNameBase | null {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  if (!normalized) return null;
+  const found = GROUP_NAME_BASES.find((item) => item.toLowerCase() === normalized);
+  return found ?? null;
+}
+
+function detectGroupNaming(existingNames: string[]): { base: GroupNameBase; numbering: GroupNumbering } {
+  const names = existingNames
+    .map((value) => String(value ?? '').trim())
+    .filter((value) => value.length > 0);
+  if (names.length === 0) {
+    return { base: 'Groupe', numbering: 'numeric' };
+  }
+
+  const alphaMatches = names.map((value) => /^(.+?)\s+([A-Za-z]+)$/.exec(value));
+  if (alphaMatches.every(Boolean)) {
+    const base = resolveKnownBase(String(alphaMatches[0]?.[1] ?? ''));
+    const sameBase = base && alphaMatches.every((match) => resolveKnownBase(String(match?.[1] ?? '')) === base);
+    if (sameBase) {
+      return { base, numbering: 'alpha' };
+    }
+  }
+
+  const numericMatches = names.map((value) => /^(.+?)\s+(\d+)$/.exec(value));
+  if (numericMatches.every(Boolean)) {
+    const base = resolveKnownBase(String(numericMatches[0]?.[1] ?? ''));
+    const sameBase = base && numericMatches.every((match) => resolveKnownBase(String(match?.[1] ?? '')) === base);
+    if (sameBase) {
+      return { base, numbering: 'numeric' };
+    }
+  }
+
+  return { base: 'Groupe', numbering: 'custom' };
+}
+
 export function TourWizardStep4Groupes({
   tourType,
   tourDefId,
+  initialGroupNames = [],
   nbParticipants,
   nbEquipe,
   nbGroupe,
@@ -74,6 +114,7 @@ export function TourWizardStep4Groupes({
   const [nbMatchTouched, setNbMatchTouched] = useState(false);
   const [maxPerGroupInput, setMaxPerGroupInput] = useState<string>('0');
   const [maxPerGroupTouched, setMaxPerGroupTouched] = useState(false);
+  const initSignatureRef = useRef<string>('');
 
   const normalizedNbParticipants = Math.max(0, normalizeInteger(nbParticipants));
   const normalizedNbEquipe = Math.max(0, normalizeInteger(nbEquipe));
@@ -81,6 +122,33 @@ export function TourWizardStep4Groupes({
   const isSingleGroup = normalizedNbGroupe === 1;
   const isCustomNaming = groupNumbering === 'custom';
   const disableGroupConfig = isSingleGroup || tourType !== 'ligue';
+
+  useEffect(() => {
+    const existingNames = initialGroupNames
+      .map((value) => String(value ?? '').trim())
+      .filter((value) => value.length > 0)
+      .slice(0, normalizedNbGroupe);
+    if (existingNames.length === 0) {
+      return;
+    }
+
+    const signature = existingNames.join('||');
+    if (initSignatureRef.current === signature) {
+      return;
+    }
+    initSignatureRef.current = signature;
+
+    const detected = detectGroupNaming(existingNames);
+    setGroupNameBase(detected.base);
+    setGroupNumbering(detected.numbering);
+    setCustomNames((prev) => {
+      const next = [...prev];
+      for (let i = 0; i < normalizedNbGroupe; i += 1) {
+        next[i] = String(existingNames[i] ?? '').trim();
+      }
+      return next;
+    });
+  }, [initialGroupNames, normalizedNbGroupe]);
 
   useEffect(() => {
     if (!Number.isInteger(nbGroupe) || nbGroupe < 1) {
