@@ -21,17 +21,11 @@ import {
   Typography,
 } from '@mui/material';
 import { type GridColDef, type GridRowId } from '@mui/x-data-grid';
-import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type Dispatch, type KeyboardEvent, type SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { toErrorMessage } from '../../components/useEntityPage';
 import {
-  type CreateTourMatchPayload,
-  createTourRencontre,
-  deleteTourRencontre,
   fetchCircByTourType,
-  fetchTourParticipants,
-  fetchTourRencontres,
-  updateTourRencontre,
 } from './competitionApi';
 import { buildEffectiveGroupNames, getDistinctNonEmptyGroupNames } from './tourWizardGroups';
 import {
@@ -72,6 +66,9 @@ interface TourWizardStep6RencontresProps {
   nbMatch: number;
   nbGroupe: number;
   groupNames: string[];
+  participants: TourParticipantRow[];
+  rencontres: TourMatchRow[];
+  onRencontresChange: Dispatch<SetStateAction<TourMatchRow[]>>;
   onError?: (message: string) => void;
 }
 
@@ -87,10 +84,11 @@ export function TourWizardStep6Rencontres({
   nbMatch,
   nbGroupe,
   groupNames,
+  participants,
+  rencontres,
+  onRencontresChange,
   onError,
 }: TourWizardStep6RencontresProps) {
-  const [participants, setParticipants] = useState<TourParticipantRow[]>([]);
-  const [rencontres, setRencontres] = useState<TourMatchRow[]>([]);
   const [circOptions, setCircOptions] = useState<CircOptionRow[]>([]);
   const [selectedCircId, setSelectedCircId] = useState<string>('');
   const [selectedGroup, setSelectedGroup] = useState<string>('');
@@ -100,7 +98,6 @@ export function TourWizardStep6Rencontres({
   const [selectedRencontre, setSelectedRencontre] = useState<GridRowId[]>([]);
   const [pending, setPending] = useState<PendingRencontreModel | null>(null);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [retourConfirmOpen, setRetourConfirmOpen] = useState(false);
   const [pendingAutoSelectIndex, setPendingAutoSelectIndex] = useState<number | null>(null);
   const participantsGridRef = useRef<HTMLDivElement | null>(null);
@@ -119,39 +116,33 @@ export function TourWizardStep6Rencontres({
     return buildEffectiveGroupNames(normalizedNbGroupe, groupNames, existingGroupNames);
   }, [groupNames, existingGroupNames, hasMultipleGroups, normalizedNbGroupe]);
 
-  const reloadData = async () => {
-    if (!Number.isInteger(tourId) || tourId <= 0) {
-      setParticipants([]);
-      setRencontres([]);
-      setCircOptions([]);
-      setPending(null);
-      return;
-    }
+  useEffect(() => {
+    let cancelled = false;
 
     setLoading(true);
-    try {
-      const [participantRows, rencontreRows, circRows] = await Promise.all([
-        fetchTourParticipants(tourId),
-        fetchTourRencontres(tourId),
-        fetchCircByTourType(typeId),
-      ]);
+    void fetchCircByTourType(typeId)
+      .then((circRows) => {
+        if (cancelled) {
+          return;
+        }
+        setCircOptions(buildFilteredCircOptions(circRows, tourType, normalizedNbMatch));
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          onError?.(toErrorMessage(error));
+          setCircOptions([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
 
-      const filteredCircRows = buildFilteredCircOptions(circRows, tourType, normalizedNbMatch);
-
-      setParticipants(participantRows);
-      setRencontres(rencontreRows);
-      setCircOptions(filteredCircRows);
-      setSelectedRencontre([]);
-    } catch (error) {
-      onError?.(toErrorMessage(error));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void reloadData();
-  }, [tourId, typeId, tourType, normalizedNbMatch]);
+    return () => {
+      cancelled = true;
+    };
+  }, [typeId, tourType, normalizedNbMatch, onError]);
 
   useEffect(() => {
     setSelectedParticipantId('');
@@ -379,10 +370,12 @@ export function TourWizardStep6Rencontres({
     [],
   );
 
-  const persistRencontreRowUpdate = async (
+  const getNextLocalRencontreId = (): number => Math.min(0, ...rencontres.map((row) => Number(row.RECLEUNIK) || 0)) - 1;
+
+  const persistRencontreRowUpdate = (
     newRow: RencontresGridModelRow,
     oldRow: RencontresGridModelRow,
-  ): Promise<RencontresGridModelRow> => {
+  ): RencontresGridModelRow => {
     const id = Number(newRow.RECLEUNIK ?? 0);
     if (!Number.isInteger(id) || id <= 0) {
       return oldRow;
@@ -407,29 +400,21 @@ export function TourWizardStep6Rencontres({
       return updatedRow;
     }
 
-    setSaving(true);
-    try {
-      await updateTourRencontre(id, { DATE: nextDate, HEURE: nextHeure });
-      setRencontres((prev) =>
-        prev.map((row) =>
-          Number(row.RECLEUNIK) === id
-            ? { ...row, DATE: nextDate, HEURE: nextHeure }
-            : row,
-        ),
-      );
-      return updatedRow;
-    } catch (error) {
-      throw error;
-    } finally {
-      setSaving(false);
-    }
+    onRencontresChange((prev) =>
+      prev.map((row) =>
+        Number(row.RECLEUNIK) === id
+          ? { ...row, DATE: nextDate, HEURE: nextHeure }
+          : row,
+      ),
+    );
+    return updatedRow;
   };
 
   const onRencontreRowUpdateError = (error: unknown) => {
     onError?.(toErrorMessage(error));
   };
 
-  const commitSelectedClub = async (explicitParticipantId?: string) => {
+  const commitSelectedClub = (explicitParticipantId?: string) => {
     if (hasMultipleGroups && !selectedGroup) {
       onError?.('Sélectionnez un groupe.');
       return;
@@ -490,7 +475,8 @@ export function TourWizardStep6Rencontres({
 
     const hasResolvedSides = Boolean(pending.domicile) && Boolean(clubId);
 
-    const payload: CreateTourMatchPayload = {
+    const nextMatch: TourMatchRow = {
+      RECLEUNIK: getNextLocalRencontreId(),
       DATE: pending.date,
       HEURE: pending.heure,
       DOMICILE: pending.domicile,
@@ -510,21 +496,13 @@ export function TourWizardStep6Rencontres({
       PAEXTSource: paSource,
     };
 
-    setSaving(true);
-    try {
-      await createTourRencontre(payload);
-      setPending(null);
-      setSelectedParticipantId('');
-      setParticipantSelection([]);
-      await reloadData();
-    } catch (error) {
-      onError?.(toErrorMessage(error));
-    } finally {
-      setSaving(false);
-    }
+    onRencontresChange((prev) => [...prev, nextMatch]);
+    setPending(null);
+    setSelectedParticipantId('');
+    setParticipantSelection([]);
   };
 
-  const removeSelectedRencontre = async () => {
+  const removeSelectedRencontre = () => {
     const id = Number(selectedRencontre[0] ?? 0);
 
     // If the selected row is the in-progress draft line, just cancel it locally.
@@ -539,24 +517,15 @@ export function TourWizardStep6Rencontres({
       return;
     }
 
-    setSaving(true);
-    try {
-      await deleteTourRencontre(id);
-      // Immediate local update so both clubs become selectable again without waiting.
-      setRencontres((prev) => prev.filter((row) => Number(row.RECLEUNIK) !== id));
-      setPending(null);
-      setSelectedParticipantId('');
-      setParticipantSelection([]);
-      setSelectedRencontre([]);
-      await reloadData();
-    } catch (error) {
-      onError?.(toErrorMessage(error));
-    } finally {
-      setSaving(false);
-    }
+    // Immediate local update so both clubs become selectable again without waiting.
+    onRencontresChange((prev) => prev.filter((row) => Number(row.RECLEUNIK) !== id));
+    setPending(null);
+    setSelectedParticipantId('');
+    setParticipantSelection([]);
+    setSelectedRencontre([]);
   };
 
-  const generateRetourMatches = async () => {
+  const generateRetourMatches = () => {
     if (!canGenerateRetour) {
       return;
     }
@@ -596,7 +565,7 @@ export function TourWizardStep6Rencontres({
     );
 
     const createdKeys = new Set<string>();
-    const payloads: CreateTourMatchPayload[] = [];
+    const payloads: TourMatchRow[] = [];
 
     allerRows.forEach((aller) => {
       const nextDomicile = String(aller.EXTERIEUR ?? '').trim();
@@ -618,6 +587,7 @@ export function TourWizardStep6Rencontres({
 
       createdKeys.add(key);
       payloads.push({
+        RECLEUNIK: getNextLocalRencontreId() - payloads.length,
         DATE: endDate,
         HEURE: null,
         DOMICILE: nextDomicile,
@@ -643,19 +613,11 @@ export function TourWizardStep6Rencontres({
       return;
     }
 
-    setSaving(true);
-    try {
-      await Promise.all(payloads.map((payload) => createTourRencontre(payload)));
-      setPending(null);
-      setSelectedParticipantId('');
-      setParticipantSelection([]);
-      setSelectedRencontre([]);
-      await reloadData();
-    } catch (error) {
-      onError?.(toErrorMessage(error));
-    } finally {
-      setSaving(false);
-    }
+    onRencontresChange((prev) => [...prev, ...payloads]);
+    setPending(null);
+    setSelectedParticipantId('');
+    setParticipantSelection([]);
+    setSelectedRencontre([]);
   };
 
   const onClubGridKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -664,7 +626,7 @@ export function TourWizardStep6Rencontres({
     }
 
     event.preventDefault();
-    if (saving || loading || (hasMultipleGroups && !selectedGroup)) {
+    if (loading || (hasMultipleGroups && !selectedGroup)) {
       return;
     }
 
@@ -675,7 +637,7 @@ export function TourWizardStep6Rencontres({
       }
     }
 
-    void commitSelectedClub();
+    commitSelectedClub();
   };
 
   return (
@@ -706,7 +668,7 @@ export function TourWizardStep6Rencontres({
                   size="small"
                   sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, flexShrink: 0 }}
                   onClick={() => selectAdjacentGroup(-1)}
-                  disabled={saving || loading || !canSelectPreviousGroup}
+                  disabled={loading || !canSelectPreviousGroup}
                   aria-label="Selectionner le groupe precedent"
                 >
                   <NavigateBeforeRoundedIcon fontSize="small" />
@@ -720,7 +682,7 @@ export function TourWizardStep6Rencontres({
                   size="small"
                   sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, flexShrink: 0 }}
                   onClick={() => selectAdjacentGroup(1)}
-                  disabled={saving || loading || !canSelectNextGroup}
+                  disabled={loading || !canSelectNextGroup}
                   aria-label="Selectionner le groupe suivant"
                 >
                   <NavigateNextRoundedIcon fontSize="small" />
@@ -752,7 +714,7 @@ export function TourWizardStep6Rencontres({
                 size="small"
                 sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, flexShrink: 0 }}
                 onClick={() => selectAdjacentCirc(-1)}
-                disabled={saving || loading || !canSelectPreviousCirc}
+                disabled={loading || !canSelectPreviousCirc}
                 aria-label="Selectionner la manche precedente"
               >
                 <NavigateBeforeRoundedIcon fontSize="small" />
@@ -766,7 +728,7 @@ export function TourWizardStep6Rencontres({
                 size="small"
                 sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, flexShrink: 0 }}
                 onClick={() => selectAdjacentCirc(1)}
-                disabled={saving || loading || !canSelectNextCirc}
+                disabled={loading || !canSelectNextCirc}
                 aria-label="Selectionner la manche suivante"
               >
                 <NavigateNextRoundedIcon fontSize="small" />
@@ -783,7 +745,7 @@ export function TourWizardStep6Rencontres({
                   startIcon={<AutorenewRoundedIcon />}
                   sx={{ minWidth: 0, px: 1.1, whiteSpace: 'nowrap', flexShrink: 0 }}
                   onClick={() => setRetourConfirmOpen(true)}
-                  disabled={saving || loading}
+                  disabled={loading}
                 >
                   Retours
                 </Button>
@@ -815,10 +777,10 @@ export function TourWizardStep6Rencontres({
               getLabel={getProgrammedParticipantLabel}
               onRowDoubleClick={(rowId) => {
                 const id = String(rowId ?? '').trim();
-                if (!id || saving || loading || (hasMultipleGroups && !selectedGroup)) return;
+                if (!id || loading || (hasMultipleGroups && !selectedGroup)) return;
                 setSelectedParticipantId(id);
                 setParticipantSelection([id]);
-                void commitSelectedClub(id);
+                commitSelectedClub(id);
               }}
             />
           </Box>
@@ -832,8 +794,8 @@ export function TourWizardStep6Rencontres({
                 variant="outlined"
                 startIcon={<AddCircleOutlineRoundedIcon />}
                 sx={{ minWidth: 0, px: 1.1 }}
-                onClick={() => void commitSelectedClub()}
-                disabled={saving || loading || (hasMultipleGroups && !selectedGroup)}
+                onClick={() => commitSelectedClub()}
+                disabled={loading || (hasMultipleGroups && !selectedGroup)}
               >
                 Ajouter
               </Button>
@@ -845,8 +807,8 @@ export function TourWizardStep6Rencontres({
                 variant="outlined"
                 startIcon={<DeleteOutlineRoundedIcon />}
                 sx={{ minWidth: 0, px: 1.1 }}
-                onClick={() => void removeSelectedRencontre()}
-                disabled={saving || loading}
+                onClick={removeSelectedRencontre}
+                disabled={loading}
               >
                 Supprimer
               </Button>
@@ -875,9 +837,7 @@ export function TourWizardStep6Rencontres({
       <Dialog
         open={retourConfirmOpen}
         onClose={() => {
-          if (!saving) {
-            setRetourConfirmOpen(false);
-          }
+          setRetourConfirmOpen(false);
         }}
       >
         <DialogTitle>Generer les matches retour</DialogTitle>
@@ -887,14 +847,14 @@ export function TourWizardStep6Rencontres({
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setRetourConfirmOpen(false)} disabled={saving} color="inherit">Annuler</Button>
+          <Button onClick={() => setRetourConfirmOpen(false)} color="inherit">Annuler</Button>
           <Button
             variant="contained"
             onClick={() => {
               setRetourConfirmOpen(false);
-              void generateRetourMatches();
+              generateRetourMatches();
             }}
-            disabled={saving}
+            disabled={loading}
           >
             Confirmer
           </Button>

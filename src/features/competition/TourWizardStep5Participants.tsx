@@ -2,9 +2,7 @@ import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, FormCon
 import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import { type GridRowId } from '@mui/x-data-grid';
-import { useEffect, useMemo, useState } from 'react';
-import { toErrorMessage } from '../../components/useEntityPage';
-import { addTourParticipant, fetchTourParticipants, removeTourParticipants } from './competitionApi';
+import { type Dispatch, type SetStateAction, useEffect, useMemo, useState } from 'react';
 import { buildEffectiveGroupNames, getDistinctNonEmptyGroupNames } from './tourWizardGroups';
 import {
   getDistinctSourceGroups,
@@ -14,22 +12,21 @@ import { useProgrammedParticipantLabels } from './useProgrammedParticipantLabels
 import { TourParticipantGrid } from './TourParticipantGrid';
 import { ClubSelectionDialog } from './ClubSelectionDialog';
 import type { TourParticipantRow } from './types';
+import type { ClubGridRow } from '../club/types';
 
 interface TourWizardStep5ParticipantsProps {
-  tourId: number;
   competitionId: number;
   currentTourOrder: number;
   competitionSeason: string;
   nbGroupe: number;
   groupNames: string[];
+  rows: TourParticipantRow[];
+  onRowsChange: Dispatch<SetStateAction<TourParticipantRow[]>>;
   onError?: (message: string) => void;
 }
 
-export function TourWizardStep5Participants({ tourId, competitionId, currentTourOrder, competitionSeason, nbGroupe, groupNames, onError }: TourWizardStep5ParticipantsProps) {
-  const [rows, setRows] = useState<TourParticipantRow[]>([]);
+export function TourWizardStep5Participants({ competitionId, currentTourOrder, competitionSeason, nbGroupe, groupNames, rows, onRowsChange, onError }: TourWizardStep5ParticipantsProps) {
   const [selection, setSelection] = useState<GridRowId[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const [programDialogOpen, setProgramDialogOpen] = useState(false);
@@ -103,58 +100,53 @@ export function TourWizardStep5Participants({ tourId, competitionId, currentTour
     return rows.filter((row) => String(row.GROUPE ?? '').trim() === selectedGroupId);
   }, [rows, hasMultipleGroups, selectedGroupId]);
 
-  const loadParticipants = async () => {
-    if (!Number.isInteger(tourId) || tourId <= 0) {
-      setRows([]);
+  const getNextLocalId = (): number => Math.min(0, ...rows.map((row) => Number(row.PACLEUNIK) || 0)) - 1;
+
+  const handleAddClub = (clubId: string, club?: ClubGridRow) => {
+    if (hasMultipleGroups && !selectedGroupId) {
+      onError?.('Sélectionnez un groupe avant d\'ajouter un club.');
       return;
     }
 
-    setLoading(true);
-    try {
-      const data = await fetchTourParticipants(tourId);
-      setRows(data);
-    } catch (error) {
-      onError?.(toErrorMessage(error));
-    } finally {
-      setLoading(false);
+    const normalizedClubId = String(clubId ?? '').trim();
+    if (!normalizedClubId) {
+      onError?.('Club invalide.');
+      return;
     }
+
+    const alreadyExists = rows.some((row) => String(row.IDCLUB ?? '').trim() === normalizedClubId);
+    if (alreadyExists) {
+      onError?.('Ce club est deja dans la liste des participants.');
+      return;
+    }
+
+    const clubLabel = String(club?.CLUB_NOM_COMPLET ?? club?.CLUB_ABREGE ?? normalizedClubId).trim();
+    const nextRow: TourParticipantRow = {
+      PACLEUNIK: getNextLocalId(),
+      TUCLEUNIK: 0,
+      IDCLUB: normalizedClubId,
+      CLUB: clubLabel,
+      GROUPE: hasMultipleGroups ? selectedGroupId : '',
+      PASource: '',
+      PAClassement: 0,
+    };
+
+    onRowsChange((prev) => [...prev, nextRow]);
   };
 
-  useEffect(() => {
-    void loadParticipants();
-  }, [tourId]);
-
-  const handleAddClub = async (clubId: string) => {
-    try {
-      if (hasMultipleGroups && !selectedGroupId) {
-        onError?.('Sélectionnez un groupe avant d\'ajouter un club.');
-        return;
-      }
-
-      await addTourParticipant(tourId, clubId, hasMultipleGroups ? selectedGroupId : '');
-      await loadParticipants();
-    } catch (error) {
-      onError?.(toErrorMessage(error));
-    }
-  };
-
-  const handleRemoveSelection = async () => {
+  const handleRemoveSelection = () => {
     const participantIds = selection.map((value) => Number(value));
     if (participantIds.length === 0) {
       onError?.('Sélectionnez au moins un club à supprimer.');
       return;
     }
 
-    try {
-      await removeTourParticipants(tourId, [], participantIds);
-      setSelection([]);
-      await loadParticipants();
-    } catch (error) {
-      onError?.(toErrorMessage(error));
-    }
+    const selected = new Set(participantIds);
+    onRowsChange((prev) => prev.filter((row) => !selected.has(Number(row.PACLEUNIK))));
+    setSelection([]);
   };
 
-  const handleAddProgrammedParticipant = async () => {
+  const handleAddProgrammedParticipant = () => {
     const sourceTourId = Number(programTourId);
     const selectedRanks = Array.from(new Set(programSourceRanks.map(Number).filter((rank) => Number.isInteger(rank) && rank > 0)));
 
@@ -173,6 +165,11 @@ export function TourWizardStep5Participants({ tourId, competitionId, currentTour
       return;
     }
 
+    if (hasMultipleGroups && !selectedGroupId) {
+      onError?.('Sélectionnez un groupe avant d\'ajouter un participant programme.');
+      return;
+    }
+
     const sourcesToCreate: string[] = [];
     sourceGroups.forEach((groupName) => {
       selectedRanks.forEach((rank) => {
@@ -180,18 +177,36 @@ export function TourWizardStep5Participants({ tourId, competitionId, currentTour
       });
     });
 
-    setSaving(true);
-    try {
-      for (const paSource of sourcesToCreate) {
-        await addTourParticipant(tourId, '', hasMultipleGroups ? selectedGroupId : '', paSource);
+    const existingKeys = new Set(
+      rows
+        .map((row) => String(row.PASource ?? '').trim())
+        .filter(Boolean),
+    );
+
+    const localRows: TourParticipantRow[] = [];
+    for (const paSource of sourcesToCreate) {
+      if (existingKeys.has(paSource)) {
+        continue;
       }
-      setProgramDialogOpen(false);
-      await loadParticipants();
-    } catch (error) {
-      onError?.(toErrorMessage(error));
-    } finally {
-      setSaving(false);
+      existingKeys.add(paSource);
+      localRows.push({
+        PACLEUNIK: getNextLocalId() - localRows.length,
+        TUCLEUNIK: 0,
+        IDCLUB: '',
+        CLUB: '',
+        GROUPE: hasMultipleGroups ? selectedGroupId : '',
+        PASource: paSource,
+        PAClassement: Number(paSource.split(',')[2] ?? 0) || 0,
+      });
     }
+
+    if (localRows.length === 0) {
+      onError?.('Aucun participant programme a ajouter (deja present).');
+      return;
+    }
+
+    onRowsChange((prev) => [...prev, ...localRows]);
+    setProgramDialogOpen(false);
   };
 
   return (
@@ -235,7 +250,7 @@ export function TourWizardStep5Participants({ tourId, competitionId, currentTour
             variant="outlined"
             sx={{ minWidth: 0, px: 1.1 }}
             onClick={() => setProgramDialogOpen(true)}
-            disabled={saving || loading || (hasMultipleGroups && !selectedGroupId)}
+            disabled={hasMultipleGroups && !selectedGroupId}
           >
             Ajouter un participant programme
           </Button>
@@ -247,7 +262,7 @@ export function TourWizardStep5Participants({ tourId, competitionId, currentTour
             variant="outlined"
             startIcon={<DeleteOutlineRoundedIcon />}
             sx={{ minWidth: 0, px: 1.1 }}
-            onClick={() => void handleRemoveSelection()}
+            onClick={handleRemoveSelection}
           >
             Supprimer
           </Button>
@@ -257,7 +272,7 @@ export function TourWizardStep5Participants({ tourId, competitionId, currentTour
       <Box sx={{ height: 260, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
         <TourParticipantGrid
           rows={visibleRows}
-          loading={loading}
+          loading={false}
           selection={selection}
           onSelectionChange={setSelection}
           getLabel={getLabel}
@@ -279,14 +294,14 @@ export function TourWizardStep5Participants({ tourId, competitionId, currentTour
       <ClubSelectionDialog
         open={selectorOpen}
         onClose={() => setSelectorOpen(false)}
-        onSelect={(clubId) => {
-          void handleAddClub(clubId);
+        onSelect={(clubId, club) => {
+          handleAddClub(clubId, club);
         }}
       />
 
       <Dialog
         open={programDialogOpen}
-        onClose={() => { if (!saving) setProgramDialogOpen(false); }}
+        onClose={() => { setProgramDialogOpen(false); }}
         fullWidth
         maxWidth="md"
       >
@@ -358,8 +373,8 @@ export function TourWizardStep5Participants({ tourId, competitionId, currentTour
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setProgramDialogOpen(false)} disabled={saving} color="inherit">Annuler</Button>
-          <Button variant="contained" onClick={() => void handleAddProgrammedParticipant()} disabled={saving || loading}>Ajouter</Button>
+          <Button onClick={() => setProgramDialogOpen(false)} color="inherit">Annuler</Button>
+          <Button variant="contained" onClick={handleAddProgrammedParticipant}>Ajouter</Button>
         </DialogActions>
       </Dialog>
     </Stack>

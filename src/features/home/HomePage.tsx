@@ -20,8 +20,9 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { fetchRencontreDetailById } from '../rencontre/rencontreApi';
 import { useEntityImage } from '../../lib/useEntityImage';
 import type { HomePageOutletContext, RecentEntityKind, RecentOpenedRecord } from './types';
 
@@ -102,6 +103,84 @@ function resolveDisplayLabel(record: RecentOpenedRecord): string {
   return label || record.entityId;
 }
 
+function MatchRecentRecordAvatar({ record }: { record: RecentOpenedRecord }) {
+  const [clubIds, setClubIds] = useState<{ domicile: string | null; exterieur: string | null }>({
+    domicile: null,
+    exterieur: null,
+  });
+  const { src: domicileLogo } = useEntityImage('club', clubIds.domicile);
+  const { src: exterieurLogo } = useEntityImage('club', clubIds.exterieur);
+
+  useEffect(() => {
+    let cancelled = false;
+    setClubIds({ domicile: null, exterieur: null });
+
+    void fetchRencontreDetailById(record.entityId)
+      .then((detail) => {
+        if (cancelled) return;
+        setClubIds({
+          domicile: String(detail.DOMICILE ?? '').trim() || null,
+          exterieur: String(detail.EXTERIEUR ?? '').trim() || null,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setClubIds({ domicile: null, exterieur: null });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [record.entityId]);
+
+  return (
+    <Box
+      sx={{
+        width: 36,
+        height: 36,
+        position: 'relative',
+      }}
+    >
+      <Avatar
+        src={domicileLogo ?? undefined}
+        sx={{
+          position: 'absolute',
+          left: 0,
+          bottom: 0,
+          width: 22,
+          height: 22,
+          bgcolor: '#e2e8f0',
+          color: 'text.secondary',
+          border: '1px solid',
+          borderColor: 'divider',
+          zIndex: 2,
+        }}
+      >
+        {!domicileLogo ? <ShieldRoundedIcon sx={{ fontSize: 14 }} /> : null}
+      </Avatar>
+
+      <Avatar
+        src={exterieurLogo ?? undefined}
+        sx={{
+          position: 'absolute',
+          right: 0,
+          top: 0,
+          width: 22,
+          height: 22,
+          bgcolor: '#e2e8f0',
+          color: 'text.secondary',
+          border: '1px solid',
+          borderColor: 'divider',
+          zIndex: 1,
+        }}
+      >
+        {!exterieurLogo ? <ShieldRoundedIcon sx={{ fontSize: 14 }} /> : null}
+      </Avatar>
+    </Box>
+  );
+}
+
 export function HomePage() {
   const { recentOpenedRecords, reopenRecentRecord } = useOutletContext<HomePageOutletContext>();
 
@@ -161,7 +240,9 @@ export function HomePage() {
                     cursor: 'pointer',
                   }}
                 >
-                  <RecentRecordAvatar record={record} />
+                  {record.entityKind === 'rencontre'
+                    ? <MatchRecentRecordAvatar record={record} />
+                    : <RecentRecordAvatar record={record} />}
                 </Link>
                 <Box sx={{ minWidth: 0 }}>
                   <Link

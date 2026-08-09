@@ -57,9 +57,9 @@ export function mapTourTypeToDb(type: TourType): number {
   return type === 'eliminatoire' ? 2 : 1;
 }
 
-export function createDefaultDraft(proposedTourId: number, proposedOrder: number): TourDraft {
+export function createDefaultDraft(proposedOrder: number): TourDraft {
   return {
-    id: proposedTourId,
+    id: 0,
     tourDefKey: 1,
     nom: '',
     type: 'ligue',
@@ -78,7 +78,7 @@ export function createDefaultDraft(proposedTourId: number, proposedOrder: number
   };
 }
 
-export function createDraftFromDetail(source: CompetitionTourDetailRow, fallbackId: number): TourDraft {
+export function createDraftFromDetail(source: CompetitionTourDetailRow): TourDraft {
   const participants = Number(source.NB_PARTICIPANTS ?? 2) || 2;
   const type = mapTourTypeFromDb(Number(source.TDTYPETOUR ?? 1));
   const isFinal = Number(source.TU_FINAL ?? 0) === 1;
@@ -86,7 +86,7 @@ export function createDraftFromDetail(source: CompetitionTourDetailRow, fallback
     || String(source.TU_HEURETIRAGE ?? '').trim().length > 0;
 
   return {
-    id: Number(source.TUCLEUNIK ?? fallbackId),
+    id: Number(source.TUCLEUNIK ?? 0),
     tourDefKey: Number(source.TDCLEUNIK ?? 1) || 1,
     nom: String(source.NOM ?? ''),
     type,

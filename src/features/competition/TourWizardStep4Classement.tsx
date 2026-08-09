@@ -11,21 +11,15 @@ import {
   Typography,
 } from '@mui/material';
 import { type GridColDef, type GridRowId } from '@mui/x-data-grid';
-import { useEffect, useMemo, useState } from 'react';
+import { type Dispatch, type SetStateAction, useMemo, useState } from 'react';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
-import { toErrorMessage } from '../../components/useEntityPage';
-import {
-  createTourQualif,
-  deleteTourQualif,
-  fetchTourQualifs,
-  updateTourQualif,
-  type CreateQualifPayload,
-} from './competitionApi';
 import type { QualifRow } from './types';
 
 interface TourWizardStep4ClassementProps {
   tourId: number;
+  rows: QualifRow[];
+  onRowsChange: Dispatch<SetStateAction<QualifRow[]>>;
   onError?: (message: string) => void;
 }
 
@@ -87,11 +81,8 @@ function createDraft(row?: QualifRow): QualifDraft {
   };
 }
 
-export function TourWizardStep4Classement({ tourId, onError }: TourWizardStep4ClassementProps) {
-  const [rows, setRows] = useState<QualifRow[]>([]);
+export function TourWizardStep4Classement({ tourId, rows, onRowsChange, onError }: TourWizardStep4ClassementProps) {
   const [selection, setSelection] = useState<GridRowId[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<DialogMode>('create');
   const [draft, setDraft] = useState<QualifDraft>(createDraft());
@@ -151,35 +142,6 @@ export function TourWizardStep4Classement({ tourId, onError }: TourWizardStep4Cl
     [],
   );
 
-  const loadRows = async () => {
-    if (!Number.isInteger(tourId) || tourId <= 0) {
-      setRows([]);
-      setSelection([]);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const data = await fetchTourQualifs(tourId);
-      setRows(data);
-      setSelection((prev) => {
-        const id = Number(prev[0] ?? 0);
-        if (id > 0 && data.some((row) => Number(row.CLASS_ID) === id)) {
-          return prev;
-        }
-        return [];
-      });
-    } catch (error) {
-      onError?.(toErrorMessage(error));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void loadRows();
-  }, [tourId]);
-
   const openCreateDialog = () => {
     const lastMax = rows.reduce((max, row) => Math.max(max, Number(row.CLASS_MaxRang) || 0), 0);
     setDialogMode('create');
@@ -227,57 +189,43 @@ export function TourWizardStep4Classement({ tourId, onError }: TourWizardStep4Cl
     return Object.keys(nextErrors).length === 0;
   };
 
-  const buildPayload = (): CreateQualifPayload => ({
-    CLASS_MinRang: Number(draft.CLASS_MinRang),
-    CLASS_MaxRang: Number(draft.CLASS_MaxRang),
-    CLASS_Couleur: toDbColor(draft.colorCss),
-    CLASS_Libelle: String(draft.CLASS_Libelle ?? '').trim(),
-    CLASS_Type: Number(draft.CLASS_Type),
-    TUCLEUNIK: tourId,
-    CLASS_Abrege: String(draft.CLASS_Abrege ?? '').trim(),
-  });
-
-  const handleSaveDialog = async () => {
+  const handleSaveDialog = () => {
     if (!validateDraft()) return;
 
-    setSaving(true);
-    try {
-      const payload = buildPayload();
-      if (dialogMode === 'create') {
-        await createTourQualif(payload);
-      } else {
-        if (!selectedRow) {
-          onError?.('Sélectionnez une ligne à modifier.');
-          return;
-        }
-        await updateTourQualif(selectedRow.CLASS_ID, payload);
-      }
+    const nextRow: QualifRow = {
+      CLASS_ID: dialogMode === 'create'
+        ? Math.min(0, ...rows.map((row) => Number(row.CLASS_ID) || 0)) - 1
+        : Number(selectedRow?.CLASS_ID ?? 0),
+      CLASS_MinRang: Number(draft.CLASS_MinRang),
+      CLASS_MaxRang: Number(draft.CLASS_MaxRang),
+      CLASS_Couleur: toDbColor(draft.colorCss),
+      CLASS_Libelle: String(draft.CLASS_Libelle ?? '').trim(),
+      CLASS_Type: Number(draft.CLASS_Type),
+      TUCLEUNIK: Number.isInteger(tourId) && tourId > 0 ? tourId : 0,
+      CLASS_Abrege: String(draft.CLASS_Abrege ?? '').trim(),
+    };
 
-      setDialogOpen(false);
-      await loadRows();
-    } catch (error) {
-      onError?.(toErrorMessage(error));
-    } finally {
-      setSaving(false);
+    if (dialogMode === 'create') {
+      onRowsChange((prev) => [...prev, nextRow]);
+    } else {
+      if (!selectedRow) {
+        onError?.('Sélectionnez une ligne à modifier.');
+        return;
+      }
+      onRowsChange((prev) => prev.map((row) => (Number(row.CLASS_ID) === Number(selectedRow.CLASS_ID) ? nextRow : row)));
     }
+
+    setDialogOpen(false);
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!selectedRow) {
       onError?.('Sélectionnez une ligne à supprimer.');
       return;
     }
 
-    setSaving(true);
-    try {
-      await deleteTourQualif(selectedRow.CLASS_ID);
-      setSelection([]);
-      await loadRows();
-    } catch (error) {
-      onError?.(toErrorMessage(error));
-    } finally {
-      setSaving(false);
-    }
+    onRowsChange((prev) => prev.filter((row) => Number(row.CLASS_ID) !== Number(selectedRow.CLASS_ID)));
+    setSelection([]);
   };
 
   return (
@@ -292,7 +240,7 @@ export function TourWizardStep4Classement({ tourId, onError }: TourWizardStep4Cl
               startIcon={<AddCircleOutlineRoundedIcon />}
               sx={{ minWidth: 0, px: 1.1 }}
               onClick={openCreateDialog}
-              disabled={saving || loading}
+              disabled={false}
             >
               Ajouter
             </Button>
@@ -304,7 +252,7 @@ export function TourWizardStep4Classement({ tourId, onError }: TourWizardStep4Cl
               startIcon={<EditRoundedIcon />}
               sx={{ minWidth: 0, px: 1.1 }}
               onClick={openEditDialog}
-              disabled={saving || loading}
+              disabled={false}
             >
               Modifier
             </Button>
@@ -316,8 +264,8 @@ export function TourWizardStep4Classement({ tourId, onError }: TourWizardStep4Cl
               variant="outlined"
               startIcon={<DeleteOutlineRoundedIcon />}
               sx={{ minWidth: 0, px: 1.1 }}
-              onClick={() => void handleDelete()}
-              disabled={saving || loading}
+              onClick={handleDelete}
+              disabled={false}
             >
               Supprimer
             </Button>
@@ -329,7 +277,7 @@ export function TourWizardStep4Classement({ tourId, onError }: TourWizardStep4Cl
         <EntityDataGrid<QualifRow>
           rows={rows}
           columns={columns}
-          loading={loading}
+          loading={false}
           getRowId={(row) => row.CLASS_ID}
           selection={selection}
           onSelectionChange={setSelection}
@@ -339,12 +287,11 @@ export function TourWizardStep4Classement({ tourId, onError }: TourWizardStep4Cl
       <EntityFormDialog
         open={dialogOpen}
         onClose={() => {
-          if (saving) return;
           setDialogOpen(false);
         }}
         title={dialogMode === 'create' ? 'Ajouter un classement' : 'Modifier le classement'}
-        saving={saving}
-        onSave={() => void handleSaveDialog()}
+        saving={false}
+        onSave={handleSaveDialog}
         saveLabel="Enregistrer"
       >
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>

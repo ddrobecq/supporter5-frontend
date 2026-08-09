@@ -23,7 +23,25 @@ import { useEffect, useMemo, useState } from 'react';
 import { DateInputField } from '../../components/DateInputField';
 import { TimeInputField } from '../../components/TimeInputField';
 import { toErrorMessage } from '../../components/useEntityPage';
-import { createCompetitionTour, fetchCompetitionTourById, fetchTourDefById, fetchTourParticipants, updateCompetitionTour } from './competitionApi';
+import {
+  addTourParticipant,
+  createCompetitionTour,
+  createTourQualif,
+  createTourRencontre,
+  deleteTourQualif,
+  deleteTourRencontre,
+  fetchCompetitionTourById,
+  fetchTourDefById,
+  fetchTourParticipants,
+  fetchTourQualifs,
+  fetchTourRencontres,
+  removeTourParticipants,
+  updateTourQualif,
+  updateTourRencontre,
+  updateCompetitionTour,
+  type CreateQualifPayload,
+  type CreateTourMatchPayload,
+} from './competitionApi';
 import {
   createDefaultDraft,
   createDraftFromDetail,
@@ -39,7 +57,7 @@ import { TourWizardStep4Classement } from './TourWizardStep4Classement';
 import { TourWizardStep5Participants } from './TourWizardStep5Participants';
 import { TourWizardStep6Rencontres } from './TourWizardStep6Rencontres';
 import { getDistinctNonEmptyGroupNames } from './tourWizardGroups';
-import type { CompetitionTourUpsertPayload } from './types';
+import type { CompetitionTourUpsertPayload, QualifRow, TourMatchRow, TourParticipantRow } from './types';
 
 const WIZARD_STEPS = ['Description', 'Dates', 'Définition', 'Groupes', 'Classement', 'Participants', 'Rencontres'] as const;
 
@@ -58,7 +76,6 @@ interface TourWizardDialogProps {
   competitionLabel: string;
   competitionSeason?: string;
   initialTourId?: number;
-  proposedTourId: number;
   proposedOrder: number;
   onClose: () => void;
   onSaved: () => Promise<void>;
@@ -88,6 +105,82 @@ function getPreviousAvailableStep(step: number, type: TourType): number | null {
   return null;
 }
 
+function normalizeText(value: unknown): string {
+  return String(value ?? '').trim();
+}
+
+function isRencontreProtected(row: TourMatchRow): boolean {
+  const hasScore = Number(row.BUTDOM ?? 0) !== 0
+    || Number(row.BUTEXT ?? 0) !== 0
+    || Number(row.TABDOM ?? 0) !== 0
+    || Number(row.TABEXT ?? 0) !== 0;
+  const status = Number(row.ETAT ?? 0);
+  const hasAdvancedStatus = ![0, 1, 5].includes(status);
+  return hasScore || hasAdvancedStatus;
+}
+
+function hasRencontreCoreChange(existing: TourMatchRow, draft: TourMatchRow): boolean {
+  return normalizeText(existing.DOMICILE) !== normalizeText(draft.DOMICILE)
+    || normalizeText(existing.EXTERIEUR) !== normalizeText(draft.EXTERIEUR)
+    || normalizeText(existing.PADOMSource) !== normalizeText(draft.PADOMSource)
+    || normalizeText(existing.PAEXTSource) !== normalizeText(draft.PAEXTSource)
+    || normalizeText(existing.IDCIRC) !== normalizeText(draft.IDCIRC);
+}
+
+function formatParticipantForDisplay(clubId: unknown, source: unknown): string {
+  const club = normalizeText(clubId);
+  if (club) return club;
+  const src = normalizeText(source);
+  return src ? `Programme(${src})` : '(inconnu)';
+}
+
+function formatRencontreForDisplay(row: TourMatchRow): string {
+  const recId = Number(row.RECLEUNIK ?? 0);
+  const circ = normalizeText(row.IDCIRC) || '-';
+  const dom = formatParticipantForDisplay(row.DOMICILE, row.PADOMSource);
+  const ext = formatParticipantForDisplay(row.EXTERIEUR, row.PAEXTSource);
+  const date = normalizeText(row.DATE) || '-';
+  return `#${recId} [${circ}] ${dom} vs ${ext} (${date})`;
+}
+
+function buildRencontreBlockingIssues(
+  existingRencontres: TourMatchRow[],
+  draftRencontres: TourMatchRow[],
+): string[] {
+  const issues: string[] = [];
+  const existingById = new Map(
+    existingRencontres.map((row) => [Number(row.RECLEUNIK), row] as const),
+  );
+  const draftIds = new Set(
+    draftRencontres
+      .map((row) => Number(row.RECLEUNIK))
+      .filter((id) => Number.isInteger(id) && id > 0),
+  );
+
+  for (const existing of existingRencontres) {
+    const id = Number(existing.RECLEUNIK ?? 0);
+    if (!Number.isInteger(id) || id <= 0) {
+      continue;
+    }
+    if (!draftIds.has(id) && isRencontreProtected(existing)) {
+      issues.push(`Suppression interdite: ${formatRencontreForDisplay(existing)}`);
+    }
+  }
+
+  for (const draft of draftRencontres) {
+    const id = Number(draft.RECLEUNIK ?? 0);
+    if (!Number.isInteger(id) || id <= 0 || !existingById.has(id)) {
+      continue;
+    }
+    const existing = existingById.get(id)!;
+    if (isRencontreProtected(existing) && hasRencontreCoreChange(existing, draft)) {
+      issues.push(`Modification structurelle interdite: ${formatRencontreForDisplay(existing)}`);
+    }
+  }
+
+  return issues;
+}
+
 export function TourWizardDialog({
   open,
   mode,
@@ -95,7 +188,6 @@ export function TourWizardDialog({
   competitionLabel,
   competitionSeason,
   initialTourId,
-  proposedTourId,
   proposedOrder,
   onClose,
   onSaved,
@@ -104,13 +196,16 @@ export function TourWizardDialog({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
-  const [draft, setDraft] = useState<TourDraft>(createDefaultDraft(proposedTourId, proposedOrder));
+  const [draft, setDraft] = useState<TourDraft>(createDefaultDraft(proposedOrder));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [finalTouched, setFinalTouched] = useState(false);
   const [initialTourType, setInitialTourType] = useState<TourType>('ligue');
   const [isAllerRetour, setIsAllerRetour] = useState(false);
   const [groupNames, setGroupNames] = useState<string[]>([]);
   const [existingGroupNames, setExistingGroupNames] = useState<string[]>([]);
+  const [qualifDraftRows, setQualifDraftRows] = useState<QualifRow[]>([]);
+  const [participantDraftRows, setParticipantDraftRows] = useState<TourParticipantRow[]>([]);
+  const [rencontreDraftRows, setRencontreDraftRows] = useState<TourMatchRow[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -122,10 +217,13 @@ export function TourWizardDialog({
     setExistingGroupNames([]);
 
     if (mode === 'create') {
-      const nextDraft = createDefaultDraft(proposedTourId, proposedOrder);
+      const nextDraft = createDefaultDraft(proposedOrder);
       setDraft(nextDraft);
       setInitialTourType(nextDraft.type);
       setIsAllerRetour(false);
+      setQualifDraftRows([]);
+      setParticipantDraftRows([]);
+      setRencontreDraftRows([]);
       return;
     }
 
@@ -138,15 +236,20 @@ export function TourWizardDialog({
     void Promise.all([
       fetchCompetitionTourById(initialTourId),
       fetchTourParticipants(initialTourId),
+      fetchTourQualifs(initialTourId),
+      fetchTourRencontres(initialTourId),
     ])
-      .then(([detail, participants]) => {
-        const nextDraft = createDraftFromDetail(detail, proposedTourId);
+      .then(([detail, participants, qualifs, rencontres]) => {
+        const nextDraft = createDraftFromDetail(detail);
         setDraft(nextDraft);
         setInitialTourType(nextDraft.type);
         const loadedGroupNames = getDistinctNonEmptyGroupNames(participants)
           .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base', numeric: true }));
         setGroupNames(loadedGroupNames);
         setExistingGroupNames(loadedGroupNames);
+        setParticipantDraftRows(participants);
+        setQualifDraftRows(qualifs);
+        setRencontreDraftRows(rencontres);
       })
       .catch((error) => {
         onError(toErrorMessage(error));
@@ -154,7 +257,7 @@ export function TourWizardDialog({
       .finally(() => {
         setLoading(false);
       });
-  }, [open, mode, initialTourId, proposedTourId, proposedOrder]);
+  }, [open, mode, initialTourId, proposedOrder]);
 
   useEffect(() => {
     if (!open) {
@@ -196,7 +299,7 @@ export function TourWizardDialog({
   const title = mode === 'create' ? 'Ajouter un tour' : 'Modifier un tour';
   const activeTourId = mode === 'edit' && Number(initialTourId) > 0
     ? Number(initialTourId)
-    : draft.id;
+    : 0;
 
   useEffect(() => {
     if (!isStepSkippedForType(stepIndex, draft.type)) {
@@ -276,8 +379,7 @@ export function TourWizardDialog({
   const buildPayload = (): CompetitionTourUpsertPayload => {
     const typeId = mapTourTypeToDb(draft.type);
     const mustSwitchTourDef = mode === 'create' || draft.type !== initialTourType;
-    return {
-      TUCLEUNIK: draft.id,
+    const payload: CompetitionTourUpsertPayload = {
       TDCLEUNIK: mustSwitchTourDef ? typeId : draft.tourDefKey,
       COCLEUNIK: Number(competitionId),
       NOM: String(draft.nom ?? '').trim(),
@@ -294,6 +396,209 @@ export function TourWizardDialog({
       NB_GROUPE: Number(draft.nbGroupe) || 0,
       NB_MATCH: Number(draft.nbMatch) || 0,
     };
+
+    if (mode === 'edit') {
+      payload.TUCLEUNIK = Number(draft.id) || Number(initialTourId) || undefined;
+    }
+
+    return payload;
+  };
+
+  const persistTourDependants = async (tourId: number) => {
+    const [existingQualifs, existingParticipants, existingRencontres] = await Promise.all([
+      fetchTourQualifs(tourId),
+      fetchTourParticipants(tourId),
+      fetchTourRencontres(tourId),
+    ]);
+
+    // Preflight global before any mutation to avoid partial saves.
+    const rencontreBlockingIssues = buildRencontreBlockingIssues(existingRencontres, rencontreDraftRows);
+    if (rencontreBlockingIssues.length > 0) {
+      const details = rencontreBlockingIssues.join(' | ');
+      throw new Error(`Enregistrement bloque: certaines rencontres protegees seraient supprimees ou modifiees. ${details}`);
+    }
+
+    const existingQualifById = new Map(
+      existingQualifs.map((row) => [Number(row.CLASS_ID), row] as const),
+    );
+    const draftQualifRows = [...qualifDraftRows]
+      .sort((a, b) => Number(a.CLASS_MinRang ?? 0) - Number(b.CLASS_MinRang ?? 0))
+      .map((row) => ({
+        ...row,
+        CLASS_Libelle: normalizeText(row.CLASS_Libelle),
+        CLASS_Abrege: normalizeText(row.CLASS_Abrege),
+      }));
+    const draftQualifIds = new Set(
+      draftQualifRows
+        .map((row) => Number(row.CLASS_ID))
+        .filter((id) => Number.isInteger(id) && id > 0),
+    );
+
+    for (const row of draftQualifRows) {
+      const payload: CreateQualifPayload = {
+        CLASS_MinRang: Number(row.CLASS_MinRang) || 0,
+        CLASS_MaxRang: Number(row.CLASS_MaxRang) || 0,
+        CLASS_Couleur: Number(row.CLASS_Couleur) || 0,
+        CLASS_Libelle: normalizeText(row.CLASS_Libelle),
+        CLASS_Type: Number(row.CLASS_Type) || 2,
+        TUCLEUNIK: tourId,
+        CLASS_Abrege: normalizeText(row.CLASS_Abrege),
+      };
+
+      const id = Number(row.CLASS_ID);
+      if (Number.isInteger(id) && id > 0 && existingQualifById.has(id)) {
+        const existing = existingQualifById.get(id)!;
+        const hasChange = Number(existing.CLASS_MinRang) !== payload.CLASS_MinRang
+          || Number(existing.CLASS_MaxRang) !== payload.CLASS_MaxRang
+          || Number(existing.CLASS_Couleur) !== payload.CLASS_Couleur
+          || normalizeText(existing.CLASS_Libelle) !== payload.CLASS_Libelle
+          || Number(existing.CLASS_Type) !== payload.CLASS_Type
+          || normalizeText(existing.CLASS_Abrege) !== payload.CLASS_Abrege;
+        if (hasChange) {
+          await updateTourQualif(id, payload);
+        }
+      } else {
+        await createTourQualif(payload);
+      }
+    }
+
+    const qualifIdsToDelete = existingQualifs
+      .map((row) => Number(row.CLASS_ID))
+      .filter((id) => Number.isInteger(id) && id > 0 && !draftQualifIds.has(id));
+
+    if (qualifIdsToDelete.length > 0) {
+      await Promise.all(qualifIdsToDelete.map((id) => deleteTourQualif(id)));
+    }
+
+    const existingParticipantById = new Map(
+      existingParticipants.map((row) => [Number(row.PACLEUNIK), row] as const),
+    );
+    const draftParticipantIds = new Set(
+      participantDraftRows
+        .map((row) => Number(row.PACLEUNIK))
+        .filter((id) => Number.isInteger(id) && id > 0),
+    );
+
+    const participantIdsToRemove = existingParticipants
+      .map((row) => Number(row.PACLEUNIK))
+      .filter((id) => Number.isInteger(id) && id > 0 && !draftParticipantIds.has(id));
+
+    if (participantIdsToRemove.length > 0) {
+      await removeTourParticipants(tourId, [], participantIdsToRemove);
+    }
+
+    for (const row of participantDraftRows) {
+      const participantId = Number(row.PACLEUNIK);
+      const clubId = normalizeText(row.IDCLUB);
+      const groupe = normalizeText(row.GROUPE);
+      const paSource = normalizeText(row.PASource);
+
+      if (Number.isInteger(participantId) && participantId > 0 && existingParticipantById.has(participantId)) {
+        const existing = existingParticipantById.get(participantId)!;
+        const hasChange = normalizeText(existing.IDCLUB) !== clubId
+          || normalizeText(existing.GROUPE) !== groupe
+          || normalizeText(existing.PASource) !== paSource;
+        if (hasChange) {
+          await removeTourParticipants(tourId, [], [participantId]);
+          await addTourParticipant(tourId, clubId, groupe, paSource);
+        }
+        continue;
+      }
+
+      await addTourParticipant(tourId, clubId, groupe, paSource);
+    }
+
+    const existingRencontreById = new Map(
+      existingRencontres.map((row) => [Number(row.RECLEUNIK), row] as const),
+    );
+    const draftRencontreIds = new Set(
+      rencontreDraftRows
+        .map((row) => Number(row.RECLEUNIK))
+        .filter((id) => Number.isInteger(id) && id > 0),
+    );
+
+    const rencontreIdsToDelete = existingRencontres
+      .map((row) => Number(row.RECLEUNIK))
+      .filter((id) => Number.isInteger(id) && id > 0 && !draftRencontreIds.has(id));
+
+    if (rencontreIdsToDelete.length > 0) {
+      await Promise.all(rencontreIdsToDelete.map((id) => deleteTourRencontre(id)));
+    }
+
+    for (const row of rencontreDraftRows) {
+      const rencontreId = Number(row.RECLEUNIK);
+      const mappedDate = normalizeText(row.DATE);
+      const mappedHeure = normalizeText(row.HEURE) || null;
+      const mappedDomicile = normalizeText(row.DOMICILE);
+      const mappedExterieur = normalizeText(row.EXTERIEUR);
+      const mappedDomSource = normalizeText(row.PADOMSource);
+      const mappedExtSource = normalizeText(row.PAEXTSource);
+      const mappedCirc = normalizeText(row.IDCIRC);
+
+      if (Number.isInteger(rencontreId) && rencontreId > 0 && existingRencontreById.has(rencontreId)) {
+        const existing = existingRencontreById.get(rencontreId)!;
+
+        const updatePayload: Partial<TourMatchRow> = {};
+        if (normalizeText(existing.DATE) !== mappedDate) {
+          updatePayload.DATE = mappedDate;
+        }
+
+        const existingHeure = normalizeText(existing.HEURE) || null;
+        if (existingHeure !== mappedHeure) {
+          updatePayload.HEURE = mappedHeure;
+        }
+
+        if (!isRencontreProtected(existing)) {
+          if (normalizeText(existing.DOMICILE) !== mappedDomicile) {
+            updatePayload.DOMICILE = mappedDomicile;
+          }
+          if (normalizeText(existing.EXTERIEUR) !== mappedExterieur) {
+            updatePayload.EXTERIEUR = mappedExterieur;
+          }
+          if (normalizeText(existing.PADOMSource) !== mappedDomSource) {
+            updatePayload.PADOMSource = mappedDomSource;
+          }
+          if (normalizeText(existing.PAEXTSource) !== mappedExtSource) {
+            updatePayload.PAEXTSource = mappedExtSource;
+          }
+          if (normalizeText(existing.IDCIRC) !== mappedCirc) {
+            updatePayload.IDCIRC = mappedCirc;
+          }
+          const existingEtat = Number(existing.ETAT ?? 0);
+          const nextEtat = Number(row.ETAT ?? existingEtat);
+          if (existingEtat !== nextEtat) {
+            updatePayload.ETAT = nextEtat;
+          }
+        }
+
+        if (Object.keys(updatePayload).length > 0) {
+          await updateTourRencontre(rencontreId, updatePayload);
+        }
+        continue;
+      }
+
+      const payload: CreateTourMatchPayload = {
+        DATE: mappedDate,
+        HEURE: mappedHeure,
+        DOMICILE: mappedDomicile,
+        EXTERIEUR: mappedExterieur,
+        BUTDOM: Number(row.BUTDOM ?? 0) || 0,
+        BUTEXT: Number(row.BUTEXT ?? 0) || 0,
+        TABDOM: Number(row.TABDOM ?? 0) || 0,
+        TABEXT: Number(row.TABEXT ?? 0) || 0,
+        ETAT: Number(row.ETAT ?? 5) || 5,
+        TUCLEUNIK: tourId,
+        SAISON: normalizeText(row.SAISON) || normalizeText(competitionSeason),
+        READMIN: Number(row['READMIN'] ?? 0) || 0,
+        COMMENT: normalizeText(row.COMMENT),
+        VID_ID: Number.isInteger(Number(row.VID_ID)) ? Number(row.VID_ID) : null,
+        IDCIRC: mappedCirc,
+        PADOMSource: mappedDomSource,
+        PAEXTSource: mappedExtSource,
+      };
+
+      await createTourRencontre(payload);
+    }
   };
 
   const handleSave = async () => {
@@ -309,15 +614,24 @@ export function TourWizardDialog({
     setSaving(true);
     try {
       const payload = buildPayload();
+      let targetTourId = Number(initialTourId ?? 0);
+
       if (mode === 'create') {
-        await createCompetitionTour(payload);
+        const created = await createCompetitionTour(payload);
+        targetTourId = Number(created?.TUCLEUNIK ?? 0);
+        if (!Number.isInteger(targetTourId) || targetTourId <= 0) {
+          throw new Error('Impossible de recuperer l identifiant du tour cree.');
+        }
       } else {
         if (!initialTourId) {
           onError('Tour invalide.');
           return;
         }
+        targetTourId = Number(initialTourId);
         await updateCompetitionTour(initialTourId, payload);
       }
+
+      await persistTourDependants(targetTourId);
       await onSaved();
       onClose();
     } catch (error) {
@@ -378,7 +692,7 @@ export function TourWizardDialog({
             <Stack spacing={1.5}>
               <TextField
                 label="Identifiant"
-                value={String(draft.id)}
+                value={mode === 'create' ? 'Attribue a l enregistrement' : String(draft.id)}
                 size="small"
                 fullWidth
                 disabled
@@ -569,18 +883,21 @@ export function TourWizardDialog({
           {!loading && draft.type === 'ligue' && stepIndex === STEP_CLASSEMENT ? (
             <TourWizardStep4Classement
               tourId={activeTourId}
+              rows={qualifDraftRows}
+              onRowsChange={setQualifDraftRows}
               onError={onError}
             />
           ) : null}
 
           {!loading && stepIndex === STEP_PARTICIPANTS ? (
             <TourWizardStep5Participants
-              tourId={activeTourId}
               competitionId={Number(competitionId) || 0}
               currentTourOrder={Number(draft.ordre) || 0}
               competitionSeason={String(competitionSeason ?? '').trim()}
               nbGroupe={draft.nbGroupe}
               groupNames={groupNames}
+              rows={participantDraftRows}
+              onRowsChange={setParticipantDraftRows}
               onError={onError}
             />
           ) : null}
@@ -598,6 +915,9 @@ export function TourWizardDialog({
               nbMatch={draft.nbMatch}
               nbGroupe={draft.nbGroupe}
               groupNames={groupNames}
+              participants={participantDraftRows}
+              rencontres={rencontreDraftRows}
+              onRencontresChange={setRencontreDraftRows}
               onError={onError}
             />
           ) : null}
