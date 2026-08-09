@@ -20,12 +20,11 @@ import {
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { useCallback, useEffect, useState } from 'react';
-import { emitTabSaveDone } from '../../lib/useTabMetaEvents';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
+import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
-import { useTabMetaEvents } from '../../lib/useTabMetaEvents';
 import { CompetitionFormDialog } from './CompetitionFormDialog';
 import { TourWizardDialog } from './TourWizardDialog';
 import {
@@ -52,7 +51,7 @@ function resolveCompetitionLabel(row: CompetitionRow, fallback: string): string 
 }
 
 export function CompetitionTabFormPane({ tabPath, competitionId, active }: CompetitionTabFormPaneProps) {
-  const { setDirty, setLabel } = useTabMetaEvents(tabPath);
+  const { setDirty, setLabel, saveRequestCount, notifySaveDone } = useTabFormPaneBridge({ tabPath });
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [loading, setLoading] = useState(true);
@@ -69,16 +68,6 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
   const [epreuveOptions, setEpreuveOptions] = useState<EpreuveOption[]>([]);
   const [saisonOptions, setSaisonOptions] = useState<SaisonOption[]>([]);
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
-  const [saveCount, setSaveCount] = useState(0);
-
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const ev = e as CustomEvent<{ path?: string }>;
-      if (ev.detail?.path === tabPath) setSaveCount((c) => c + 1);
-    };
-    window.addEventListener('supporter:tab-save-request', handler);
-    return () => window.removeEventListener('supporter:tab-save-request', handler);
-  }, [tabPath]);
 
   const tourColumns: GridColDef<CompetitionTourRow>[] = [
     {
@@ -325,13 +314,13 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
                 setLabel(label);
                 setDirty(false);
                 setSnackbar({ severity: 'success', message: 'Competition mise a jour.' });
-                emitTabSaveDone(tabPath);
+                notifySaveDone();
               } catch (error) {
                 setSnackbar({ severity: 'error', message: toErrorMessage(error) });
               }
             }}
             onDirtyChange={(dirty) => setDirty(dirty)}
-            saveCount={saveCount}
+            saveCount={saveRequestCount}
           />
 
           <Box sx={{ bgcolor: '#ffffff', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>

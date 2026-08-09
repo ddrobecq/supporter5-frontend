@@ -73,15 +73,43 @@ function showJoueur2(typeEvent: number): boolean {
   return typeEvent === 1 || typeEvent === 2;
 }
 
+function getEventDraftSignature(values: {
+  adversaire: boolean;
+  minute: string;
+  periode: number;
+  typeEvent: number;
+  joueur1Id: string;
+  joueur2Id: string;
+  comment: string;
+}): string {
+  return JSON.stringify({
+    adversaire: values.adversaire,
+    minute: String(values.minute ?? '').trim(),
+    periode: Number(values.periode ?? 0),
+    typeEvent: Number(values.typeEvent ?? 0),
+    joueur1Id: String(values.joueur1Id ?? '').trim(),
+    joueur2Id: String(values.joueur2Id ?? '').trim(),
+    comment: String(values.comment ?? '').trim(),
+  });
+}
+
+export interface EventFormDialogActions {
+  save: () => Promise<boolean>;
+  reset: () => void;
+  isSaving: () => boolean;
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
   onSaved: (highlights: import('./types').RencontreHighlightsRow) => void;
   rencontreId: string;
   event?: RencontreHighlightEventRow | null;
+  onDirtyChange?: (dirty: boolean) => void;
+  actionsRef?: React.MutableRefObject<EventFormDialogActions | null>;
 }
 
-export function EventFormDialog({ open, onClose, onSaved, rencontreId, event }: Props) {
+export function EventFormDialog({ open, onClose, onSaved, rencontreId, event, onDirtyChange, actionsRef }: Props) {
   const isEdit = event != null;
 
   const [adversaire, setAdversaire] = useState(false);
@@ -96,6 +124,8 @@ export function EventFormDialog({ open, onClose, onSaved, rencontreId, event }: 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const adversaireRef = useRef<HTMLInputElement>(null);
+  const initialSignatureRef = useRef('');
+  const savingRef = useRef(false);
 
   // Load squad on open
   useEffect(() => {
@@ -116,6 +146,15 @@ export function EventFormDialog({ open, onClose, onSaved, rencontreId, event }: 
       setPeriode(event.PERIODE ?? 1);
       setTypeEvent(event.TYPE_EVENT ?? 1);
       setComment(event.COMMENT ?? '');
+      initialSignatureRef.current = getEventDraftSignature({
+        adversaire: event.ADVERSAIRE === 1,
+        minute: String(event.MINUTE ?? ''),
+        periode: event.PERIODE ?? 1,
+        typeEvent: event.TYPE_EVENT ?? 1,
+        joueur1Id: String(event.JOUEUR1 ?? ''),
+        joueur2Id: String(event.JOUEUR2 ?? ''),
+        comment: String(event.COMMENT ?? ''),
+      });
       // joueur1/2 resolved after squad loads
     } else {
       setAdversaire(false);
@@ -126,6 +165,15 @@ export function EventFormDialog({ open, onClose, onSaved, rencontreId, event }: 
       setJoueur2(null);
       setComment('');
       setError(null);
+      initialSignatureRef.current = getEventDraftSignature({
+        adversaire: false,
+        minute: '',
+        periode: 1,
+        typeEvent: 1,
+        joueur1Id: '',
+        joueur2Id: '',
+        comment: '',
+      });
     }
   }, [open, event]);
 
@@ -136,14 +184,28 @@ export function EventFormDialog({ open, onClose, onSaved, rencontreId, event }: 
     setJoueur2(squad.find((p) => p.IDJOUEUR === event.JOUEUR2) ?? null);
   }, [event, squad]);
 
+  const isDirty = open && getEventDraftSignature({
+    adversaire,
+    minute,
+    periode,
+    typeEvent,
+    joueur1Id: joueur1?.IDJOUEUR ?? '',
+    joueur2Id: joueur2?.IDJOUEUR ?? '',
+    comment,
+  }) !== initialSignatureRef.current;
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
   const playerLabel = (p: SquadPlayerRow) =>
     p.SURNOM?.trim() || `${p.NOM} ${p.PRENOM}`.trim();
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<boolean> => {
     const min = parseInt(minute, 10);
     if (!Number.isFinite(min) || min < 0) {
       setError('La minute doit être un nombre positif.');
-      return;
+      return false;
     }
     const payload: EventPayload = {
       adversaire: adversaire ? 1 : 0,
@@ -155,19 +217,63 @@ export function EventFormDialog({ open, onClose, onSaved, rencontreId, event }: 
       comment: comment.trim() || null,
     };
     setSaving(true);
+    savingRef.current = true;
     setError(null);
     try {
       const result = isEdit
         ? await updateRencontreEvent(rencontreId, event!.EVCLEUNIK, payload)
         : await createRencontreEvent(rencontreId, payload);
+      initialSignatureRef.current = getEventDraftSignature({
+        adversaire,
+        minute,
+        periode,
+        typeEvent,
+        joueur1Id: joueur1?.IDJOUEUR ?? '',
+        joueur2Id: joueur2?.IDJOUEUR ?? '',
+        comment,
+      });
       onSaved(result);
       onClose();
+      return true;
     } catch (err) {
       setError(toErrorMessage(err));
+      return false;
     } finally {
       setSaving(false);
+      savingRef.current = false;
     }
   };
+
+  const handleReset = () => {
+    if (event) {
+      setAdversaire(event.ADVERSAIRE === 1);
+      setMinute(String(event.MINUTE ?? ''));
+      setPeriode(event.PERIODE ?? 1);
+      setTypeEvent(event.TYPE_EVENT ?? 1);
+      setComment(event.COMMENT ?? '');
+      setJoueur1(squad.find((p) => p.IDJOUEUR === event.JOUEUR1) ?? null);
+      setJoueur2(squad.find((p) => p.IDJOUEUR === event.JOUEUR2) ?? null);
+      return;
+    }
+
+    setAdversaire(false);
+    setMinute('');
+    setPeriode(1);
+    setTypeEvent(1);
+    setJoueur1(null);
+    setJoueur2(null);
+    setComment('');
+    setError(null);
+  };
+
+  useEffect(() => {
+    if (!actionsRef) return;
+    actionsRef.current = {
+      save: handleSave,
+      reset: handleReset,
+      isSaving: () => savingRef.current,
+    };
+  });
 
   // Focus adversaire checkbox on open
   useEffect(() => {

@@ -23,7 +23,6 @@ import {
 import { type GridColDef, type GridRowId } from '@mui/x-data-grid';
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
-import { formatDateShort } from '../../components/DateInputField';
 import { toErrorMessage } from '../../components/useEntityPage';
 import {
   type CreateTourMatchPayload,
@@ -34,6 +33,29 @@ import {
   fetchTourRencontres,
   updateTourRencontre,
 } from './competitionApi';
+import { buildEffectiveGroupNames, getDistinctNonEmptyGroupNames } from './tourWizardGroups';
+import {
+  buildAvailableClubRows,
+  buildFilteredCircOptions,
+  buildFilteredRencontreRows,
+  buildLockedParticipantKeys,
+  buildParticipantMapByClubId,
+  buildParticipantMapBySource,
+  buildRencontreGridRows,
+  type PendingRencontreModel,
+  type RencontresGridModelRow,
+} from './tourWizardRencontresModel';
+import {
+  compareDateHeure,
+  formatDateDisplay,
+  formatHeureDisplay,
+  getParticipantIdentityKey,
+  normalizeCircId,
+  normalizeDate,
+  normalizeHeure,
+  parseDateInput,
+} from './tourWizardRencontresUtils';
+import { buildAdjacentSelectionState, getAdjacentSelectionValue } from './tourWizardSelection';
 import { useProgrammedParticipantLabels } from './useProgrammedParticipantLabels';
 import { TourParticipantGrid } from './TourParticipantGrid';
 import type { CircOptionRow, TourMatchRow, TourParticipantRow } from './types';
@@ -51,143 +73,6 @@ interface TourWizardStep6RencontresProps {
   nbGroupe: number;
   groupNames: string[];
   onError?: (message: string) => void;
-}
-
-interface PendingRencontre {
-  date: string;
-  heure: string | null;
-  domicileParticipantId: string;
-  domicile: string;
-  domicileSource: string;
-  domicileLabel: string;
-}
-
-interface RencontresGridRow extends TourMatchRow {
-  DOMICILE_NOM: string;
-  EXTERIEUR_NOM: string;
-}
-
-function normalizeDate(value: string): string {
-  const trimmed = String(value ?? '').trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    return trimmed;
-  }
-  return '';
-}
-
-function parseDateInput(value: unknown): string {
-  const trimmed = String(value ?? '').trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    return trimmed;
-  }
-  const frenchMatch = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(trimmed);
-  if (frenchMatch) {
-    const [, dd, mm, yyyy] = frenchMatch;
-    return `${yyyy}-${mm}-${dd}`;
-  }
-  return '';
-}
-
-function formatDateDisplay(value: unknown): string {
-  return formatDateShort(value);
-}
-
-function normalizeHeure(value: string | null | undefined): string {
-  const trimmed = String(value ?? '').trim();
-  const compact = /^([01]\d|2[0-3])([0-5]\d)$/.exec(trimmed);
-  if (compact) {
-    return `${compact[1]}:${compact[2]}`;
-  }
-  const withH = /^([01]\d|2[0-3])h([0-5]\d)$/i.exec(trimmed);
-  if (withH) {
-    return `${withH[1]}:${withH[2]}`;
-  }
-  const withSeconds = /^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/.exec(trimmed);
-  if (withSeconds) {
-    return `${withSeconds[1]}:${withSeconds[2]}`;
-  }
-  if (/^\d{2}:\d{2}/.test(trimmed)) {
-    return trimmed.slice(0, 5);
-  }
-  return '';
-}
-
-function formatHeureDisplay(value: unknown): string {
-  const dbHeure = normalizeHeure(String(value ?? ''));
-  if (!dbHeure) {
-    return String(value ?? '').trim();
-  }
-  return `${dbHeure.slice(0, 2)}h${dbHeure.slice(3, 5)}`;
-}
-
-function compareDateHeure(a: TourMatchRow, b: TourMatchRow): number {
-  const left = `${String(a.DATE ?? '')} ${String(a.HEURE ?? '')}`;
-  const right = `${String(b.DATE ?? '')} ${String(b.HEURE ?? '')}`;
-  return left.localeCompare(right, 'fr', { sensitivity: 'base' });
-}
-
-function normalizeCircId(value: unknown): string {
-  return String(value ?? '').trim();
-}
-
-function buildDefaultGroupNames(count: number): string[] {
-  return Array.from({ length: count }, (_, index) => `Groupe ${index + 1}`);
-}
-
-function getDistinctNonEmptyGroupNames(rows: TourParticipantRow[]): string[] {
-  const names = rows
-    .map((row) => String(row.GROUPE ?? '').trim())
-    .filter((value) => value.length > 0);
-
-  return Array.from(new Set(names));
-}
-
-function buildEffectiveGroupNames(
-  expectedCount: number,
-  modelGroupNames: string[],
-  existingGroupNames: string[],
-): string[] {
-  const expected = Math.max(1, Number(expectedCount) || 1);
-  const existing = Array.from(new Set(
-    existingGroupNames
-      .map((value) => String(value ?? '').trim())
-      .filter((value) => value.length > 0),
-  ));
-
-  if (existing.length >= expected) {
-    return existing;
-  }
-
-  const merged = [...existing];
-  const model = modelGroupNames
-    .map((value) => String(value ?? '').trim())
-    .filter((value) => value.length > 0);
-  const defaults = buildDefaultGroupNames(expected);
-
-  for (const candidate of [...model, ...defaults]) {
-    if (merged.length >= expected) {
-      break;
-    }
-    if (!merged.includes(candidate)) {
-      merged.push(candidate);
-    }
-  }
-
-  return merged;
-}
-
-function getParticipantIdentityKey(row: TourParticipantRow): string {
-  const clubId = String(row.IDCLUB ?? '').trim();
-  if (clubId) {
-    return `club:${clubId}`;
-  }
-
-  const source = String(row.PASource ?? '').trim();
-  if (source) {
-    return `src:${source}`;
-  }
-
-  return `pacleunik:${String(row.PACLEUNIK)}`;
 }
 
 export function TourWizardStep6Rencontres({
@@ -213,7 +98,7 @@ export function TourWizardStep6Rencontres({
   const [selectedParticipantId, setSelectedParticipantId] = useState<string>('');
   const getProgrammedParticipantLabel = useProgrammedParticipantLabels(participants, competitionId, competitionSeason, onError);
   const [selectedRencontre, setSelectedRencontre] = useState<GridRowId[]>([]);
-  const [pending, setPending] = useState<PendingRencontre | null>(null);
+  const [pending, setPending] = useState<PendingRencontreModel | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [retourConfirmOpen, setRetourConfirmOpen] = useState(false);
@@ -251,9 +136,7 @@ export function TourWizardStep6Rencontres({
         fetchCircByTourType(typeId),
       ]);
 
-      const filteredCircRows = tourType === 'ligue' && normalizedNbMatch > 0
-        ? circRows.slice(0, normalizedNbMatch)
-        : circRows;
+      const filteredCircRows = buildFilteredCircOptions(circRows, tourType, normalizedNbMatch);
 
       setParticipants(participantRows);
       setRencontres(rencontreRows);
@@ -288,43 +171,30 @@ export function TourWizardStep6Rencontres({
     }
   }, [hasMultipleGroups, selectedGroup, effectiveGroupNames]);
 
-  const selectedGroupIndex = useMemo(() => {
-    return effectiveGroupNames.findIndex((groupName) => groupName === selectedGroup);
-  }, [effectiveGroupNames, selectedGroup]);
+  const groupSelectionState = useMemo(
+    () => buildAdjacentSelectionState(effectiveGroupNames, selectedGroup),
+    [effectiveGroupNames, selectedGroup],
+  );
 
   const canSelectPreviousGroup = useMemo(() => {
-    if (!hasMultipleGroups || effectiveGroupNames.length === 0) {
-      return false;
-    }
-    if (selectedGroupIndex < 0) {
-      return true;
-    }
-    return selectedGroupIndex > 0;
-  }, [effectiveGroupNames, hasMultipleGroups, selectedGroupIndex]);
+    return hasMultipleGroups && groupSelectionState.canSelectPrevious;
+  }, [groupSelectionState.canSelectPrevious, hasMultipleGroups]);
 
   const canSelectNextGroup = useMemo(() => {
-    if (!hasMultipleGroups || effectiveGroupNames.length === 0) {
-      return false;
-    }
-    if (selectedGroupIndex < 0) {
-      return true;
-    }
-    return selectedGroupIndex < effectiveGroupNames.length - 1;
-  }, [effectiveGroupNames, hasMultipleGroups, selectedGroupIndex]);
+    return hasMultipleGroups && groupSelectionState.canSelectNext;
+  }, [groupSelectionState.canSelectNext, hasMultipleGroups]);
 
   const selectAdjacentGroup = (direction: -1 | 1) => {
-    if (!hasMultipleGroups || effectiveGroupNames.length === 0) {
+    if (!hasMultipleGroups) {
       return;
     }
 
-    const fallbackIndex = direction > 0 ? 0 : effectiveGroupNames.length - 1;
-    const targetIndex = selectedGroupIndex >= 0 ? selectedGroupIndex + direction : fallbackIndex;
-
-    if (targetIndex < 0 || targetIndex >= effectiveGroupNames.length) {
+    const nextGroup = getAdjacentSelectionValue(effectiveGroupNames, selectedGroup, direction);
+    if (!nextGroup) {
       return;
     }
 
-    setSelectedGroup(effectiveGroupNames[targetIndex] ?? '');
+    setSelectedGroup(nextGroup);
   };
 
   useEffect(() => {
@@ -345,43 +215,26 @@ export function TourWizardStep6Rencontres({
     }
   }, [circOptions, selectedCircId]);
 
-  const selectedCircIndex = useMemo(() => {
-    return circOptions.findIndex((circ) => normalizeCircId(circ.IDCIRC) === selectedCircId);
-  }, [circOptions, selectedCircId]);
+  const circOptionIds = useMemo(
+    () => circOptions.map((circ) => normalizeCircId(circ.IDCIRC)).filter((value) => value.length > 0),
+    [circOptions],
+  );
+
+  const circSelectionState = useMemo(
+    () => buildAdjacentSelectionState(circOptionIds, selectedCircId),
+    [circOptionIds, selectedCircId],
+  );
 
   const canSelectPreviousCirc = useMemo(() => {
-    if (circOptions.length === 0) {
-      return false;
-    }
-    if (selectedCircIndex < 0) {
-      return true;
-    }
-    return selectedCircIndex > 0;
-  }, [circOptions, selectedCircIndex]);
+    return circSelectionState.canSelectPrevious;
+  }, [circSelectionState.canSelectPrevious]);
 
   const canSelectNextCirc = useMemo(() => {
-    if (circOptions.length === 0) {
-      return false;
-    }
-    if (selectedCircIndex < 0) {
-      return true;
-    }
-    return selectedCircIndex < circOptions.length - 1;
-  }, [circOptions, selectedCircIndex]);
+    return circSelectionState.canSelectNext;
+  }, [circSelectionState.canSelectNext]);
 
   const selectAdjacentCirc = (direction: -1 | 1) => {
-    if (circOptions.length === 0) {
-      return;
-    }
-
-    const fallbackIndex = direction > 0 ? 0 : circOptions.length - 1;
-    const targetIndex = selectedCircIndex >= 0 ? selectedCircIndex + direction : fallbackIndex;
-
-    if (targetIndex < 0 || targetIndex >= circOptions.length) {
-      return;
-    }
-
-    const targetCircId = normalizeCircId(circOptions[targetIndex]?.IDCIRC);
+    const targetCircId = getAdjacentSelectionValue(circOptionIds, selectedCircId, direction);
     if (!targetCircId) {
       return;
     }
@@ -390,62 +243,26 @@ export function TourWizardStep6Rencontres({
   };
 
   const participantById = useMemo(() => {
-    const map = new Map<string, TourParticipantRow>();
-    participants.forEach((row) => {
-      const clubId = String(row.IDCLUB ?? '').trim();
-      if (clubId) {
-        map.set(clubId, row);
-      }
-    });
-    return map;
+    return buildParticipantMapByClubId(participants);
   }, [participants]);
 
   const participantBySource = useMemo(() => {
-    const map = new Map<string, TourParticipantRow>();
-    participants.forEach((row) => {
-      const source = String(row.PASource ?? '').trim();
-      if (source) {
-        map.set(source, row);
-      }
-    });
-    return map;
+    return buildParticipantMapBySource(participants);
   }, [participants]);
 
   const lockedParticipantKeys = useMemo(() => {
-    const keys = new Set<string>();
-    const selectedCirc = normalizeCircId(selectedCircId);
-    rencontres.forEach((match) => {
-      const matchCirc = normalizeCircId(match.IDCIRC);
-      if (matchCirc !== selectedCirc) {
-        return;
-      }
-
-      const dom = String(match.DOMICILE ?? '').trim();
-      const ext = String(match.EXTERIEUR ?? '').trim();
-      const domSource = String(match.PADOMSource ?? '').trim();
-      const extSource = String(match.PAEXTSource ?? '').trim();
-      if (dom) keys.add(`club:${dom}`);
-      if (ext) keys.add(`club:${ext}`);
-      if (domSource) keys.add(`src:${domSource}`);
-      if (extSource) keys.add(`src:${extSource}`);
-    });
-    return keys;
+    return buildLockedParticipantKeys(rencontres, selectedCircId, normalizeCircId);
   }, [rencontres, selectedCircId]);
 
   const availableClubRows = useMemo(() => {
-    let rows = participants.filter((row) => !lockedParticipantKeys.has(getParticipantIdentityKey(row)));
-
-    if (hasMultipleGroups) {
-      if (!selectedGroup) {
-        return [];
-      }
-      rows = rows.filter((row) => String(row.GROUPE ?? '').trim() === selectedGroup);
-    }
-
-    if (pending?.domicileParticipantId) {
-      return rows.filter((row) => String(row.PACLEUNIK) !== pending.domicileParticipantId);
-    }
-    return rows;
+    return buildAvailableClubRows(
+      participants,
+      lockedParticipantKeys,
+      hasMultipleGroups,
+      selectedGroup,
+      pending?.domicileParticipantId ?? null,
+      getParticipantIdentityKey,
+    );
   }, [participants, lockedParticipantKeys, pending, hasMultipleGroups, selectedGroup]);
 
   useEffect(() => {
@@ -495,55 +312,22 @@ export function TourWizardStep6Rencontres({
   );
 
   const filteredRencontreRows = useMemo(() => {
-    const selectedCirc = normalizeCircId(selectedCircId);
-    return rencontreRows.filter((row) => normalizeCircId(row.IDCIRC) === selectedCirc);
+    return buildFilteredRencontreRows(rencontreRows, selectedCircId, normalizeCircId);
   }, [rencontreRows, selectedCircId]);
 
   const canGenerateRetour = tourType !== 'ligue' && isAllerRetour;
 
-  const gridRows = useMemo<RencontresGridRow[]>(() => {
-    const rows = filteredRencontreRows.map((match) => {
-      const domicileClubId = String(match.DOMICILE ?? '').trim();
-      const domicileSource = String(match.PADOMSource ?? '').trim();
-      const domicileParticipant = domicileClubId
-        ? participantById.get(domicileClubId)
-        : (domicileSource ? participantBySource.get(domicileSource) : undefined);
-
-      const exterieurClubId = String(match.EXTERIEUR ?? '').trim();
-      const exterieurSource = String(match.PAEXTSource ?? '').trim();
-      const exterieurParticipant = exterieurClubId
-        ? participantById.get(exterieurClubId)
-        : (exterieurSource ? participantBySource.get(exterieurSource) : undefined);
-
-      return {
-        ...match,
-        DOMICILE_NOM: domicileParticipant
-          ? getProgrammedParticipantLabel(domicileParticipant)
-          : (domicileClubId || (domicileSource ? `Programme (${domicileSource})` : '')),
-        EXTERIEUR_NOM: exterieurParticipant
-          ? getProgrammedParticipantLabel(exterieurParticipant)
-          : (exterieurClubId || (exterieurSource ? `Programme (${exterieurSource})` : '')),
-      };
-    });
-
-    if (pending) {
-      rows.push({
-        RECLEUNIK: -1,
-        DATE: pending.date,
-        HEURE: pending.heure ?? '',
-        DOMICILE: pending.domicile,
-        EXTERIEUR: '',
-        PADOMSource: pending.domicileSource,
-        PAEXTSource: '',
-        DOMICILE_NOM: pending.domicileLabel,
-        EXTERIEUR_NOM: '',
-      } as RencontresGridRow);
-    }
-
-    return rows;
+  const gridRows = useMemo<RencontresGridModelRow[]>(() => {
+    return buildRencontreGridRows(
+      filteredRencontreRows,
+      pending,
+      participantById,
+      participantBySource,
+      getProgrammedParticipantLabel,
+    );
   }, [filteredRencontreRows, pending, participantById, participantBySource]);
 
-  const columns = useMemo<GridColDef<RencontresGridRow>[]>(
+  const columns = useMemo<GridColDef<RencontresGridModelRow>[]>(
     () => [
       {
         field: 'DATE',
@@ -596,9 +380,9 @@ export function TourWizardStep6Rencontres({
   );
 
   const persistRencontreRowUpdate = async (
-    newRow: RencontresGridRow,
-    oldRow: RencontresGridRow,
-  ): Promise<RencontresGridRow> => {
+    newRow: RencontresGridModelRow,
+    oldRow: RencontresGridModelRow,
+  ): Promise<RencontresGridModelRow> => {
     const id = Number(newRow.RECLEUNIK ?? 0);
     if (!Number.isInteger(id) || id <= 0) {
       return oldRow;
@@ -617,7 +401,7 @@ export function TourWizardStep6Rencontres({
 
     const prevDate = normalizeDate(parseDateInput(oldRow.DATE));
     const prevHeure = normalizeHeure(oldRow.HEURE) || null;
-    const updatedRow: RencontresGridRow = { ...newRow, DATE: nextDate, HEURE: nextHeure };
+    const updatedRow: RencontresGridModelRow = { ...newRow, DATE: nextDate, HEURE: nextHeure };
 
     if (nextDate === prevDate && nextHeure === prevHeure) {
       return updatedRow;
@@ -1001,7 +785,7 @@ export function TourWizardStep6Rencontres({
                   onClick={() => setRetourConfirmOpen(true)}
                   disabled={saving || loading}
                 >
-                  Generer retours
+                  Retours
                 </Button>
               </span>
             </Tooltip>
@@ -1070,7 +854,7 @@ export function TourWizardStep6Rencontres({
           </Stack>
 
           <Box sx={{ height: 286, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-            <EntityDataGrid<RencontresGridRow>
+            <EntityDataGrid<RencontresGridModelRow>
               rows={gridRows}
               columns={columns}
               loading={loading}

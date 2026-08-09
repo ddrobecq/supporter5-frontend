@@ -33,7 +33,6 @@ import {
 import type { SxProps, Theme } from '@mui/material/styles';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
-import { emitTabSaveDone } from '../../lib/useTabMetaEvents';
 import { useNavigate } from 'react-router-dom';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
@@ -41,8 +40,8 @@ import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
 import { DateInputField, formatDateShort, fromInputDateToDisplay, toInputDateFromDisplay } from '../../components/DateInputField';
 import { TimeInputField } from '../../components/TimeInputField';
+import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
-import { useTabMetaEvents } from '../../lib/useTabMetaEvents';
 import { useEntityImage } from '../../lib/useEntityImage';
 import {
   fetchCircByTourType,
@@ -55,7 +54,7 @@ import type { CircOptionRow, CompetitionTourRow } from '../competition/types';
 import { fetchRencontreDetailById, fetchRencontreHighlightsById, fetchRencontreTourMatches, updateRencontreDetail, deleteRencontreEvent, upsertRencontreMatchMeta } from './rencontreApi';
 import type { RencontreDetailRow, RencontreHighlightEventRow, RencontreHighlightsRow, TourMatchWithNamesRow } from './types';
 import { RencontreCompositionTab, type CompositionTabActions } from './RencontreCompositionTab';
-import { EventFormDialog } from './EventFormDialog';
+import { EventFormDialog, type EventFormDialogActions } from './EventFormDialog';
 import { ArbitrePage } from '../arbitre/ArbitrePage';
 import { ArbitreIdentityDisplay } from '../../components/ArbitreIdentityDisplay';
 import { TerrainPickerDialog } from '../terrain/TerrainPickerDialog';
@@ -443,7 +442,11 @@ function ClubInlineLine({
 
 export function RencontreTabFormPane({ tabPath, rencontreId, active }: RencontreTabFormPaneProps) {
   const navigate = useNavigate();
-  const { setDirty, setLabel } = useTabMetaEvents(tabPath);
+  const handleSaveRef = useRef<(() => Promise<void>) | null>(null);
+  const { setDirty, setLabel, notifySaveDone } = useTabFormPaneBridge({
+    tabPath,
+    onSaveRequest: () => handleSaveRef.current?.(),
+  });
   const initialSignatureRef = useRef<string>('');
 
   const [loading, setLoading] = useState(true);
@@ -462,6 +465,9 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
   const [isCompositionDirty, setIsCompositionDirty] = useState(false);
   const [isCompositionSaving, setIsCompositionSaving] = useState(false);
   const compositionActionsRef = useRef<CompositionTabActions | null>(null);
+  const [isEventDialogDirty, setIsEventDialogDirty] = useState(false);
+  const [isEventDialogSaving, setIsEventDialogSaving] = useState(false);
+  const eventDialogActionsRef = useRef<EventFormDialogActions | null>(null);
   const [highlights, setHighlights] = useState<RencontreHighlightsRow | null>(null);
   const [highlightsLoading, setHighlightsLoading] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
@@ -582,8 +588,8 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
   }, [draft, adminDecisionEnabled]);
 
   useEffect(() => {
-    setDirty(isDirty || isCompositionDirty);
-  }, [isDirty, isCompositionDirty, setDirty]);
+    setDirty(isDirty || isCompositionDirty || isEventDialogDirty);
+  }, [isDirty, isCompositionDirty, isEventDialogDirty, setDirty]);
 
   const handleSeasonChange = async (nextSeason: string) => {
     if (!draft) return;
@@ -682,7 +688,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
 
       await reloadAll();
       setSnackbar({ severity: 'success', message: 'Rencontre enregistree.' });
-      emitTabSaveDone(tabPath);
+      notifySaveDone();
     } catch (error) {
       // Temporary log: pinpoint which request fails
       const ax = error as { response?: { status?: number; data?: unknown; config?: { url?: string; method?: string } } };
@@ -693,14 +699,18 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     }
   };
 
-  const anyDirty = isDirty || isCompositionDirty;
-  const anySaving = saving || isCompositionSaving;
+  const anyDirty = isDirty || isCompositionDirty || isEventDialogDirty;
+  const anySaving = saving || isCompositionSaving || isEventDialogSaving;
 
   const handleGlobalSave = async () => {
     const saveCompo = isCompositionDirty && compositionActionsRef.current;
+    const saveEvent = isEventDialogDirty && eventDialogActionsRef.current;
 
     if (saveCompo) {
       setIsCompositionSaving(true);
+    }
+    if (saveEvent) {
+      setIsEventDialogSaving(true);
     }
 
     try {
@@ -708,10 +718,12 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       await Promise.all([
         isDirty ? handleSave() : Promise.resolve(),
         saveCompo ? compositionActionsRef.current!.save() : Promise.resolve(),
+        saveEvent ? eventDialogActionsRef.current!.save() : Promise.resolve(),
       ]);
     } catch { /* errors shown inline by each section */ }
     finally {
       if (saveCompo) setIsCompositionSaving(false);
+      if (saveEvent) setIsEventDialogSaving(false);
     }
   };
 
@@ -719,20 +731,14 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     if (compositionActionsRef.current) {
       compositionActionsRef.current.reset();
     }
+    if (eventDialogActionsRef.current) {
+      eventDialogActionsRef.current.reset();
+    }
+    setEventDialogOpen(false);
     resetDraft();
   };
 
-  const handleSaveRef = useRef(handleGlobalSave);
   handleSaveRef.current = handleGlobalSave;
-
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const ev = e as CustomEvent<{ path?: string }>;
-      if (ev.detail?.path === tabPath) void handleSaveRef.current();
-    };
-    window.addEventListener('supporter:tab-save-request', handler);
-    return () => window.removeEventListener('supporter:tab-save-request', handler);
-  }, [tabPath]);
 
   if (!active) {
     return <Box sx={{ display: 'none' }} />;
@@ -1444,6 +1450,8 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
           onSaved={(data) => { setHighlights(data); setSelectedEventId(null); setEventDialogOpen(false); }}
           rencontreId={rencontreId}
           event={eventDialogMode === 'edit' ? (orderedEvents.find((e) => e.EVCLEUNIK === selectedEventId) ?? null) : null}
+          onDirtyChange={setIsEventDialogDirty}
+          actionsRef={eventDialogActionsRef}
         />
       ) : null}
 

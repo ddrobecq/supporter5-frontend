@@ -159,6 +159,27 @@ function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+function getHistoryDialogSignature(draft: JoueurHistoryDialogDraft): string {
+  return JSON.stringify({
+    saison: String(draft.saison ?? '').trim(),
+    poste: String(draft.poste ?? '').trim(),
+  });
+}
+
+function getContractsDialogSignature(draft: JoueurTransactionDialogDraft): string {
+  return JSON.stringify({
+    date: String(draft.date ?? '').trim(),
+    type: String(draft.type ?? '').trim(),
+    sens: String(draft.sens ?? '').trim(),
+    idClub: String(draft.idClub ?? '').trim(),
+    clubName: String(draft.clubName ?? '').trim(),
+    deviseId: String(draft.deviseId ?? '').trim(),
+    salaire: String(draft.salaire ?? '').trim(),
+    indemnites: String(draft.indemnites ?? '').trim(),
+    echeance: String(draft.echeance ?? '').trim(),
+  });
+}
+
 export function JoueurFormDialog({
   open,
   mode,
@@ -217,7 +238,10 @@ export function JoueurFormDialog({
   const [contractsDeleteSaving, setContractsDeleteSaving] = useState(false);
   const [saisonOptions, setSaisonOptions] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<JoueurFormTabKey>('identite');
-  const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, onDirtyChange);
+  const [isIdentityDirty, setIsIdentityDirty] = useState(false);
+  const historyDialogInitialSignatureRef = useRef('');
+  const contractsDialogInitialSignatureRef = useRef('');
+  const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, setIsIdentityDirty);
 
   const editId = mode === 'edit' ? (initialData?.IDJOUEUR as string | number | undefined) : undefined;
   const existingPhoto = useEntityImage('joueurrg', editId, imageRefreshToken);
@@ -246,6 +270,10 @@ export function JoueurFormDialog({
   const transactionUsesSalaire = Number(selectedContractType?.TYT_SALAIRE ?? 0) !== 0;
   const transactionUsesIndemnites = Number(selectedContractType?.TYT_INDEMNITES ?? 0) !== 0;
   const transactionUsesMoney = transactionUsesSalaire || transactionUsesIndemnites;
+  const isHistoryDialogDirty = historyDialogOpen
+    && getHistoryDialogSignature(historyDialogDraft) !== historyDialogInitialSignatureRef.current;
+  const isContractsDialogDirty = contractsDialogOpen
+    && getContractsDialogSignature(contractsDialogDraft) !== contractsDialogInitialSignatureRef.current;
 
   const historyColumns = useMemo<GridColDef<JoueurHistoryRow>[]>(() => [
     { field: 'SAISON', headerName: 'Saison', minWidth: 110, flex: 0.65 },
@@ -310,6 +338,10 @@ export function JoueurFormDialog({
     });
     syncDirty(currentSignature);
   }, [birthVilleName, deathVilleName, photoDraft, syncDirty, values]);
+
+  useEffect(() => {
+    onDirtyChange?.(isIdentityDirty || isHistoryDialogDirty || isContractsDialogDirty);
+  }, [isContractsDialogDirty, isHistoryDialogDirty, isIdentityDirty, onDirtyChange]);
 
   useEffect(() => {
     if (!open) return;
@@ -467,9 +499,7 @@ export function JoueurFormDialog({
     const defaultType = contractsTypes[0]?.TYT_CLEUNIK;
     const defaultTypeRow = contractsTypes.find((option) => Number(option.TYT_CLEUNIK) === Number(defaultType));
     const defaultTypeSensOptions = buildSensOptionsForType(defaultTypeRow);
-    setContractsDialogMode('create');
-    setContractsDialogId(null);
-    setContractsDialogDraft({
+    const nextDraft = {
       date: fromInputDateToDisplay(todayIsoDate()),
       type: defaultType != null ? String(defaultType) : '',
       sens: defaultTypeSensOptions.length === 1
@@ -483,7 +513,11 @@ export function JoueurFormDialog({
       salaire: '',
       indemnites: '',
       echeance: '',
-    });
+    };
+    setContractsDialogMode('create');
+    setContractsDialogId(null);
+    setContractsDialogDraft(nextDraft);
+    contractsDialogInitialSignatureRef.current = getContractsDialogSignature(nextDraft);
     setContractsDialogOpen(true);
   };
 
@@ -494,9 +528,7 @@ export function JoueurFormDialog({
       return;
     }
 
-    setContractsDialogMode('edit');
-    setContractsDialogId(Number(selectedRow.TNCLEUNIK));
-    setContractsDialogDraft({
+    const nextDraft = {
       date: toDisplayDate(selectedRow.DATE),
       type: String(selectedRow.TYPE ?? ''),
       sens: Number(selectedRow.STATUT) === 1 ? '1' : Number(selectedRow.STATUT) === 2 ? '2' : '3',
@@ -506,7 +538,11 @@ export function JoueurFormDialog({
       salaire: selectedRow.SALAIRE == null ? '' : String(selectedRow.SALAIRE),
       indemnites: selectedRow.INDEMNITES == null ? '' : String(selectedRow.INDEMNITES),
       echeance: toDisplayDate(selectedRow.TN_ECHEANCE),
-    });
+    };
+    setContractsDialogMode('edit');
+    setContractsDialogId(Number(selectedRow.TNCLEUNIK));
+    setContractsDialogDraft(nextDraft);
+    contractsDialogInitialSignatureRef.current = getContractsDialogSignature(nextDraft);
     setContractsDialogOpen(true);
   };
 
@@ -518,22 +554,22 @@ export function JoueurFormDialog({
     setContractsDeleteConfirmOpen(true);
   };
 
-  const handleContractsDialogSave = async () => {
+  const handleContractsDialogSave = async (): Promise<boolean> => {
     const idJoueur = normalizeNullableText(values.IDJOUEUR);
     if (!idJoueur) {
       setErrors((prev) => ({ ...prev, contracts: 'Identifiant joueur invalide.' }));
-      return;
+      return false;
     }
 
     const typeId = Number(contractsDialogDraft.type);
     if (!Number.isInteger(typeId) || typeId <= 0) {
       setErrors((prev) => ({ ...prev, contracts: 'Le type de transaction est requis.' }));
-      return;
+      return false;
     }
     const dateIso = toInputDateFromDisplay(contractsDialogDraft.date);
     if (!dateIso) {
       setErrors((prev) => ({ ...prev, contracts: 'La date de transaction est requise.' }));
-      return;
+      return false;
     }
 
     const fallbackDeviseId = Number(contractsDefaultDeviseId ?? contractsDevises[0]?.DVCLEUNIK ?? 0);
@@ -542,12 +578,12 @@ export function JoueurFormDialog({
       : fallbackDeviseId;
     if (!Number.isInteger(deviseId) || deviseId <= 0) {
       setErrors((prev) => ({ ...prev, contracts: 'La devise est requise.' }));
-      return;
+      return false;
     }
 
     if (transactionRequiresClub && !contractsDialogDraft.idClub) {
       setErrors((prev) => ({ ...prev, contracts: 'Le club est requis pour ce type de transaction.' }));
-      return;
+      return false;
     }
 
     const sensValues = selectedContractSensOptions.map((option) => option.value);
@@ -556,7 +592,7 @@ export function JoueurFormDialog({
 
     if (selectedContractSensOptions.length >= 2 && !hasValidSelectedSens) {
       setErrors((prev) => ({ ...prev, contracts: 'Le sens est obligatoire pour ce type de transaction.' }));
-      return;
+      return false;
     }
 
     const statutValue = selectedContractSensOptions.length === 0
@@ -568,7 +604,7 @@ export function JoueurFormDialog({
     const echeanceIso = contractsDialogDraft.echeance ? toInputDateFromDisplay(contractsDialogDraft.echeance) : '';
     if (transactionRequiresEcheance && !echeanceIso) {
       setErrors((prev) => ({ ...prev, contracts: 'La date d echeance est requise pour ce type de transaction.' }));
-      return;
+      return false;
     }
 
     const salaireValue = transactionUsesSalaire
@@ -576,7 +612,7 @@ export function JoueurFormDialog({
       : null;
     if (salaireValue != null && (!Number.isFinite(salaireValue) || salaireValue < 0)) {
       setErrors((prev) => ({ ...prev, contracts: 'Le salaire est invalide.' }));
-      return;
+      return false;
     }
 
     const indemnitesValue = transactionUsesIndemnites
@@ -584,7 +620,7 @@ export function JoueurFormDialog({
       : 0;
     if (!Number.isFinite(indemnitesValue) || indemnitesValue < 0) {
       setErrors((prev) => ({ ...prev, contracts: 'Les indemnites sont invalides.' }));
-      return;
+      return false;
     }
 
     setContractsDialogSaving(true);
@@ -605,15 +641,17 @@ export function JoueurFormDialog({
       } else {
         if (!contractsDialogId) {
           setErrors((prev) => ({ ...prev, contracts: 'Transaction invalide.' }));
-          return;
+          return false;
         }
         await updateJoueurTransaction(idJoueur, contractsDialogId, payload);
       }
       await reloadContracts();
       setContractsDialogOpen(false);
       setErrors((prev) => ({ ...prev, contracts: '' }));
+      return true;
     } catch (error) {
       setErrors((prev) => ({ ...prev, contracts: String((error as { message?: string })?.message ?? 'Erreur de sauvegarde.') }));
+      return false;
     } finally {
       setContractsDialogSaving(false);
     }
@@ -655,9 +693,11 @@ export function JoueurFormDialog({
         : posteSelectOptions[0]
           ? String(posteSelectOptions[0].value)
           : '';
+    const nextDraft = { saison: saisonOptions[0] ?? '', poste: resolvedDefaultPoste };
     setHistoryDialogMode('create');
     setHistoryDialogId(null);
-    setHistoryDialogDraft({ saison: saisonOptions[0] ?? '', poste: resolvedDefaultPoste });
+    setHistoryDialogDraft(nextDraft);
+    historyDialogInitialSignatureRef.current = getHistoryDialogSignature(nextDraft);
     setHistoryDialogOpen(true);
   };
 
@@ -667,9 +707,11 @@ export function JoueurFormDialog({
       setErrors((prev) => ({ ...prev, history: 'Selectionnez une saison a modifier.' }));
       return;
     }
+    const nextDraft = { saison: String(rowToEdit.SAISON ?? ''), poste: String(rowToEdit.POSTE ?? '') };
     setHistoryDialogMode('edit');
     setHistoryDialogId(Number(rowToEdit.JOCLEUNIK));
-    setHistoryDialogDraft({ saison: String(rowToEdit.SAISON ?? ''), poste: String(rowToEdit.POSTE ?? '') });
+    setHistoryDialogDraft(nextDraft);
+    historyDialogInitialSignatureRef.current = getHistoryDialogSignature(nextDraft);
     setHistoryDialogOpen(true);
   };
 
@@ -681,22 +723,22 @@ export function JoueurFormDialog({
     setHistoryDeleteConfirmOpen(true);
   };
 
-  const handleHistoryDialogSave = async () => {
+  const handleHistoryDialogSave = async (): Promise<boolean> => {
     const idJoueur = normalizeNullableText(values.IDJOUEUR);
     const saison = String(historyDialogDraft.saison ?? '').trim();
     const poste = String(historyDialogDraft.poste ?? '').trim();
 
     if (!idJoueur) {
       setErrors((prev) => ({ ...prev, history: 'Identifiant joueur invalide.' }));
-      return;
+      return false;
     }
     if (!saison) {
       setErrors((prev) => ({ ...prev, history: 'La saison est requise.' }));
-      return;
+      return false;
     }
     if (!poste) {
       setErrors((prev) => ({ ...prev, history: 'Le poste est requis.' }));
-      return;
+      return false;
     }
 
     setHistoryDialogSaving(true);
@@ -706,15 +748,17 @@ export function JoueurFormDialog({
       } else {
         if (!historyDialogId) {
           setErrors((prev) => ({ ...prev, history: 'Historique invalide.' }));
-          return;
+          return false;
         }
         await updateJoueurHistory(idJoueur, historyDialogId, { saison, poste });
       }
       await reloadHistory();
       setHistoryDialogOpen(false);
       setErrors((prev) => ({ ...prev, history: '' }));
+      return true;
     } catch (error) {
       setErrors((prev) => ({ ...prev, history: String((error as { message?: string })?.message ?? 'Erreur de sauvegarde.') }));
+      return false;
     } finally {
       setHistoryDialogSaving(false);
     }
@@ -780,14 +824,14 @@ export function JoueurFormDialog({
     setVilleSelectorOpen(false);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<boolean> => {
     const nextErrors: Record<string, string> = {};
     if (!String(values.IDJOUEUR ?? '').trim()) nextErrors.IDJOUEUR = 'ID Joueur requis';
     if (!String(values.NOM ?? '').trim()) nextErrors.NOM = 'Nom requis';
     if (!String(values.PRENOM ?? '').trim()) nextErrors.PRENOM = 'Prénom requis';
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
-      return;
+      return false;
     }
 
     setSaving(true);
@@ -810,13 +854,44 @@ export function JoueurFormDialog({
         setImageRefreshToken((prev) => prev + 1);
       }
       markClean();
+      return true;
     } finally {
       setSaving(false);
     }
   };
 
-  const handleSaveRef = useRef(handleSave);
-  handleSaveRef.current = handleSave;
+  const handleGlobalSave = async (): Promise<boolean> => {
+    if (historyDialogOpen) {
+      const historySaved = await handleHistoryDialogSave();
+      if (!historySaved) {
+        return false;
+      }
+    }
+
+    if (contractsDialogOpen) {
+      const contractsSaved = await handleContractsDialogSave();
+      if (!contractsSaved) {
+        return false;
+      }
+    }
+
+    if (isIdentityDirty) {
+      return handleSave();
+    }
+
+    return true;
+  };
+
+  const handleGlobalCancel = () => {
+    setHistoryDialogOpen(false);
+    setContractsDialogOpen(false);
+    setHistoryDeleteConfirmOpen(false);
+    setContractsDeleteConfirmOpen(false);
+    onClose();
+  };
+
+  const handleSaveRef = useRef(handleGlobalSave);
+  handleSaveRef.current = handleGlobalSave;
   useEffect(() => { if (saveCount > 0) void handleSaveRef.current(); }, [saveCount]);
 
   const identityTab = (
@@ -1093,13 +1168,13 @@ export function JoueurFormDialog({
           <Stack spacing={2}>
             {content}
             <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
-              <Button onClick={onClose} color="inherit">Annuler</Button>
-              <Button onClick={() => void handleSave()} variant="contained" disabled={saving}>{saving ? 'Enregistrement...' : 'Enregistrer'}</Button>
+              <Button onClick={handleGlobalCancel} color="inherit">Annuler</Button>
+              <Button onClick={() => void handleGlobalSave()} variant="contained" disabled={saving}>{saving ? 'Enregistrement...' : 'Enregistrer'}</Button>
             </Stack>
           </Stack>
         </Box>
       ) : (
-        <EntityFormDialog open={open} onClose={onClose} title={mode === 'create' ? 'Nouveau Joueur' : 'Modifier un Joueur'} saving={saving} onSave={() => void handleSave()} maxWidth="lg">
+        <EntityFormDialog open={open} onClose={handleGlobalCancel} title={mode === 'create' ? 'Nouveau Joueur' : 'Modifier un Joueur'} saving={saving} onSave={() => void handleGlobalSave()} maxWidth="lg">
           {content}
         </EntityFormDialog>
       )}

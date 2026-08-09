@@ -4,11 +4,16 @@ import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import { type GridRowId } from '@mui/x-data-grid';
 import { useEffect, useMemo, useState } from 'react';
 import { toErrorMessage } from '../../components/useEntityPage';
-import { addTourParticipant, fetchCompetition, fetchCompetitionTours, fetchCompetitionWizardData, fetchTourParticipants, removeTourParticipants } from './competitionApi';
+import { addTourParticipant, fetchTourParticipants, removeTourParticipants } from './competitionApi';
+import { buildEffectiveGroupNames, getDistinctNonEmptyGroupNames } from './tourWizardGroups';
+import {
+  getDistinctSourceGroups,
+} from './tourWizardProgrammedParticipants';
+import { useTourWizardProgrammedParticipants } from './useTourWizardProgrammedParticipants';
 import { useProgrammedParticipantLabels } from './useProgrammedParticipantLabels';
 import { TourParticipantGrid } from './TourParticipantGrid';
 import { ClubSelectionDialog } from './ClubSelectionDialog';
-import type { CompetitionRow, CompetitionTourRow, TourParticipantRow } from './types';
+import type { TourParticipantRow } from './types';
 
 interface TourWizardStep5ParticipantsProps {
   tourId: number;
@@ -20,71 +25,6 @@ interface TourWizardStep5ParticipantsProps {
   onError?: (message: string) => void;
 }
 
-function getParticipantLabel(row: TourParticipantRow): string {
-  const clubName = String(row.CLUB ?? '').trim();
-  if (clubName) return clubName;
-  const source = String(row.PASource ?? '').trim();
-  return source ? `Programme (${source})` : '(Participant programme)';
-}
-
-function getDistinctSourceGroups(rows: TourParticipantRow[]): string[] {
-  return Array.from(new Set(rows.map((row) => String(row.GROUPE ?? '').trim())))
-    .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
-}
-
-function getDistinctRanks(rows: TourParticipantRow[]): number[] {
-  const values = rows
-    .map((row) => Number(row.PAClassement ?? 0))
-    .filter((rank) => Number.isInteger(rank) && rank > 0);
-  return Array.from(new Set(values)).sort((a, b) => a - b);
-}
-
-function buildDefaultGroupNames(count: number): string[] {
-  return Array.from({ length: count }, (_, index) => `Groupe ${index + 1}`);
-}
-
-function getDistinctNonEmptyGroupNames(rows: TourParticipantRow[]): string[] {
-  const names = rows
-    .map((row) => String(row.GROUPE ?? '').trim())
-    .filter((value) => value.length > 0);
-
-  return Array.from(new Set(names));
-}
-
-function buildEffectiveGroupNames(
-  expectedCount: number,
-  modelGroupNames: string[],
-  existingGroupNames: string[],
-): string[] {
-  const expected = Math.max(1, Number(expectedCount) || 1);
-  const existing = Array.from(new Set(
-    existingGroupNames
-      .map((value) => String(value ?? '').trim())
-      .filter((value) => value.length > 0),
-  ));
-
-  if (existing.length >= expected) {
-    return existing;
-  }
-
-  const merged = [...existing];
-  const model = modelGroupNames
-    .map((value) => String(value ?? '').trim())
-    .filter((value) => value.length > 0);
-  const defaults = buildDefaultGroupNames(expected);
-
-  for (const candidate of [...model, ...defaults]) {
-    if (merged.length >= expected) {
-      break;
-    }
-    if (!merged.includes(candidate)) {
-      merged.push(candidate);
-    }
-  }
-
-  return merged;
-}
-
 export function TourWizardStep5Participants({ tourId, competitionId, currentTourOrder, competitionSeason, nbGroupe, groupNames, onError }: TourWizardStep5ParticipantsProps) {
   const [rows, setRows] = useState<TourParticipantRow[]>([]);
   const [selection, setSelection] = useState<GridRowId[]>([]);
@@ -93,15 +33,31 @@ export function TourWizardStep5Participants({ tourId, competitionId, currentTour
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const [programDialogOpen, setProgramDialogOpen] = useState(false);
-  const [seasonOptions, setSeasonOptions] = useState<string[]>([]);
-  const [programSeason, setProgramSeason] = useState<string>('');
-  const [programCompetitions, setProgramCompetitions] = useState<CompetitionRow[]>([]);
-  const [programCompetitionId, setProgramCompetitionId] = useState<string>('');
-  const [programTours, setProgramTours] = useState<CompetitionTourRow[]>([]);
-  const [programTourId, setProgramTourId] = useState<string>('');
-  const [programSourceParticipants, setProgramSourceParticipants] = useState<TourParticipantRow[]>([]);
-  const [programSourceRanks, setProgramSourceRanks] = useState<string[]>([]);
   const getLabel = useProgrammedParticipantLabels(rows, competitionId, competitionSeason, onError);
+
+  const {
+    seasonOptions,
+    programSeason,
+    setProgramSeason,
+    programCompetitions,
+    programCompetitionId,
+    setProgramCompetitionId,
+    programTours,
+    programTourId,
+    setProgramTourId,
+    programSourceParticipants,
+    programSourceRanks,
+    setProgramSourceRanks,
+    sourceRankSelectOptions,
+    isSelectedProgramTourEliminatoire,
+    possibleProgrammedClubsByGroup,
+  } = useTourWizardProgrammedParticipants({
+    competitionId,
+    competitionSeason,
+    currentTourOrder,
+    programDialogOpen,
+    onError,
+  });
 
   const normalizedNbGroupe = Math.max(1, Number(nbGroupe) || 1);
   const hasMultipleGroups = normalizedNbGroupe > 1;
@@ -146,127 +102,6 @@ export function TourWizardStep5Participants({ tourId, competitionId, currentTour
     }
     return rows.filter((row) => String(row.GROUPE ?? '').trim() === selectedGroupId);
   }, [rows, hasMultipleGroups, selectedGroupId]);
-
-  const sourceRankOptions = useMemo(() => getDistinctRanks(programSourceParticipants), [programSourceParticipants]);
-
-  const selectedProgramTour = useMemo(() => {
-    const selectedId = String(programTourId ?? '').trim();
-    return selectedId ? programTours.find((tour) => String(tour.TUCLEUNIK ?? '') === selectedId) : undefined;
-  }, [programTourId, programTours]);
-
-  const isSelectedProgramTourEliminatoire = Number(selectedProgramTour?.TYPE_ID ?? 0) === 2;
-
-  const sourceRankSelectOptions = useMemo(
-    () => isSelectedProgramTourEliminatoire
-      ? [{ value: '1', label: 'Vainqueur' }, { value: '2', label: 'Perdant' }]
-      : sourceRankOptions.map((rank) => ({ value: String(rank), label: String(rank) })),
-    [isSelectedProgramTourEliminatoire, sourceRankOptions],
-  );
-
-  const possibleProgrammedClubsByGroup = useMemo(() => {
-    const selectedRanks = Array.from(new Set(programSourceRanks.map(Number).filter((rank) => Number.isInteger(rank) && rank > 0)));
-    if (selectedRanks.length === 0) return [] as Array<{ group: string; clubs: string[] }>;
-    const sourceGroups = getDistinctSourceGroups(programSourceParticipants);
-    const grouped = new Map<string, string[]>();
-
-    sourceGroups.forEach((groupName) => {
-      const rowsForSelectedRanks = programSourceParticipants.filter(
-        (row) => String(row.GROUPE ?? '').trim() === groupName && selectedRanks.includes(Number(row.PAClassement ?? 0)),
-      );
-
-      // If no participant currently matches the requested rank, all participants of the source group remain potential candidates.
-      const rowsForDisplay = rowsForSelectedRanks.length > 0
-        ? rowsForSelectedRanks
-        : programSourceParticipants.filter((row) => String(row.GROUPE ?? '').trim() === groupName);
-
-      const labels = Array.from(
-        new Set(
-          rowsForDisplay
-            .map((row) => getParticipantLabel(row))
-            .map((label) => String(label ?? '').trim())
-            .filter(Boolean),
-        ),
-      );
-
-      grouped.set(groupName, labels);
-    });
-
-    return Array.from(grouped.entries())
-      .sort((a, b) => a[0].localeCompare(b[0], 'fr', { sensitivity: 'base' }))
-      .map(([group, clubs]) => ({ group, clubs }));
-  }, [programSourceParticipants, programSourceRanks]);
-
-  useEffect(() => {
-    let cancelled = false;
-    void fetchCompetitionWizardData()
-      .then((data) => {
-        if (cancelled) return;
-        const seasons = (data.saisons ?? []).map((row) => String(row.SAISON ?? '').trim()).filter(Boolean);
-        setSeasonOptions(seasons);
-        const preferred = String(competitionSeason ?? '').trim();
-        setProgramSeason(seasons.includes(preferred) ? preferred : (seasons[0] ?? ''));
-      })
-      .catch((error) => { if (!cancelled) onError?.(toErrorMessage(error)); });
-    return () => { cancelled = true; };
-  }, [competitionSeason, onError]);
-
-  useEffect(() => {
-    if (!programSeason) { setProgramCompetitions([]); setProgramCompetitionId(''); return; }
-    let cancelled = false;
-    void fetchCompetition('', programSeason)
-      .then((data) => {
-        if (cancelled) return;
-        const competitionRows = data.data ?? [];
-        setProgramCompetitions(competitionRows);
-        const currentId = String(competitionId ?? '').trim();
-        const hasCurrentCompetition = competitionRows.some((row) => String(row.COCLEUNIK ?? '').trim() === currentId);
-        const firstId = competitionRows[0]?.COCLEUNIK == null ? '' : String(competitionRows[0].COCLEUNIK).trim();
-        setProgramCompetitionId((current) => {
-          if (current && competitionRows.some((row) => String(row.COCLEUNIK ?? '').trim() === current)) return current;
-          return hasCurrentCompetition ? currentId : firstId;
-        });
-      })
-      .catch((error) => { if (!cancelled) { onError?.(toErrorMessage(error)); setProgramCompetitions([]); setProgramCompetitionId(''); } });
-    return () => { cancelled = true; };
-  }, [competitionId, programSeason, onError]);
-
-  useEffect(() => {
-    const compId = Number(programCompetitionId);
-    if (!Number.isInteger(compId) || compId <= 0) { setProgramTours([]); setProgramTourId(''); return; }
-    let cancelled = false;
-    void fetchCompetitionTours(compId)
-      .then((tourRows) => {
-        if (cancelled) return;
-        setProgramTours(tourRows);
-        const sorted = [...tourRows].sort((a, b) => Number(a.TU_ORDRE ?? 0) - Number(b.TU_ORDRE ?? 0) || Number(a.TUCLEUNIK ?? 0) - Number(b.TUCLEUNIK ?? 0));
-        const previousTour = sorted.filter((tour) => Number(tour.TU_ORDRE ?? 0) < Number(currentTourOrder ?? 0)).pop();
-        const defaultTourId = previousTour ? String(previousTour.TUCLEUNIK ?? '').trim() : '';
-        setProgramTourId((current) => {
-          if (current && tourRows.some((row) => String(row.TUCLEUNIK) === current)) return current;
-          return defaultTourId || '';
-        });
-      })
-      .catch((error) => { if (!cancelled) { onError?.(toErrorMessage(error)); setProgramTours([]); setProgramTourId(''); } });
-    return () => { cancelled = true; };
-  }, [currentTourOrder, programCompetitionId, onError]);
-
-  useEffect(() => {
-    const sourceTourId = Number(programTourId);
-    if (!Number.isInteger(sourceTourId) || sourceTourId <= 0) { setProgramSourceParticipants([]); setProgramSourceRanks([]); return; }
-    let cancelled = false;
-    void fetchTourParticipants(sourceTourId)
-      .then((sourceRows) => { if (!cancelled) setProgramSourceParticipants(sourceRows); })
-      .catch((error) => { if (!cancelled) { onError?.(toErrorMessage(error)); setProgramSourceParticipants([]); } });
-    return () => { cancelled = true; };
-  }, [programTourId, onError]);
-
-  useEffect(() => {
-    if (sourceRankSelectOptions.length === 0) { setProgramSourceRanks([]); return; }
-    setProgramSourceRanks((current) => {
-      const valid = current.filter((value) => sourceRankSelectOptions.some((option) => option.value === value));
-      return valid.length > 0 ? Array.from(new Set(valid)) : [sourceRankSelectOptions[0].value];
-    });
-  }, [sourceRankSelectOptions]);
 
   const loadParticipants = async () => {
     if (!Number.isInteger(tourId) || tourId <= 0) {

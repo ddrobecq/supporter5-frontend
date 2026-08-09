@@ -1,10 +1,9 @@
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { useCallback, useEffect, useState } from 'react';
-import { emitTabSaveDone } from '../../lib/useTabMetaEvents';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
+import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
-import { useTabMetaEvents } from '../../lib/useTabMetaEvents';
 import { fetchNatio } from '../natio/natioApi';
 import type { NatioRow } from '../natio/types';
 import { JoueurFormDialog } from './JoueurFormDialog';
@@ -24,22 +23,12 @@ function resolveJoueurLabel(row: JoueurRow, fallback: string): string {
 }
 
 export function JoueurTabFormPane({ tabPath, joueurId, active }: JoueurTabFormPaneProps) {
-  const { setDirty, setLabel } = useTabMetaEvents(tabPath);
+  const { setDirty, setLabel, saveRequestCount, notifySaveDone } = useTabFormPaneBridge({ tabPath });
   const [loading, setLoading] = useState(true);
   const [row, setRow] = useState<JoueurRow | undefined>(undefined);
   const [natioDatas, setNatioDatas] = useState<NatioRow[]>([]);
   const [posteOptions, setPosteOptions] = useState<PosteOption[]>([]);
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
-  const [saveCount, setSaveCount] = useState(0);
-
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const ev = e as CustomEvent<{ path?: string }>;
-      if (ev.detail?.path === tabPath) setSaveCount((c) => c + 1);
-    };
-    window.addEventListener('supporter:tab-save-request', handler);
-    return () => window.removeEventListener('supporter:tab-save-request', handler);
-  }, [tabPath]);
 
   const reloadRow = useCallback(async () => {
     setLoading(true);
@@ -101,13 +90,13 @@ export function JoueurTabFormPane({ tabPath, joueurId, active }: JoueurTabFormPa
               setLabel(resolveJoueurLabel(refreshed, String(joueurId)));
               setDirty(false);
               setSnackbar({ severity: 'success', message: 'Joueur mis a jour.' });
-              emitTabSaveDone(tabPath);
+              notifySaveDone();
             } catch (error) {
               setSnackbar({ severity: 'error', message: toErrorMessage(error) });
               throw error;
             }
           }}
-          saveCount={saveCount}
+          saveCount={saveRequestCount}
         />
       ) : null}
 

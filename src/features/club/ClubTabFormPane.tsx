@@ -25,7 +25,6 @@ import {
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { emitTabSaveDone } from '../../lib/useTabMetaEvents';
 import jerseySvgSource from '../../../img/jersey.svg?raw';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
@@ -33,8 +32,8 @@ import { DateInputField, formatDateShort } from '../../components/DateInputField
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { updateEntityImage } from '../../lib/entityImageApi';
+import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
-import { useTabMetaEvents } from '../../lib/useTabMetaEvents';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { fetchNatio } from '../natio/natioApi';
 import type { NatioRow } from '../natio/types';
@@ -154,6 +153,22 @@ function getClubProfileSignature(draft: ClubProfileDraft): string {
     villeId: draft.villeId.trim(),
     fond: draft.fond.trim(),
     texte: draft.texte.trim(),
+  });
+}
+
+function getClubNameDialogSignature(draft: ClubNameDialogDraft): string {
+  return JSON.stringify({
+    date: String(draft.date ?? '').trim(),
+    eventType: String(draft.eventType ?? '').trim(),
+    name: String(draft.name ?? '').trim(),
+  });
+}
+
+function getClubTerrainDialogSignature(draft: ClubTerrainDialogDraft): string {
+  return JSON.stringify({
+    date: String(draft.date ?? '').trim(),
+    terrainId: String(draft.terrainId ?? '').trim(),
+    terrainName: String(draft.terrainName ?? '').trim(),
   });
 }
 
@@ -379,7 +394,11 @@ function formatDateForApi(value: string): string | null {
 }
 
 export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProps) {
-  const { setDirty, setLabel } = useTabMetaEvents(tabPath);
+  const handleProfileSaveRef = useRef<(() => Promise<void>) | null>(null);
+  const { setDirty, setLabel, notifySaveDone } = useTabFormPaneBridge({
+    tabPath,
+    onSaveRequest: () => handleProfileSaveRef.current?.(),
+  });
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [loading, setLoading] = useState(true);
@@ -394,14 +413,6 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
   const [nameHistorySelection, setNameHistorySelection] = useState<GridRowId[]>([]);
   const [terrainHistorySelection, setTerrainHistorySelection] = useState<GridRowId[]>([]);
 
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const ev = e as CustomEvent<{ path?: string }>;
-      if (ev.detail?.path === tabPath) void handleProfileSaveRef.current?.();
-    };
-    window.addEventListener('supporter:tab-save-request', handler);
-    return () => window.removeEventListener('supporter:tab-save-request', handler);
-  }, [tabPath]);
   const [villeSelectorOpen, setVilleSelectorOpen] = useState(false);
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
   const [nameDialogOpen, setNameDialogOpen] = useState(false);
@@ -424,6 +435,8 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
   const fondColorInputRef = useRef<HTMLInputElement | null>(null);
   const texteColorInputRef = useRef<HTMLInputElement | null>(null);
   const profileSignatureRef = useRef('');
+  const nameDialogSignatureRef = useRef('');
+  const terrainDialogSignatureRef = useRef('');
   const clubImage = useEntityImage('club', clubId, clubImageRefreshToken);
   const currentFondColor = profileDraft.fond;
   const currentTexteColor = profileDraft.texte;
@@ -431,6 +444,11 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
 
   const isProfileDirty =
     getClubProfileSignature(profileDraft) !== profileSignatureRef.current || clubImageDraft !== undefined;
+  const isNameDialogDirty = nameDialogOpen
+    && getClubNameDialogSignature(nameDialogDraft) !== nameDialogSignatureRef.current;
+  const isTerrainDialogDirty = terrainDialogOpen
+    && getClubTerrainDialogSignature(terrainDialogDraft) !== terrainDialogSignatureRef.current;
+  const isAnyDirty = isProfileDirty || isNameDialogDirty || isTerrainDialogDirty;
 
   const handlePickFondColor = () => {
     fondColorInputRef.current?.click();
@@ -491,16 +509,13 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       setLabel(String(updated.CLUB_ABREGE ?? '').trim() || String(clubId));
       setDirty(false);
       setSnackbar({ severity: 'success', message: 'Club mis a jour.' });
-      emitTabSaveDone(tabPath);
+      notifySaveDone();
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
     } finally {
       setSavingProfile(false);
     }
   };
-
-  const handleProfileSaveRef = useRef(handleProfileSave);
-  handleProfileSaveRef.current = handleProfileSave;
 
   const handleProfileReset = () => {
     setProfileDraft(createClubProfileDraft(row));
@@ -618,8 +633,8 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
 
   useEffect(() => {
     if (loading) return;
-    setDirty(isProfileDirty);
-  }, [isProfileDirty, loading, setDirty]);
+    setDirty(isAnyDirty);
+  }, [isAnyDirty, loading, setDirty]);
 
   const countryOptions = natioRows
     .map((natio) => ({
@@ -644,13 +659,15 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
   const selectedTerrainHistoryRow = terrainHistoryRows.find((historyRow) => Number(historyRow.CT_CLEUNIK) === selectedTerrainHistoryId);
 
   const openNameCreateDialog = () => {
+    const nextDraft = {
+      date: '',
+      eventType: '1' as const,
+      name: String(profileDraft.name ?? '').trim(),
+    };
     setNameDialogMode('create');
     setNameDialogId(null);
-    setNameDialogDraft({
-      date: '',
-      eventType: '1',
-      name: String(profileDraft.name ?? '').trim(),
-    });
+    setNameDialogDraft(nextDraft);
+    nameDialogSignatureRef.current = getClubNameDialogSignature(nextDraft);
     setNameDialogOpen(true);
   };
 
@@ -661,13 +678,15 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       return;
     }
     const eventType = Number(rowToEdit.CN_ACTION ?? 0);
-    setNameDialogMode('edit');
-    setNameDialogId(Number(rowToEdit.IDCLUB_NOM));
-    setNameDialogDraft({
+    const nextDraft = {
       date: formatDateForInput(rowToEdit.DATE),
       eventType: eventType >= 1 && eventType <= 3 ? String(eventType) as '1' | '2' | '3' : '2',
       name: String(rowToEdit.CN_NOM ?? ''),
-    });
+    };
+    setNameDialogMode('edit');
+    setNameDialogId(Number(rowToEdit.IDCLUB_NOM));
+    setNameDialogDraft(nextDraft);
+    nameDialogSignatureRef.current = getClubNameDialogSignature(nextDraft);
     setNameDialogOpen(true);
   };
 
@@ -679,14 +698,14 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     setNameDeleteConfirmOpen(true);
   };
 
-  const handleNameDialogSave = async () => {
+  const handleNameDialogSave = async (): Promise<boolean> => {
     const date = formatDateForApi(nameDialogDraft.date);
     const name = String(nameDialogDraft.name ?? '').trim();
     const eventType = nameDialogDraft.eventType;
 
     if (!name) {
       setSnackbar({ severity: 'error', message: 'Le nom est requis.' });
-      return;
+      return false;
     }
 
     setNameDialogSaving(true);
@@ -696,7 +715,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       } else {
         if (!nameDialogId) {
           setSnackbar({ severity: 'error', message: 'Nom de club invalide.' });
-          return;
+          return false;
         }
         await updateClubNameHistory(clubId, nameDialogId, { date, eventType, name });
       }
@@ -704,8 +723,10 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       await reloadHistories();
       setNameDialogOpen(false);
       setSnackbar({ severity: 'success', message: 'Historique des noms mis a jour.' });
+      return true;
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+      return false;
     } finally {
       setNameDialogSaving(false);
     }
@@ -731,9 +752,11 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
   };
 
   const openTerrainCreateDialog = () => {
+    const nextDraft = { date: '', terrainId: '', terrainName: '' };
     setTerrainDialogMode('create');
     setTerrainDialogId(null);
-    setTerrainDialogDraft({ date: '', terrainId: '', terrainName: '' });
+    setTerrainDialogDraft(nextDraft);
+    terrainDialogSignatureRef.current = getClubTerrainDialogSignature(nextDraft);
     setTerrainDialogOpen(true);
   };
 
@@ -744,13 +767,15 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       return;
     }
 
-    setTerrainDialogMode('edit');
-    setTerrainDialogId(Number(rowToEdit.CT_CLEUNIK));
-    setTerrainDialogDraft({
+    const nextDraft = {
       date: formatDateForInput(rowToEdit.DATE),
       terrainId: String(rowToEdit.TECLEUNIK ?? ''),
       terrainName: String(rowToEdit.STADE ?? ''),
-    });
+    };
+    setTerrainDialogMode('edit');
+    setTerrainDialogId(Number(rowToEdit.CT_CLEUNIK));
+    setTerrainDialogDraft(nextDraft);
+    terrainDialogSignatureRef.current = getClubTerrainDialogSignature(nextDraft);
     setTerrainDialogOpen(true);
   };
 
@@ -762,13 +787,13 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     setTerrainDeleteConfirmOpen(true);
   };
 
-  const handleTerrainDialogSave = async () => {
+  const handleTerrainDialogSave = async (): Promise<boolean> => {
     const date = formatDateForApi(terrainDialogDraft.date);
     const terrainId = String(terrainDialogDraft.terrainId ?? '').trim();
 
     if (!terrainId) {
       setSnackbar({ severity: 'error', message: 'Le stade est requis.' });
-      return;
+      return false;
     }
 
     setTerrainDialogSaving(true);
@@ -778,7 +803,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       } else {
         if (!terrainDialogId) {
           setSnackbar({ severity: 'error', message: 'Stade club invalide.' });
-          return;
+          return false;
         }
         await updateClubTerrainHistory(clubId, terrainDialogId, { date, terrainId });
       }
@@ -786,8 +811,10 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       await reloadHistories();
       setTerrainDialogOpen(false);
       setSnackbar({ severity: 'success', message: 'Historique des stades mis a jour.' });
+      return true;
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+      return false;
     } finally {
       setTerrainDialogSaving(false);
     }
@@ -819,6 +846,37 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       terrainName: String(terrain.label ?? '').trim(),
     }));
     setTerrainSelectorOpen(false);
+  };
+
+  const handleGlobalSave = async (): Promise<void> => {
+    if (nameDialogOpen) {
+      const saved = await handleNameDialogSave();
+      if (!saved) {
+        return;
+      }
+    }
+
+    if (terrainDialogOpen) {
+      const saved = await handleTerrainDialogSave();
+      if (!saved) {
+        return;
+      }
+    }
+
+    if (isProfileDirty) {
+      await handleProfileSave();
+    }
+  };
+
+  handleProfileSaveRef.current = handleGlobalSave;
+
+  const handleGlobalReset = () => {
+    setNameDialogOpen(false);
+    setTerrainDialogOpen(false);
+    setNameDeleteConfirmOpen(false);
+    setTerrainDeleteConfirmOpen(false);
+    setTerrainSelectorOpen(false);
+    handleProfileReset();
   };
 
   const nameHistoryActions = (
@@ -1154,16 +1212,16 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
               <Button
                 variant="outlined"
                 size="small"
-                onClick={handleProfileReset}
-                disabled={!isProfileDirty || savingProfile}
+                onClick={handleGlobalReset}
+                disabled={!isAnyDirty || savingProfile || nameDialogSaving || terrainDialogSaving}
               >
                 Annuler
               </Button>
               <Button
                 variant="contained"
                 size="small"
-                onClick={() => void handleProfileSave()}
-                disabled={!isProfileDirty || savingProfile}
+                onClick={() => void handleGlobalSave()}
+                disabled={!isAnyDirty || savingProfile || nameDialogSaving || terrainDialogSaving}
               >
                 Enregistrer
               </Button>
