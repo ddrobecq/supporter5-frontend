@@ -83,6 +83,33 @@ export interface JoueurTransactionUpsertPayload {
   echeance?: string | null;
 }
 
+export interface JoueurMatchEvent {
+  type: 'but' | 'passe' | 'entree' | 'sortie' | 'blessure';
+  minute: number;
+  periode: number;
+}
+
+export interface JoueurMatchRow {
+  RECLEUNIK: number;
+  DATE: string;
+  DOMICILE: string;
+  EXTERIEUR: string;
+  DOMICILE_NOM: string;
+  EXTERIEUR_NOM: string;
+  BUTDOM: number;
+  BUTEXT: number;
+  TABDOM: number;
+  TABEXT: number;
+  ETAT: number;
+  TOUR_NOM: string;
+  COMPET_NOM: string;
+  COCLEUNIK: number;
+  SAISON: string;
+  POSTE_NOM: string | null;
+  PARTICIPATION_TYPE: 'titulaire' | 'remplacant';
+  events: JoueurMatchEvent[];
+}
+
 export type JoueurRow = Record<string, unknown>;
 
 export interface PosteOption {

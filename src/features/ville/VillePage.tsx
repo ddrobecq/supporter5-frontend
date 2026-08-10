@@ -1,5 +1,6 @@
 ﻿import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useMemo, useState } from 'react';
+import { Navigate, useParams } from 'react-router-dom';
 import { createVille, deleteVille, fetchVille, fetchVilleById, updateVille, canDeleteVille } from './villeApi';
 import { fetchNatio } from '../natio/natioApi';
 import { VilleFormDialog } from './VilleFormDialog';
@@ -20,6 +21,14 @@ function toComparableId(value: unknown): string {
 }
 
 export function VillePage({ variant = 'page', onOpenInTab }: VillePageProps) {
+  const params = useParams<{ villeId?: string }>();
+  const villeId = params.villeId;
+
+  // Si variant est 'page' (page complète, pas modale) et qu'il n'y a pas d'ID, rediriger
+  if (variant === 'page' && !villeId) {
+    return <Navigate to="/admin/home" replace />;
+  }
+
   const [natioDatas, setNatioDatas] = useState<NatioRow[]>([]);
 
   const page = useEntityPage<VilleRow>(

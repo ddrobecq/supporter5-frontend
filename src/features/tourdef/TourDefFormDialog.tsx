@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
+import { NumberField } from '../../components/NumberField';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import type { TourDefRow } from './types';
 
@@ -180,12 +181,12 @@ function createEmptyDraft(): TourDefDraft {
     FIN_TPS_REG: '',
     DUREE_TPS_PROLONG: '',
     FIN_PROLONG: '',
-    VALEUR_VD: '',
-    VALEUR_VE: '',
-    VALEUR_ND: '',
-    VALEUR_NE: '',
-    VALEUR_DD: '',
-    VALEUR_DE: '',
+    VALEUR_VD: 0,
+    VALEUR_VE: 0,
+    VALEUR_ND: 0,
+    VALEUR_NE: 0,
+    VALEUR_DD: 0,
+    VALEUR_DE: 0,
     TDCalculDiffBut: '',
     CLASS_GAD: '',
     VALEUR_BE: false,
@@ -208,12 +209,12 @@ function createDraftFromRow(row?: TourDefRow): TourDefDraft {
     FIN_TPS_REG: Number(row.FIN_TPS_REG ?? 0) || '',
     DUREE_TPS_PROLONG: Number(row.DUREE_TPS_PROLONG ?? 0) || '',
     FIN_PROLONG: Number(row.FIN_PROLONG ?? 0) || '',
-    VALEUR_VD: Number(row.VALEUR_VD ?? 0) || '',
-    VALEUR_VE: Number(row.VALEUR_VE ?? 0) || '',
-    VALEUR_ND: Number(row.VALEUR_ND ?? 0) || '',
-    VALEUR_NE: Number(row.VALEUR_NE ?? 0) || '',
-    VALEUR_DD: Number(row.VALEUR_DD ?? 0) || '',
-    VALEUR_DE: Number(row.VALEUR_DE ?? 0) || '',
+    VALEUR_VD: row.VALEUR_VD != null ? Number(row.VALEUR_VD) : 0,
+    VALEUR_VE: row.VALEUR_VE != null ? Number(row.VALEUR_VE) : 0,
+    VALEUR_ND: row.VALEUR_ND != null ? Number(row.VALEUR_ND) : 0,
+    VALEUR_NE: row.VALEUR_NE != null ? Number(row.VALEUR_NE) : 0,
+    VALEUR_DD: row.VALEUR_DD != null ? Number(row.VALEUR_DD) : 0,
+    VALEUR_DE: row.VALEUR_DE != null ? Number(row.VALEUR_DE) : 0,
     TDCalculDiffBut: Number(row.TDCalculDiffBut ?? 0) || '',
     CLASS_GAD: Number(row.CLASS_GAD ?? 0) || '',
     VALEUR_BE: Number(row.VALEUR_BE ?? 0) === 1,
@@ -374,13 +375,12 @@ export function TourDefFormDialog({
     <Stack spacing={1.25}>
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25}>
         <TextField
-          label="Code"
+          label="Identifiant"
           value={String(values.TDCLEUNIK ?? '')}
           onChange={(event) => setValues((prev) => ({ ...prev, TDCLEUNIK: event.target.value }))}
           size="small"
           fullWidth
           disabled={mode === 'edit' && Boolean(primaryKey)}
-          helperText={mode === 'edit' && Boolean(primaryKey) ? 'Auto-genere' : undefined}
         />
         <TextField
           label="Nom"
@@ -414,12 +414,10 @@ export function TourDefFormDialog({
       </Stack>
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25}>
-        <TextField
+        <NumberField
           label="Duree temps reglementaire"
-          size="small"
-          type="number"
-          value={values.DUREE_TPS_REG}
-          onChange={(event) => setValues((prev) => ({ ...prev, DUREE_TPS_REG: parseNumericInput(event.target.value) }))}
+          value={String(values.DUREE_TPS_REG)}
+          onChange={(v) => setValues((prev) => ({ ...prev, DUREE_TPS_REG: v === '' ? '' : Number(v) }))}
           fullWidth
         />
         <FormControl fullWidth size="small">
@@ -439,12 +437,10 @@ export function TourDefFormDialog({
       </Stack>
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25}>
-        <TextField
+        <NumberField
           label="Duree prolongation"
-          size="small"
-          type="number"
-          value={values.DUREE_TPS_PROLONG}
-          onChange={(event) => setValues((prev) => ({ ...prev, DUREE_TPS_PROLONG: parseNumericInput(event.target.value) }))}
+          value={String(values.DUREE_TPS_PROLONG)}
+          onChange={(v) => setValues((prev) => ({ ...prev, DUREE_TPS_PROLONG: v === '' ? '' : Number(v) }))}
           fullWidth
         />
         <FormControl fullWidth size="small">
@@ -464,13 +460,19 @@ export function TourDefFormDialog({
       </Stack>
 
       <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Attribution des points</Typography>
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25}>
-        <TextField label="Victoire domicile" size="small" type="number" value={values.VALEUR_VD} onChange={(event) => setValues((prev) => ({ ...prev, VALEUR_VD: parseNumericInput(event.target.value) }))} fullWidth />
-        <TextField label="Victoire exterieur" size="small" type="number" value={values.VALEUR_VE} onChange={(event) => setValues((prev) => ({ ...prev, VALEUR_VE: parseNumericInput(event.target.value) }))} fullWidth />
-        <TextField label="Nul domicile" size="small" type="number" value={values.VALEUR_ND} onChange={(event) => setValues((prev) => ({ ...prev, VALEUR_ND: parseNumericInput(event.target.value) }))} fullWidth />
-        <TextField label="Nul exterieur" size="small" type="number" value={values.VALEUR_NE} onChange={(event) => setValues((prev) => ({ ...prev, VALEUR_NE: parseNumericInput(event.target.value) }))} fullWidth />
-        <TextField label="Defaite domicile" size="small" type="number" value={values.VALEUR_DD} onChange={(event) => setValues((prev) => ({ ...prev, VALEUR_DD: parseNumericInput(event.target.value) }))} fullWidth />
-        <TextField label="Defaite exterieur" size="small" type="number" value={values.VALEUR_DE} onChange={(event) => setValues((prev) => ({ ...prev, VALEUR_DE: parseNumericInput(event.target.value) }))} fullWidth />
+      <Stack direction="row" spacing={1.25}>
+        <Stack spacing={1.25} sx={{ flex: 1 }}>
+          <NumberField label="Victoire Dom." value={String(values.VALEUR_VD)} onChange={(v) => setValues((prev) => ({ ...prev, VALEUR_VD: v === '' ? '' : Number(v) }))} fullWidth />
+          <NumberField label="Victoire Ext." value={String(values.VALEUR_VE)} onChange={(v) => setValues((prev) => ({ ...prev, VALEUR_VE: v === '' ? '' : Number(v) }))} fullWidth />
+        </Stack>
+        <Stack spacing={1.25} sx={{ flex: 1 }}>
+          <NumberField label="Nul Dom." value={String(values.VALEUR_ND)} onChange={(v) => setValues((prev) => ({ ...prev, VALEUR_ND: v === '' ? '' : Number(v) }))} fullWidth />
+          <NumberField label="Nul Ext." value={String(values.VALEUR_NE)} onChange={(v) => setValues((prev) => ({ ...prev, VALEUR_NE: v === '' ? '' : Number(v) }))} fullWidth />
+        </Stack>
+        <Stack spacing={1.25} sx={{ flex: 1 }}>
+          <NumberField label="Défaite Dom." value={String(values.VALEUR_DD)} onChange={(v) => setValues((prev) => ({ ...prev, VALEUR_DD: v === '' ? '' : Number(v) }))} fullWidth />
+          <NumberField label="Défaite Ext." value={String(values.VALEUR_DE)} onChange={(v) => setValues((prev) => ({ ...prev, VALEUR_DE: v === '' ? '' : Number(v) }))} fullWidth />
+        </Stack>
       </Stack>
 
       <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Goalaverage</Typography>
@@ -524,13 +526,13 @@ export function TourDefFormDialog({
             ))}
           </Select>
         </FormControl>
-        <TextField label="Seuil bonus" size="small" type="number" value={values.BONUS_NB_BUT} onChange={(event) => setValues((prev) => ({ ...prev, BONUS_NB_BUT: parseNumericInput(event.target.value) }))} fullWidth />
+        <NumberField label="Seuil bonus" value={String(values.BONUS_NB_BUT)} onChange={(v) => setValues((prev) => ({ ...prev, BONUS_NB_BUT: v === '' ? '' : Number(v) }))} fullWidth />
       </Stack>
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25}>
-        <TextField label="Bonus victoire" size="small" type="number" value={values.VALEUR_BONUS_V} onChange={(event) => setValues((prev) => ({ ...prev, VALEUR_BONUS_V: parseNumericInput(event.target.value) }))} fullWidth />
-        <TextField label="Bonus nul" size="small" type="number" value={values.VALEUR_BONUS_N} onChange={(event) => setValues((prev) => ({ ...prev, VALEUR_BONUS_N: parseNumericInput(event.target.value) }))} fullWidth />
-        <TextField label="Bonus defaite" size="small" type="number" value={values.VALEUR_BONUS_D} onChange={(event) => setValues((prev) => ({ ...prev, VALEUR_BONUS_D: parseNumericInput(event.target.value) }))} fullWidth />
+        <NumberField label="Bonus victoire" value={String(values.VALEUR_BONUS_V)} onChange={(v) => setValues((prev) => ({ ...prev, VALEUR_BONUS_V: v === '' ? '' : Number(v) }))} fullWidth />
+        <NumberField label="Bonus nul" value={String(values.VALEUR_BONUS_N)} onChange={(v) => setValues((prev) => ({ ...prev, VALEUR_BONUS_N: v === '' ? '' : Number(v) }))} fullWidth />
+        <NumberField label="Bonus defaite" value={String(values.VALEUR_BONUS_D)} onChange={(v) => setValues((prev) => ({ ...prev, VALEUR_BONUS_D: v === '' ? '' : Number(v) }))} fullWidth />
       </Stack>
 
       <Box>

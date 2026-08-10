@@ -1,11 +1,12 @@
 ﻿import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useMemo } from 'react';
+import { Navigate, useParams } from 'react-router-dom';
 import { createTerrain, deleteTerrain, fetchTerrain, fetchTerrainById, updateTerrain, canDeleteTerrain } from './terrainApi';
 import { TerrainFormDialog } from './TerrainFormDialog';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
 import { createAndOpenInTab, useEntityPage } from '../../components/useEntityPage';
 import type { TerrainRow } from './types';
-import { buildTerrainFormFields, detectTerrainPrimaryKey, resolveTerrainDisplay, resolveTerrainId, resolveTerrainLabel } from './terrainUi';
+import { buildTerrainFormFields, detectTerrainPrimaryKey, resolveTerrainId, resolveTerrainLabel } from './terrainUi';
 
 interface TerrainPageProps {
   variant?: 'page' | 'modalPicker';
@@ -17,6 +18,14 @@ function toComparableId(value: unknown): string {
 }
 
 export function TerrainPage({ variant = 'page', onOpenInTab }: TerrainPageProps) {
+  const params = useParams<{ terrainId?: string }>();
+  const terrainId = params.terrainId;
+
+  // Si variant est 'page' (page complète, pas modale) et qu'il n'y a pas d'ID, rediriger
+  if (variant === 'page' && !terrainId) {
+    return <Navigate to="/admin/home" replace />;
+  }
+
   const page = useEntityPage<TerrainRow>(
     {
       fetchAll: fetchTerrain,
@@ -79,7 +88,7 @@ export function TerrainPage({ variant = 'page', onOpenInTab }: TerrainPageProps)
   const openInTabFromRowId = (rowId: GridRowId) => {
     if (!onOpenInTab) return;
     const selectedRow = page.rows.find((row) => toComparableId(getRowId(row)) === toComparableId(rowId));
-    const label = selectedRow ? resolveTerrainDisplay(selectedRow) : String(rowId);
+    const label = selectedRow ? resolveTerrainLabel(selectedRow) : String(rowId);
     onOpenInTab({ rowId, label });
   };
 

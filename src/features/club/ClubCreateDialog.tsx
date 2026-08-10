@@ -18,16 +18,15 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import EditRoundedIcon from '@mui/icons-material/EditRounded';
-import InputAdornment from '@mui/material/InputAdornment';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import RemoveRoundedIcon from '@mui/icons-material/RemoveRounded';
 import axios from 'axios';
 import { useEffect, useRef, useState } from 'react';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { fetchClubSuggestions } from './clubApi';
+import { NatioAutocomplete } from '../../components/NatioAutocomplete';
+import { VillePicker } from '../../components/VillePicker';
 import { fetchNatio } from '../natio/natioApi';
-import { TerrainVilleSelector } from '../terrain/TerrainVilleSelector';
 import type { NatioRow } from '../natio/types';
 import type { ClubCreateWizardPayload, ClubSuggestionRow } from './types';
 
@@ -53,7 +52,7 @@ export function ClubCreateDialog({
   const [isSelection, setIsSelection] = useState(false);
   const [villeId, setVilleId] = useState('');
   const [villeName, setVilleName] = useState('');
-  const [villeSelectorOpen, setVilleSelectorOpen] = useState(false);
+  const [villeNatioId, setVilleNatioId] = useState('');
   const [natioRows, setNatioRows] = useState<NatioRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingNatio, setLoadingNatio] = useState(false);
@@ -218,16 +217,6 @@ export function ClubCreateDialog({
       }
     }
   };
-
-  const countryOptions = natioRows
-    .map((row) => ({
-      id: String(row.IDNATIO ?? row.ID ?? '').trim(),
-      label: String(row.PAYS ?? row.NOM ?? '').trim(),
-    }))
-    .filter((row) => row.id.length > 0)
-    .sort((a, b) => a.label.localeCompare(b.label));
-
-  const selectedCountry = countryOptions.find((option) => option.id === natioId) ?? null;
 
   const showSuggestions = step === 1;
 
@@ -412,22 +401,13 @@ export function ClubCreateDialog({
       </Paper>
       ) : (
         <>
-          <TextField
-            select
+          <NatioAutocomplete
+            natioDatas={natioRows}
+            value={natioId}
+            onChange={setNatioId}
             label="Pays"
-            value={selectedCountry?.id ?? ''}
-            onChange={(event) => setNatioId(event.target.value)}
-            fullWidth
-            size="small"
-            inputRef={countryInputRef}
-            slotProps={{ select: { native: true } }}
             disabled={loadingNatio}
-          >
-            <option value=""></option>
-            {countryOptions.map((option) => (
-              <option key={option.id} value={option.id}>{`${option.label} (${option.id})`}</option>
-            ))}
-          </TextField>
+          />
 
           <FormControlLabel
             label="Selection nationale"
@@ -436,32 +416,12 @@ export function ClubCreateDialog({
           />
 
           {!isSelection ? (
-            <TextField
-              label="Ville"
-              value={villeName || villeId}
-              fullWidth
-              size="small"
-              onContextMenu={(event) => {
-                event.preventDefault();
-                setVilleSelectorOpen(true);
-              }}
-              slotProps={{
-                input: {
-                  readOnly: true,
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <Button
-                        size="small"
-                        variant="text"
-                        onClick={() => setVilleSelectorOpen(true)}
-                        sx={{ minWidth: 36, p: 0 }}
-                      >
-                        <EditRoundedIcon fontSize="small" />
-                      </Button>
-                    </InputAdornment>
-                  ),
-                },
-              }}
+            <VillePicker
+              villeId={villeId}
+              villeName={villeName}
+              villeNatioId={villeNatioId}
+              entityNatioId={natioId}
+              onChange={(id, name, nId) => { setVilleId(id); setVilleName(name); setVilleNatioId(nId); }}
             />
           ) : null}
         </>
@@ -490,17 +450,7 @@ export function ClubCreateDialog({
         </DialogActions>
       </Dialog>
 
-      <TerrainVilleSelector
-        open={villeSelectorOpen}
-        onClose={() => setVilleSelectorOpen(false)}
-        onSelect={(ville) => {
-          const selectedVilleId = String(ville.VICLEUNIK ?? '').trim();
-          const selectedVilleName = String(ville.NOM ?? '').trim();
-          setVilleId(selectedVilleId);
-          setVilleName(selectedVilleName);
-          setVilleSelectorOpen(false);
-        }}
-      />
+      {/* TerrainVilleSelector is now embedded inside VillePicker */}
     </>
   );
 }

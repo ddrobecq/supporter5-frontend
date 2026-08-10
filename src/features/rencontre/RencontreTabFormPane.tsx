@@ -40,6 +40,7 @@ import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
 import { DateInputField, formatDateShort, fromInputDateToDisplay, toInputDateFromDisplay } from '../../components/DateInputField';
 import { TimeInputField } from '../../components/TimeInputField';
+import { NumberField } from '../../components/NumberField';
 import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { useEntityImage } from '../../lib/useEntityImage';
@@ -198,10 +199,6 @@ function toNonNegativeIntegerString(value: unknown): string {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return '0';
   return String(Math.max(0, Math.trunc(numeric)));
-}
-
-function toTwoDigitsNonNegative(value: unknown): string {
-  return toNonNegativeIntegerString(value).slice(0, 2);
 }
 
 function normalizeColorCode(raw: unknown, fallback: string): string {
@@ -855,6 +852,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       : '';
 
   return (
+    <Box sx={{ bgcolor: '#ffffff', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
     <Stack spacing={1.5}>
       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.25, alignItems: 'center' }}>
         <ClubInlineLine
@@ -883,68 +881,36 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       </Box>
 
       <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
-        <TextField
+        <NumberField
           label="Tab dom"
-          size="small"
-          type="text"
           value={draft.tabDom}
-          onChange={(event) => setDraft((prev) => (prev ? { ...prev, tabDom: toTwoDigitsNonNegative(event.target.value) } : prev))}
-          slotProps={{
-            htmlInput: {
-              inputMode: 'numeric',
-              pattern: '[0-9]*',
-              maxLength: 2,
-              style: { textAlign: 'center' },
-            },
-          }}
+          onChange={(nextValue) => setDraft((prev) => (prev ? { ...prev, tabDom: nextValue } : prev))}
+          maxLength={2}
+          align="center"
           sx={{ width: 82 }}
         />
-        <TextField
+        <NumberField
           label="But dom"
-          size="small"
-          type="text"
           value={draft.butDom}
-          onChange={(event) => setDraft((prev) => (prev ? { ...prev, butDom: toTwoDigitsNonNegative(event.target.value) } : prev))}
-          slotProps={{
-            htmlInput: {
-              inputMode: 'numeric',
-              pattern: '[0-9]*',
-              maxLength: 2,
-              style: { textAlign: 'center' },
-            },
-          }}
+          onChange={(nextValue) => setDraft((prev) => (prev ? { ...prev, butDom: nextValue } : prev))}
+          maxLength={2}
+          align="center"
           sx={{ width: 82 }}
         />
-        <TextField
+        <NumberField
           label="But ext"
-          size="small"
-          type="text"
           value={draft.butExt}
-          onChange={(event) => setDraft((prev) => (prev ? { ...prev, butExt: toTwoDigitsNonNegative(event.target.value) } : prev))}
-          slotProps={{
-            htmlInput: {
-              inputMode: 'numeric',
-              pattern: '[0-9]*',
-              maxLength: 2,
-              style: { textAlign: 'center' },
-            },
-          }}
+          onChange={(nextValue) => setDraft((prev) => (prev ? { ...prev, butExt: nextValue } : prev))}
+          maxLength={2}
+          align="center"
           sx={{ width: 82 }}
         />
-        <TextField
+        <NumberField
           label="Tab ext"
-          size="small"
-          type="text"
           value={draft.tabExt}
-          onChange={(event) => setDraft((prev) => (prev ? { ...prev, tabExt: toTwoDigitsNonNegative(event.target.value) } : prev))}
-          slotProps={{
-            htmlInput: {
-              inputMode: 'numeric',
-              pattern: '[0-9]*',
-              maxLength: 2,
-              style: { textAlign: 'center' },
-            },
-          }}
+          onChange={(nextValue) => setDraft((prev) => (prev ? { ...prev, tabExt: nextValue } : prev))}
+          maxLength={2}
+          align="center"
           sx={{ width: 82 }}
         />
       </Stack>
@@ -991,7 +957,6 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
               label="Heure"
               value={draft.heure}
               onChange={(nextValue) => setDraft((prev) => (prev ? { ...prev, heure: nextValue } : prev))}
-              sx={{ width: 130, flex: '0 0 auto' }}
             />
 
             <FormControl size="small" sx={{ width: 170, flex: '0 0 auto' }}>
@@ -1186,22 +1151,12 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
                     />
 
                     {!draft.houseClosed ? (
-                      <TextField
+                      <NumberField
                         label="Nombre de spectateurs"
-                        size="small"
-                        type="text"
                         value={draft.nbSpect}
-                        onChange={(event) => setDraft((prev) => (prev ? { ...prev, nbSpect: toNonNegativeIntegerString(event.target.value) } : prev))}
-                        slotProps={{
-                          input: {
-                            endAdornment: <InputAdornment position="end">spect</InputAdornment>,
-                          },
-                          htmlInput: {
-                            inputMode: 'numeric',
-                            pattern: '[0-9]*',
-                            maxLength: 7,
-                          },
-                        }}
+                        onChange={(nextValue) => setDraft((prev) => (prev ? { ...prev, nbSpect: nextValue } : prev))}
+                        suffix="spect"
+                        maxLength={7}
                         sx={{ width: 170, flex: '0 0 auto' }}
                       />
                     ) : null}
@@ -1425,7 +1380,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
         </Box>
       ) : null}
 
-      {showTabs && anyDirty ? (
+      {anyDirty ? (
         <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end', pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
           <Button
             variant="outlined"
@@ -1494,5 +1449,6 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
 
       <AppFeedbackSnackbar value={snackbar} onClose={() => setSnackbar(null)} />
     </Stack>
+    </Box>
   );
 }

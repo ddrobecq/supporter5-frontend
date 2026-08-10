@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { DateInputField } from '../../components/DateInputField';
+import { NumberField } from '../../components/NumberField';
 import { TimeInputField } from '../../components/TimeInputField';
 import { toErrorMessage } from '../../components/useEntityPage';
 import {
@@ -727,18 +728,14 @@ export function TourWizardDialog({
                 </RadioGroup>
               </Stack>
 
-              <TextField
+              <NumberField
                 label="Nombre de participants"
                 value={String(draft.participants)}
-                onChange={(event) => {
-                  const next = Number(event.target.value);
-                  setDraft((prev) => ({ ...prev, participants: Number.isFinite(next) ? next : 0 }));
+                onChange={(v) => {
+                  setDraft((prev) => ({ ...prev, participants: v === '' ? 0 : Number(v) }));
                   setErrors((prev) => ({ ...prev, participants: '' }));
                 }}
-                size="small"
                 fullWidth
-                type="number"
-                slotProps={{ htmlInput: { min: 1, step: 1 } }}
                 error={Boolean(errors.participants)}
                 helperText={errors.participants}
               />
@@ -798,7 +795,6 @@ export function TourWizardDialog({
                         setDraft((prev) => ({ ...prev, heureTirage: nextHeure }));
                         setErrors((prev) => ({ ...prev, heureTirage: '' }));
                       }}
-                      fullWidth
                       disabled={draft.selectionMode !== 'tirage'}
                       error={Boolean(errors.heureTirage)}
                       helperText={errors.heureTirage}
@@ -839,7 +835,6 @@ export function TourWizardDialog({
                     label="Heure des matches"
                     value={draft.heureMatches}
                     onChange={(nextHeure) => setDraft((prev) => ({ ...prev, heureMatches: nextHeure }))}
-                    fullWidth
                   />
                 </Stack>
               </Box>

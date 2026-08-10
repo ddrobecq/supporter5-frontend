@@ -88,7 +88,6 @@ export function CircFormDialog({ open, mode, embedded = false, primaryKey, initi
         fullWidth
         disabled={isCodeReadOnly}
         slotProps={{ htmlInput: { maxLength: 3 } }}
-        helperText={errors.IDCIRC ?? '3 caractères max'}
         error={Boolean(errors.IDCIRC)}
       />
       <TextField
@@ -97,8 +96,6 @@ export function CircFormDialog({ open, mode, embedded = false, primaryKey, initi
         onChange={(e) => setValues((prev) => ({ ...prev, CIRC: e.target.value }))}
         size="small"
         fullWidth
-        multiline
-        minRows={3}
         error={Boolean(errors.CIRC)}
         helperText={errors.CIRC}
       />

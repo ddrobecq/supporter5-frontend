@@ -11,6 +11,7 @@ export interface ClubProfileRow {
   IDNATIO: string;
   IDVILLE: string | null;
   VILLE_NOM: string;
+  VILLE_IDNATIO: string;
   FOND: string | number | null;
   TEXTE: string | number | null;
 }
@@ -42,6 +43,15 @@ export interface ClubMatchRow {
   TABDOM: number;
   TABEXT: number;
   ETAT: number;
+}
+
+export interface ClubPalmareRow {
+  IDEPREUVE: number;
+  EPREUVE: string;
+  OFFICIELLE: number;
+  SCOPE: number;
+  NB_TITRES: number;
+  ANNEES: string[];
 }
 
 export interface ClubSuggestionRow {

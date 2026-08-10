@@ -93,13 +93,12 @@ export function DeviseFormDialog({
   const content = (
     <>
       <TextField
-        label="Code"
+        label="Identifiant"
         value={String(values.DVCLEUNIK ?? '')}
         onChange={(e) => setValues((prev) => ({ ...prev, DVCLEUNIK: e.target.value }))}
         size="small"
         fullWidth
         disabled={isCodeReadOnly}
-        helperText={isCodeReadOnly ? 'Auto-généré' : undefined}
       />
       <TextField
         label="Nom"
@@ -118,7 +117,6 @@ export function DeviseFormDialog({
         fullWidth
         slotProps={{ htmlInput: { maxLength: 3 } }}
         error={Boolean(errors.SYMBOLE)}
-        helperText={errors.SYMBOLE ?? '3 caractères max'}
       />
       <TextField
         label="Taux de conversion en €"

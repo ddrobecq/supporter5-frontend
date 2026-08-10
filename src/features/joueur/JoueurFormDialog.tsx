@@ -1,4 +1,3 @@
-import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -12,7 +11,6 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  InputAdornment,
   IconButton,
   Stack,
   Tab,
@@ -26,6 +24,7 @@ import {
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DateInputField, fromInputDateToDisplay, toInputDateFromDisplay } from '../../components/DateInputField';
+import { NumberField } from '../../components/NumberField';
 import { ClubSelectField } from '../../components/ClubSelectField';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
@@ -33,6 +32,7 @@ import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { TerrainVilleSelector } from '../terrain/TerrainVilleSelector';
+import { VillePicker } from '../../components/VillePicker';
 import type { NatioRow } from '../natio/types';
 import { fetchVilleById } from '../ville/villeApi';
 import {
@@ -47,7 +47,9 @@ import {
   updateJoueurHistory,
   updateJoueurTransaction,
 } from './joueurApi';
+import { NatioAutocomplete } from '../../components/NatioAutocomplete';
 import { JoueurContractsTimeline } from './JoueurContractsTimeline';
+import { JoueurMatchesTab } from './JoueurMatchesTab';
 import type {
   JoueurHistoryRow,
   JoueurRow,
@@ -70,8 +72,7 @@ interface JoueurFormDialogProps {
   saveCount?: number;
 }
 
-type VilleTarget = 'birth' | 'death';
-type JoueurFormTabKey = 'identite' | 'historique' | 'contrats';
+type JoueurFormTabKey = 'identite' | 'historique' | 'contrats' | 'matches';
 
 interface JoueurHistoryDialogDraft {
   saison: string;
@@ -198,9 +199,10 @@ export function JoueurFormDialog({
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [villeSelectorOpen, setVilleSelectorOpen] = useState(false);
-  const [villeTarget, setVilleTarget] = useState<VilleTarget>('birth');
   const [birthVilleName, setBirthVilleName] = useState('');
+  const [birthVilleNatioId, setBirthVilleNatioId] = useState('');
   const [deathVilleName, setDeathVilleName] = useState('');
+  const [deathVilleNatioId, setDeathVilleNatioId] = useState('');
   const [photoDraft, setPhotoDraft] = useState<string | null | undefined>(undefined);
   const [imageRefreshToken, setImageRefreshToken] = useState(0);
   const [historyRows, setHistoryRows] = useState<JoueurHistoryRow[]>([]);
@@ -245,11 +247,6 @@ export function JoueurFormDialog({
 
   const editId = mode === 'edit' ? (initialData?.IDJOUEUR as string | number | undefined) : undefined;
   const existingPhoto = useEntityImage('joueurrg', editId, imageRefreshToken);
-
-  const countryOptions = useMemo(() => natioDatas.map((natio) => ({
-    id: natio.IDNATIO ?? natio.ID,
-    label: `${natio.PAYS ?? natio.NOM} (${natio.IDNATIO ?? natio.ID})`,
-  })), [natioDatas]);
 
   const posteSelectOptions = useMemo(
     () => posteOptions.map((poste) => ({ value: poste.POS_ID, label: poste.POS_NOM })),
@@ -310,8 +307,6 @@ export function JoueurFormDialog({
 
   const birthDateDisplay = normalizeNullableText(values.NAISSANCE);
   const deathDateDisplay = normalizeNullableText(values.DECES);
-  const birthVilleDisplay = birthVilleName || normalizeNullableCityId(values.IDVILLE);
-  const deathVilleDisplay = deathVilleName || normalizeNullableCityId(values.VILLE_DECES);
 
   useEffect(() => {
     if (!open) return;
@@ -806,24 +801,6 @@ export function JoueurFormDialog({
     </Stack>
   );
 
-  const handleVillePick = (target: VilleTarget): void => {
-    setVilleTarget(target);
-    setVilleSelectorOpen(true);
-  };
-
-  const handleVilleSelect = (ville: Record<string, unknown>) => {
-    const villeId = ville.VICLEUNIK ?? '';
-    const villeNom = String(ville.NOM ?? '');
-    if (villeTarget === 'birth') {
-      setValues((prev) => ({ ...prev, IDVILLE: villeId }));
-      setBirthVilleName(villeNom);
-    } else {
-      setValues((prev) => ({ ...prev, VILLE_DECES: villeId }));
-      setDeathVilleName(villeNom);
-    }
-    setVilleSelectorOpen(false);
-  };
-
   const handleSave = async (): Promise<boolean> => {
     const nextErrors: Record<string, string> = {};
     if (!String(values.IDJOUEUR ?? '').trim()) nextErrors.IDJOUEUR = 'ID Joueur requis';
@@ -926,12 +903,11 @@ export function JoueurFormDialog({
           />
           <Stack spacing={1} sx={{ flex: 1 }}>
             <TextField
-              label="ID Joueur"
+              label="Identifiant"
               value={String(values.IDJOUEUR ?? '')}
               onChange={(event) => setValues((prev) => ({ ...prev, IDJOUEUR: event.target.value }))}
               disabled={mode === 'edit'}
               error={Boolean(errors.IDJOUEUR)}
-              helperText={errors.IDJOUEUR ?? (mode === 'edit' ? 'Identifiant non modifiable' : '')}
               fullWidth
               size="small"
             />
@@ -973,25 +949,19 @@ export function JoueurFormDialog({
             sx={{ width: 152, flexShrink: 0 }}
             calendarAriaLabel="Calendrier naissance"
           />
-          <TextField
+          <VillePicker
+            villeId={String(values.IDVILLE ?? '')}
+            villeName={birthVilleName}
+            villeNatioId={birthVilleNatioId}
+            entityNatioId={String(values.IDNATIO ?? '')}
+            onChange={(id, name, natioId) => {
+              setValues((prev) => ({ ...prev, IDVILLE: id || null }));
+              setBirthVilleName(name);
+              setBirthVilleNatioId(natioId);
+            }}
             label="à"
-            value={birthVilleDisplay}
             sx={{ minWidth: 180, flex: 1 }}
-            size="small"
-            slotProps={{ input: { readOnly: true } }}
           />
-          <Tooltip title="Sélectionner une ville de naissance">
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={() => handleVillePick('birth')}
-              startIcon={<LocationCityRoundedIcon fontSize="small" />}
-              sx={{ flexShrink: 0, minWidth: 36, px: 1, '.MuiButton-startIcon': { mr: 0 } }}
-              aria-label="Sélectionner une ville de naissance"
-            >
-              <Box component="span" sx={{ display: 'none' }}>Ville</Box>
-            </Button>
-          </Tooltip>
         </Stack>
 
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'nowrap', pt: 0.5 }}>
@@ -1002,68 +972,44 @@ export function JoueurFormDialog({
             sx={{ width: 152, flexShrink: 0 }}
             calendarAriaLabel="Calendrier décès"
           />
-          <TextField
+          <VillePicker
+            villeId={String(values.VILLE_DECES ?? '')}
+            villeName={deathVilleName}
+            villeNatioId={deathVilleNatioId}
+            entityNatioId={String(values.IDNATIO ?? '')}
+            onChange={(id, name, natioId) => {
+              setValues((prev) => ({ ...prev, VILLE_DECES: id || null }));
+              setDeathVilleName(name);
+              setDeathVilleNatioId(natioId);
+            }}
             label="à"
-            value={deathVilleDisplay}
             sx={{ minWidth: 180, flex: 1 }}
-            size="small"
-            slotProps={{ input: { readOnly: true } }}
           />
-          <Tooltip title="Sélectionner une ville de décès">
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={() => handleVillePick('death')}
-              startIcon={<LocationCityRoundedIcon fontSize="small" />}
-              sx={{ flexShrink: 0, minWidth: 36, px: 1, '.MuiButton-startIcon': { mr: 0 } }}
-              aria-label="Sélectionner une ville de décès"
-            >
-              <Box component="span" sx={{ display: 'none' }}>Ville</Box>
-            </Button>
-          </Tooltip>
         </Stack>
 
-        <Autocomplete
-          options={countryOptions}
-          getOptionLabel={(option) => option.label}
-          value={countryOptions.find((option) => option.id === values.IDNATIO) ?? null}
-          onChange={(_, option) => setValues((prev) => ({ ...prev, IDNATIO: option?.id ?? '' }))}
-          renderInput={(params) => <TextField {...params} label="Nationalité" size="small" />}
-          size="small"
+        <NatioAutocomplete
+          natioDatas={natioDatas}
+          value={String(values.IDNATIO ?? '')}
+          onChange={(id) => setValues((prev) => ({ ...prev, IDNATIO: id }))}
+          label="Nationalité"
         />
 
         <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
-          <TextField
+          <NumberField
             label="Taille"
             value={String(values.HAUTEUR ?? '')}
-            onChange={(event) => setValues((prev) => ({
-              ...prev,
-              HAUTEUR: event.target.value.replace(/\D+/g, '').slice(0, 3),
-            }))}
-            size="small"
+            onChange={(v) => setValues((prev) => ({ ...prev, HAUTEUR: v }))}
+            maxLength={3}
+            suffix="cm"
             sx={{ width: 110, flexShrink: 0 }}
-            slotProps={{
-              input: {
-                endAdornment: <InputAdornment position="end">cm</InputAdornment>,
-              },
-              htmlInput: { inputMode: 'numeric', maxLength: 3 },
-            }}
           />
-          <TextField
+          <NumberField
             label="Poids"
             value={String(values.POIDS ?? '')}
-            onChange={(event) => setValues((prev) => ({
-              ...prev,
-              POIDS: event.target.value.replace(/\D+/g, '').slice(0, 3),
-            }))}
-            size="small"
+            onChange={(v) => setValues((prev) => ({ ...prev, POIDS: v }))}
+            maxLength={3}
+            suffix="kg"
             sx={{ width: 110, flexShrink: 0 }}
-            slotProps={{
-              input: {
-                endAdornment: <InputAdornment position="end">kg</InputAdornment>,
-              },
-              htmlInput: { inputMode: 'numeric', maxLength: 3 },
-            }}
           />
         </Stack>
 
@@ -1154,10 +1100,14 @@ export function JoueurFormDialog({
         <Tab value="identite" label="Identité" />
         <Tab value="historique" label="Historique dans le Club" />
         <Tab value="contrats" label="Contrats" />
+        <Tab value="matches" label="Matches" />
       </Tabs>
       <Box sx={{ display: activeTab === 'identite' ? 'block' : 'none' }}>{identityTab}</Box>
       <Box sx={{ display: activeTab === 'historique' ? 'block' : 'none' }}>{historyTab}</Box>
       <Box sx={{ display: activeTab === 'contrats' ? 'block' : 'none' }}>{contractsTab}</Box>
+      <Box sx={{ display: activeTab === 'matches' ? 'block' : 'none' }}>
+        <JoueurMatchesTab joueurId={String(initialData?.IDJOUEUR ?? '')} active={activeTab === 'matches'} />
+      </Box>
     </Stack>
   );
 
@@ -1179,7 +1129,7 @@ export function JoueurFormDialog({
         </EntityFormDialog>
       )}
 
-      <TerrainVilleSelector open={villeSelectorOpen} onClose={() => setVilleSelectorOpen(false)} onSelect={handleVilleSelect} />
+      <TerrainVilleSelector open={villeSelectorOpen} onClose={() => setVilleSelectorOpen(false)} onSelect={() => {}} />
 
       <Dialog open={historyDialogOpen} onClose={() => { if (!historyDialogSaving) setHistoryDialogOpen(false); }} fullWidth maxWidth="sm">
         <DialogTitle>{historyDialogMode === 'create' ? 'Ajouter une saison' : 'Modifier une saison'}</DialogTitle>

@@ -26,7 +26,7 @@ import {
 } from '@mui/material';
 import type { ReactElement } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { NumberInputField } from '../../components/NumberInputField';
+import { NumberField } from '../../components/NumberField';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { createRencontreEvent, updateRencontreEvent, type EventPayload, fetchRencontreSquad } from './rencontreApi';
 import type { RencontreHighlightEventRow, SquadPlayerRow } from './types';
@@ -295,16 +295,15 @@ export function EventFormDialog({ open, onClose, onSaved, rencontreId, event, on
           />
 
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-            <NumberInputField
+            <NumberField
               label="Minute de jeu"
               value={minute}
               onChange={(v) => {
-                const val = v == null ? '' : String(v);
-                setMinute(val);
-                if (v != null && v > 0) setPeriode(getAutoPeriode(v));
+                setMinute(v);
+                const num = parseInt(v, 10);
+                if (v && Number.isFinite(num) && num > 0) setPeriode(getAutoPeriode(num));
               }}
-              min={0}
-              max={130}
+              maxLength={3}
             />
             <FormControl fullWidth>
               <InputLabel>Comptant pour</InputLabel>

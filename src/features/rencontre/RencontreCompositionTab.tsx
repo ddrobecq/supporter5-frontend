@@ -336,7 +336,7 @@ export function RencontreCompositionTab({
   const opponentComposition = String(composition['MACOMPOADVERSAIRE'] ?? '');
   const normalizedSupportedClubName = String(supportedClubName ?? '').trim() || 'le club supporte';
   const normalizedOpponentClubName = String(opponentClubName ?? '').trim() || 'l adversaire';
-  const showSupportedComposition = true;
+  const showSupportedComposition = !isNarrowViewport || !showOpponentCompositionOnMobile;
   const showOpponentComposition = !isNarrowViewport || showOpponentCompositionOnMobile;
   const mobileSwitchTargetClubName = showOpponentCompositionOnMobile ? normalizedSupportedClubName : normalizedOpponentClubName;
 
@@ -687,7 +687,7 @@ export function RencontreCompositionTab({
               flex: { md: '0 1 360px' },
             }}
           >
-            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Compo adversaire</Typography>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Composition de {normalizedOpponentClubName}</Typography>
             <TextField
               value={opponentComposition}
               onChange={(event) => handleOpponentCompositionChange(event.target.value)}

@@ -3,8 +3,8 @@ import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './features/auth/LoginPage';
 import { HomePage } from './features/home/HomePage';
-import { NatioPage } from './features/natio/NatioPage';
 import { VillePage } from './features/ville/VillePage';
+import { NatioPage } from './features/natio/NatioPage';
 import { ArbitrePage } from './features/arbitre/ArbitrePage';
 import { TerrainPage } from './features/terrain/TerrainPage';
 import { DevisePage } from './features/devise/DevisePage';
@@ -44,8 +44,8 @@ function EmptyRoute() {
 const ENTITY_ROUTES: EntityRouteDefinition[] = [
   { shortPath: 'joueurs', adminPath: 'admin/joueurs', paramName: 'joueurId', PageComponent: JoueurPage },
   { shortPath: 'clubs', adminPath: 'admin/clubs', paramName: 'clubId', PageComponent: ClubPage },
-  { shortPath: 'natio', adminPath: 'admin/natio', paramName: 'natioId', PageComponent: NatioPage },
   { shortPath: 'ville', adminPath: 'admin/ville', paramName: 'villeId', PageComponent: VillePage },
+  { shortPath: 'natio', adminPath: 'admin/natio', paramName: 'natioId', PageComponent: NatioPage },
   { shortPath: 'arbitre', adminPath: 'admin/arbitre', paramName: 'arbitreId', PageComponent: ArbitrePage },
   { shortPath: 'terrain', adminPath: 'admin/terrain', paramName: 'terrainId', PageComponent: TerrainPage },
   { shortPath: 'devise', adminPath: 'admin/devise', paramName: 'deviseId', PageComponent: DevisePage },

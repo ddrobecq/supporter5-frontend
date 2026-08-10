@@ -130,6 +130,15 @@ export function ScoreCell({ row, isEditing, canEdit, draft, onStartEdit, onDraft
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    // AZERTY: remap unshifted Digit keys that don't produce a digit natively
+    if (!event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey
+        && /^Digit\d$/.test(event.code) && !/^\d$/.test(event.key)) {
+      event.preventDefault();
+      document.execCommand('insertText', false, event.code.slice(-1));
+      onUserInput();
+      return;
+    }
+
     if (/^\d$/.test(event.key) || event.key === 'Backspace' || event.key === 'Delete') {
       onUserInput();
     }

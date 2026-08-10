@@ -1,16 +1,14 @@
 import {
-  Button,
   Box,
-  InputAdornment,
+  Button,
   Stack,
   TextField,
 } from '@mui/material';
-import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { VillePicker } from '../../components/VillePicker';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import type { TerrainRow } from './types';
-import { TerrainVilleSelector } from './TerrainVilleSelector';
 
 interface TerrainFormDialogProps {
   open: boolean;
@@ -39,11 +37,10 @@ export function TerrainFormDialog({
 }: TerrainFormDialogProps) {
   const [values, setValues] = useState<TerrainRow>({});
   const [saving, setSaving] = useState(false);
-  const [villeSelectorOpen, setVilleSelectorOpen] = useState(false);
   const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, onDirtyChange);
 
   const labelsByField: Record<string, string> = {
-    TECLEUNIK: 'Code',
+    TECLEUNIK: 'Identifiant',
     STADE: 'Nom',
     VILLE_NOM: 'Ville',
   };
@@ -110,15 +107,6 @@ export function TerrainFormDialog({
   handleSaveRef.current = handleSave;
   useEffect(() => { if (saveCount > 0) void handleSaveRef.current(); }, [saveCount]);
 
-  const handleVilleSelect = (ville: Record<string, unknown>) => {
-    // Update both IDVILLE and VILLE_NOM when selecting a ville
-    setValues((prev) => ({
-      ...prev,
-      IDVILLE: ville.VICLEUNIK ?? prev.IDVILLE,
-      VILLE_NOM: ville.NOM ?? prev.VILLE_NOM,
-    }));
-    setVilleSelectorOpen(false);
-  };
 
   const content = (
     <>
@@ -146,32 +134,11 @@ export function TerrainFormDialog({
         ) : null}
 
         {resolvedFields.includes(villeField) ? (
-          <TextField
+          <VillePicker
+            villeId={String(values['IDVILLE'] ?? '')}
+            villeName={String(values[villeField] ?? '')}
+            onChange={(id, name) => setValues((prev) => ({ ...prev, IDVILLE: id, [villeField]: name }))}
             label={labelsByField[villeField]}
-            value={(values[villeField] as string | number | undefined) ?? ''}
-            fullWidth
-            size="small"
-            onContextMenu={(e) => {
-              e.preventDefault();
-              setVilleSelectorOpen(true);
-            }}
-            slotProps={{
-              input: {
-                readOnly: true,
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <Button
-                      size="small"
-                      variant="text"
-                      onClick={() => setVilleSelectorOpen(true)}
-                      sx={{ minWidth: 36, p: 0 }}
-                    >
-                      <EditRoundedIcon fontSize="small" />
-                    </Button>
-                  </InputAdornment>
-                ),
-              },
-            }}
           />
         ) : null}
 
@@ -216,11 +183,7 @@ export function TerrainFormDialog({
         </EntityFormDialog>
       )}
 
-      <TerrainVilleSelector
-        open={villeSelectorOpen}
-        onClose={() => setVilleSelectorOpen(false)}
-        onSelect={handleVilleSelect}
-      />
+      {/* TerrainVilleSelector now embedded in VillePicker */}
     </>
   );
 }

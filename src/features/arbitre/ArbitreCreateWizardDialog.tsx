@@ -1,4 +1,5 @@
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material';
+import { NatioAutocomplete } from '../../components/NatioAutocomplete';
 import axios from 'axios';
 import { useEffect, useRef, useState } from 'react';
 import { CreateWizardSuggestionPanel } from '../../components/CreateWizardSuggestionPanel';
@@ -83,11 +84,6 @@ export function ArbitreCreateWizardDialog({ open, onClose, onCreate, onError }: 
     };
   }, [nom, onError, open, step]);
 
-  const countryOptions = natioRows
-    .map((row) => ({ id: String(row.IDNATIO ?? row.ID ?? '').trim(), label: String(row.PAYS ?? row.NOM ?? '').trim() }))
-    .filter((row) => row.id.length > 0)
-    .sort((a, b) => a.label.localeCompare(b.label));
-
   const canGoNext = nom.trim().length > 0;
   const canCreate = nom.trim().length > 0 && natioId.trim().length > 0;
 
@@ -167,20 +163,12 @@ export function ArbitreCreateWizardDialog({ open, onClose, onCreate, onError }: 
                 size="small"
               />
 
-              <TextField
-                select
-                label="Nationalite"
+              <NatioAutocomplete
+                natioDatas={natioRows}
                 value={natioId}
-                onChange={(event) => setNatioId(event.target.value)}
-                fullWidth
-                size="small"
-                slotProps={{ select: { native: true } }}
-              >
-                <option value=""></option>
-                {countryOptions.map((option) => (
-                  <option key={option.id} value={option.id}>{`${option.label} (${option.id})`}</option>
-                ))}
-              </TextField>
+                onChange={setNatioId}
+                label="Nationalité"
+              />
             </>
           )}
         </Box>

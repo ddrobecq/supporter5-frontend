@@ -1,5 +1,6 @@
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useMemo } from 'react';
+import { Navigate, useParams } from 'react-router-dom';
 import { canDeleteCirc, createCirc, deleteCirc, fetchCirc, fetchCircById, updateCirc } from './circApi';
 import { CircFormDialog } from './CircFormDialog';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
@@ -14,6 +15,14 @@ interface CircPageProps {
 }
 
 export function CircPage({ variant = 'page', onOpenInTab }: CircPageProps) {
+  const params = useParams<{ circId?: string }>();
+  const circId = params.circId;
+
+  // Si variant est 'page' (page complète, pas modale) et qu'il n'y a pas d'ID, rediriger
+  if (variant === 'page' && !circId) {
+    return <Navigate to="/admin/home" replace />;
+  }
+
   const page = useEntityPage<CircRow>(
     {
       fetchAll: fetchCirc,

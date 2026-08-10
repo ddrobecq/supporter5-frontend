@@ -14,6 +14,7 @@ import { type GridColDef, type GridRowId } from '@mui/x-data-grid';
 import { type Dispatch, type SetStateAction, useMemo, useState } from 'react';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
+import { NumberField } from '../../components/NumberField';
 import type { QualifRow } from './types';
 
 interface TourWizardStep4ClassementProps {
@@ -295,28 +296,24 @@ export function TourWizardStep4Classement({ tourId, rows, onRowsChange, onError 
         saveLabel="Enregistrer"
       >
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>
-          <TextField
+          <NumberField
             label="Rang de"
             value={draft.CLASS_MinRang}
-            onChange={(event) => {
-              setDraft((prev) => ({ ...prev, CLASS_MinRang: event.target.value }));
+            onChange={(v) => {
+              setDraft((prev) => ({ ...prev, CLASS_MinRang: v }));
               setErrors((prev) => ({ ...prev, CLASS_MinRang: '' }));
             }}
-            type="number"
-            size="small"
             fullWidth
             error={Boolean(errors.CLASS_MinRang)}
             helperText={errors.CLASS_MinRang}
           />
-          <TextField
+          <NumberField
             label="à"
             value={draft.CLASS_MaxRang}
-            onChange={(event) => {
-              setDraft((prev) => ({ ...prev, CLASS_MaxRang: event.target.value }));
+            onChange={(v) => {
+              setDraft((prev) => ({ ...prev, CLASS_MaxRang: v }));
               setErrors((prev) => ({ ...prev, CLASS_MaxRang: '' }));
             }}
-            type="number"
-            size="small"
             fullWidth
             error={Boolean(errors.CLASS_MaxRang)}
             helperText={errors.CLASS_MaxRang}

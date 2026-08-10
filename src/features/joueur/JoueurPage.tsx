@@ -2,6 +2,7 @@ import { Alert, FormControl, InputLabel, MenuItem, Select } from '@mui/material'
 import type { GridColDef, GridRowClassNameParams, GridRowId } from '@mui/x-data-grid';
 import axios from 'axios';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Navigate, useParams } from 'react-router-dom';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
 import { toErrorMessage } from '../../components/useEntityPage';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
@@ -37,6 +38,14 @@ interface JoueurPageProps {
 }
 
 export function JoueurPage({ variant = 'page', onOpenInTab, filterPosteType, initialSeason }: JoueurPageProps) {
+  const params = useParams<{ joueurId?: string }>();
+  const joueurId = params.joueurId;
+
+  // Si variant est 'page' (page complète, pas modale) et qu'il n'y a pas d'ID, rediriger
+  if (variant === 'page' && !joueurId) {
+    return <Navigate to="/admin/home" replace />;
+  }
+
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const actionButtonsRowRef = useRef<HTMLDivElement | null>(null);
   const [compactActionButtons, setCompactActionButtons] = useState(false);

@@ -2,14 +2,16 @@ import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRou
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import AutoFixHighRoundedIcon from '@mui/icons-material/AutoFixHighRounded';
+import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import FormatColorFillRoundedIcon from '@mui/icons-material/FormatColorFillRounded';
 import FormatColorTextRoundedIcon from '@mui/icons-material/FormatColorTextRounded';
-import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
 import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
 import {
+  Avatar,
   Box,
   Button,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -30,8 +32,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import jerseySvgSource from '../../../img/jersey.svg?raw';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
+import { ClubSelectField } from '../../components/ClubSelectField';
 import { DateInputField, formatDateShort } from '../../components/DateInputField';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
+import { NatioAutocomplete } from '../../components/NatioAutocomplete';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { MatchDataGrid } from '../../components/MatchDataGrid';
 import { buildMatchGridColumns } from '../../components/matchGridColumns';
@@ -41,11 +45,11 @@ import { toErrorMessage } from '../../components/useEntityPage';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { fetchNatio } from '../natio/natioApi';
 import type { NatioRow } from '../natio/types';
-import { TerrainVilleSelector } from '../terrain/TerrainVilleSelector';
-import type { VilleRow } from '../ville/types';
+import { VillePicker } from '../../components/VillePicker';
 import {
   createClubTerrainHistory,
   fetchClubMatches,
+  fetchClubPalmares,
   createClubNameHistory,
   deleteClubTerrainHistory,
   deleteClubNameHistory,
@@ -56,8 +60,9 @@ import {
   updateClubNameHistory,
   updateClubProfile,
 } from './clubApi';
-import type { ClubMatchRow, ClubNameHistoryRow, ClubProfileRow, ClubTerrainHistoryRow } from './types';
+import type { ClubMatchRow, ClubNameHistoryRow, ClubPalmareRow, ClubProfileRow, ClubTerrainHistoryRow } from './types';
 import { TerrainPickerDialog } from '../terrain/TerrainPickerDialog';
+import { supportedClubStore } from '../system/supportedClubStore';
 
 interface ClubTabFormPaneProps {
   tabPath: string;
@@ -65,13 +70,14 @@ interface ClubTabFormPaneProps {
   active: boolean;
 }
 
-type ClubTabKey = 'info' | 'matches';
+type ClubTabKey = 'info' | 'matches' | 'palmares';
 
 interface ClubProfileDraft {
   name: string;
   natioId: string;
   villeId: string;
   villeName: string;
+  villeNatioId: string;
   fond: string;
   texte: string;
 }
@@ -148,6 +154,7 @@ function createClubProfileDraft(row?: ClubProfileRow): ClubProfileDraft {
     natioId: String(row?.IDNATIO ?? '').trim(),
     villeId: String(row?.IDVILLE ?? '').trim(),
     villeName: String(row?.VILLE_NOM ?? '').trim(),
+    villeNatioId: String(row?.VILLE_IDNATIO ?? '').trim(),
     fond,
     texte,
   };
@@ -400,6 +407,30 @@ function formatDateForApi(value: string): string | null {
   return text || null;
 }
 
+function PalmareListItem({ row }: { row: ClubPalmareRow }) {
+  const image = useEntityImage('epreuve', row.IDEPREUVE);
+  return (
+    <Stack direction="row" spacing={2} sx={{ alignItems: 'center', py: 1.5, px: 0.5 }}>
+      <Avatar
+        src={image.src ?? undefined}
+        sx={{ width: 44, height: 44, bgcolor: 'grey.100', flexShrink: 0 }}
+      >
+        {!image.src && <EmojiEventsRoundedIcon sx={{ fontSize: 26, color: 'text.disabled' }} />}
+      </Avatar>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography variant="body2" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.EPREUVE}</Typography>
+        <Typography variant="caption" color="text.secondary">{row.ANNEES.join(' · ')}</Typography>
+      </Box>
+      <Chip
+        label={`×${row.NB_TITRES}`}
+        size="small"
+        color="primary"
+        sx={{ fontWeight: 700, flexShrink: 0 }}
+      />
+    </Stack>
+  );
+}
+
 export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProps) {
   const handleProfileSaveRef = useRef<(() => Promise<void>) | null>(null);
   const { setDirty, setLabel, notifySaveDone } = useTabFormPaneBridge({
@@ -416,6 +447,13 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
   const [nameHistoryRows, setNameHistoryRows] = useState<ClubNameHistoryRow[]>([]);
   const [terrainHistoryRows, setTerrainHistoryRows] = useState<ClubTerrainHistoryRow[]>([]);
   const [matchRows, setMatchRows] = useState<ClubMatchRow[]>([]);
+  const [palmareRows, setPalmareRows] = useState<ClubPalmareRow[]>([]);
+  const [palmareLoading, setPalmareLoading] = useState(false);
+  const [matchFilterClubId, setMatchFilterClubId] = useState(() => supportedClubStore.getState().clubId);
+  const [matchFilterClubName, setMatchFilterClubName] = useState(() => supportedClubStore.getState().clubName);
+  const supportedClubLoaded = supportedClubStore((s) => s.loaded);
+  const supportedClubStoreId = supportedClubStore((s) => s.clubId);
+  const supportedClubStoreName = supportedClubStore((s) => s.clubName);
   const [nameHistoryLoading, setNameHistoryLoading] = useState(false);
   const [terrainHistoryLoading, setTerrainHistoryLoading] = useState(false);
   const [matchesLoading, setMatchesLoading] = useState(false);
@@ -423,7 +461,6 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
   const [terrainHistorySelection, setTerrainHistorySelection] = useState<GridRowId[]>([]);
   const [activeTab, setActiveTab] = useState<ClubTabKey>('info');
 
-  const [villeSelectorOpen, setVilleSelectorOpen] = useState(false);
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
   const [nameDialogOpen, setNameDialogOpen] = useState(false);
   const [nameDialogMode, setNameDialogMode] = useState<'create' | 'edit'>('create');
@@ -580,6 +617,33 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     },
   ];
 
+  const filteredMatchRows = useMemo(() => {
+    if (!matchFilterClubId) return matchRows;
+    return matchRows.filter(
+      (m) => m.DOMICILE === matchFilterClubId || m.EXTERIEUR === matchFilterClubId,
+    );
+  }, [matchRows, matchFilterClubId]);
+
+  const matchStats = useMemo(() => {
+    const completed = filteredMatchRows.filter((m) => m.ETAT === 2 || m.ETAT === 3);
+    let wins = 0;
+    let draws = 0;
+    let losses = 0;
+    let goalsFor = 0;
+    let goalsAgainst = 0;
+    for (const m of completed) {
+      const isHome = m.DOMICILE === clubId;
+      const gf = isHome ? (m.BUTDOM ?? 0) : (m.BUTEXT ?? 0);
+      const gc = isHome ? (m.BUTEXT ?? 0) : (m.BUTDOM ?? 0);
+      goalsFor += gf;
+      goalsAgainst += gc;
+      if (gf > gc) wins += 1;
+      else if (gf === gc) draws += 1;
+      else losses += 1;
+    }
+    return { played: completed.length, wins, draws, losses, goalsFor, goalsAgainst, diff: goalsFor - goalsAgainst };
+  }, [filteredMatchRows, clubId]);
+
   const matchColumns = useMemo<GridColDef<ClubMatchRow>[]>(() => buildMatchGridColumns<ClubMatchRow>({
     date: {
       enabled: true,
@@ -669,6 +733,40 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     }
   }, [clubId]);
 
+  const reloadPalmares = useCallback(async () => {
+    setPalmareLoading(true);
+    try {
+      const rows = await fetchClubPalmares(clubId);
+      setPalmareRows(rows);
+    } catch (error) {
+      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+    } finally {
+      setPalmareLoading(false);
+    }
+  }, [clubId]);
+
+  useEffect(() => {
+    if (!supportedClubLoaded) return;
+    setMatchFilterClubId((prev) => (prev === supportedClubStore.getState().clubId || prev === '0001' ? supportedClubStoreId : prev));
+    setMatchFilterClubName((prev) => (prev === 'Club supporte' ? supportedClubStoreName : prev));
+  }, [supportedClubLoaded, supportedClubStoreId, supportedClubStoreName]);
+
+  // ClubSelectField.onChange gives CLUB_NOM_COMPLET; fetch CLUB_ABREGE for this filter only
+  const handleMatchFilterChange = ({ clubId: newId, clubName: newName }: { clubId: string; clubName: string }) => {
+    setMatchFilterClubId(newId);
+    setMatchFilterClubName(newName);
+    if (newId) {
+      void fetchClubProfileById(newId)
+        .then((profile) => setMatchFilterClubName(profile.CLUB_ABREGE || newName))
+        .catch(() => {});
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab !== 'palmares') return;
+    void reloadPalmares();
+  }, [activeTab, reloadPalmares]);
+
   useEffect(() => {
     const controller = new AbortController();
 
@@ -694,23 +792,6 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     if (loading) return;
     setDirty(isAnyDirty);
   }, [isAnyDirty, loading, setDirty]);
-
-  const countryOptions = natioRows
-    .map((natio) => ({
-      id: String(natio.IDNATIO ?? natio.ID ?? '').trim(),
-      label: String(natio.PAYS ?? natio.NOM ?? '').trim(),
-    }))
-    .filter((rowOption) => rowOption.id.length > 0)
-    .sort((a, b) => a.label.localeCompare(b.label));
-
-  const villeDisplay = profileDraft.villeName || profileDraft.villeId;
-
-  const handleVilleSelect = (ville: VilleRow) => {
-    const villeId = String(ville.VICLEUNIK ?? '').trim();
-    const villeNom = String(ville.NOM ?? '').trim();
-    setProfileDraft((prev) => ({ ...prev, villeId, villeName: villeNom }));
-    setVilleSelectorOpen(false);
-  };
 
   const selectedNameHistoryId = Number(nameHistorySelection[0] ?? 0);
   const selectedNameHistoryRow = nameHistoryRows.find((historyRow) => Number(historyRow.IDCLUB_NOM) === selectedNameHistoryId);
@@ -1087,22 +1168,96 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
             >
               <Tab value="info" label="INFORMATIONS" />
               <Tab value="matches" label="MATCHES" />
+              <Tab value="palmares" label="PALMARÈS" />
             </Tabs>
 
-            {activeTab === 'matches' ? (
-              <Box sx={{ height: 520 }}>
-                <MatchDataGrid
-                  rows={matchRows}
-                  columns={matchColumns}
-                  loading={matchesLoading}
-                  getRowId={(matchRow) => matchRow.RECLEUNIK}
-                  openMatchOnDoubleClick
-                  disableRowSelectionOnClick
-                  disableColumnMenu
-                  density="compact"
-                  pageSizeOptions={[25, 50, 100]}
-                />
+            {activeTab === 'palmares' ? (
+              <Box>
+                {palmareLoading ? (
+                  <Stack sx={{ alignItems: 'center', py: 4 }}><CircularProgress size={28} /></Stack>
+                ) : palmareRows.length === 0 ? (
+                  <Stack sx={{ alignItems: 'center', py: 4 }}>
+                    <EmojiEventsRoundedIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
+                    <Typography variant="body2" color="text.secondary">Aucun titre remporté.</Typography>
+                  </Stack>
+                ) : (
+                  <Stack spacing={0} divider={<Box sx={{ borderBottom: '1px solid', borderColor: 'divider' }} />}>
+                    {palmareRows.map((palmareRow) => (
+                      <PalmareListItem key={palmareRow.IDEPREUVE} row={palmareRow} />
+                    ))}
+                  </Stack>
+                )}
               </Box>
+            ) : null}
+
+            {activeTab === 'matches' ? (
+              <Stack spacing={1.5}>
+                <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
+                  <Stack direction="row" spacing={1.5} sx={{ alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                    <Box
+                      sx={{
+                        flex: '1 1 240px',
+                        maxWidth: 320,
+                        '& .MuiInputAdornment-positionStart .MuiTypography-root': { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+                      }}
+                    >
+                      <ClubSelectField
+                        label="Filtrer par adversaire"
+                        clubId={matchFilterClubId}
+                        clubName={matchFilterClubName}
+                        onChange={handleMatchFilterChange}
+                        clearLabel="Effacer"
+                      />
+                    </Box>
+                  </Stack>
+                </Box>
+
+                <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block', mb: 1 }}>STATISTIQUES</Typography>
+                  <Stack direction="row" spacing={0} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                    {([
+                      { label: 'Matchs', value: matchStats.played },
+                      { label: 'V', value: matchStats.wins },
+                      { label: 'N', value: matchStats.draws },
+                      { label: 'D', value: matchStats.losses },
+                      { label: 'BP', value: matchStats.goalsFor },
+                      { label: 'BC', value: matchStats.goalsAgainst },
+                      { label: 'Diff', value: matchStats.diff > 0 ? `+${matchStats.diff}` : String(matchStats.diff) },
+                    ] as { label: string; value: number | string }[]).map((stat) => (
+                      <Box
+                        key={stat.label}
+                        sx={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          minWidth: 48,
+                          px: 1,
+                          py: 0.5,
+                          bgcolor: 'action.hover',
+                          borderRadius: 1,
+                        }}
+                      >
+                        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>{stat.label}</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{stat.value}</Typography>
+                      </Box>
+                    ))}
+                  </Stack>
+                </Box>
+
+                <Box sx={{ height: 400 }}>
+                  <MatchDataGrid
+                    rows={filteredMatchRows}
+                    columns={matchColumns}
+                    loading={matchesLoading}
+                    getRowId={(matchRow) => matchRow.RECLEUNIK}
+                    openMatchOnDoubleClick
+                    disableRowSelectionOnClick
+                    disableColumnMenu
+                    density="compact"
+                    pageSizeOptions={[25, 50, 100]}
+                  />
+                </Box>
+              </Stack>
             ) : null}
 
             {activeTab === 'info' ? (
@@ -1192,49 +1347,20 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
                 autoFocus
               />
 
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                <TextField
-                  label="Ville"
-                  value={villeDisplay}
-                  size="small"
-                  fullWidth
-                  slotProps={{ input: { readOnly: true } }}
-                />
-                <Tooltip title="Selectionner une ville">
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={() => setVilleSelectorOpen(true)}
-                    startIcon={<LocationCityRoundedIcon fontSize="small" />}
-                    sx={{
-                      flexShrink: 0,
-                      minWidth: 36,
-                      px: 1,
-                      '.MuiButton-startIcon': { mr: 0 },
-                    }}
-                    aria-label="Selectionner une ville"
-                  >
-                    <Box component="span" sx={{ display: 'none' }}>
-                      Ville
-                    </Box>
-                  </Button>
-                </Tooltip>
-              </Stack>
+              <VillePicker
+                villeId={profileDraft.villeId}
+                villeName={profileDraft.villeName}
+                villeNatioId={profileDraft.villeNatioId}
+                entityNatioId={profileDraft.natioId}
+                onChange={(id, name, natioId) => setProfileDraft((prev) => ({ ...prev, villeId: id, villeName: name, villeNatioId: natioId }))}
+              />
 
-              <TextField
-                select
-                label="Pays"
+              <NatioAutocomplete
+                natioDatas={natioRows}
                 value={profileDraft.natioId}
-                onChange={(event) => setProfileDraft((prev) => ({ ...prev, natioId: event.target.value }))}
-                size="small"
-                fullWidth
-                slotProps={{ inputLabel: { shrink: true }, select: { native: true } }}
-              >
-                <option value=""></option>
-                {countryOptions.map((option) => (
-                  <option key={option.id} value={option.id}>{`${option.label} (${option.id})`}</option>
-                ))}
-              </TextField>
+                onChange={(id) => setProfileDraft((prev) => ({ ...prev, natioId: id }))}
+                label="Pays"
+              />
             </Stack>
 
             <input
@@ -1435,12 +1561,6 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       </Dialog>
 
       <AppFeedbackSnackbar value={snackbar} onClose={() => setSnackbar(null)} />
-
-      <TerrainVilleSelector
-        open={villeSelectorOpen}
-        onClose={() => setVilleSelectorOpen(false)}
-        onSelect={handleVilleSelect}
-      />
 
       <TerrainPickerDialog
         open={terrainSelectorOpen}

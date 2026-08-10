@@ -5,6 +5,7 @@ import type {
   ClubGridRow,
   ClubMatchRow,
   ClubNameHistoryRow,
+  ClubPalmareRow,
   ClubProfileRow,
   ClubSuggestionRow,
   ClubTerrainHistoryRow,
@@ -204,4 +205,9 @@ export async function deleteClubTerrainHistory(
   terrainHistoryId: number | string,
 ): Promise<void> {
   await http.delete(`${env.clubAdminResource}/${encodeURIComponent(id)}/terrains/${encodeURIComponent(String(terrainHistoryId))}`);
+}
+
+export async function fetchClubPalmares(id: string): Promise<ClubPalmareRow[]> {
+  const { data } = await http.get<{ data: ClubPalmareRow[] }>(`${env.clubPublicResource}/grid/${encodeURIComponent(id)}/palmares`);
+  return data.data ?? [];
 }

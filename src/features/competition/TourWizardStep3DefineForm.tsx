@@ -20,6 +20,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { NumberField } from '../../components/NumberField';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { createTourDef, fetchTourDefsByType, fetchTourDefById, type CreateTourDefPayload } from './competitionApi';
 import type { TourDefRow } from './types';
@@ -647,12 +648,10 @@ export function TourWizardStep3DefineForm({
             />
 
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25}>
-              <TextField
+              <NumberField
                 label="Durée temps réglementaire"
-                size="small"
-                type="number"
-                value={createDraft.DUREE_TPS_REG}
-                onChange={(event) => setCreateDraft((prev) => ({ ...prev, DUREE_TPS_REG: Number(event.target.value) || 0 }))}
+                value={String(createDraft.DUREE_TPS_REG)}
+                onChange={(v) => setCreateDraft((prev) => ({ ...prev, DUREE_TPS_REG: v === '' ? '' : Number(v) }))}
                 fullWidth
               />
               <FormControl fullWidth size="small">
@@ -672,12 +671,10 @@ export function TourWizardStep3DefineForm({
             </Stack>
 
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25}>
-              <TextField
+              <NumberField
                 label="Durée prolongation"
-                size="small"
-                type="number"
-                value={createDraft.DUREE_TPS_PROLONG}
-                onChange={(event) => setCreateDraft((prev) => ({ ...prev, DUREE_TPS_PROLONG: Number(event.target.value) || 0 }))}
+                value={String(createDraft.DUREE_TPS_PROLONG)}
+                onChange={(v) => setCreateDraft((prev) => ({ ...prev, DUREE_TPS_PROLONG: v === '' ? '' : Number(v) }))}
                 fullWidth
               />
               <FormControl fullWidth size="small">
@@ -698,12 +695,12 @@ export function TourWizardStep3DefineForm({
 
             <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Attribution des points</Typography>
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25}>
-              <TextField label="Victoire domicile" size="small" type="number" value={createDraft.VALEUR_VD} onChange={(event) => setCreateDraft((prev) => ({ ...prev, VALEUR_VD: parseNumericInput(event.target.value) }))} fullWidth />
-              <TextField label="Victoire extérieur" size="small" type="number" value={createDraft.VALEUR_VE} onChange={(event) => setCreateDraft((prev) => ({ ...prev, VALEUR_VE: parseNumericInput(event.target.value) }))} fullWidth />
-              <TextField label="Nul domicile" size="small" type="number" value={createDraft.VALEUR_ND} onChange={(event) => setCreateDraft((prev) => ({ ...prev, VALEUR_ND: parseNumericInput(event.target.value) }))} fullWidth />
-              <TextField label="Nul extérieur" size="small" type="number" value={createDraft.VALEUR_NE} onChange={(event) => setCreateDraft((prev) => ({ ...prev, VALEUR_NE: parseNumericInput(event.target.value) }))} fullWidth />
-              <TextField label="Défaite domicile" size="small" type="number" value={createDraft.VALEUR_DD} onChange={(event) => setCreateDraft((prev) => ({ ...prev, VALEUR_DD: parseNumericInput(event.target.value) }))} fullWidth />
-              <TextField label="Défaite extérieur" size="small" type="number" value={createDraft.VALEUR_DE} onChange={(event) => setCreateDraft((prev) => ({ ...prev, VALEUR_DE: parseNumericInput(event.target.value) }))} fullWidth />
+              <NumberField label="Victoire domicile" value={String(createDraft.VALEUR_VD)} onChange={(v) => setCreateDraft((prev) => ({ ...prev, VALEUR_VD: v === '' ? '' : Number(v) }))} fullWidth />
+              <NumberField label="Victoire extérieur" value={String(createDraft.VALEUR_VE)} onChange={(v) => setCreateDraft((prev) => ({ ...prev, VALEUR_VE: v === '' ? '' : Number(v) }))} fullWidth />
+              <NumberField label="Nul domicile" value={String(createDraft.VALEUR_ND)} onChange={(v) => setCreateDraft((prev) => ({ ...prev, VALEUR_ND: v === '' ? '' : Number(v) }))} fullWidth />
+              <NumberField label="Nul extérieur" value={String(createDraft.VALEUR_NE)} onChange={(v) => setCreateDraft((prev) => ({ ...prev, VALEUR_NE: v === '' ? '' : Number(v) }))} fullWidth />
+              <NumberField label="Défaite domicile" value={String(createDraft.VALEUR_DD)} onChange={(v) => setCreateDraft((prev) => ({ ...prev, VALEUR_DD: v === '' ? '' : Number(v) }))} fullWidth />
+              <NumberField label="Défaite extérieur" value={String(createDraft.VALEUR_DE)} onChange={(v) => setCreateDraft((prev) => ({ ...prev, VALEUR_DE: v === '' ? '' : Number(v) }))} fullWidth />
             </Stack>
 
             <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Goalaverage</Typography>
@@ -762,13 +759,13 @@ export function TourWizardStep3DefineForm({
                   ))}
                 </Select>
               </FormControl>
-                <TextField label="Seuil bonus" size="small" type="number" value={createDraft.BONUS_NB_BUT} onChange={(event) => setCreateDraft((prev) => ({ ...prev, BONUS_NB_BUT: parseNumericInput(event.target.value) }))} fullWidth />
+                <NumberField label="Seuil bonus" value={String(createDraft.BONUS_NB_BUT)} onChange={(v) => setCreateDraft((prev) => ({ ...prev, BONUS_NB_BUT: v === '' ? '' : Number(v) }))} fullWidth />
             </Stack>
 
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25}>
-                <TextField label="Bonus victoire" size="small" type="number" value={createDraft.VALEUR_BONUS_V} onChange={(event) => setCreateDraft((prev) => ({ ...prev, VALEUR_BONUS_V: parseNumericInput(event.target.value) }))} fullWidth />
-                <TextField label="Bonus nul" size="small" type="number" value={createDraft.VALEUR_BONUS_N} onChange={(event) => setCreateDraft((prev) => ({ ...prev, VALEUR_BONUS_N: parseNumericInput(event.target.value) }))} fullWidth />
-                <TextField label="Bonus défaite" size="small" type="number" value={createDraft.VALEUR_BONUS_D} onChange={(event) => setCreateDraft((prev) => ({ ...prev, VALEUR_BONUS_D: parseNumericInput(event.target.value) }))} fullWidth />
+                <NumberField label="Bonus victoire" value={String(createDraft.VALEUR_BONUS_V)} onChange={(v) => setCreateDraft((prev) => ({ ...prev, VALEUR_BONUS_V: v === '' ? '' : Number(v) }))} fullWidth />
+                <NumberField label="Bonus nul" value={String(createDraft.VALEUR_BONUS_N)} onChange={(v) => setCreateDraft((prev) => ({ ...prev, VALEUR_BONUS_N: v === '' ? '' : Number(v) }))} fullWidth />
+                <NumberField label="Bonus défaite" value={String(createDraft.VALEUR_BONUS_D)} onChange={(v) => setCreateDraft((prev) => ({ ...prev, VALEUR_BONUS_D: v === '' ? '' : Number(v) }))} fullWidth />
             </Stack>
 
             <Box>

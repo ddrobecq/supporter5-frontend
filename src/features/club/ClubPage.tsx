@@ -1,5 +1,6 @@
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useMemo, useState } from 'react';
+import { Navigate, useParams } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
 import { toErrorMessage, useEntityPage } from '../../components/useEntityPage';
@@ -13,6 +14,14 @@ interface ClubPageProps {
 }
 
 export function ClubPage({ variant = 'page', onOpenInTab }: ClubPageProps) {
+  const params = useParams<{ clubId?: string }>();
+  const clubId = params.clubId;
+
+  // Si variant est 'page' (page complète, pas modale) et qu'il n'y a pas d'ID, rediriger
+  if (variant === 'page' && !clubId) {
+    return <Navigate to="/admin/home" replace />;
+  }
+
   const navigate = useNavigate();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 

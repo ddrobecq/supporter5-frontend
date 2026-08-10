@@ -1,6 +1,7 @@
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { MenuItem, TextField } from '@mui/material';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Navigate, useParams } from 'react-router-dom';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
 import { useEntityPage } from '../../components/useEntityPage';
 import {
@@ -23,6 +24,14 @@ interface CompetitionPageProps {
 }
 
 export function CompetitionPage({ variant = 'page', onOpenInTab }: CompetitionPageProps) {
+  const params = useParams<{ competitionId?: string }>();
+  const competitionId = params.competitionId;
+
+  // Si variant est 'page' (page complète, pas modale) et qu'il n'y a pas d'ID, rediriger
+  if (variant === 'page' && !competitionId) {
+    return <Navigate to="/admin/home" replace />;
+  }
+
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [epreuveOptions, setEpreuveOptions] = useState<EpreuveOption[]>([]);
   const [saisonOptions, setSaisonOptions] = useState<SaisonOption[]>([]);

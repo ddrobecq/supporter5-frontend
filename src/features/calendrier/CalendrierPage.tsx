@@ -1078,7 +1078,7 @@ export function CalendrierPage() {
               value={dateDraft}
               onChange={handleDateDraftChange}
               calendarAriaLabel="Calendrier"
-              sx={{ width: { xs: 142, sm: 142 }, minWidth: 142, maxWidth: 142, flex: '0 0 auto' }}
+              sx={{ width: { xs: 162, sm: 162 }, minWidth: 162, maxWidth: 162, flex: '0 0 auto' }}
             />
 
             <IconButton
@@ -1184,7 +1184,7 @@ export function CalendrierPage() {
         </CardContent>
       </Card>
 
-      {!isSelectedProgrammedEncounter ? (
+      {!isSelectedProgrammedEncounter && activeTourId !== null ? (
         <Card>
           <CardContent>
             <Stack spacing={1.25}>

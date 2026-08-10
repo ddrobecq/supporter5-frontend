@@ -1,10 +1,10 @@
 import {
-  Autocomplete,
   Box,
   Button,
   Stack,
   TextField,
 } from '@mui/material';
+import { NatioAutocomplete } from '../../components/NatioAutocomplete';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEntityImage } from '../../lib/useEntityImage';
@@ -58,7 +58,7 @@ export function ArbitreFormDialog({
   const existingPhoto = useEntityImage('arbitre', editId, imageRefreshToken);
 
   const labelsByField: Record<string, string> = {
-    IDARBITRE: 'Code',
+    IDARBITRE: 'Identifiant',
     NOM: 'Nom',
     PRENOM: 'Prénom',
     IDNATIO: 'Nationalité',
@@ -100,13 +100,6 @@ export function ArbitreFormDialog({
     () => new Set([codeField, nomField, prenomField, natioField, photoField].filter(Boolean) as string[]),
     [codeField, nomField, prenomField, natioField, photoField],
   );
-
-  const countryOptions = useMemo(() => {
-    return natioDatas.map((natio) => ({
-      id: natio.IDNATIO ?? natio.ID,
-      label: `${natio.PAYS ?? natio.NOM} (${natio.IDNATIO ?? natio.ID})`,
-    }));
-  }, [natioDatas]);
 
   useEffect(() => {
     if (!open) {
@@ -233,15 +226,13 @@ export function ArbitreFormDialog({
                 />
               ) : null}
 
-              {/* Code */}
+              {/* Identifiant */}
               <Stack spacing={1} sx={{ flex: 1 }}>
                 {codeField ? (
                   <TextField
                     label={labelsByField[codeField] ?? codeField}
                     value={String(values[codeField] ?? '')}
                     disabled
-                    placeholder="Généré automatiquement"
-                    helperText="Code généré automatiquement à la création"
                     fullWidth
                     size="small"
                     sx={{
@@ -299,30 +290,17 @@ export function ArbitreFormDialog({
 
             {/* Nationalité */}
             {natioField ? (
-              <Autocomplete
-                options={countryOptions}
-                getOptionLabel={(option) => option.label}
-                value={
-                  countryOptions.find((opt) => opt.id === values[natioField]) || null
-                }
-                onChange={(_, option) => {
-                  setValues((prev) => ({
-                    ...prev,
-                    [natioField]: option?.id ?? '',
-                  }));
+              <NatioAutocomplete
+                natioDatas={natioDatas}
+                value={String(values[natioField] ?? '')}
+                onChange={(id) => {
+                  setValues((prev) => ({ ...prev, [natioField]: id }));
                   setErrors((prev) => ({ ...prev, pays: '' }));
                 }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label={labelsByField[natioField] ?? natioField}
-                    error={!!errors.pays}
-                    helperText={errors.pays}
-                    size="small"
-                    required
-                  />
-                )}
-                size="small"
+                label={labelsByField[natioField] ?? natioField}
+                error={!!errors.pays}
+                helperText={errors.pays}
+                required
               />
             ) : null}
 

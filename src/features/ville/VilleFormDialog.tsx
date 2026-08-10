@@ -1,5 +1,4 @@
 import {
-  Autocomplete,
   Box,
   Button,
   Stack,
@@ -7,6 +6,7 @@ import {
 } from '@mui/material';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
+import { NatioAutocomplete } from '../../components/NatioAutocomplete';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import type { VilleRow } from './types';
 import type { NatioRow } from '../natio/types';
@@ -44,9 +44,9 @@ export function VilleFormDialog({
   const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, onDirtyChange);
 
   const labelsByField: Record<string, string> = {
-    VICLEUNIK: 'Code',
-    VILLEID: 'Code',
-    ID: 'Code',
+    VICLEUNIK: 'Identifiant',
+    VILLEID: 'Identifiant',
+    ID: 'Identifiant',
     NOM: 'Nom',
     IDNATIO: 'Pays',
   };
@@ -78,13 +78,6 @@ export function VilleFormDialog({
     () => new Set([codeField, nameField, natioField].filter(Boolean) as string[]),
     [codeField, nameField, natioField],
   );
-
-  const countryOptions = useMemo(() => {
-    return natioDatas.map((natio) => ({
-      id: natio.IDNATIO ?? natio.ID,
-      label: `${natio.PAYS ?? natio.NOM} (${natio.IDNATIO ?? natio.ID})`,
-    }));
-  }, [natioDatas]);
 
   useEffect(() => {
     if (!open) {
@@ -156,8 +149,6 @@ export function VilleFormDialog({
           label={labelsByField[codeField] ?? codeField}
           value={String(values[codeField] ?? '')}
           disabled
-          placeholder={mode === 'create' ? '(généré automatiquement)' : ''}
-          helperText={mode === 'create' ? 'Code généré automatiquement à la création' : ''}
           fullWidth
           size="small"
           sx={{
@@ -186,30 +177,17 @@ export function VilleFormDialog({
       ) : null}
 
       {natioField ? (
-        <Autocomplete
-          options={countryOptions}
-          getOptionLabel={(option) => option.label}
-          value={
-            countryOptions.find((opt) => opt.id === values[natioField]) || null
-          }
-          onChange={(_, option) => {
-            setValues((prev) => ({
-              ...prev,
-              [natioField]: option?.id ?? '',
-            }));
+        <NatioAutocomplete
+          natioDatas={natioDatas}
+          value={String(values[natioField] ?? '')}
+          onChange={(id) => {
+            setValues((prev) => ({ ...prev, [natioField]: id }));
             setErrors((prev) => ({ ...prev, pays: '' }));
           }}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label={labelsByField[natioField] ?? natioField}
-              error={!!errors.pays}
-              helperText={errors.pays}
-              size="small"
-              required
-            />
-          )}
-          size="small"
+          label={labelsByField[natioField] ?? natioField}
+          error={!!errors.pays}
+          helperText={errors.pays}
+          required
         />
       ) : null}
 

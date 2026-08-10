@@ -2,14 +2,14 @@ import {
   Button,
   Box,
   FormControlLabel,
-  IconButton,
   Stack,
   Switch,
   TextField,
 } from '@mui/material';
-import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
+import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
+import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import { useEntityImage } from '../../lib/useEntityImage';
 import type { NatioRow } from './types';
@@ -110,16 +110,17 @@ export function NatioFormDialog({
   const [saving, setSaving] = useState(false);
   const [flagPreview, setFlagPreview] = useState('');
   const [flagSvgContent, setFlagSvgContent] = useState('');
+  const [flagCleared, setFlagCleared] = useState(false);
   const [imageRefreshToken, setImageRefreshToken] = useState(0);
   const editId = mode === 'edit' && primaryKey ? (initialData?.[primaryKey] as string | number | undefined) : undefined;
   const existingFlagImage = useEntityImage('natio', editId, imageRefreshToken);
-  const displayFlagSrc = flagSvgContent.trim() ? flagPreview : (existingFlagImage.src ?? '');
+  const displayFlagSrc = flagSvgContent.trim() ? flagPreview : flagCleared ? '' : (existingFlagImage.src ?? '');
   const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, onDirtyChange);
 
   const labelsByField: Record<string, string> = {
-    IDNATIO: 'Code',
-    NATIO: 'Code',
-    CODE: 'Code',
+    IDNATIO: 'Identifiant',
+    NATIO: 'Identifiant',
+    CODE: 'Identifiant',
     PAYS: 'Nom',
     NOM: 'Nom',
     NALOCAL: 'Pays local',
@@ -177,32 +178,34 @@ export function NatioFormDialog({
     setValues(initial);
     setFlagSvgContent('');
     setFlagPreview('');
+    setFlagCleared(false);
 
     const signature = JSON.stringify({ ...initial, NAT_DRAPEAU: resolvedSvg.trim() || '' });
     setInitialSignature(signature);
   }, [open, resolvedFields, initialData]);
 
   useEffect(() => {
-    const currentSignature = JSON.stringify({ ...values, NAT_DRAPEAU: flagSvgContent.trim() || '' });
+    const currentSignature = JSON.stringify({ ...values, NAT_DRAPEAU: flagSvgContent.trim() || (flagCleared ? '_cleared_' : '') });
     syncDirty(currentSignature);
-  }, [flagSvgContent, syncDirty, values]);
+  }, [flagCleared, flagSvgContent, syncDirty, values]);
 
-  const handleFlagFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const svgText = typeof reader.result === 'string' ? reader.result.trim() : '';
-      if (!svgText) return;
-
+  const handleFlagImageChange = (nextValue: string | null) => {
+    if (nextValue === null) {
+      setFlagSvgContent('');
+      setFlagPreview('');
+      setFlagCleared(true);
+      return;
+    }
+    const svgText = asSvgText(nextValue);
+    if (svgText) {
       setFlagSvgContent(svgText);
       setFlagPreview(svgToDataUrl(svgText));
-    };
-    reader.readAsText(file);
-
-    // Allow selecting the same file twice in a row.
-    event.target.value = '';
+    } else {
+      // Non-SVG image (e.g. pasted PNG) — store data URL directly
+      setFlagSvgContent(nextValue);
+      setFlagPreview(nextValue);
+    }
+    setFlagCleared(false);
   };
 
   const handleSave = async () => {
@@ -212,6 +215,8 @@ export function NatioFormDialog({
       if (flagField) {
         if (flagSvgContent.trim()) {
           payload[flagField] = flagSvgContent.trim();
+        } else if (flagCleared) {
+          payload[flagField] = null;
         } else {
           delete payload[flagField];
         }
@@ -220,6 +225,7 @@ export function NatioFormDialog({
       if (mode === 'edit') {
         setFlagSvgContent('');
         setFlagPreview('');
+        setFlagCleared(false);
         setImageRefreshToken((prev) => prev + 1);
       }
       markClean();
@@ -244,66 +250,24 @@ export function NatioFormDialog({
                 width: '100%',
               }}
       >
-            <Box
-              sx={{
-                width: 180,
-                maxWidth: '100%',
-                aspectRatio: '3 / 2',
-                bgcolor: 'grey.100',
-                borderRadius: 1,
-                border: '1px solid',
-                borderColor: 'divider',
-                display: 'grid',
-                placeItems: 'center',
-                overflow: 'hidden',
-                position: 'relative',
-                flexShrink: 0,
-                justifySelf: 'start',
+            <EntityImageFrame
+              width={180}
+              height={120}
+              loading={!flagSvgContent && !flagCleared && existingFlagImage.loading}
+              src={displayFlagSrc || null}
+              alt="Apercu du drapeau"
+              objectFit="contain"
+              editable
+              accept=".svg,image/svg+xml,image/*"
+              onChangeImage={handleFlagImageChange}
+              actionLabels={{
+                upload: 'Importer un drapeau SVG',
+                paste: 'Coller un drapeau depuis le presse-papiers',
+                clear: 'Supprimer le drapeau',
               }}
-            >
-              {displayFlagSrc ? (
-                <Box
-                  component="img"
-                  src={displayFlagSrc}
-                  alt="Apercu du drapeau"
-                  sx={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'contain',
-                    objectPosition: 'center',
-                  }}
-                />
-              ) : (
-                <Box sx={{ color: 'text.secondary', fontSize: 12, px: 1, textAlign: 'center' }}>
-                  Apercu drapeau 3:2
-                </Box>
-              )}
-
-              <IconButton
-                component="label"
-                size="small"
-                aria-label="Importer un drapeau SVG"
-                sx={{
-                  position: 'absolute',
-                  right: 2,
-                  bottom: 2,
-                  width: 22,
-                  height: 22,
-                  bgcolor: 'background.paper',
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  '&:hover': { bgcolor: 'grey.100' },
-                }}
-              >
-                <UploadFileOutlinedIcon sx={{ fontSize: 14 }} />
-                <input
-                  type="file"
-                  accept=".svg,image/svg+xml"
-                  hidden
-                  onChange={handleFlagFileChange}
-                />
-              </IconButton>
-            </Box>
+              fallback={<FlagRoundedIcon sx={{ width: '100%', height: '100%', p: 1.5, color: 'text.disabled' }} />}
+              sx={{ border: '1px solid', borderColor: 'divider', justifySelf: 'start' }}
+            />
 
             <Stack
               spacing={1}

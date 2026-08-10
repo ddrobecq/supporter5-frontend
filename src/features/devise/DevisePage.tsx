@@ -1,5 +1,6 @@
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useMemo } from 'react';
+import { Navigate, useParams } from 'react-router-dom';
 import { createDevise, deleteDevise, fetchDevise, fetchDeviseById, updateDevise, canDeleteDevise } from './deviseApi';
 import { DeviseFormDialog } from './DeviseFormDialog';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
@@ -14,6 +15,14 @@ interface DevisePageProps {
 }
 
 export function DevisePage({ variant = 'page', onOpenInTab }: DevisePageProps) {
+  const params = useParams<{ deviseId?: string }>();
+  const deviseId = params.deviseId;
+
+  // Si variant est 'page' (page complète, pas modale) et qu'il n'y a pas d'ID, rediriger
+  if (variant === 'page' && !deviseId) {
+    return <Navigate to="/admin/home" replace />;
+  }
+
   const page = useEntityPage<DeviseRow>(
     {
       fetchAll: fetchDevise,

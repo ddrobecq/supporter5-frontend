@@ -7,7 +7,6 @@ import {
   Stack,
   Switch,
   TextField,
-  Typography,
 } from '@mui/material';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
@@ -213,20 +212,15 @@ export function CompetitionFormDialog({
         </Box>
 
         <Box sx={{ minWidth: 0, gridColumn: '2', gridRow: '1', alignSelf: 'start' }}>
-          <Stack spacing={0.5} sx={{ width: 180, maxWidth: '100%' }}>
-            <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.2 }}>
-              COCLEUNIK
-            </Typography>
-            <TextField
-              value={String(values.COCLEUNIK ?? '')}
-              onChange={(e) => setValues((prev) => ({ ...prev, COCLEUNIK: e.target.value }))}
-              size="small"
-              fullWidth
-              disabled={isIdReadOnly}
-              helperText={isIdReadOnly ? 'Auto-genere' : 'Code numerique'}
-              error={Boolean(errors.COCLEUNIK)}
-            />
-          </Stack>
+          <TextField
+            label="Identifiant"
+            value={String(values.COCLEUNIK ?? '')}
+            onChange={(e) => setValues((prev) => ({ ...prev, COCLEUNIK: e.target.value }))}
+            size="small"
+            fullWidth
+            disabled={isIdReadOnly}
+            error={Boolean(errors.COCLEUNIK)}
+          />
         </Box>
 
         <Box sx={{ minWidth: 0, gridColumn: '1 / -1', gridRow: '2' }}>

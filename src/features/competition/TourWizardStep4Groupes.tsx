@@ -2,6 +2,7 @@ import { Box, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { type GridColDef, type GridRowId } from '@mui/x-data-grid';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
+import { NumberField } from '../../components/NumberField';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { fetchTourDefById } from './competitionApi';
 import { detectGroupNaming, makeAutoLabel, type GroupNameBase, type GroupNumbering } from './tourWizardGroupNaming';
@@ -224,32 +225,25 @@ export function TourWizardStep4Groupes({
       </Typography>
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25}>
-        <TextField
+        <NumberField
           label="Nombre de Groupes"
-          size="small"
-          type="number"
           value={String(normalizedNbGroupe)}
-          onChange={(event) => {
-            const parsed = Math.max(1, Math.min(99, normalizeInteger(event.target.value) || 1));
-            onNbGroupeChange(parsed);
-          }}
-          slotProps={{ htmlInput: { min: 1, max: 99, step: 1 } }}
+          onChange={(v) => { onNbGroupeChange(Math.max(1, Math.min(99, v === '' ? 1 : Number(v)))); }}
+          max={99}
           sx={{ width: { xs: '100%', md: 220 } }}
           disabled={tourType !== 'ligue'}
         />
 
-        <TextField
+        <NumberField
           label="Nombre d'équipes par groupe (max)"
-          size="small"
-          type="number"
           value={maxPerGroupInput}
-          onChange={(event) => {
+          onChange={(v) => {
             setMaxPerGroupTouched(true);
-            const parsed = Math.max(1, Math.min(99, normalizeInteger(event.target.value) || 1));
+            const parsed = Math.max(1, Math.min(99, v === '' ? 1 : Number(v)));
             setMaxPerGroupInput(String(parsed));
             onNbEquipeChange(parsed);
           }}
-          slotProps={{ htmlInput: { min: 1, max: 99, step: 1 } }}
+          max={99}
           sx={{ width: { xs: '100%', md: 280 } }}
           disabled={isSingleGroup || tourType !== 'ligue'}
         />
@@ -286,17 +280,15 @@ export function TourWizardStep4Groupes({
         </TextField>
       </Stack>
 
-      <TextField
+      <NumberField
         label="Nombre de match à jouer"
-        size="small"
-        type="number"
         value={String(Math.max(0, normalizeInteger(nbMatch)))}
-        onChange={(event) => {
+        onChange={(v) => {
           setNbMatchTouched(true);
-          const parsed = Math.max(0, Math.min(99, normalizeInteger(event.target.value) || 0));
+          const parsed = Math.max(0, Math.min(99, v === '' ? 0 : Number(v)));
           onNbMatchChange(parsed);
         }}
-        slotProps={{ htmlInput: { min: 0, max: 99, step: 1 } }}
+        max={99}
         sx={{ width: { xs: '100%', md: 240 } }}
       />
 

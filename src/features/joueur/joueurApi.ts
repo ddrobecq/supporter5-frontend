@@ -7,6 +7,7 @@ import type {
   JoueurCreateWizardPayload,
   JoueurHistoryRow,
   JoueurGridRow,
+  JoueurMatchRow,
   JoueurRow,
   JoueurTransactionOptions,
   JoueurTransactionRow,
@@ -202,4 +203,14 @@ export async function deleteJoueur(id: string | number): Promise<void> {
 export async function canDeleteJoueur(id: string | number): Promise<CanDeleteResponse> {
   const { data } = await http.get<CanDeleteResponse>(`${env.joueurAdminResource}/${id}/can-delete`);
   return data;
+}
+
+export async function fetchJoueurSeasonsByPlayedMatches(id: string | number): Promise<string[]> {
+  const { data } = await http.get<GridResponse<string>>(`${env.joueurPublicResource}/${id}/matches/seasons`);
+  return data.data ?? [];
+}
+
+export async function fetchJoueurMatches(id: string | number, saison: string): Promise<JoueurMatchRow[]> {
+  const { data } = await http.get<GridResponse<JoueurMatchRow>>(`${env.joueurPublicResource}/${id}/matches/${saison}`);
+  return data.data ?? [];
 }

@@ -1,7 +1,10 @@
 ﻿import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useMemo, useState } from 'react';
+import { Navigate, useParams } from 'react-router-dom';
+import { Box } from '@mui/material';
 import { createArbitreWithWizard, deleteArbitre, fetchArbitre, fetchArbitreById, updateArbitre, canDeleteArbitre } from './arbitreApi';
 import { fetchNatio } from '../natio/natioApi';
+import { NatioFlag } from '../../components/NatioFlag';
 import { ArbitreFormDialog } from './ArbitreFormDialog';
 import { ArbitreCreateWizardDialog } from './ArbitreCreateWizardDialog';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
@@ -25,6 +28,14 @@ interface ArbitrePageProps {
 }
 
 export function ArbitrePage({ variant = 'page', onOpenInTab }: ArbitrePageProps) {
+  const params = useParams<{ arbitreId?: string }>();
+  const arbitreId = params.arbitreId;
+
+  // Si variant est 'page' (page complète, pas modale) et qu'il n'y a pas d'ID, rediriger
+  if (variant === 'page' && !arbitreId) {
+    return <Navigate to="/admin/home" replace />;
+  }
+
   const [natioDatas, setNatioDatas] = useState<NatioRow[]>([]);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
@@ -64,9 +75,25 @@ export function ArbitrePage({ variant = 'page', onOpenInTab }: ArbitrePageProps)
       const nom = String(params.row.NOM ?? '').toUpperCase();
       const prenom = params.row.PRENOM ?? '';
       const idnatio = params.row.IDNATIO;
-      return `${nom} ${prenom} (${String(idnatio ?? '')})`;
+      
+      // Find the country data to check NALOCAL
+      const country = natioDatas.find((n) => String(n.IDNATIO ?? '') === String(idnatio ?? ''));
+      const showFlag = idnatio && (!country || Number(country.NALOCAL ?? 0) !== 1);
+      
+      return (
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <span>{nom} {prenom}</span>
+          {showFlag && (
+            <>
+              <span style={{ marginLeft: '0.25rem' }}>(</span>
+              <NatioFlag idnatio={String(idnatio)} />
+              <span>)</span>
+            </>
+          )}
+        </Box>
+      );
     },
-  }], []);
+  }], [natioDatas]);
 
   const formFields = useMemo<string[]>(() => {
     const source = page.activeRow ?? page.rows[0];

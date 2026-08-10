@@ -1,9 +1,11 @@
 ﻿import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useMemo } from 'react';
+import { Navigate, useParams } from 'react-router-dom';
 import { createNatio, deleteNatio, fetchNatio, fetchNatioById, updateNatio, canDeleteNatio } from './natioApi';
 import { NatioFormDialog } from './NatioFormDialog';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
 import { createAndOpenInTab, useEntityPage } from '../../components/useEntityPage';
+import { NatioFlag } from '../../components/NatioFlag';
 import type { NatioRow } from './types';
 import { buildNatioFormFields, detectNatioPrimaryKey, resolveNatioId, resolveNatioLabel } from './natioUi';
 
@@ -17,6 +19,14 @@ function toComparableId(value: unknown): string {
 }
 
 export function NatioPage({ variant = 'page', onOpenInTab }: NatioPageProps) {
+  const params = useParams<{ natioId?: string }>();
+  const natioId = params.natioId;
+
+  // Si variant est 'page' (page complète, pas modale) et qu'il n'y a pas d'ID, rediriger
+  if (variant === 'page' && !natioId) {
+    return <Navigate to="/admin/home" replace />;
+  }
+
   const page = useEntityPage<NatioRow>(
     {
       fetchAll: fetchNatio,
@@ -47,22 +57,28 @@ export function NatioPage({ variant = 'page', onOpenInTab }: NatioPageProps) {
     const codeField = allFields.find((f) => ['IDNATIO', 'NATIO', 'CODE'].includes(f));
     const nameField = allFields.find((f) => ['PAYS', 'NOM', 'NATIO_NOM'].includes(f));
     const visibleFields = allFields.filter((field) => {
-      if (field === 'NALOCAL' || field === 'NAT_DRAPEAU') return false;
+      if (field === 'NALOCAL' || field === 'NAT_DRAPEAU' || field === codeField) return false;
       if (variant === 'modalPicker' && field === 'NAT_ISO') return false;
       return true;
     });
-    const orderedFields = [codeField, nameField, ...visibleFields].filter(
+    const orderedFields = ['NAT_DRAPEAU', nameField, ...visibleFields].filter(
       (field, index, array): field is string => Boolean(field) && array.indexOf(field) === index,
     );
-    return orderedFields.map((field, index) => ({
-      field,
-      headerName: field === codeField ? 'Code' : field === nameField ? 'Nom' : field,
-      width: index === 0 ? 80 : undefined,
-      minWidth: index === 0 ? 80 : index === 1 ? 220 : 140,
-      maxWidth: index === 0 ? 80 : undefined,
-      flex: index === 1 ? 1 : undefined,
-      sortable: true,
-    }));
+    return orderedFields.map((field, index) => {
+      const col: GridColDef = {
+        field,
+        headerName: field === 'NAT_DRAPEAU' ? '' : field === nameField ? 'Nom' : field,
+        width: index === 0 ? 50 : undefined,
+        minWidth: index === 0 ? 50 : index === 1 ? 150 : 140,
+        maxWidth: index === 0 ? 50 : undefined,
+        flex: index === 1 ? 1 : undefined,
+        sortable: false,
+      };
+      if (field === 'NAT_DRAPEAU' && codeField) {
+        col.renderCell = (params) => <NatioFlag idnatio={String(params.row[codeField] ?? '')} />;
+      }
+      return col;
+    });
   }, [page.rows, variant]);
 
   const formFields = useMemo<string[]>(() => {

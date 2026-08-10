@@ -512,6 +512,16 @@ export function AdminLayout() {
       return;
     }
 
+    // Ne pas créer d'onglet pour les routes d'entité sans ID (qui se redirigeront)
+    // Vérifier si le path est exactement un basePath d'entité sans ID après
+    const isEntityListPath = PICKER_ENTITY_DEFINITIONS.some(
+      (entity) => normalizedPath === entity.basePath
+    );
+    if (isEntityListPath) {
+      // Cette route sera redirigée, ne pas créer d'onglet
+      return;
+    }
+
     setTabs((prev) => {
       const currentTab = prev.find((tab) => tab.path === normalizedPath);
       if (currentTab) {

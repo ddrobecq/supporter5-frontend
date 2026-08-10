@@ -1,5 +1,6 @@
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useMemo } from 'react';
+import { Navigate, useParams } from 'react-router-dom';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
 import { createAndOpenInTab, useEntityPage } from '../../components/useEntityPage';
 import { TourDefFormDialog } from './TourDefFormDialog';
@@ -14,6 +15,14 @@ interface TourDefPageProps {
 }
 
 export function TourDefPage({ variant = 'page', onOpenInTab }: TourDefPageProps) {
+  const params = useParams<{ tourDefId?: string }>();
+  const tourDefId = params.tourDefId;
+
+  // Si variant est 'page' (page complète, pas modale) et qu'il n'y a pas d'ID, rediriger
+  if (variant === 'page' && !tourDefId) {
+    return <Navigate to="/admin/home" replace />;
+  }
+
   const page = useEntityPage<TourDefRow>(
     {
       fetchAll: fetchTourDefs,

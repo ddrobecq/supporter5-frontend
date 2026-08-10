@@ -1,5 +1,6 @@
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useMemo, useState } from 'react';
+import { Navigate, useParams } from 'react-router-dom';
 import { canDeleteEpreuve, deleteEpreuve, fetchEpreuve, fetchEpreuveById, updateEpreuve } from './epreuveApi';
 import { EpreuveFormDialog } from './EpreuveFormDialog';
 import { EpreuveCreateWizardDialog } from './EpreuveCreateWizardDialog';
@@ -14,6 +15,14 @@ interface EpreuvePageProps {
 }
 
 export function EpreuvePage({ variant = 'page', onOpenInTab }: EpreuvePageProps) {
+  const params = useParams<{ epreuveId?: string }>();
+  const epreuveId = params.epreuveId;
+
+  // Si variant est 'page' (page complète, pas modale) et qu'il n'y a pas d'ID, rediriger
+  if (variant === 'page' && !epreuveId) {
+    return <Navigate to="/admin/home" replace />;
+  }
+
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const page = useEntityPage<EpreuveRow>(

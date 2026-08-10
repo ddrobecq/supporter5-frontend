@@ -6,7 +6,6 @@ import {
   Stack,
   Switch,
   TextField,
-  Typography,
 } from '@mui/material';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -195,26 +194,21 @@ export function EpreuveFormDialog({
         </Box>
 
         <Box sx={{ minWidth: 0, gridColumn: '2', gridRow: '1', alignSelf: 'start' }}>
-          <Stack spacing={0.5} sx={{ width: 180, maxWidth: '100%' }}>
-            <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.2 }}>
-              IDÉPREUVE
-            </Typography>
-            <TextField
-              value={String(values.IDEPREUVE ?? '')}
-              onChange={(e) => setValues((prev) => ({ ...prev, IDEPREUVE: e.target.value }))}
-              size="small"
-              fullWidth
-              disabled={isIdReadOnly}
-              helperText={isIdReadOnly ? 'Auto-généré' : 'Code numérique'}
-              error={Boolean(errors.IDEPREUVE)}
-            />
-          </Stack>
+          <TextField
+            label="Identifiant"
+            value={String(values.IDEPREUVE ?? '')}
+            onChange={(e) => setValues((prev) => ({ ...prev, IDEPREUVE: e.target.value }))}
+            size="small"
+            fullWidth
+            disabled={isIdReadOnly}
+            error={Boolean(errors.IDEPREUVE)}
+          />
         </Box>
 
         <Box sx={{ minWidth: 0, gridColumn: '1 / -1', gridRow: '2' }}>
           <Stack spacing={2}>
             <TextField
-              label="Nom de l'épreuve"
+              label="Nom"
               value={String(values.EPREUVE ?? '')}
               onChange={(e) => setValues((prev) => ({ ...prev, EPREUVE: e.target.value }))}
               size="small"
