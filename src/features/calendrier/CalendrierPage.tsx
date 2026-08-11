@@ -31,6 +31,7 @@ import {
   heureDigitsToApiValue,
   isValidHeureDigits,
   normalizeHeureDigits,
+  sanitizeHeureDigits,
 } from './HeureCell';
 import type { ScoreDraft } from './ScoreCell';
 import type { CalendrierRow, TourClassementRow } from './types';
@@ -661,14 +662,14 @@ export function CalendrierPage() {
     setEditingStatusRowId(null);
     setEditingScoreRowId(null);
     setEditingHeureRowId(row.RECLEUNIK);
-    const initialDigits = normalizeHeureDigits(row.HEURE);
+    const initialDigits = sanitizeHeureDigits(normalizeHeureDigits(row.HEURE));
     heureInitialDraftRef.current = initialDigits;
     setHeureDraftDigits(initialDigits);
     setRowModifiedFlag(row.RECLEUNIK, false);
   };
 
   const cancelHeureEdit = (row: CalendrierRow): void => {
-    const initialDigits = normalizeHeureDigits(row.HEURE);
+    const initialDigits = sanitizeHeureDigits(normalizeHeureDigits(row.HEURE));
     setHeureDraftDigits(initialDigits);
     heureInitialDraftRef.current = '';
     setRowModifiedFlag(row.RECLEUNIK, false);

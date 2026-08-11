@@ -29,7 +29,24 @@ export function normalizeHeureDigits(value: unknown): string {
 }
 
 export function sanitizeHeureDigits(value: string): string {
-  return value.replace(/\D+/g, '').slice(0, 4);
+  const digits = value.replace(/\D+/g, '').slice(0, 4);
+  if (digits.length < 2) {
+    return digits;
+  }
+
+  const hour = Math.min(23, Number(digits.slice(0, 2)));
+  const hourDigits = String(hour).padStart(2, '0');
+
+  if (digits.length === 2) {
+    return hourDigits;
+  }
+  if (digits.length === 3) {
+    return `${hourDigits}${digits[2]}`;
+  }
+
+  const minute = Math.min(59, Number(digits.slice(2, 4)));
+  const minuteDigits = String(minute).padStart(2, '0');
+  return `${hourDigits}${minuteDigits}`;
 }
 
 export function isCompleteHeureDigits(value: string): boolean {
@@ -37,7 +54,15 @@ export function isCompleteHeureDigits(value: string): boolean {
 }
 
 export function isValidHeureDigits(value: string): boolean {
-  return /^\d{2}(\d{2})?$/.test(value);
+  if (/^\d{2}$/.test(value)) {
+    return Number(value) <= 23;
+  }
+  if (!/^\d{4}$/.test(value)) {
+    return false;
+  }
+  const hour = Number(value.slice(0, 2));
+  const minute = Number(value.slice(2, 4));
+  return hour <= 23 && minute <= 59;
 }
 
 export function formatHeureDigitsForInput(value: string): string {
@@ -63,9 +88,10 @@ export function formatHeureDisplay(value: unknown): string {
 export function heureDigitsToApiValue(value: string): string {
   const digits = sanitizeHeureDigits(value);
   if (digits.length === 2) {
+    if (!isValidHeureDigits(digits)) return '';
     return `${digits}:00`;
   }
-  if (!isCompleteHeureDigits(digits)) return '';
+  if (!isCompleteHeureDigits(digits) || !isValidHeureDigits(digits)) return '';
   return `${digits.slice(0, 2)}:${digits.slice(2)}`;
 }
 
@@ -85,10 +111,28 @@ export function HeureCell({ value, isEditing, draftDigits, onStartEdit, onDraftC
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
+    if (!event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey
+        && /^Digit\d$/.test(event.code) && !/^\d$/.test(event.key)) {
+      event.preventDefault();
+      document.execCommand('insertText', false, event.code.slice(-1));
+      return;
+    }
+
     if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
       onCancel();
+      return;
+    }
+
+    if (
+      event.key === 'ArrowLeft'
+      || event.key === 'ArrowRight'
+      || event.key === 'Home'
+      || event.key === 'End'
+    ) {
+      // Keep caret navigation inside the input while editing.
+      event.stopPropagation();
       return;
     }
 

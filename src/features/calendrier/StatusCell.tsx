@@ -28,6 +28,16 @@ export function StatusCell({ value, isEditing, draftValue, onStartEdit, onDraftC
   const [menuOpen, setMenuOpen] = useState(false);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
+    if (
+      event.key === 'ArrowLeft'
+      || event.key === 'ArrowRight'
+      || event.key === 'Home'
+      || event.key === 'End'
+    ) {
+      event.stopPropagation();
+      return;
+    }
+
     if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();

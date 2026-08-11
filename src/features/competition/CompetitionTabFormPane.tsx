@@ -28,7 +28,7 @@ import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { MatchDataGrid } from '../../components/MatchDataGrid';
 import { buildMatchGridColumns } from '../../components/matchGridColumns';
-import { fromInputDateToDisplay, normalizeDisplayDateInput, toInputDateFromDisplay } from '../../components/DateInputField';
+import { formatDateShort, fromInputDateToDisplay, normalizeDisplayDateInput, toInputDateFromDisplay } from '../../components/DateInputField';
 import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { CompetitionFormDialog } from './CompetitionFormDialog';
@@ -48,7 +48,7 @@ import {
 } from './competitionApi';
 import type { CompetitionRow, CompetitionTourRow, EpreuveOption, SaisonOption } from './types';
 import type { CalendrierRow } from '../calendrier/types';
-import { heureDigitsToApiValue, isValidHeureDigits, normalizeHeureDigits } from '../calendrier/HeureCell';
+import { heureDigitsToApiValue, isValidHeureDigits, normalizeHeureDigits, sanitizeHeureDigits } from '../calendrier/HeureCell';
 import type { ScoreDraft } from '../calendrier/ScoreCell';
 
 interface CompetitionTabFormPaneProps {
@@ -394,7 +394,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
     setEditingDateRowId(null);
     setEditingScoreRowId(null);
     setEditingHeureRowId(item.RECLEUNIK);
-    setHeureDraftDigits(normalizeHeureDigits(item.HEURE));
+    setHeureDraftDigits(sanitizeHeureDigits(normalizeHeureDigits(item.HEURE)));
   };
 
   const cancelHeureEdit = () => {
@@ -506,6 +506,17 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
         const isEditing = String(editingDateRowId) === String(item.RECLEUNIK);
         if (isEditing) {
           const handleDateKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+            if (
+              event.key === 'ArrowLeft'
+              || event.key === 'ArrowRight'
+              || event.key === 'Home'
+              || event.key === 'End'
+            ) {
+              // Keep caret navigation inside the input while editing.
+              event.stopPropagation();
+              return;
+            }
+
             if (event.key === 'Escape') {
               event.preventDefault();
               event.stopPropagation();
@@ -532,6 +543,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
               <TextField
                 value={dateDraft}
                 onChange={(event) => setDateDraft(normalizeDisplayDateInput(event.target.value))}
+                onFocus={(event) => event.target.select()}
                 onKeyDown={handleDateKeyDown}
                 autoFocus
                 size="small"
@@ -543,7 +555,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
                   '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { border: 0 },
                   '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { border: 0 },
                 }}
-                slotProps={{ htmlInput: { maxLength: 10, placeholder: 'JJ/MM/AAAA' } }}
+                slotProps={{ htmlInput: { maxLength: 10, placeholder: 'AAAA/MM/JJ' } }}
               />
             </Box>
           );
@@ -557,7 +569,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
               startDateEdit(item);
             }}
           >
-            {fromInputDateToDisplay(String(item.DATE ?? ''))}
+            {formatDateShort(item.DATE)}
           </Box>
         );
       },

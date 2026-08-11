@@ -12,21 +12,32 @@ const AZERTY_DIGIT: Record<string, string> = {
 export function normalizeDisplayDateInput(input: string): string {
   const mapped = Array.from(input).map((ch) => AZERTY_DIGIT[ch] ?? ch).join('');
   const digits = mapped.replace(/\D+/g, '').slice(0, 8);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+  if (digits.length <= 4) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 4)}/${digits.slice(4)}`;
+  return `${digits.slice(0, 4)}/${digits.slice(4, 6)}/${digits.slice(6)}`;
 }
 
 export function toInputDateFromDisplay(value: string): string {
-  const french = String(value ?? '').trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (!french) return '';
-  return `${french[3]}-${french[2]}-${french[1]}`;
+  const text = String(value ?? '').trim();
+
+  const ymd = text.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+  if (ymd) {
+    return `${ymd[1]}-${ymd[2]}-${ymd[3]}`;
+  }
+
+  // Backward compatibility: accept legacy DD/MM/YYYY values.
+  const dmy = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (dmy) {
+    return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
+  }
+
+  return '';
 }
 
 export function fromInputDateToDisplay(value: string): string {
   const dashed = String(value ?? '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!dashed) return '';
-  return `${dashed[3]}/${dashed[2]}/${dashed[1]}`;
+  return `${dashed[1]}/${dashed[2]}/${dashed[3]}`;
 }
 
 function isoFromAny(value: unknown): string {
@@ -35,6 +46,8 @@ function isoFromAny(value: unknown): string {
   if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
   const compact = text.match(/^(\d{4})(\d{2})(\d{2})$/);
   if (compact) return `${compact[1]}-${compact[2]}-${compact[3]}`;
+  const ymd = text.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+  if (ymd) return `${ymd[1]}-${ymd[2]}-${ymd[3]}`;
   const french = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   if (french) return `${french[3]}-${french[2]}-${french[1]}`;
   return '';
@@ -90,14 +103,14 @@ export function DateInputField({
   error = false,
   helperText,
   calendarAriaLabel = `Calendrier ${label}`,
-  placeholder = 'JJ/MM/AAAA',
+  placeholder = 'AAAA/MM/JJ',
   maxLength = 10,
   sx,
 }: DateInputFieldProps) {
   const pickerRef = useRef<HTMLInputElement | null>(null);
   const [focused, setFocused] = useState(false);
 
-  // Show dd-mmm-yy when not editing; switch to DD/MM/YYYY on focus
+  // Show short human format when not editing; switch to YYYY/MM/DD on focus.
   const displayValue = focused
     ? value
     : (value ? (formatDateShort(toInputDateFromDisplay(value)) || value) : '');
@@ -111,7 +124,13 @@ export function DateInputField({
         onChange={(event) => {
           if (focused) onChange(normalizeDisplayDateInput(event.target.value));
         }}
-        onFocus={() => setFocused(true)}
+        onFocus={(event) => {
+          setFocused(true);
+          const input = event.currentTarget;
+          window.requestAnimationFrame(() => {
+            input.select();
+          });
+        }}
         onBlur={() => setFocused(false)}
         size={size}
         fullWidth={fullWidth}

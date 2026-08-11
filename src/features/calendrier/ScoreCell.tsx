@@ -143,6 +143,17 @@ export function ScoreCell({ row, isEditing, canEdit, draft, onStartEdit, onDraft
       onUserInput();
     }
 
+    if (
+      event.key === 'ArrowLeft'
+      || event.key === 'ArrowRight'
+      || event.key === 'Home'
+      || event.key === 'End'
+    ) {
+      // Keep caret navigation inside the active score input.
+      event.stopPropagation();
+      return;
+    }
+
     if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
