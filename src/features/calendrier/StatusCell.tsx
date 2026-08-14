@@ -16,15 +16,16 @@ export interface StatusCellProps {
   draftValue: number;
   onStartEdit: () => void;
   onDraftChange: (nextValue: number) => void;
-  onCommit: (nextValue?: number) => Promise<void> | void;
+  onCommit: (nextValue?: number) => Promise<unknown> | void;
   onCancel: () => void;
+  onTabOut?: (direction: 'next' | 'prev') => void;
 }
 
 function getStatusLabel(value: number): string {
   return STATUS_OPTIONS.find((option) => option.value === value)?.label ?? `Etat ${value}`;
 }
 
-export function StatusCell({ value, isEditing, draftValue, onStartEdit, onDraftChange, onCommit, onCancel }: StatusCellProps) {
+export function StatusCell({ value, isEditing, draftValue, onStartEdit, onDraftChange, onCommit, onCancel, onTabOut }: StatusCellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
@@ -49,6 +50,16 @@ export function StatusCell({ value, isEditing, draftValue, onStartEdit, onDraftC
       event.preventDefault();
       event.stopPropagation();
       void onCommit();
+      return;
+    }
+
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      event.stopPropagation();
+      const direction: 'next' | 'prev' = event.shiftKey ? 'prev' : 'next';
+      void Promise.resolve(onCommit()).then(() => {
+        onTabOut?.(direction);
+      });
     }
   };
 

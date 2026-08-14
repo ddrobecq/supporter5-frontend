@@ -7,8 +7,9 @@ type DatePart = 'year' | 'month' | 'day';
 interface DateGridEditorProps {
   value: string;
   onChange: (nextValue: string) => void;
-  onCommit: (nextValue: string) => Promise<void> | void;
+  onCommit: (nextValue: string) => Promise<unknown> | void;
   onCancel: () => void;
+  onTabOut?: (direction: 'next' | 'prev') => void;
 }
 
 interface DateParts {
@@ -122,7 +123,7 @@ function nextFieldIndex(currentIndex: number, shift: boolean): number | null {
   return currentIndex < 2 ? currentIndex + 1 : null;
 }
 
-export function DateGridEditor({ value, onChange, onCommit, onCancel }: DateGridEditorProps) {
+export function DateGridEditor({ value, onChange, onCommit, onCancel, onTabOut }: DateGridEditorProps) {
   const [parts, setParts] = useState<DateParts>(() => splitDisplayDate(value));
 
   const yearRef = useRef<HTMLInputElement | null>(null);
@@ -252,6 +253,12 @@ export function DateGridEditor({ value, onChange, onCommit, onCancel }: DateGrid
       if (nextIndex !== null) {
         event.preventDefault();
         focusPartAtIndex(nextIndex);
+        return;
+      }
+
+      if (onTabOut) {
+        event.preventDefault();
+        onTabOut(event.shiftKey ? 'prev' : 'next');
       }
     }
   };

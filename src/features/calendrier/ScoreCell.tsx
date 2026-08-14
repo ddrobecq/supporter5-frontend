@@ -18,9 +18,10 @@ interface ScoreCellProps {
   onStartEdit: () => void;
   onDraftChange: (patch: Partial<ScoreDraft>) => void;
   onUserInput: () => void;
-  onCommit: () => Promise<void> | void;
+  onCommit: () => Promise<unknown> | void;
   onCancel: () => void;
-  onMoveVertical: (direction: 'up' | 'down') => Promise<void> | void;
+  onMoveVertical: (direction: 'up' | 'down') => Promise<unknown> | void;
+  onTabOut?: (direction: 'next' | 'prev') => void;
 }
 
 type ScoreField = keyof ScoreDraft;
@@ -92,7 +93,7 @@ function renderScoreDisplay(row: CalendrierRow): ReactNode {
   );
 }
 
-export function ScoreCell({ row, isEditing, canEdit, draft, onStartEdit, onDraftChange, onUserInput, onCommit, onCancel, onMoveVertical }: ScoreCellProps) {
+export function ScoreCell({ row, isEditing, canEdit, draft, onStartEdit, onDraftChange, onUserInput, onCommit, onCancel, onMoveVertical, onTabOut }: ScoreCellProps) {
   const tabDomRef = useRef<HTMLInputElement | null>(null);
   const butDomRef = useRef<HTMLInputElement | null>(null);
   const butExtRef = useRef<HTMLInputElement | null>(null);
@@ -129,7 +130,7 @@ export function ScoreCell({ row, isEditing, canEdit, draft, onStartEdit, onDraft
     onDraftChange({ [field]: sanitizeDigits(value) });
   };
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (field: ScoreField) => (event: KeyboardEvent<HTMLInputElement>) => {
     // AZERTY: remap unshifted Digit keys that don't produce a digit natively
     if (!event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey
         && /^Digit\d$/.test(event.code) && !/^\d$/.test(event.key)) {
@@ -191,6 +192,31 @@ export function ScoreCell({ row, isEditing, canEdit, draft, onStartEdit, onDraft
         return;
       }
       void onMoveVertical('down');
+      return;
+    }
+
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const sequence: ScoreField[] = ['butDom', 'butExt', 'tabDom', 'tabExt'];
+      const currentIndex = sequence.indexOf(field);
+      const nextIndex = event.shiftKey ? currentIndex - 1 : currentIndex + 1;
+
+      if (nextIndex >= 0 && nextIndex < sequence.length) {
+        focusField(sequence[nextIndex]);
+        return;
+      }
+
+      if (!isDraftValid(draft)) {
+        focusFirstInvalidField();
+        return;
+      }
+
+      const direction: 'next' | 'prev' = event.shiftKey ? 'prev' : 'next';
+      void Promise.resolve(onCommit()).then(() => {
+        onTabOut?.(direction);
+      });
     }
   };
 
@@ -240,7 +266,7 @@ export function ScoreCell({ row, isEditing, canEdit, draft, onStartEdit, onDraft
           }}
           sx={editInputSx}
           onClick={(event) => event.stopPropagation()}
-          onKeyDown={handleKeyDown}
+          onKeyDown={handleKeyDown('tabDom')}
         />
         <TextField
           inputRef={butDomRef}
@@ -259,7 +285,7 @@ export function ScoreCell({ row, isEditing, canEdit, draft, onStartEdit, onDraft
           }}
           sx={editInputSx}
           onClick={(event) => event.stopPropagation()}
-          onKeyDown={handleKeyDown}
+          onKeyDown={handleKeyDown('butDom')}
         />
         <Typography component="span" sx={{ fontSize: '0.68rem', lineHeight: 1, color: 'text.secondary' }}>-</Typography>
         <TextField
@@ -278,7 +304,7 @@ export function ScoreCell({ row, isEditing, canEdit, draft, onStartEdit, onDraft
           }}
           sx={editInputSx}
           onClick={(event) => event.stopPropagation()}
-          onKeyDown={handleKeyDown}
+          onKeyDown={handleKeyDown('butExt')}
         />
         <TextField
           inputRef={tabExtRef}
@@ -296,7 +322,7 @@ export function ScoreCell({ row, isEditing, canEdit, draft, onStartEdit, onDraft
           }}
           sx={editInputSx}
           onClick={(event) => event.stopPropagation()}
-          onKeyDown={handleKeyDown}
+          onKeyDown={handleKeyDown('tabExt')}
         />
       </Stack>
     );

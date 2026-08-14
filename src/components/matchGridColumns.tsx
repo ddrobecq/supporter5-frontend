@@ -32,8 +32,9 @@ interface StatusColumnConfig<R extends MatchGridBaseRow> {
   draftValue: number;
   onStartEdit: (row: R) => void;
   onDraftChange: (row: R, nextValue: number) => void;
-  onCommit: (row: R, nextValue?: number) => Promise<void> | void;
+  onCommit: (row: R, nextValue?: number) => Promise<unknown> | void;
   onCancel: (row: R) => void;
+  onTabOut?: (row: R, direction: 'next' | 'prev') => void;
   sortable?: boolean;
 }
 
@@ -42,9 +43,10 @@ interface HeureColumnConfig<R extends MatchGridBaseRow> {
   draftDigits: string;
   onStartEdit: (row: R) => void;
   onDraftChange: (row: R, nextDigits: string) => void;
-  onCommit: (row: R) => Promise<void> | void;
+  onCommit: (row: R) => Promise<unknown> | void;
   onCancel: (row: R) => void;
-  onMoveVertical: (row: R, direction: 'up' | 'down') => Promise<void> | void;
+  onMoveVertical: (row: R, direction: 'up' | 'down') => Promise<unknown> | void;
+  onTabOut?: (row: R, direction: 'next' | 'prev') => void;
   sortable?: boolean;
 }
 
@@ -56,9 +58,10 @@ interface EditableScoreColumnConfig<R extends MatchGridBaseRow> {
   onStartEdit: (row: R) => void;
   onDraftChange: (row: R, patch: Partial<ScoreDraft>) => void;
   onUserInput: (row: R) => void;
-  onCommit: (row: R) => Promise<void> | void;
+  onCommit: (row: R) => Promise<unknown> | void;
   onCancel: (row: R) => void;
-  onMoveVertical: (row: R, direction: 'up' | 'down') => Promise<void> | void;
+  onMoveVertical: (row: R, direction: 'up' | 'down') => Promise<unknown> | void;
+  onTabOut?: (row: R, direction: 'next' | 'prev') => void;
 }
 
 interface ReadonlyScoreColumnConfig {
@@ -109,6 +112,7 @@ export function buildMatchGridColumns<R extends MatchGridBaseRow>(
             onDraftChange={(nextValue) => options.status!.onDraftChange(row, nextValue)}
             onCommit={(nextValue) => options.status!.onCommit(row, nextValue)}
             onCancel={() => options.status!.onCancel(row)}
+            onTabOut={(direction) => options.status!.onTabOut?.(row, direction)}
           />
         );
       },
@@ -150,6 +154,7 @@ export function buildMatchGridColumns<R extends MatchGridBaseRow>(
             onCommit={() => options.heure!.onCommit(row)}
             onCancel={() => options.heure!.onCancel(row)}
             onMoveVertical={(direction) => options.heure!.onMoveVertical(row, direction)}
+            onTabOut={(direction) => options.heure!.onTabOut?.(row, direction)}
           />
         );
       },
@@ -228,6 +233,7 @@ export function buildMatchGridColumns<R extends MatchGridBaseRow>(
           onCommit={() => editableScore.onCommit(row)}
           onCancel={() => editableScore.onCancel(row)}
           onMoveVertical={(direction) => editableScore.onMoveVertical(row, direction)}
+          onTabOut={(direction) => editableScore.onTabOut?.(row, direction)}
         />
       );
     },

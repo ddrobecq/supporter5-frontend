@@ -10,9 +10,10 @@ export interface HeureCellProps {
   draftDigits: string;
   onStartEdit: () => void;
   onDraftChange: (nextDigits: string) => void;
-  onCommit: () => Promise<void> | void;
+  onCommit: () => Promise<unknown> | void;
   onCancel: () => void;
-  onMoveVertical: (direction: 'up' | 'down') => Promise<void> | void;
+  onMoveVertical: (direction: 'up' | 'down') => Promise<unknown> | void;
+  onTabOut?: (direction: 'next' | 'prev') => void;
 }
 
 export {
@@ -23,7 +24,7 @@ export {
   heureDigitsToApiValue,
 } from '../../components/heureUtils';
 
-export function HeureCell({ value, isEditing, draftDigits, onStartEdit, onDraftChange, onCommit, onCancel, onMoveVertical }: HeureCellProps) {
+export function HeureCell({ value, isEditing, draftDigits, onStartEdit, onDraftChange, onCommit, onCancel, onMoveVertical, onTabOut }: HeureCellProps) {
   if (isEditing) {
     return (
       <HeureGridEditorCell
@@ -32,6 +33,7 @@ export function HeureCell({ value, isEditing, draftDigits, onStartEdit, onDraftC
         onCommit={onCommit}
         onCancel={onCancel}
         onMoveVertical={onMoveVertical}
+        onTabOut={onTabOut}
         width={52}
       />
     );

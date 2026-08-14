@@ -334,6 +334,10 @@ export function CalendrierPage() {
     sortModel.length === 1 && sortModel[0].field === 'HEURE' && sortModel[0].sort === 'asc';
 
   const orderedRows = useMemo(() => getSortedRows(rows, sortModel), [rows, sortModel]);
+  const orderedRowsRef = useRef<CalendrierRow[]>(orderedRows);
+  useEffect(() => {
+    orderedRowsRef.current = orderedRows;
+  }, [orderedRows]);
   const isCompactMatchList = rows.length < 10;
   const compactMatchListHeight = useMemo(() => {
     const visibleRows = Math.max(rows.length, 1);
@@ -641,10 +645,10 @@ export function CalendrierPage() {
     setEditingStatusRowId((current) => (current === row.RECLEUNIK ? null : current));
   };
 
-  const commitStatusEdit = async (row: CalendrierRow, nextValue?: number): Promise<void> => {
+  const commitStatusEdit = async (row: CalendrierRow, nextValue?: number): Promise<boolean> => {
     const rowId = row.RECLEUNIK;
-    if (editingStatusRowId !== rowId) return;
-    if (savingScoreRowIdRef.current === rowId) return;
+    if (editingStatusRowId !== rowId) return false;
+    if (savingScoreRowIdRef.current === rowId) return false;
 
     const effectiveStatus = typeof nextValue === 'number' ? nextValue : statusDraft;
     const isModified = effectiveStatus !== Number(row.ETAT);
@@ -653,7 +657,7 @@ export function CalendrierPage() {
       statusInitialValueRef.current = null;
       setRowModifiedFlag(rowId, false);
       setEditingStatusRowId((current) => (current === rowId ? null : current));
-      return;
+      return true;
     }
 
     savingScoreRowIdRef.current = rowId;
@@ -670,9 +674,11 @@ export function CalendrierPage() {
         void loadClassementForTour(activeTourId, true);
       }
       setRowStatusWithAutoHide(rowId, 'saved');
+      return true;
     } catch {
       setError('Impossible d\'enregistrer le statut.');
       setRowStatusWithAutoHide(rowId, 'failed');
+      return false;
     } finally {
       savingScoreRowIdRef.current = null;
       statusInitialValueRef.current = null;
@@ -681,23 +687,23 @@ export function CalendrierPage() {
     }
   };
 
-  const commitHeureEdit = async (row: CalendrierRow): Promise<void> => {
+  const commitHeureEdit = async (row: CalendrierRow): Promise<boolean> => {
     const rowId = row.RECLEUNIK;
-    if (editingHeureRowId !== rowId) return;
-    if (savingScoreRowIdRef.current === rowId) return;
-    if (!isValidHeureDigits(heureDraftDigits)) return;
+    if (editingHeureRowId !== rowId) return false;
+    if (savingScoreRowIdRef.current === rowId) return false;
+    if (!isValidHeureDigits(heureDraftDigits)) return false;
 
     if (!(rowModified[String(rowId)] ?? false)) {
       setEditingHeureRowId((current) => (current === rowId ? null : current));
       heureInitialDraftRef.current = '';
-      return;
+      return true;
     }
 
     savingScoreRowIdRef.current = rowId;
     const heureValue = heureDigitsToApiValue(heureDraftDigits);
     if (!heureValue) {
       savingScoreRowIdRef.current = null;
-      return;
+      return false;
     }
 
     setRowStatusWithAutoHide(rowId, 'saving');
@@ -710,9 +716,11 @@ export function CalendrierPage() {
           : item
       )));
       setRowStatusWithAutoHide(rowId, 'saved');
+      return true;
     } catch {
       setError('Impossible d\'enregistrer l\'heure.');
       setRowStatusWithAutoHide(rowId, 'failed');
+      return false;
     } finally {
       savingScoreRowIdRef.current = null;
       heureInitialDraftRef.current = '';
@@ -741,20 +749,20 @@ export function CalendrierPage() {
     startHeureEdit(nextRow);
   };
 
-  const commitScoreEdit = async (row: CalendrierRow): Promise<void> => {
+  const commitScoreEdit = async (row: CalendrierRow): Promise<boolean> => {
     const rowId = row.RECLEUNIK;
-    if (editingScoreRowId !== rowId) return;
-    if (savingScoreRowIdRef.current === rowId) return;
+    if (editingScoreRowId !== rowId) return false;
+    if (savingScoreRowIdRef.current === rowId) return false;
     if (!canEditScore(Number(row.ETAT))) {
       scoreInitialDraftRef.current = null;
       setEditingScoreRowId((current) => (current === rowId ? null : current));
-      return;
+      return false;
     }
 
     if (!(rowModified[String(rowId)] ?? false)) {
       scoreInitialDraftRef.current = null;
       setEditingScoreRowId((current) => (current === rowId ? null : current));
-      return;
+      return true;
     }
 
     savingScoreRowIdRef.current = rowId;
@@ -796,9 +804,11 @@ export function CalendrierPage() {
         void loadClassementForTour(activeTourId, true);
       }
       setRowStatusWithAutoHide(rowId, 'saved');
+      return true;
     } catch {
       setError('Impossible d\'enregistrer le score.');
       setRowStatusWithAutoHide(rowId, 'failed');
+      return false;
     } finally {
       savingScoreRowIdRef.current = null;
       scoreInitialDraftRef.current = null;
@@ -826,6 +836,80 @@ export function CalendrierPage() {
     }
   };
 
+  const findLatestOrderedRowById = (rowId: string | number): CalendrierRow | undefined => {
+    return orderedRowsRef.current.find((item) => String(item.RECLEUNIK) === String(rowId));
+  };
+
+  const openFieldForRowId = (rowId: string | number, field: 'status' | 'heure' | 'score'): void => {
+    window.requestAnimationFrame(() => {
+      const latestRow = findLatestOrderedRowById(rowId);
+      if (!latestRow) {
+        return;
+      }
+
+      if (field === 'status') {
+        startStatusEdit(latestRow);
+        return;
+      }
+
+      if (field === 'heure') {
+        startHeureEdit(latestRow);
+        return;
+      }
+
+      if (!canEditScore(Number(latestRow.ETAT))) {
+        startStatusEdit(latestRow);
+        return;
+      }
+      startScoreEdit(latestRow);
+    });
+  };
+
+  const handleStatusTabOut = async (row: CalendrierRow, direction: 'next' | 'prev') => {
+    const rowId = row.RECLEUNIK;
+    const committed = await commitStatusEdit(row);
+    if (!committed) {
+      return;
+    }
+
+    if (direction === 'next') {
+      openFieldForRowId(rowId, 'heure');
+      return;
+    }
+
+    openFieldForRowId(rowId, 'score');
+  };
+
+  const handleHeureTabOut = async (row: CalendrierRow, direction: 'next' | 'prev') => {
+    const rowId = row.RECLEUNIK;
+    const committed = await commitHeureEdit(row);
+    if (!committed) {
+      return;
+    }
+
+    if (direction === 'next') {
+      openFieldForRowId(rowId, 'score');
+      return;
+    }
+
+    openFieldForRowId(rowId, 'status');
+  };
+
+  const handleScoreTabOut = async (row: CalendrierRow, direction: 'next' | 'prev') => {
+    const rowId = row.RECLEUNIK;
+    const committed = await commitScoreEdit(row);
+    if (!committed) {
+      return;
+    }
+
+    if (direction === 'next') {
+      openFieldForRowId(rowId, 'status');
+      return;
+    }
+
+    openFieldForRowId(rowId, 'heure');
+  };
+
   const columns = useMemo<GridColDef<CalendrierRow>[]>(() => buildMatchGridColumns({
     status: {
       editingRowId: editingStatusRowId,
@@ -834,6 +918,7 @@ export function CalendrierPage() {
       onDraftChange: (row, nextValue) => updateStatusDraft(row.RECLEUNIK, nextValue),
       onCommit: commitStatusEdit,
       onCancel: cancelStatusEdit,
+      onTabOut: handleStatusTabOut,
       sortable: true,
     },
     heure: {
@@ -844,6 +929,7 @@ export function CalendrierPage() {
       onCommit: commitHeureEdit,
       onCancel: cancelHeureEdit,
       onMoveVertical: moveHeureEditToAdjacentRow,
+      onTabOut: handleHeureTabOut,
       sortable: true,
     },
     score: {
@@ -856,6 +942,7 @@ export function CalendrierPage() {
       onCommit: commitScoreEdit,
       onCancel: cancelScoreEdit,
       onMoveVertical: moveScoreEditToAdjacentRow,
+      onTabOut: handleScoreTabOut,
     },
   }), [editingHeureRowId, editingScoreRowId, editingStatusRowId, heureDraftDigits, scoreDraft, statusDraft]);
 

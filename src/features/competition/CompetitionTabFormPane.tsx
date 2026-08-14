@@ -234,6 +234,10 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
       return Number(a.RECLEUNIK) - Number(b.RECLEUNIK);
     });
   }, [tourMatchRows]);
+  const orderedMatchRowsRef = useRef<CalendrierRow[]>(orderedMatchRows);
+  useEffect(() => {
+    orderedMatchRowsRef.current = orderedMatchRows;
+  }, [orderedMatchRows]);
 
   const reloadSelectedTourMatches = useCallback(async () => {
     if (!selectedTourRow) {
@@ -364,12 +368,12 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
     setEditingStatusRowId(null);
   };
 
-  const commitStatusEdit = async (item: CalendrierRow, nextValue?: number) => {
+  const commitStatusEdit = async (item: CalendrierRow, nextValue?: number): Promise<boolean> => {
     const rowId = item.RECLEUNIK;
     const value = typeof nextValue === 'number' ? nextValue : statusDraft;
     if (value === Number(item.ETAT)) {
       setEditingStatusRowId(null);
-      return;
+      return true;
     }
 
     setRowStatusWithAutoHide(rowId, 'saving');
@@ -382,9 +386,11 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
       )));
       setRowStatusWithAutoHide(rowId, 'saved');
       setEditingStatusRowId(null);
+      return true;
     } catch (error) {
       setRowStatusWithAutoHide(rowId, 'failed');
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+      return false;
     }
   };
 
@@ -401,17 +407,17 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
     setDateDraft('');
   };
 
-  const commitDateEdit = async (item: CalendrierRow, normalizedDisplayDate?: string) => {
+  const commitDateEdit = async (item: CalendrierRow, normalizedDisplayDate?: string): Promise<boolean> => {
     const rowId = item.RECLEUNIK;
     const displayDate = typeof normalizedDisplayDate === 'string' ? normalizedDisplayDate : dateDraft;
     const isoDate = toInputDateFromDisplay(displayDate);
     if (!isoDate) {
       setSnackbar({ severity: 'error', message: 'Date invalide.' });
-      return;
+      return false;
     }
     if (isoDate === String(item.DATE ?? '')) {
       setEditingDateRowId(null);
-      return;
+      return true;
     }
 
     setRowStatusWithAutoHide(rowId, 'saving');
@@ -425,9 +431,11 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
       setRowStatusWithAutoHide(rowId, 'saved');
       setEditingDateRowId(null);
       setDateDraft('');
+      return true;
     } catch (error) {
       setRowStatusWithAutoHide(rowId, 'failed');
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+      return false;
     }
   };
 
@@ -444,16 +452,16 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
     setHeureDraftDigits('');
   };
 
-  const commitHeureEdit = async (item: CalendrierRow) => {
+  const commitHeureEdit = async (item: CalendrierRow): Promise<boolean> => {
     const rowId = item.RECLEUNIK;
     if (!isValidHeureDigits(heureDraftDigits)) {
       setSnackbar({ severity: 'error', message: 'Heure invalide.' });
-      return;
+      return false;
     }
     const nextValue = heureDigitsToApiValue(heureDraftDigits);
     if (!nextValue || nextValue === String(item.HEURE ?? '')) {
       setEditingHeureRowId(null);
-      return;
+      return true;
     }
 
     setRowStatusWithAutoHide(rowId, 'saving');
@@ -467,9 +475,11 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
       setRowStatusWithAutoHide(rowId, 'saved');
       setEditingHeureRowId(null);
       setHeureDraftDigits('');
+      return true;
     } catch (error) {
       setRowStatusWithAutoHide(rowId, 'failed');
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+      return false;
     }
   };
 
@@ -503,7 +513,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
     setEditingScoreRowId(null);
   };
 
-  const commitScoreEdit = async (item: CalendrierRow) => {
+  const commitScoreEdit = async (item: CalendrierRow): Promise<boolean> => {
     const rowId = item.RECLEUNIK;
     const payload = {
       TABDOM: parseScoreInputValue(scoreDraft.tabDom),
@@ -522,9 +532,11 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
       )));
       setRowStatusWithAutoHide(rowId, 'saved');
       setEditingScoreRowId(null);
+      return true;
     } catch (error) {
       setRowStatusWithAutoHide(rowId, 'failed');
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+      return false;
     }
   };
 
@@ -540,6 +552,98 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
     }
   };
 
+  const findLatestOrderedMatchRowById = (rowId: string | number): CalendrierRow | undefined => {
+    return orderedMatchRowsRef.current.find((rowItem) => String(rowItem.RECLEUNIK) === String(rowId));
+  };
+
+  const openFieldForMatchRowId = (rowId: string | number, field: 'status' | 'date' | 'heure' | 'score'): void => {
+    window.requestAnimationFrame(() => {
+      const latestRow = findLatestOrderedMatchRowById(rowId);
+      if (!latestRow) {
+        return;
+      }
+
+      if (field === 'status') {
+        startStatusEdit(latestRow);
+        return;
+      }
+      if (field === 'date') {
+        startDateEdit(latestRow);
+        return;
+      }
+      if (field === 'heure') {
+        startHeureEdit(latestRow);
+        return;
+      }
+
+      if (!canEditScore(Number(latestRow.ETAT))) {
+        startStatusEdit(latestRow);
+        return;
+      }
+      startScoreEdit(latestRow);
+    });
+  };
+
+  const handleStatusTabOut = async (item: CalendrierRow, direction: 'next' | 'prev') => {
+    const rowId = item.RECLEUNIK;
+    const committed = await commitStatusEdit(item);
+    if (!committed) {
+      return;
+    }
+
+    if (direction === 'next') {
+      openFieldForMatchRowId(rowId, 'date');
+      return;
+    }
+
+    openFieldForMatchRowId(rowId, 'score');
+  };
+
+  const handleDateTabOut = async (item: CalendrierRow, direction: 'next' | 'prev') => {
+    const rowId = item.RECLEUNIK;
+    const committed = await commitDateEdit(item);
+    if (!committed) {
+      return;
+    }
+
+    if (direction === 'next') {
+      openFieldForMatchRowId(rowId, 'heure');
+      return;
+    }
+
+    openFieldForMatchRowId(rowId, 'status');
+  };
+
+  const handleHeureTabOut = async (item: CalendrierRow, direction: 'next' | 'prev') => {
+    const rowId = item.RECLEUNIK;
+    const committed = await commitHeureEdit(item);
+    if (!committed) {
+      return;
+    }
+
+    if (direction === 'next') {
+      openFieldForMatchRowId(rowId, 'score');
+      return;
+    }
+
+    openFieldForMatchRowId(rowId, 'date');
+  };
+
+  const handleScoreTabOut = async (item: CalendrierRow, direction: 'next' | 'prev') => {
+    const rowId = item.RECLEUNIK;
+    const committed = await commitScoreEdit(item);
+    if (!committed) {
+      return;
+    }
+
+    if (direction === 'next') {
+      openFieldForMatchRowId(rowId, 'status');
+      return;
+    }
+
+    openFieldForMatchRowId(rowId, 'heure');
+  };
+
   const matchColumns = useMemo<GridColDef<CalendrierRow>[]>(() => buildMatchGridColumns({
     status: {
       editingRowId: editingStatusRowId,
@@ -548,6 +652,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
       onDraftChange: (_row, nextValue) => setStatusDraft(nextValue),
       onCommit: commitStatusEdit,
       onCancel: () => cancelStatusEdit(),
+      onTabOut: handleStatusTabOut,
       sortable: false,
     },
     date: {
@@ -563,6 +668,9 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
               onChange={setDateDraft}
               onCommit={(nextDisplayDate) => commitDateEdit(item, nextDisplayDate)}
               onCancel={cancelDateEdit}
+              onTabOut={(direction) => {
+                void handleDateTabOut(item, direction);
+              }}
             />
           );
         }
@@ -588,6 +696,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
       onCommit: commitHeureEdit,
       onCancel: () => cancelHeureEdit(),
       onMoveVertical: moveHeureEditToAdjacentRow,
+      onTabOut: handleHeureTabOut,
       sortable: false,
     },
     circ: {
@@ -605,6 +714,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
       onCommit: commitScoreEdit,
       onCancel: () => cancelScoreEdit(),
       onMoveVertical: moveScoreEditToAdjacentRow,
+      onTabOut: handleScoreTabOut,
     },
   }), [
     dateDraft,

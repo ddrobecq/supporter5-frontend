@@ -6,9 +6,10 @@ import { formatHeureDigitsForInput, isValidHeureDigits, sanitizeHeureDigits } fr
 interface HeureGridEditorCellProps {
   digits: string;
   onDigitsChange: (nextDigits: string) => void;
-  onCommit: () => Promise<void> | void;
+  onCommit: () => Promise<unknown> | void;
   onCancel: () => void;
-  onMoveVertical?: (direction: 'up' | 'down') => Promise<void> | void;
+  onMoveVertical?: (direction: 'up' | 'down') => Promise<unknown> | void;
+  onTabOut?: (direction: 'next' | 'prev') => void;
   width?: number;
 }
 
@@ -18,6 +19,7 @@ export function HeureGridEditorCell({
   onCommit,
   onCancel,
   onMoveVertical,
+  onTabOut,
   width = 52,
 }: HeureGridEditorCellProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -91,6 +93,20 @@ export function HeureGridEditorCell({
         return;
       }
       void onMoveVertical('down');
+      return;
+    }
+
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!isValidHeureDigits(digits)) {
+        window.requestAnimationFrame(focusInput);
+        return;
+      }
+      const direction: 'next' | 'prev' = event.shiftKey ? 'prev' : 'next';
+      void Promise.resolve(onCommit()).then(() => {
+        onTabOut?.(direction);
+      });
     }
   };
 
