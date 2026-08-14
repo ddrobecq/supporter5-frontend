@@ -20,10 +20,18 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { type GridColDef, type GridRowId } from '@mui/x-data-grid';
+import { type GridColDef, type GridRenderEditCellParams, type GridRowId } from '@mui/x-data-grid';
 import { type Dispatch, type KeyboardEvent, type SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
-import { EntityDataGrid } from '../../components/EntityDataGrid';
+import { ClubCell } from '../../components/ClubCell';
+import { DateGridEditor } from '../../components/DateGridEditor';
+import { HeureGridEditorCell } from '../../components/HeureGridEditorCell';
+import { MatchDataGrid } from '../../components/MatchDataGrid';
 import { toErrorMessage } from '../../components/useEntityPage';
+import {
+  heureDigitsToApiValue,
+  normalizeHeureDigits,
+  sanitizeHeureDigits,
+} from '../calendrier/HeureCell';
 import {
   fetchCircByTourType,
 } from './competitionApi';
@@ -70,6 +78,32 @@ interface TourWizardStep6RencontresProps {
   rencontres: TourMatchRow[];
   onRencontresChange: Dispatch<SetStateAction<TourMatchRow[]>>;
   onError?: (message: string) => void;
+}
+
+function TourWizardHeureEditCell({ params }: { params: GridRenderEditCellParams<RencontresGridModelRow, unknown> }) {
+  const [digits, setDigits] = useState<string>(() => sanitizeHeureDigits(normalizeHeureDigits(params.value ?? '')));
+
+  const commitIfValid = async () => {
+    const nextValue = heureDigitsToApiValue(digits);
+    if (!nextValue) {
+      return;
+    }
+
+    await params.api.setEditCellValue({ id: params.id, field: params.field, value: nextValue });
+    params.api.stopCellEditMode({ id: params.id, field: params.field });
+  };
+
+  return (
+    <HeureGridEditorCell
+      digits={digits}
+      onDigitsChange={setDigits}
+      onCommit={commitIfValid}
+      onCancel={() => {
+        params.api.stopCellEditMode({ id: params.id, field: params.field, ignoreModifications: true });
+      }}
+      width={52}
+    />
+  );
 }
 
 export function TourWizardStep6Rencontres({
@@ -328,6 +362,21 @@ export function TourWizardStep6Rencontres({
         maxWidth: 96,
         editable: true,
         valueFormatter: (value) => formatDateDisplay(value),
+        renderEditCell: (params: GridRenderEditCellParams<RencontresGridModelRow, unknown>) => (
+          <DateGridEditor
+            value={String(params.value ?? '')}
+            onChange={(nextValue) => {
+              void params.api.setEditCellValue({ id: params.id, field: params.field, value: nextValue });
+            }}
+            onCommit={async (nextValue) => {
+              await params.api.setEditCellValue({ id: params.id, field: params.field, value: nextValue });
+              params.api.stopCellEditMode({ id: params.id, field: params.field });
+            }}
+            onCancel={() => {
+              params.api.stopCellEditMode({ id: params.id, field: params.field, ignoreModifications: true });
+            }}
+          />
+        ),
       },
       {
         field: 'HEURE',
@@ -337,6 +386,9 @@ export function TourWizardStep6Rencontres({
         maxWidth: 74,
         editable: true,
         valueFormatter: (value) => formatHeureDisplay(value),
+        renderEditCell: (params: GridRenderEditCellParams<RencontresGridModelRow, unknown>) => (
+          <TourWizardHeureEditCell params={params} />
+        ),
       },
       {
         field: 'DOMICILE_NOM',
@@ -345,10 +397,14 @@ export function TourWizardStep6Rencontres({
         minWidth: 120,
         renderCell: (params) => {
           const source = String(params.row.PADOMSource ?? '').trim();
+          const clubId = String(params.row.DOMICILE ?? '').trim();
           return (
-            <Typography variant="body2" sx={{ fontStyle: source ? 'italic' : 'normal' }}>
-              {String(params.value ?? '')}
-            </Typography>
+            <ClubCell
+              clubId={clubId}
+              clubName={String(params.value ?? '')}
+              alignRight
+              italic={source.length > 0 && clubId.length === 0}
+            />
           );
         },
       },
@@ -359,10 +415,13 @@ export function TourWizardStep6Rencontres({
         minWidth: 120,
         renderCell: (params) => {
           const source = String(params.row.PAEXTSource ?? '').trim();
+          const clubId = String(params.row.EXTERIEUR ?? '').trim();
           return (
-            <Typography variant="body2" sx={{ fontStyle: source ? 'italic' : 'normal' }}>
-              {String(params.value ?? '')}
-            </Typography>
+            <ClubCell
+              clubId={clubId}
+              clubName={String(params.value ?? '')}
+              italic={source.length > 0 && clubId.length === 0}
+            />
           );
         },
       },
@@ -816,15 +875,38 @@ export function TourWizardStep6Rencontres({
           </Stack>
 
           <Box sx={{ height: 286, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-            <EntityDataGrid<RencontresGridModelRow>
+            <MatchDataGrid<RencontresGridModelRow>
               rows={gridRows}
               columns={columns}
               loading={loading}
               getRowId={(row) => row.RECLEUNIK}
-              selection={selectedRencontre}
-              onSelectionChange={setSelectedRencontre}
-              onRowClick={(rowId) => setSelectedRencontre([rowId])}
+              rowSelectionModel={{ type: 'include', ids: new Set(selectedRencontre) }}
+              onRowSelectionModelChange={(model) => {
+                const ids = Array.from(model.ids);
+                setSelectedRencontre(ids.length > 0 ? [ids[0]] : []);
+              }}
+              onRowClick={(params) => {
+                setSelectedRencontre([params.id]);
+              }}
+              onCellClick={(params) => {
+                const field = String(params.field ?? '');
+                if (field !== 'DATE' && field !== 'HEURE') {
+                  return;
+                }
+
+                const rowId = Number(params.row.RECLEUNIK ?? 0);
+                if (!Number.isInteger(rowId) || rowId <= 0) {
+                  return;
+                }
+
+                if (params.cellMode === 'edit') {
+                  return;
+                }
+
+                params.api.startCellEditMode({ id: params.id, field: params.field });
+              }}
               disableRowSelectionOnClick
+              density="compact"
               editMode="cell"
               processRowUpdate={persistRencontreRowUpdate}
               onProcessRowUpdateError={onRencontreRowUpdateError}

@@ -1,9 +1,6 @@
 import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import TodayRoundedIcon from '@mui/icons-material/TodayRounded';
-import AutorenewRoundedIcon from '@mui/icons-material/AutorenewRounded';
-import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
-import ErrorOutlineRoundedIcon from '@mui/icons-material/ErrorOutlineRounded';
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import {
   Alert,
@@ -40,12 +37,6 @@ const DEFAULT_SORT_MODEL: GridSortModel = [{ field: 'HEURE', sort: 'asc' }];
 const CALENDRIER_DATE_STORAGE_KEY = 'supporter:calendrier:selected-date';
 
 type RowSaveStatus = 'idle' | 'saving' | 'saved' | 'failed';
-
-type StatusAnchor = {
-  rowId: string;
-  status: Exclude<RowSaveStatus, 'idle'>;
-  top: number;
-};
 
 function compareValues(a: unknown, b: unknown): number {
   const aNum = Number(a);
@@ -334,8 +325,6 @@ export function CalendrierPage() {
   const savedIconTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const classementCacheRef = useRef<Map<number, TourClassementRow[]>>(new Map());
   const classementRequestTokenRef = useRef(0);
-  const gridWrapperRef = useRef<HTMLDivElement | null>(null);
-  const [statusAnchors, setStatusAnchors] = useState<StatusAnchor[]>([]);
   const scoreInitialDraftRef = useRef<ScoreDraft | null>(null);
   const heureInitialDraftRef = useRef<string>('');
   const statusInitialValueRef = useRef<number | null>(null);
@@ -530,67 +519,6 @@ export function CalendrierPage() {
       setDate(isoDate);
     }
   }, []);
-
-  const updateStatusAnchors = useCallback(() => {
-    const wrapper = gridWrapperRef.current;
-    if (!wrapper) {
-      setStatusAnchors([]);
-      return;
-    }
-
-    const wrapperRect = wrapper.getBoundingClientRect();
-    const statusCells = wrapper.querySelectorAll<HTMLElement>('.MuiDataGrid-cell[data-field="ETAT"]');
-    const nextAnchors: StatusAnchor[] = [];
-
-    statusCells.forEach((cell) => {
-      const rowId = cell.parentElement?.getAttribute('data-id') ?? '';
-      if (!rowId) return;
-
-      const status = rowSaveStatus[rowId] ?? 'idle';
-      if (status === 'idle') return;
-
-      const cellRect = cell.getBoundingClientRect();
-      nextAnchors.push({
-        rowId,
-        status,
-        top: cellRect.top - wrapperRect.top + (cellRect.height / 2),
-      });
-    });
-
-    setStatusAnchors(nextAnchors);
-  }, [rowSaveStatus]);
-
-  useEffect(() => {
-    const wrapper = gridWrapperRef.current;
-    if (!wrapper) return;
-
-    const refresh = () => {
-      window.requestAnimationFrame(updateStatusAnchors);
-    };
-
-    const virtualScroller = wrapper.querySelector<HTMLElement>('.MuiDataGrid-virtualScroller');
-    const renderZone = wrapper.querySelector<HTMLElement>('.MuiDataGrid-virtualScrollerRenderZone');
-
-    refresh();
-    virtualScroller?.addEventListener('scroll', refresh, { passive: true });
-    window.addEventListener('resize', refresh);
-
-    const observer = new MutationObserver(refresh);
-    if (renderZone) {
-      observer.observe(renderZone, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['class', 'style', 'data-id'],
-      });
-    }
-
-    return () => {
-      virtualScroller?.removeEventListener('scroll', refresh);
-      window.removeEventListener('resize', refresh);
-      observer.disconnect();
-    };
-  }, [loading, orderedRows, sortModel, updateStatusAnchors]);
 
   const setRowStatusWithAutoHide = (rowId: string | number, status: RowSaveStatus): void => {
     const key = String(rowId);
@@ -1107,19 +1035,12 @@ export function CalendrierPage() {
         <CardContent>
           {error ? <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert> : null}
 
-          <Box
-            ref={gridWrapperRef}
-            sx={{
-              mt: 2,
-              height: isCompactMatchList ? compactMatchListHeight : 'calc(100vh - 270px)',
-              minHeight: isCompactMatchList ? 220 : 420,
-              position: 'relative',
-            }}
-          >
+          <Box sx={{ mt: 2, height: isCompactMatchList ? compactMatchListHeight : 'calc(100vh - 270px)', minHeight: isCompactMatchList ? 220 : 420 }}>
             <MatchDataGrid
               rows={rows}
               columns={columns}
               loading={loading}
+              rowSaveStatusMap={rowSaveStatus}
               sortModel={sortModel}
               onSortModelChange={(model) => setSortModel(model)}
               getRowId={(row) => row.RECLEUNIK}
@@ -1137,50 +1058,7 @@ export function CalendrierPage() {
               density="compact"
               pageSizeOptions={[25, 50, 100]}
               isDefaultHeureSort={isDefaultHeureSort}
-              sx={{
-                '@keyframes spin': {
-                  from: { transform: 'rotate(0deg)' },
-                  to: { transform: 'rotate(360deg)' },
-                },
-              }}
             />
-
-            <Box
-              sx={{
-                position: 'absolute',
-                left: -14,
-                top: 0,
-                width: 14,
-                height: '100%',
-                pointerEvents: 'none',
-                zIndex: 2,
-              }}
-            >
-              {statusAnchors.map((anchor) => (
-                <Box
-                  key={`${anchor.rowId}-${anchor.status}`}
-                  sx={{
-                    position: 'absolute',
-                    top: anchor.top,
-                    left: 0,
-                    transform: 'translateY(-50%)',
-                    width: 14,
-                    height: 14,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {anchor.status === 'saving' ? (
-                    <AutorenewRoundedIcon sx={{ fontSize: 14, color: 'info.main', animation: 'spin 1s linear infinite' }} />
-                  ) : anchor.status === 'saved' ? (
-                    <CheckCircleRoundedIcon sx={{ fontSize: 14, color: 'success.main' }} />
-                  ) : (
-                    <ErrorOutlineRoundedIcon sx={{ fontSize: 14, color: 'error.main' }} />
-                  )}
-                </Box>
-              ))}
-            </Box>
           </Box>
         </CardContent>
       </Card>

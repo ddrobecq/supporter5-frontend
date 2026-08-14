@@ -16,19 +16,19 @@ import {
   Stack,
   Tab,
   Tabs,
-  TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useMediaQuery, useTheme } from '@mui/material';
-import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
+import { DateGridEditor } from '../../components/DateGridEditor';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { MatchDataGrid } from '../../components/MatchDataGrid';
 import { buildMatchGridColumns } from '../../components/matchGridColumns';
-import { formatDateShort, fromInputDateToDisplay, normalizeDisplayDateInput, toInputDateFromDisplay } from '../../components/DateInputField';
+import { formatDateShort, fromInputDateToDisplay, toInputDateFromDisplay } from '../../components/DateInputField';
 import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { CompetitionFormDialog } from './CompetitionFormDialog';
@@ -58,6 +58,7 @@ interface CompetitionTabFormPaneProps {
 }
 
 type CompetitionTabKey = 'info' | 'deroules';
+type RowSaveStatus = 'idle' | 'saving' | 'saved' | 'failed';
 
 function rowStatusClass(etat: number): string {
   switch (Number(etat)) {
@@ -134,6 +135,8 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
   const [heureDraftDigits, setHeureDraftDigits] = useState<string>('');
   const [editingScoreRowId, setEditingScoreRowId] = useState<string | number | null>(null);
   const [scoreDraft, setScoreDraft] = useState<ScoreDraft>({ tabDom: '', butDom: '', butExt: '', tabExt: '' });
+  const [rowSaveStatus, setRowSaveStatus] = useState<Record<string, RowSaveStatus>>({});
+  const savedIconTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
 
   const tourColumns: GridColDef<CompetitionTourRow>[] = [
@@ -321,6 +324,34 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
     void reloadSelectedTourMatches();
   }, [reloadSelectedTourMatches]);
 
+  useEffect(() => () => {
+    Object.values(savedIconTimersRef.current).forEach((timer) => clearTimeout(timer));
+    savedIconTimersRef.current = {};
+  }, []);
+
+  const setRowStatusWithAutoHide = (rowId: string | number, status: RowSaveStatus): void => {
+    const key = String(rowId);
+    const timer = savedIconTimersRef.current[key];
+    if (timer) {
+      clearTimeout(timer);
+      delete savedIconTimersRef.current[key];
+    }
+
+    setRowSaveStatus((prev) => ({ ...prev, [key]: status }));
+
+    if (status === 'saved') {
+      savedIconTimersRef.current[key] = setTimeout(() => {
+        setRowSaveStatus((prev) => {
+          if ((prev[key] ?? 'idle') !== 'saved') {
+            return prev;
+          }
+          return { ...prev, [key]: 'idle' };
+        });
+        delete savedIconTimersRef.current[key];
+      }, 3500);
+    }
+  };
+
   const startStatusEdit = (item: CalendrierRow) => {
     setEditingDateRowId(null);
     setEditingHeureRowId(null);
@@ -334,20 +365,25 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
   };
 
   const commitStatusEdit = async (item: CalendrierRow, nextValue?: number) => {
+    const rowId = item.RECLEUNIK;
     const value = typeof nextValue === 'number' ? nextValue : statusDraft;
     if (value === Number(item.ETAT)) {
       setEditingStatusRowId(null);
       return;
     }
+
+    setRowStatusWithAutoHide(rowId, 'saving');
     try {
-      await updateTourRencontre(item.RECLEUNIK, { ETAT: value });
+      await updateTourRencontre(rowId, { ETAT: value });
       setTourMatchRows((prev) => prev.map((rowItem) => (
-        String(rowItem.RECLEUNIK) === String(item.RECLEUNIK)
+        String(rowItem.RECLEUNIK) === String(rowId)
           ? { ...rowItem, ETAT: value }
           : rowItem
       )));
+      setRowStatusWithAutoHide(rowId, 'saved');
       setEditingStatusRowId(null);
     } catch (error) {
+      setRowStatusWithAutoHide(rowId, 'failed');
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
     }
   };
@@ -365,8 +401,10 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
     setDateDraft('');
   };
 
-  const commitDateEdit = async (item: CalendrierRow) => {
-    const isoDate = toInputDateFromDisplay(dateDraft);
+  const commitDateEdit = async (item: CalendrierRow, normalizedDisplayDate?: string) => {
+    const rowId = item.RECLEUNIK;
+    const displayDate = typeof normalizedDisplayDate === 'string' ? normalizedDisplayDate : dateDraft;
+    const isoDate = toInputDateFromDisplay(displayDate);
     if (!isoDate) {
       setSnackbar({ severity: 'error', message: 'Date invalide.' });
       return;
@@ -375,16 +413,20 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
       setEditingDateRowId(null);
       return;
     }
+
+    setRowStatusWithAutoHide(rowId, 'saving');
     try {
-      await updateTourRencontre(item.RECLEUNIK, { DATE: isoDate });
+      await updateTourRencontre(rowId, { DATE: isoDate });
       setTourMatchRows((prev) => prev.map((rowItem) => (
-        String(rowItem.RECLEUNIK) === String(item.RECLEUNIK)
+        String(rowItem.RECLEUNIK) === String(rowId)
           ? { ...rowItem, DATE: isoDate }
           : rowItem
       )));
+      setRowStatusWithAutoHide(rowId, 'saved');
       setEditingDateRowId(null);
       setDateDraft('');
     } catch (error) {
+      setRowStatusWithAutoHide(rowId, 'failed');
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
     }
   };
@@ -403,6 +445,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
   };
 
   const commitHeureEdit = async (item: CalendrierRow) => {
+    const rowId = item.RECLEUNIK;
     if (!isValidHeureDigits(heureDraftDigits)) {
       setSnackbar({ severity: 'error', message: 'Heure invalide.' });
       return;
@@ -412,16 +455,20 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
       setEditingHeureRowId(null);
       return;
     }
+
+    setRowStatusWithAutoHide(rowId, 'saving');
     try {
-      await updateTourRencontre(item.RECLEUNIK, { HEURE: nextValue });
+      await updateTourRencontre(rowId, { HEURE: nextValue });
       setTourMatchRows((prev) => prev.map((rowItem) => (
-        String(rowItem.RECLEUNIK) === String(item.RECLEUNIK)
+        String(rowItem.RECLEUNIK) === String(rowId)
           ? { ...rowItem, HEURE: nextValue }
           : rowItem
       )));
+      setRowStatusWithAutoHide(rowId, 'saved');
       setEditingHeureRowId(null);
       setHeureDraftDigits('');
     } catch (error) {
+      setRowStatusWithAutoHide(rowId, 'failed');
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
     }
   };
@@ -457,21 +504,26 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
   };
 
   const commitScoreEdit = async (item: CalendrierRow) => {
+    const rowId = item.RECLEUNIK;
     const payload = {
       TABDOM: parseScoreInputValue(scoreDraft.tabDom),
       BUTDOM: parseScoreInputValue(scoreDraft.butDom),
       BUTEXT: parseScoreInputValue(scoreDraft.butExt),
       TABEXT: parseScoreInputValue(scoreDraft.tabExt),
     };
+
+    setRowStatusWithAutoHide(rowId, 'saving');
     try {
-      await updateTourRencontre(item.RECLEUNIK, payload);
+      await updateTourRencontre(rowId, payload);
       setTourMatchRows((prev) => prev.map((rowItem) => (
-        String(rowItem.RECLEUNIK) === String(item.RECLEUNIK)
+        String(rowItem.RECLEUNIK) === String(rowId)
           ? { ...rowItem, ...payload }
           : rowItem
       )));
+      setRowStatusWithAutoHide(rowId, 'saved');
       setEditingScoreRowId(null);
     } catch (error) {
+      setRowStatusWithAutoHide(rowId, 'failed');
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
     }
   };
@@ -505,59 +557,13 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
       renderCell: (item) => {
         const isEditing = String(editingDateRowId) === String(item.RECLEUNIK);
         if (isEditing) {
-          const handleDateKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-            if (
-              event.key === 'ArrowLeft'
-              || event.key === 'ArrowRight'
-              || event.key === 'Home'
-              || event.key === 'End'
-            ) {
-              // Keep caret navigation inside the input while editing.
-              event.stopPropagation();
-              return;
-            }
-
-            if (event.key === 'Escape') {
-              event.preventDefault();
-              event.stopPropagation();
-              cancelDateEdit();
-              return;
-            }
-            if (event.key === 'Enter') {
-              event.preventDefault();
-              event.stopPropagation();
-              void commitDateEdit(item);
-            }
-          };
-
           return (
-            <Box
-              sx={{ width: '100%' }}
-              onBlur={(event) => {
-                const nextFocused = event.relatedTarget as Node | null;
-                if (!event.currentTarget.contains(nextFocused)) {
-                  void commitDateEdit(item);
-                }
-              }}
-            >
-              <TextField
-                value={dateDraft}
-                onChange={(event) => setDateDraft(normalizeDisplayDateInput(event.target.value))}
-                onFocus={(event) => event.target.select()}
-                onKeyDown={handleDateKeyDown}
-                autoFocus
-                size="small"
-                sx={{
-                  width: '100%',
-                  '& .MuiInputBase-root': { height: 22, bgcolor: 'grey.200' },
-                  '& .MuiInputBase-input': { py: 0, fontSize: '0.72rem', textAlign: 'center' },
-                  '& .MuiOutlinedInput-notchedOutline': { border: 0 },
-                  '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { border: 0 },
-                  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { border: 0 },
-                }}
-                slotProps={{ htmlInput: { maxLength: 10, placeholder: 'AAAA/MM/JJ' } }}
-              />
-            </Box>
+            <DateGridEditor
+              value={dateDraft}
+              onChange={setDateDraft}
+              onCommit={(nextDisplayDate) => commitDateEdit(item, nextDisplayDate)}
+              onCancel={cancelDateEdit}
+            />
           );
         }
 
@@ -832,6 +838,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
                       rows={orderedMatchRows}
                       columns={matchColumns}
                       loading={tourMatchesLoading}
+                      rowSaveStatusMap={rowSaveStatus}
                       getRowId={(rowItem) => rowItem.RECLEUNIK}
                       openMatchOnDoubleClick
                       rowSelectionModel={{

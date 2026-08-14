@@ -1,6 +1,6 @@
-import { Box } from '@mui/material';
 import { type GridColDef, type GridRowId } from '@mui/x-data-grid';
 import { useMemo } from 'react';
+import { ClubCell } from '../../components/ClubCell';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import type { TourParticipantRow } from './types';
 
@@ -42,21 +42,16 @@ export function TourParticipantGrid({
         minWidth: 220,
         valueGetter: (_value, row) => getLabel(row),
         renderCell: (params) => {
+          const clubId = String(params.row.IDCLUB ?? '').trim();
           const isUnresolved =
-            !String(params.row.IDCLUB ?? '').trim() &&
+            !clubId &&
             Boolean(String(params.row.PASource ?? '').trim());
           return (
-            <Box
-              sx={{
-                width: '100%',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                fontStyle: isUnresolved ? 'italic' : 'normal',
-              }}
-            >
-              {String(params.value ?? '')}
-            </Box>
+            <ClubCell
+              clubId={clubId}
+              clubName={String(params.value ?? '')}
+              italic={isUnresolved}
+            />
           );
         },
       },
