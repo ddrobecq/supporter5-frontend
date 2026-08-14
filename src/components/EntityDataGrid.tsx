@@ -146,6 +146,16 @@ export function EntityDataGrid<RowModel extends GridValidRowModel>({
         width: '100%',
         minWidth: 0,
         '& .MuiDataGrid-cell': { cursor: 'default' },
+        '& .competition-finished-row': {
+          backgroundColor: 'rgba(66, 66, 66, 0.18)',
+          color: 'text.secondary',
+        },
+        '& .competition-finished-row:hover': {
+          backgroundColor: 'rgba(66, 66, 66, 0.24)',
+        },
+        '& .competition-finished-row.Mui-selected, & .competition-finished-row.Mui-selected:hover': {
+          backgroundColor: 'rgba(66, 66, 66, 0.3)',
+        },
         ...(hideCheckboxSelectionColumn
           ? {
               '& .MuiDataGrid-columnHeaderCheckbox': { display: 'none' },

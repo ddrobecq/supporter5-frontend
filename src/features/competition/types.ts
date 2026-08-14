@@ -4,6 +4,7 @@ export interface CompetitionRow {
   IDEPREUVE?: string | number;
   NOM?: string | number;
   CO_ANNEE?: string | number | boolean;
+  CO_TERMINEE?: string | number | boolean;
   CO_WEB?: string | number;
   CO_COMMENT?: string | number | null;
   LOGO?: string | number | null;
@@ -31,6 +32,7 @@ export interface CompetitionTourRow {
   COCLEUNIK: number;
   TDCLEUNIK: number;
   TU_ORDRE: number;
+  TU_FINAL?: number;
   TOUR: string;
   TYPE_ID: number;
   TYPE: string;

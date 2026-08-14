@@ -23,6 +23,10 @@ interface CompetitionPageProps {
   onOpenInTab?: (payload: { rowId: GridRowId; label: string }) => void;
 }
 
+type CompetitionListRow = CompetitionRow & {
+  __isFinishedCompetition?: boolean;
+};
+
 export function CompetitionPage({ variant = 'page', onOpenInTab }: CompetitionPageProps) {
   const params = useParams<{ competitionId?: string }>();
   const competitionId = params.competitionId;
@@ -86,6 +90,14 @@ export function CompetitionPage({ variant = 'page', onOpenInTab }: CompetitionPa
   const seasonFilterOptions = useMemo(
     () => saisonOptions.map((item) => String(item.SAISON ?? '').trim()).filter(Boolean),
     [saisonOptions],
+  );
+
+  const displayRows = useMemo<CompetitionListRow[]>(
+    () => page.rows.map((row) => ({
+      ...row,
+      __isFinishedCompetition: Number(row.CO_TERMINEE ?? 0) === 1,
+    })),
+    [page.rows],
   );
 
   const columns = useMemo<GridColDef[]>(() => {
@@ -184,13 +196,14 @@ export function CompetitionPage({ variant = 'page', onOpenInTab }: CompetitionPa
       onDelete={() => void page.handleOpenDeleteConfirm()}
       actionButtonsRowRef={page.actionButtonsRowRef}
       compactActionButtons={page.compactActionButtons}
-      rows={page.rows}
+      rows={displayRows}
       columns={columns}
       loading={page.loading}
       getRowId={getRowId}
       selection={page.selection}
       onSelectionChange={page.setSelection}
       onRowDoubleClick={handleRowDoubleClick}
+      getRowClassName={(params) => (params.row.__isFinishedCompetition ? 'competition-finished-row' : '')}
       confirmDeleteOpen={page.confirmDeleteOpen}
       deleteConstraints={page.deleteConstraints}
       entityDescription="cette competition"
