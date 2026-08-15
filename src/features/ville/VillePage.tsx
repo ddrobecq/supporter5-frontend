@@ -14,13 +14,14 @@ import { buildVilleFormFields, detectVillePrimaryKey, resolveVilleId, resolveVil
 interface VillePageProps {
   variant?: 'page' | 'modalPicker';
   onOpenInTab?: (payload: { rowId: GridRowId; label: string }) => void;
+  onSelectVille?: (ville: VilleRow) => void;
 }
 
 function toComparableId(value: unknown): string {
   return String(value);
 }
 
-export function VillePage({ variant = 'page', onOpenInTab }: VillePageProps) {
+export function VillePage({ variant = 'page', onOpenInTab, onSelectVille }: VillePageProps) {
   const params = useParams<{ villeId?: string }>();
   const villeId = params.villeId;
 
@@ -72,14 +73,19 @@ export function VillePage({ variant = 'page', onOpenInTab }: VillePageProps) {
   };
 
   const openInTabFromRowId = (rowId: GridRowId) => {
-    if (!onOpenInTab) return;
     const selectedRow = page.rows.find((row) => toComparableId(getRowId(row)) === toComparableId(rowId));
+    if (!selectedRow) return;
+    if (onSelectVille) {
+      onSelectVille(selectedRow);
+      return;
+    }
+    if (!onOpenInTab) return;
     const label = selectedRow ? resolveVilleLabel(selectedRow) : String(rowId);
     onOpenInTab({ rowId, label });
   };
 
   const handleOpen = () => {
-    if (variant === 'modalPicker' && onOpenInTab) {
+    if (variant === 'modalPicker' && (onOpenInTab || onSelectVille)) {
       const selectedId = page.selection.at(0);
       if (selectedId === undefined || selectedId === null) {
         page.setSnackbar({ severity: 'error', message: 'Selectionnez une ville a ouvrir.' });
@@ -93,7 +99,7 @@ export function VillePage({ variant = 'page', onOpenInTab }: VillePageProps) {
   };
 
   const handleRowDoubleClick = (rowId: GridRowId) => {
-    if (variant === 'modalPicker' && onOpenInTab) {
+    if (variant === 'modalPicker' && (onOpenInTab || onSelectVille)) {
       openInTabFromRowId(rowId);
       return;
     }

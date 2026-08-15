@@ -36,11 +36,11 @@ export function TerrainFormDialog({
   saveCount = 0,
 }: TerrainFormDialogProps) {
   const [values, setValues] = useState<TerrainRow>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, onDirtyChange);
 
   const labelsByField: Record<string, string> = {
-    TECLEUNIK: 'Identifiant',
     STADE: 'Nom',
     VILLE_NOM: 'Ville',
   };
@@ -52,24 +52,21 @@ export function TerrainFormDialog({
     } else if (initialData) {
       resolved = Object.keys(initialData);
     }
-    // Exclure TERRAIN_LOGO et IDVILLE, inclure VILLE_NOM
+    const autoIncrementField = primaryKey ?? 'TECLEUNIK';
+    // Exclure les champs techniques et la cle auto-incrementee du formulaire.
     return resolved
-      .filter(f => f !== 'TERRAIN_LOGO' && f !== 'IDVILLE')
+      .filter((field) => field !== 'TERRAIN_LOGO' && field !== 'IDVILLE' && field !== autoIncrementField && field !== 'TECLEUNIK')
       .map(f => f);
-  }, [fields, initialData]);
+  }, [fields, initialData, primaryKey]);
 
-  const codeField = useMemo(
-    () => resolvedFields.find((field) => ['TECLEUNIK', 'CODE'].includes(field)),
-    [resolvedFields],
-  );
   const nameField = useMemo(
     () => resolvedFields.find((field) => ['STADE', 'NOM'].includes(field)),
     [resolvedFields],
   );
   const villeField = 'VILLE_NOM';
   const customFields = useMemo(
-    () => new Set([codeField, nameField, villeField].filter(Boolean) as string[]),
-    [codeField, nameField],
+    () => new Set([nameField, villeField].filter(Boolean) as string[]),
+    [nameField],
   );
 
   useEffect(() => {
@@ -85,6 +82,7 @@ export function TerrainFormDialog({
       initial.IDVILLE = initialData.IDVILLE;
     }
     setValues(initial);
+    setErrors({});
     setInitialSignature(JSON.stringify(initial));
   }, [open, resolvedFields, initialData]);
 
@@ -93,9 +91,26 @@ export function TerrainFormDialog({
   }, [syncDirty, values]);
 
   const handleSave = async () => {
+    const nextErrors: Record<string, string> = {};
+    const nameValue = nameField ? String(values[nameField] ?? '').trim() : '';
+    const villeId = String(values.IDVILLE ?? '').trim();
+    if (nameField && !nameValue) {
+      nextErrors[nameField] = 'Nom requis';
+    }
+    if (!villeId) {
+      nextErrors[villeField] = 'Ville requise';
+    }
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      return;
+    }
+
     setSaving(true);
     try {
-      const payload: TerrainRow = { ...values };
+      const autoIncrementField = primaryKey ?? 'TECLEUNIK';
+      const payload = Object.fromEntries(
+        Object.entries(values).filter(([field]) => field !== autoIncrementField && field !== 'TECLEUNIK'),
+      ) as TerrainRow;
       await onSubmit(payload);
       markClean();
     } finally {
@@ -110,26 +125,19 @@ export function TerrainFormDialog({
 
   const content = (
     <>
-        {codeField ? (
-          <TextField
-            label={labelsByField[codeField] ?? codeField}
-            value={String(values[codeField] ?? '')}
-            onChange={(e) => {
-              setValues((prev) => ({ ...prev, [codeField]: e.target.value }));
-            }}
-            disabled={mode === 'edit' && primaryKey === codeField}
-            size="small"
-            fullWidth
-          />
-        ) : null}
-
         {nameField ? (
           <TextField
             label={labelsByField[nameField] ?? nameField}
             value={(values[nameField] as string | number | undefined) ?? ''}
-            onChange={(e) => setValues((prev) => ({ ...prev, [nameField]: e.target.value }))}
+            onChange={(e) => {
+              setValues((prev) => ({ ...prev, [nameField]: e.target.value }));
+              setErrors((prev) => ({ ...prev, [nameField]: '' }));
+            }}
             fullWidth
             size="small"
+            required
+            error={Boolean(errors[nameField])}
+            helperText={errors[nameField]}
           />
         ) : null}
 
@@ -137,8 +145,14 @@ export function TerrainFormDialog({
           <VillePicker
             villeId={String(values['IDVILLE'] ?? '')}
             villeName={String(values[villeField] ?? '')}
-            onChange={(id, name) => setValues((prev) => ({ ...prev, IDVILLE: id, [villeField]: name }))}
+            onChange={(id, name) => {
+              setValues((prev) => ({ ...prev, IDVILLE: id, [villeField]: name }));
+              setErrors((prev) => ({ ...prev, [villeField]: '' }));
+            }}
             label={labelsByField[villeField]}
+            required
+            error={Boolean(errors[villeField])}
+            helperText={errors[villeField]}
           />
         ) : null}
 

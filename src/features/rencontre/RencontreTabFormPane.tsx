@@ -1244,9 +1244,9 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
                 </Box>
 
                 <Box sx={{ width: '100%', minWidth: 0 }}>
-                  <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: 'text.secondary' }}>Stade</Typography>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, flexWrap: 'wrap' }}>
                     <TextField
+                      label="Stade"
                       value={draft.terrainLabel || draft.terrainId}
                       placeholder="Aucun stade"
                       size="small"

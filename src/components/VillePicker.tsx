@@ -1,11 +1,11 @@
 import ClearRoundedIcon from '@mui/icons-material/ClearRounded';
 import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
-import { Box, IconButton, InputAdornment, TextField, Tooltip } from '@mui/material';
+import { Box, Dialog, DialogContent, DialogTitle, IconButton, InputAdornment, TextField, Tooltip } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { useEffect, useState } from 'react';
 import { http } from '../lib/http';
 import { fetchVilleById } from '../features/ville/villeApi';
-import { TerrainVilleSelector } from '../features/terrain/TerrainVilleSelector';
+import { VillePage } from '../features/ville/VillePage';
 import type { VilleRow } from '../features/ville/types';
 import { useEntityImage } from '../lib/useEntityImage';
 
@@ -18,6 +18,7 @@ export interface VillePickerProps {
   label?: string;
   size?: 'small' | 'medium';
   disabled?: boolean;
+  required?: boolean;
   error?: boolean;
   helperText?: string;
   sx?: SxProps<Theme>;
@@ -56,6 +57,7 @@ export function VillePicker({
   label = 'Ville',
   size = 'small',
   disabled,
+  required,
   error,
   helperText,
   sx,
@@ -100,6 +102,7 @@ export function VillePicker({
         size={size}
         fullWidth
         disabled={disabled}
+        required={required}
         error={error}
         helperText={helperText}
         sx={sx}
@@ -132,11 +135,22 @@ export function VillePicker({
         }}
       />
 
-      <TerrainVilleSelector
+      <Dialog
         open={selectorOpen}
         onClose={() => setSelectorOpen(false)}
-        onSelect={handleSelect}
-      />
+        fullWidth
+        maxWidth="xl"
+        slotProps={{
+          paper: { sx: { height: 'min(90vh, 980px)' } },
+        }}
+      >
+        <DialogTitle>Sélectionner une Ville</DialogTitle>
+        <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6', overflow: 'hidden', display: 'flex', minHeight: 0 }}>
+          <Box sx={{ flex: 1, minHeight: 0, minWidth: 0, display: 'flex', '& > *': { flex: 1, minHeight: 0, minWidth: 0 } }}>
+            <VillePage variant="modalPicker" onSelectVille={handleSelect} />
+          </Box>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
