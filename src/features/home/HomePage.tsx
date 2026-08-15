@@ -122,7 +122,6 @@ function MatchRecentRecordAvatar({ record }: { record: RecentOpenedRecord }) {
 
   useEffect(() => {
     let cancelled = false;
-    setClubIds({ domicile: null, exterieur: null });
 
     void fetchRencontreDetailById(record.entityId)
       .then((detail) => {
@@ -250,11 +249,12 @@ function ClubCalendarMatchCard({ row, isNext }: { row: ClubMatchRow; isNext: boo
         textAlign: 'left',
         color: 'text.primary',
         border: isNext ? '2px solid' : '1px solid',
-        borderColor: isNext ? 'primary.main' : 'divider',
+        borderColor: isNext ? 'primary.main' : '#cbd5e1',
         borderRadius: 1.25,
-        bgcolor: isNext ? '#f8fbff' : '#fff',
+        bgcolor: isNext ? '#eef6ff' : '#f8fafc',
+        boxShadow: isNext ? '0 2px 8px rgba(37, 99, 235, 0.14)' : '0 1px 3px rgba(15, 23, 42, 0.08)',
         p: 1.25,
-        '&:hover': { bgcolor: '#f8fafc' },
+        '&:hover': { bgcolor: isNext ? '#e5f0ff' : '#f1f5f9' },
       }}
     >
       <Stack spacing={0.7}>
@@ -290,7 +290,7 @@ function ClubCalendarMatchCard({ row, isNext }: { row: ClubMatchRow; isNext: boo
         <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
           {played
             ? (circumstanceLabel || row.CIRC_COMPLET)
-            : `${formatHeureDisplay(row.HEURE) || 'Heure non définie'} · ${row.TERRAIN_NOM || 'Stade non défini'}`}
+            : `${formatHeureDisplay(row.HEURE) + ' · ' || ''}${row.TERRAIN_NOM || 'Stade non défini'}`}
         </Typography>
       </Stack>
     </Link>
@@ -326,14 +326,15 @@ function SupportedClubCalendar({ clubId, clubName }: { clubId: string; clubName:
     const last = parseCompactDate(rows[rows.length - 1]?.DATE ?? '');
     return Boolean(first && last && first <= now && now <= last);
   });
+  const currentSeasonKey = currentSeason?.[0] ?? '';
   const seasonRows = currentSeason?.[1] ?? ordered;
   const nextIndex = seasonRows.findIndex((row) => !isPlayedMatch(row, now));
   useEffect(() => {
-    if (currentSeason && nextIndex >= 0) {
+    if (currentSeasonKey && nextIndex >= 0) {
       window.requestAnimationFrame(() => nextMatchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }));
       return;
     }
-  }, [currentSeason?.[0], nextIndex, seasonRows.length]);
+  }, [currentSeasonKey, nextIndex, seasonRows.length]);
 
   const scrollMatches = (direction: -1 | 1) => {
     calendarScrollerRef.current?.scrollBy({ left: direction * 270, behavior: 'smooth' });
