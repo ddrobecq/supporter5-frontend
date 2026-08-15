@@ -4,6 +4,7 @@ import ErrorOutlineRoundedIcon from '@mui/icons-material/ErrorOutlineRounded';
 import { Box } from '@mui/material';
 import { DataGrid, type DataGridProps, type GridRowParams, type GridValidRowModel } from '@mui/x-data-grid';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { normalizeHeureDigits } from './heureUtils';
 
 type RowSaveStatus = 'idle' | 'saving' | 'saved' | 'failed';
 
@@ -12,6 +13,51 @@ type StatusAnchor = {
   status: Exclude<RowSaveStatus, 'idle'>;
   top: number;
 };
+
+function parseMatchDateTime(row: GridValidRowModel): Date | null {
+  const dateValue = String(row.DATE ?? '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+    return null;
+  }
+
+  const heureDigits = normalizeHeureDigits(String(row.HEURE ?? ''));
+  if (!/^\d{4}$/.test(heureDigits)) {
+    return null;
+  }
+
+  const year = Number(dateValue.slice(0, 4));
+  const month = Number(dateValue.slice(5, 7));
+  const day = Number(dateValue.slice(8, 10));
+  const hours = Number(heureDigits.slice(0, 2));
+  const minutes = Number(heureDigits.slice(2, 4));
+  const candidate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+
+  if (
+    candidate.getFullYear() !== year
+    || candidate.getMonth() !== month - 1
+    || candidate.getDate() !== day
+    || hours > 23
+    || minutes > 59
+  ) {
+    return null;
+  }
+
+  return candidate;
+}
+
+function getMatchTimingClass(row: GridValidRowModel, now: Date): string {
+  if (Number(row.ETAT) !== 1) {
+    return '';
+  }
+
+  const matchDateTime = parseMatchDateTime(row);
+  if (!matchDateTime || matchDateTime > now) {
+    return '';
+  }
+
+  const matchShouldBeFinishedAt = new Date(matchDateTime.getTime() + (2 * 60 * 60 * 1000));
+  return matchShouldBeFinishedAt <= now ? 'match-en-retard-fini' : 'match-en-retard-demarre';
+}
 
 interface MatchDataGridProps<R extends GridValidRowModel> extends DataGridProps<R> {
   isDefaultHeureSort?: boolean;
@@ -31,10 +77,17 @@ export function MatchDataGrid<R extends GridValidRowModel>(props: MatchDataGridP
     rowSaveStatusMap,
     saveStatusAnchorField = 'ETAT',
     onRowDoubleClick,
+    getRowClassName,
     ...rest
   } = props;
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [statusAnchors, setStatusAnchors] = useState<StatusAnchor[]>([]);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const resolveMatchId = (row: R): string | number | null => {
     if (getMatchId) {
@@ -151,6 +204,11 @@ export function MatchDataGrid<R extends GridValidRowModel>(props: MatchDataGridP
         {...rest}
         density={density}
         onRowDoubleClick={handleRowDoubleClick}
+        getRowClassName={(params) => {
+          const externalClass = getRowClassName?.(params) ?? '';
+          const timingClass = getMatchTimingClass(params.row, now);
+          return [externalClass, timingClass].filter(Boolean).join(' ');
+        }}
         sx={{
           width: '100%',
           '@keyframes spin': {
@@ -164,6 +222,8 @@ export function MatchDataGrid<R extends GridValidRowModel>(props: MatchDataGridP
           '& .MuiDataGrid-row.status-en-attente .MuiDataGrid-cell': { color: 'grey.400' },
           '& .MuiDataGrid-row.status-programmee .MuiDataGrid-cell': { color: 'grey.400' },
           '& .MuiDataGrid-row.status-non-jouee .MuiDataGrid-cell': { color: 'grey.400' },
+          '& .MuiDataGrid-row.match-en-retard-demarre .MuiDataGrid-cell': { color: 'warning.main' },
+          '& .MuiDataGrid-row.match-en-retard-fini .MuiDataGrid-cell': { color: 'error.main' },
           '& .MuiDataGrid-row.selected-calendar-row': {
             backgroundColor: 'action.hover',
           },

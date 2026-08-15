@@ -1,6 +1,8 @@
 import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import TodayRoundedIcon from '@mui/icons-material/TodayRounded';
+import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
+import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded';
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import {
   Alert,
@@ -9,6 +11,7 @@ import {
   CardContent,
   IconButton,
   Stack,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { type GridColDef, type GridSortModel } from '@mui/x-data-grid';
@@ -338,13 +341,12 @@ export function CalendrierPage() {
   useEffect(() => {
     orderedRowsRef.current = orderedRows;
   }, [orderedRows]);
-  const isCompactMatchList = rows.length < 10;
   const compactMatchListHeight = useMemo(() => {
     const visibleRows = Math.max(rows.length, 1);
     // Approximate DataGrid chrome in compact density (header + footer + paddings).
     const estimatedGridChrome = 116;
     const estimatedRowHeight = 33;
-    return Math.max(220, estimatedGridChrome + (visibleRows * estimatedRowHeight));
+    return Math.max(150, estimatedGridChrome + (visibleRows * estimatedRowHeight));
   }, [rows.length]);
   const selectedRow = useMemo(
     () => rows.find((row) => String(row.RECLEUNIK) === String(selectedRowId ?? '')) ?? null,
@@ -380,10 +382,51 @@ export function CalendrierPage() {
     }
     return classementRows.filter((row) => normalizeGroupName(row.GROUPE) === classementGroup);
   }, [classementHasMultipleGroups, classementGroup, classementRows]);
+  const classementGridHeight = useMemo(() => {
+    const visibleRows = Math.max(displayedClassementRows.length, 1);
+    const headerHeight = 56;
+    const compactRowHeight = 36;
+    const verticalPadding = 8;
+    return Math.max(120, headerHeight + (visibleRows * compactRowHeight) + verticalPadding);
+  }, [displayedClassementRows.length]);
   const useRatioGoalAverage = useMemo(
     () => Number(classementRows[0]?.TDCalculDiffBut ?? 1) === 2,
     [classementRows],
   );
+  const competitionId = Number(selectedRow?.COCLEUNIK ?? 0);
+  const competitionWebUrl = String(selectedRow?.CO_WEB ?? '').trim();
+  const canOpenCompetitionWeb = useMemo(() => {
+    if (!competitionWebUrl) {
+      return false;
+    }
+    try {
+      const url = new URL(competitionWebUrl);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }, [competitionWebUrl]);
+
+  const openCompetitionTab = () => {
+    if (!Number.isInteger(competitionId) || competitionId <= 0) {
+      return;
+    }
+    window.dispatchEvent(new CustomEvent('supporter:tab-open', {
+      detail: {
+        path: `/admin/competitions/${encodeURIComponent(String(competitionId))}`,
+        label: `${String(selectedRow?.COMPET_NOM ?? '').trim()} ${String(selectedRow?.SAISON ?? '').trim()}`.trim() || 'Competition',
+        unique: true,
+        uniqueByPath: true,
+      },
+    }));
+  };
+
+  const openCompetitionWeb = () => {
+    if (!canOpenCompetitionWeb) {
+      return;
+    }
+    window.open(competitionWebUrl, '_blank', 'noopener,noreferrer');
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -1122,7 +1165,7 @@ export function CalendrierPage() {
         <CardContent>
           {error ? <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert> : null}
 
-          <Box sx={{ mt: 2, height: isCompactMatchList ? compactMatchListHeight : 'calc(100vh - 270px)', minHeight: isCompactMatchList ? 220 : 420 }}>
+            <Box sx={{ mt: 2, height: compactMatchListHeight, minHeight: 150 }}>
             <MatchDataGrid
               rows={rows}
               columns={columns}
@@ -1154,13 +1197,43 @@ export function CalendrierPage() {
         <Card>
           <CardContent>
             <Stack spacing={1.25}>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                {activeTourId == null
-                  ? 'Sélectionnez un match dans la liste du calendrier pour afficher le classement.'
-                  : `${classementBlockLabel || 'Classement du tour'}${classementTourId === activeTourId ? '' : ' - chargement...'}`}
-              </Typography>
+              <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {activeTourId == null
+                    ? 'Sélectionnez un match dans la liste du calendrier pour afficher le classement.'
+                    : `${classementBlockLabel || 'Classement du tour'}${classementTourId === activeTourId ? '' : ' - chargement...'}`}
+                </Typography>
+                <Stack direction="row" spacing={0.25}>
+                  <Tooltip title="Ouvrir la fiche de la compétition">
+                    <span>
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={openCompetitionTab}
+                        disabled={competitionId <= 0}
+                        aria-label="Ouvrir la fiche de la compétition"
+                      >
+                        <EmojiEventsRoundedIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                  <Tooltip title="Ouvrir le site de la compétition">
+                    <span>
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={openCompetitionWeb}
+                        disabled={!canOpenCompetitionWeb}
+                        aria-label="Ouvrir le site de la compétition"
+                      >
+                        <OpenInNewRoundedIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </Stack>
+              </Stack>
 
-              <Box sx={{ height: 320, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+              <Box sx={{ height: classementGridHeight, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
                 <MatchDataGrid
                   rows={displayedClassementRows}
                   columns={classementColumns}

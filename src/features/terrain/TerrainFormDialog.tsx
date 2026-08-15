@@ -197,7 +197,6 @@ export function TerrainFormDialog({
         </EntityFormDialog>
       )}
 
-      {/* TerrainVilleSelector now embedded in VillePicker */}
     </>
   );
 }

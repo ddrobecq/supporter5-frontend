@@ -8,6 +8,8 @@ export interface CalendrierRow {
   CIRC: string | null;
   TOUR_NOM: string;
   COMPET_NOM: string;
+  COCLEUNIK?: number | null;
+  CO_WEB?: string | null;
   SAISON: string;
   CO_ANNEE: number;
   DOMICILE: string;

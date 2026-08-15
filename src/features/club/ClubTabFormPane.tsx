@@ -5,8 +5,9 @@ import AutoFixHighRoundedIcon from '@mui/icons-material/AutoFixHighRounded';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import FormatColorFillRoundedIcon from '@mui/icons-material/FormatColorFillRounded';
 import FormatColorTextRoundedIcon from '@mui/icons-material/FormatColorTextRounded';
+import ClearRoundedIcon from '@mui/icons-material/ClearRounded';
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
-import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
 import {
   Avatar,
   Box,
@@ -19,6 +20,7 @@ import {
   DialogContentText,
   DialogTitle,
   IconButton,
+  InputAdornment,
   Stack,
   Tab,
   Tabs,
@@ -33,7 +35,7 @@ import jerseySvgSource from '../../../img/jersey.svg?raw';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { ClubSelectField } from '../../components/ClubSelectField';
-import { DateInputField, formatDateShort } from '../../components/DateInputField';
+import { DateInputField, formatDateShort, toInputDateFromDisplay } from '../../components/DateInputField';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { NatioAutocomplete } from '../../components/NatioAutocomplete';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
@@ -380,11 +382,11 @@ function formatDateForInput(value: unknown): string {
   const text = String(value ?? '').trim();
   const compact = text.match(/^(\d{4})(\d{2})(\d{2})$/);
   if (compact) {
-    return `${compact[3]}/${compact[2]}/${compact[1]}`;
+    return `${compact[1]}/${compact[2]}/${compact[3]}`;
   }
   const dashed = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (dashed) {
-    return `${dashed[3]}/${dashed[2]}/${dashed[1]}`;
+    return `${dashed[1]}/${dashed[2]}/${dashed[3]}`;
   }
   return '';
 }
@@ -393,6 +395,11 @@ function formatDateForApi(value: string): string | null {
   const text = String(value ?? '').trim();
   if (!text) {
     return null;
+  }
+
+  const genericDate = toInputDateFromDisplay(text);
+  if (genericDate) {
+    return genericDate;
   }
 
   const french = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
@@ -1513,31 +1520,39 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
 
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
               <TextField
-                label="Nom du stade"
+                label="Stade"
                 value={terrainDialogDraft.terrainName}
                 size="small"
                 fullWidth
-                slotProps={{ input: { readOnly: true } }}
+                slotProps={{
+                  input: {
+                    readOnly: true,
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <Stack direction="row" spacing={0.25}>
+                          <Tooltip title="Sélectionner un stade">
+                            <IconButton size="small" onClick={() => setTerrainSelectorOpen(true)} aria-label="Sélectionner un stade">
+                              <SearchRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Effacer le stade">
+                            <span>
+                              <IconButton
+                                size="small"
+                                onClick={() => setTerrainDialogDraft((prev) => ({ ...prev, terrainId: '', terrainName: '' }))}
+                                disabled={!terrainDialogDraft.terrainId}
+                                aria-label="Effacer le stade"
+                              >
+                                <ClearRoundedIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        </Stack>
+                      </InputAdornment>
+                    ),
+                  },
+                }}
               />
-              <Tooltip title="Selectionner un stade">
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={() => setTerrainSelectorOpen(true)}
-                  startIcon={<SportsSoccerRoundedIcon fontSize="small" />}
-                  sx={{
-                    flexShrink: 0,
-                    minWidth: 36,
-                    px: 1,
-                    '.MuiButton-startIcon': { mr: 0 },
-                  }}
-                  aria-label="Selectionner un stade"
-                >
-                  <Box component="span" sx={{ display: 'none' }}>
-                    Stade
-                  </Box>
-                </Button>
-              </Tooltip>
             </Stack>
           </Stack>
         </DialogContent>

@@ -11,9 +11,10 @@ import type { ClubCreateWizardPayload, ClubGridRow } from './types';
 interface ClubPageProps {
   variant?: 'page' | 'modalPicker';
   onOpenInTab?: (payload: { rowId: GridRowId; label: string }) => void;
+  onSelectClub?: (club: ClubGridRow) => void;
 }
 
-export function ClubPage({ variant = 'page', onOpenInTab }: ClubPageProps) {
+export function ClubPage({ variant = 'page', onOpenInTab, onSelectClub }: ClubPageProps) {
   const params = useParams<{ clubId?: string }>();
   const clubId = params.clubId;
 
@@ -77,8 +78,15 @@ export function ClubPage({ variant = 'page', onOpenInTab }: ClubPageProps) {
   };
 
   const openInTabFromRowId = (rowId: GridRowId) => {
-    if (!onOpenInTab) return;
-    onOpenInTab({ rowId, label: resolveClubLabel(rowId) });
+    const selectedRow = page.rows.find((row) => String(row.IDCLUB) === String(rowId));
+    if (!selectedRow) return;
+    if (onSelectClub) {
+      onSelectClub(selectedRow);
+      return;
+    }
+    if (onOpenInTab) {
+      onOpenInTab({ rowId, label: resolveClubLabel(rowId) });
+    }
   };
 
   const handleOpen = () => {
@@ -88,7 +96,7 @@ export function ClubPage({ variant = 'page', onOpenInTab }: ClubPageProps) {
       return;
     }
 
-    if (variant === 'modalPicker' && onOpenInTab) {
+    if (variant === 'modalPicker' && (onOpenInTab || onSelectClub)) {
       openInTabFromRowId(selectedId);
       return;
     }
@@ -102,9 +110,13 @@ export function ClubPage({ variant = 'page', onOpenInTab }: ClubPageProps) {
     await page.reloadData();
     page.setSnackbar({ severity: 'success', message: 'Club cree.' });
 
-    if (variant === 'modalPicker' && onOpenInTab) {
+    if (variant === 'modalPicker' && (onOpenInTab || onSelectClub)) {
       const label = String(created.CLUB_NOM_COMPLET ?? '').trim() || String(created.CLUB_ABREGE ?? '').trim() || String(created.IDCLUB);
-      onOpenInTab({ rowId: created.IDCLUB, label });
+      if (onSelectClub) {
+        onSelectClub(created);
+        return;
+      }
+      onOpenInTab?.({ rowId: created.IDCLUB, label });
       return;
     }
 
@@ -132,7 +144,7 @@ export function ClubPage({ variant = 'page', onOpenInTab }: ClubPageProps) {
       selection={page.selection}
       onSelectionChange={page.setSelection}
       onRowDoubleClick={(rowId) => {
-        if (variant === 'modalPicker' && onOpenInTab) {
+        if (variant === 'modalPicker' && (onOpenInTab || onSelectClub)) {
           openInTabFromRowId(rowId);
           return;
         }

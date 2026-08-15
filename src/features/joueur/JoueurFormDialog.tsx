@@ -31,7 +31,6 @@ import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import { useEntityImage } from '../../lib/useEntityImage';
-import { TerrainVilleSelector } from '../terrain/TerrainVilleSelector';
 import { VillePicker } from '../../components/VillePicker';
 import type { NatioRow } from '../natio/types';
 import { fetchVilleById } from '../ville/villeApi';
@@ -198,7 +197,6 @@ export function JoueurFormDialog({
   const [values, setValues] = useState<JoueurRow>({});
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [villeSelectorOpen, setVilleSelectorOpen] = useState(false);
   const [birthVilleName, setBirthVilleName] = useState('');
   const [birthVilleNatioId, setBirthVilleNatioId] = useState('');
   const [deathVilleName, setDeathVilleName] = useState('');
@@ -1128,8 +1126,6 @@ export function JoueurFormDialog({
           {content}
         </EntityFormDialog>
       )}
-
-      <TerrainVilleSelector open={villeSelectorOpen} onClose={() => setVilleSelectorOpen(false)} onSelect={() => {}} />
 
       <Dialog open={historyDialogOpen} onClose={() => { if (!historyDialogSaving) setHistoryDialogOpen(false); }} fullWidth maxWidth="sm">
         <DialogTitle>{historyDialogMode === 'create' ? 'Ajouter une saison' : 'Modifier une saison'}</DialogTitle>

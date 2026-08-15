@@ -450,7 +450,6 @@ export function ClubCreateDialog({
         </DialogActions>
       </Dialog>
 
-      {/* TerrainVilleSelector is now embedded inside VillePicker */}
     </>
   );
 }
