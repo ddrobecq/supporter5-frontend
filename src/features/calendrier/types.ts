@@ -1,6 +1,7 @@
 export interface CalendrierRow {
   RECLEUNIK: string | number;
   TUCLEUNIK: number;
+  TYPE_TOUR?: number;
   DATE: string;
   HEURE: string;
   ETAT: number;
@@ -44,4 +45,16 @@ export interface TourClassementRow {
   PADiff?: number;
   PARatio?: number;
   TDCalculDiffBut?: number;
+  LOCKED_QUALIF_ABREGE?: string | null;
+  LOCKED_QUALIF_LIBELLE?: string | null;
+  LOCKED_QUALIF_COULEUR?: number | null;
+  LOCKED_QUALIF_TYPE?: number | null;
+}
+
+export interface TourQualifRow {
+  CLASS_MinRang: number;
+  CLASS_MaxRang: number;
+  CLASS_Couleur: number;
+  CLASS_Libelle: string;
+  TUCLEUNIK: number;
 }

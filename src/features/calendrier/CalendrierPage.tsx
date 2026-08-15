@@ -23,6 +23,7 @@ import { useEntityImage } from '../../lib/useEntityImage';
 import {
   fetchCalendarByDate,
   fetchTourClassement,
+  fetchTourQualifs,
   updateCalendarHeure,
   updateCalendarScore,
   updateCalendarStatus,
@@ -34,7 +35,7 @@ import {
   sanitizeHeureDigits,
 } from './HeureCell';
 import type { ScoreDraft } from './ScoreCell';
-import type { CalendrierRow, TourClassementRow } from './types';
+import type { CalendrierRow, TourClassementRow, TourQualifRow } from './types';
 
 const DEFAULT_SORT_MODEL: GridSortModel = [{ field: 'HEURE', sort: 'asc' }];
 const CALENDRIER_DATE_STORAGE_KEY = 'supporter:calendrier:selected-date';
@@ -233,11 +234,47 @@ function getStatusAfterScoreEdit(row: CalendrierRow): number {
 function ClassementClubCell({
   clubId,
   clubName,
+  lockedQualifAbrege,
+  lockedQualifLibelle,
+  lockedQualifCouleur,
 }: {
   clubId: string;
   clubName: string;
+  lockedQualifAbrege?: string | null;
+  lockedQualifLibelle?: string | null;
+  lockedQualifCouleur?: number | null;
 }) {
   const { src } = useEntityImage('club', clubId);
+  const lockedLabel = String(lockedQualifLibelle ?? '').trim();
+  const lockedAbrege = String(lockedQualifAbrege ?? '').trim();
+  const lockedColor = qualifColorToCss(lockedQualifCouleur);
+  const pill = lockedAbrege ? (
+    <Tooltip title={`Verrouillé : ${lockedLabel || lockedAbrege}`}>
+      <Box
+        component="span"
+        sx={{
+          ml: 0.3,
+          px: 0.25,
+          minWidth: 14,
+          height: 14,
+          borderRadius: 10,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: lockedColor,
+          color: '#fff',
+          fontSize: '0.5rem',
+          fontWeight: 700,
+          lineHeight: 1,
+          flexShrink: 0,
+          position: 'relative',
+          top: '-0.35em',
+        }}
+      >
+        {lockedAbrege}
+      </Box>
+    </Tooltip>
+  ) : null;
 
   return (
     <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', minWidth: 0 }}>
@@ -267,12 +304,24 @@ function ClassementClubCell({
       <Box sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
         {clubName}
       </Box>
+      {pill}
     </Box>
   );
 }
 
 function normalizeGroupName(value: unknown): string {
   return String(value ?? '').trim();
+}
+
+function qualifColorToCss(value: unknown): string {
+  const color = Number(value);
+  if (!Number.isInteger(color) || color < 0 || color > 0xFFFFFF) {
+    return '#64748b';
+  }
+  const red = color & 0xFF;
+  const green = (color >> 8) & 0xFF;
+  const blue = (color >> 16) & 0xFF;
+  return `rgb(${red}, ${green}, ${blue})`;
 }
 
 function hasMultipleGroups(rows: TourClassementRow[]): boolean {
@@ -322,12 +371,14 @@ export function CalendrierPage() {
   const [sortModel, setSortModel] = useState(DEFAULT_SORT_MODEL);
   const [selectedRowId, setSelectedRowId] = useState<string | number | null>(null);
   const [classementRows, setClassementRows] = useState<TourClassementRow[]>([]);
+  const [classementQualifRows, setClassementQualifRows] = useState<TourQualifRow[]>([]);
   const [classementLoading, setClassementLoading] = useState(false);
   const [classementTourId, setClassementTourId] = useState<number | null>(null);
   const [classementGroup, setClassementGroup] = useState<string | null>(null);
   const savingScoreRowIdRef = useRef<string | number | null>(null);
   const savedIconTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const classementCacheRef = useRef<Map<number, TourClassementRow[]>>(new Map());
+  const classementQualifCacheRef = useRef<Map<number, TourQualifRow[]>>(new Map());
   const classementRequestTokenRef = useRef(0);
   const scoreInitialDraftRef = useRef<ScoreDraft | null>(null);
   const heureInitialDraftRef = useRef<string>('');
@@ -394,6 +445,25 @@ export function CalendrierPage() {
     () => Number(classementRows[0]?.TDCalculDiffBut ?? 1) === 2,
     [classementRows],
   );
+
+  const isEliminatoryMatchWinner = useCallback((row: CalendrierRow, side: 'domicile' | 'exterieur'): boolean => {
+    if (Number(row.TYPE_TOUR ?? 0) !== 2 || Number(row.TUCLEUNIK) !== Number(classementTourId ?? 0)) {
+      return false;
+    }
+
+    const group = resolveMatchGroup(classementRows, row);
+    const candidates = classementRows.filter((candidate) => (
+      !group || normalizeGroupName(candidate.GROUPE) === group
+    ));
+    const winners = candidates.filter((candidate) => Number(candidate.PAClassement ?? 0) === 1);
+    if (winners.length !== 1) {
+      return false;
+    }
+
+    const clubId = side === 'domicile' ? row.DOMICILE : row.EXTERIEUR;
+    return String(clubId ?? '').trim() !== ''
+      && String(winners[0]?.IDCLUB ?? '').trim() === String(clubId).trim();
+  }, [classementRows, classementTourId]);
   const competitionId = Number(selectedRow?.COCLEUNIK ?? 0);
   const competitionWebUrl = String(selectedRow?.CO_WEB ?? '').trim();
   const canOpenCompetitionWeb = useMemo(() => {
@@ -448,6 +518,7 @@ export function CalendrierPage() {
   const loadClassementForTour = useCallback(async (tourId: number, force = false) => {
     if (!Number.isInteger(tourId) || tourId <= 0) {
       setClassementRows([]);
+      setClassementQualifRows([]);
       setClassementTourId(null);
       return;
     }
@@ -456,6 +527,7 @@ export function CalendrierPage() {
       const cached = classementCacheRef.current.get(tourId);
       if (cached) {
         setClassementRows(cached);
+        setClassementQualifRows(classementQualifCacheRef.current.get(tourId) ?? []);
         setClassementTourId(tourId);
         return;
       }
@@ -464,12 +536,17 @@ export function CalendrierPage() {
     const token = ++classementRequestTokenRef.current;
     setClassementLoading(true);
     try {
-      const data = await fetchTourClassement(tourId);
+      const [data, qualifs] = await Promise.all([
+        fetchTourClassement(tourId),
+        fetchTourQualifs(tourId),
+      ]);
       if (token !== classementRequestTokenRef.current) {
         return;
       }
       classementCacheRef.current.set(tourId, data);
+      classementQualifCacheRef.current.set(tourId, qualifs);
       setClassementRows(data);
+      setClassementQualifRows(qualifs);
       setClassementTourId(tourId);
     } catch {
       if (token !== classementRequestTokenRef.current) {
@@ -477,6 +554,7 @@ export function CalendrierPage() {
       }
       setError('Impossible de charger le classement du tour.');
       setClassementRows([]);
+      setClassementQualifRows([]);
       setClassementTourId(null);
     } finally {
       if (token === classementRequestTokenRef.current) {
@@ -489,6 +567,7 @@ export function CalendrierPage() {
     if (rows.length === 0) {
       setSelectedRowId(null);
       setClassementRows([]);
+      setClassementQualifRows([]);
       setClassementTourId(null);
       return;
     }
@@ -502,6 +581,7 @@ export function CalendrierPage() {
   useEffect(() => {
     if (isSelectedProgrammedEncounter) {
       setClassementRows([]);
+      setClassementQualifRows([]);
       setClassementTourId(null);
       setClassementGroup(null);
       return;
@@ -509,6 +589,7 @@ export function CalendrierPage() {
 
     if (activeTourId == null) {
       setClassementRows([]);
+      setClassementQualifRows([]);
       setClassementTourId(null);
       setClassementGroup(null);
       return;
@@ -989,7 +1070,9 @@ export function CalendrierPage() {
       onMoveVertical: moveScoreEditToAdjacentRow,
       onTabOut: handleScoreTabOut,
     },
-  }), [editingHeureRowId, editingScoreRowId, editingStatusRowId, heureDraftDigits, scoreDraft, statusDraft]);
+    isDomicileWinner: (row) => isEliminatoryMatchWinner(row, 'domicile'),
+    isExterieurWinner: (row) => isEliminatoryMatchWinner(row, 'exterieur'),
+  }), [editingHeureRowId, editingScoreRowId, editingStatusRowId, heureDraftDigits, isEliminatoryMatchWinner, scoreDraft, statusDraft]);
 
   const classementColumns = useMemo<GridColDef<TourClassementRow>[]>(() => {
     const columns: GridColDef<TourClassementRow>[] = [
@@ -1000,6 +1083,34 @@ export function CalendrierPage() {
       align: 'center',
       headerAlign: 'center',
       valueGetter: (_value, row) => Number(row.PAClassement ?? 0),
+      renderCell: (params) => {
+        const rank = Number(params.row.PAClassement ?? 0);
+        const qualif = classementQualifRows.find((row) => (
+          rank >= Number(row.CLASS_MinRang ?? 0)
+          && rank <= Number(row.CLASS_MaxRang ?? 0)
+        ));
+        const label = String(qualif?.CLASS_Libelle ?? '').trim();
+        const rankCircle = (
+          <Box
+            component="span"
+            sx={{
+              width: 26,
+              height: 26,
+              borderRadius: '50%',
+              border: qualif ? '2px solid' : 'none',
+              borderColor: qualif ? qualifColorToCss(qualif.CLASS_Couleur) : 'transparent',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 600,
+              lineHeight: 1,
+            }}
+          >
+            {rank}
+          </Box>
+        );
+        return label ? <Tooltip title={label}>{rankCircle}</Tooltip> : rankCircle;
+      },
     },
     {
       field: 'CLUB',
@@ -1010,6 +1121,9 @@ export function CalendrierPage() {
         <ClassementClubCell
           clubId={String(params.row.IDCLUB ?? '')}
           clubName={String(params.row.CLUB ?? '')}
+          lockedQualifAbrege={params.row.LOCKED_QUALIF_ABREGE}
+          lockedQualifLibelle={params.row.LOCKED_QUALIF_LIBELLE}
+          lockedQualifCouleur={params.row.LOCKED_QUALIF_COULEUR}
         />
       ),
     },
@@ -1103,7 +1217,7 @@ export function CalendrierPage() {
       if (column.field === 'PARatio') return useRatioGoalAverage;
       return true;
     });
-  }, [useRatioGoalAverage]);
+  }, [classementQualifRows, useRatioGoalAverage]);
 
   return (
     <Stack spacing={2}>

@@ -7,9 +7,10 @@ interface ClubCellProps {
   clubName: string;
   alignRight?: boolean;
   italic?: boolean;
+  bold?: boolean;
 }
 
-export function ClubCell({ clubId, clubName, alignRight = false, italic = false }: ClubCellProps) {
+export function ClubCell({ clubId, clubName, alignRight = false, italic = false, bold = false }: ClubCellProps) {
   const { src } = useEntityImage('club', clubId);
 
   return (
@@ -17,7 +18,7 @@ export function ClubCell({ clubId, clubName, alignRight = false, italic = false 
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minWidth: 0 }}>
         {alignRight ? (
           <>
-            <Box sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'right', fontStyle: italic ? 'italic' : 'normal' }}>{clubName}</Box>
+            <Box sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'right', fontStyle: italic ? 'italic' : 'normal', fontWeight: bold ? 700 : 400 }}>{clubName}</Box>
             <Box
               sx={{
                 width: 22,
@@ -65,7 +66,7 @@ export function ClubCell({ clubId, clubName, alignRight = false, italic = false 
                 <ShieldOutlinedIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
               )}
             </Box>
-            <Box sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontStyle: italic ? 'italic' : 'normal' }}>{clubName}</Box>
+            <Box sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontStyle: italic ? 'italic' : 'normal', fontWeight: bold ? 700 : 400 }}>{clubName}</Box>
           </>
         )}
       </Stack>

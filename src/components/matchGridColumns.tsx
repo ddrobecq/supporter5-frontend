@@ -89,6 +89,8 @@ export function buildMatchGridColumns<R extends MatchGridBaseRow>(
     circ?: CircColumnConfig;
     domicileHeaderName?: string;
     exterieurHeaderName?: string;
+    isDomicileWinner?: (row: R) => boolean;
+    isExterieurWinner?: (row: R) => boolean;
   },
 ): GridColDef<R>[] {
   const columns: GridColDef<R>[] = [];
@@ -191,6 +193,7 @@ export function buildMatchGridColumns<R extends MatchGridBaseRow>(
           String(params.row.PADOMSource ?? '').trim().length > 0
           && String(params.row.DOMICILE ?? '').trim().length === 0
         }
+        bold={options.isDomicileWinner?.(params.row) ?? false}
       />
     ),
   });
@@ -254,6 +257,7 @@ export function buildMatchGridColumns<R extends MatchGridBaseRow>(
           String(params.row.PAEXTSource ?? '').trim().length > 0
           && String(params.row.EXTERIEUR ?? '').trim().length === 0
         }
+        bold={options.isExterieurWinner?.(params.row) ?? false}
       />
     ),
   });

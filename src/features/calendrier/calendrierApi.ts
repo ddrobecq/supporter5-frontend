@@ -1,5 +1,7 @@
 import { http } from '../../lib/http';
 import type { CalendrierRow, TourClassementRow } from './types';
+import { env } from '../../config/env';
+import type { TourQualifRow } from './types';
 
 interface CalendarResponse {
   data: CalendrierRow[];
@@ -52,5 +54,12 @@ export async function updateCalendarStatus(
 
 export async function fetchTourClassement(tourId: string | number): Promise<TourClassementRow[]> {
   const { data } = await http.get<{ data: TourClassementRow[] }>(`/api/admin/tours/${encodeURIComponent(String(tourId))}/participants`);
+  return data.data ?? [];
+}
+
+export async function fetchTourQualifs(tourId: string | number): Promise<TourQualifRow[]> {
+  const { data } = await http.get<{ data: TourQualifRow[] }>(env.qualifPublicResource, {
+    params: { limit: 200, sort: 'CLASS_MinRang', order: 'asc', tucleunik: tourId, page: 1 },
+  });
   return data.data ?? [];
 }
