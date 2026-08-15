@@ -50,6 +50,7 @@ import type { CompetitionRow, CompetitionTourRow, EpreuveOption, SaisonOption } 
 import type { CalendrierRow } from '../calendrier/types';
 import { heureDigitsToApiValue, isValidHeureDigits, normalizeHeureDigits, sanitizeHeureDigits } from '../calendrier/HeureCell';
 import type { ScoreDraft } from '../calendrier/ScoreCell';
+import { useProgrammedParticipantResolver } from './useProgrammedParticipantLabels';
 
 interface CompetitionTabFormPaneProps {
   tabPath: string;
@@ -127,6 +128,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
   const [tourMatchRows, setTourMatchRows] = useState<CalendrierRow[]>([]);
   const [tourMatchesLoading, setTourMatchesLoading] = useState(false);
   const [selectedMatchId, setSelectedMatchId] = useState<string | number | null>(null);
+  const [tourParticipants, setTourParticipants] = useState<import('./types').TourParticipantRow[]>([]);
   const [editingStatusRowId, setEditingStatusRowId] = useState<string | number | null>(null);
   const [statusDraft, setStatusDraft] = useState<number>(5);
   const [editingDateRowId, setEditingDateRowId] = useState<string | number | null>(null);
@@ -138,6 +140,20 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
   const [rowSaveStatus, setRowSaveStatus] = useState<Record<string, RowSaveStatus>>({});
   const savedIconTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
+  const handleProgrammedResolveError = useCallback((message: string) => {
+    setSnackbar({ severity: 'error', message });
+  }, []);
+  const programmedSources = useMemo(
+    () => tourMatchRows.flatMap((rowItem) => [rowItem.PADOMSource, rowItem.PAEXTSource]),
+    [tourMatchRows],
+  );
+  const resolveProgrammedParticipantName = useProgrammedParticipantResolver(
+    tourParticipants,
+    Number(row?.COCLEUNIK ?? competitionId ?? 0),
+    String(row?.SAISON ?? ''),
+    programmedSources,
+    handleProgrammedResolveError,
+  );
 
   const tourColumns: GridColDef<CompetitionTourRow>[] = [
     {
@@ -226,14 +242,49 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
   const canMoveDown = selectedTourIndex >= 0 && selectedTourIndex < tourRows.length - 1 && !tourMoveSaving && !toursLoading;
 
   const orderedMatchRows = useMemo(() => {
-    return [...tourMatchRows].sort((a, b) => {
+    const participantById = new Map<string, import('./types').TourParticipantRow>();
+    const participantBySource = new Map<string, import('./types').TourParticipantRow>();
+    tourParticipants.forEach((participant) => {
+      const clubId = String(participant.IDCLUB ?? '').trim();
+      const source = String(participant.PASource ?? '').trim();
+      if (clubId) {
+        participantById.set(clubId, participant);
+      }
+      if (source) {
+        participantBySource.set(source, participant);
+      }
+    });
+
+    const resolvedRows = tourMatchRows.map((rowItem) => {
+      const domId = String(rowItem.DOMICILE ?? '').trim();
+      const extId = String(rowItem.EXTERIEUR ?? '').trim();
+      const domSource = String(rowItem.PADOMSource ?? '').trim();
+      const extSource = String(rowItem.PAEXTSource ?? '').trim();
+      return {
+        ...rowItem,
+        DOMICILE_NOM: resolveProgrammedParticipantName({
+          participant: domId ? participantById.get(domId) : (domSource ? participantBySource.get(domSource) : undefined),
+          source: domSource,
+          fallbackClubName: rowItem.DOMICILE_NOM,
+          mode: 'dynamic',
+        }),
+        EXTERIEUR_NOM: resolveProgrammedParticipantName({
+          participant: extId ? participantById.get(extId) : (extSource ? participantBySource.get(extSource) : undefined),
+          source: extSource,
+          fallbackClubName: rowItem.EXTERIEUR_NOM,
+          mode: 'dynamic',
+        }),
+      };
+    });
+
+    return resolvedRows.sort((a, b) => {
       const dateCmp = String(a.DATE ?? '').localeCompare(String(b.DATE ?? ''));
       if (dateCmp !== 0) return dateCmp;
       const heureCmp = String(a.HEURE ?? '').localeCompare(String(b.HEURE ?? ''));
       if (heureCmp !== 0) return heureCmp;
       return Number(a.RECLEUNIK) - Number(b.RECLEUNIK);
     });
-  }, [tourMatchRows]);
+  }, [resolveProgrammedParticipantName, tourMatchRows, tourParticipants]);
   const orderedMatchRowsRef = useRef<CalendrierRow[]>(orderedMatchRows);
   useEffect(() => {
     orderedMatchRowsRef.current = orderedMatchRows;
@@ -242,6 +293,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
   const reloadSelectedTourMatches = useCallback(async () => {
     if (!selectedTourRow) {
       setTourMatchRows([]);
+      setTourParticipants([]);
       setSelectedMatchId(null);
       return;
     }
@@ -253,20 +305,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
         fetchTourParticipants(selectedTourRow.TUCLEUNIK),
         fetchCircByTourType(Number(selectedTourRow.TYPE_ID) || 1),
       ]);
-
-      const clubNameById = new Map<string, string>();
-      const programNameBySource = new Map<string, string>();
-      participants.forEach((entry) => {
-        const clubId = String(entry.IDCLUB ?? '').trim();
-        const clubName = String(entry.CLUB ?? '').trim();
-        const source = String(entry.PASource ?? '').trim();
-        if (clubId && clubName) {
-          clubNameById.set(clubId, clubName);
-        }
-        if (source) {
-          programNameBySource.set(source, clubName || `Programme (${source})`);
-        }
-      });
+      setTourParticipants(participants);
 
       const circById = new Map<string, string>();
       circOptions.forEach((entry) => {
@@ -303,8 +342,8 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
           TABEXT: Number(entry.TABEXT ?? 0) || 0,
           PADOMSource: domSource || null,
           PAEXTSource: extSource || null,
-          DOMICILE_NOM: clubNameById.get(domId) ?? programNameBySource.get(domSource) ?? domId,
-          EXTERIEUR_NOM: clubNameById.get(extId) ?? programNameBySource.get(extSource) ?? extId,
+          DOMICILE_NOM: domId,
+          EXTERIEUR_NOM: extId,
         };
       });
 
@@ -317,6 +356,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
       });
     } catch (error) {
       setTourMatchRows([]);
+      setTourParticipants([]);
       setSelectedMatchId(null);
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
     } finally {

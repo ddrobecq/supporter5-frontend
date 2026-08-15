@@ -9,12 +9,13 @@ interface UseTabFormPaneBridgeArgs {
 interface UseTabFormPaneBridgeResult {
   setDirty: (dirty: boolean) => void;
   setLabel: (label: string) => void;
+  setLabelStyle: (italic: boolean) => void;
   saveRequestCount: number;
   notifySaveDone: () => void;
 }
 
 export function useTabFormPaneBridge({ tabPath, onSaveRequest }: UseTabFormPaneBridgeArgs): UseTabFormPaneBridgeResult {
-  const { setDirty, setLabel } = useTabMetaEvents(tabPath);
+  const { setDirty, setLabel, setLabelStyle } = useTabMetaEvents(tabPath);
   const [saveRequestCount, setSaveRequestCount] = useState(0);
   const onSaveRequestRef = useRef(onSaveRequest);
 
@@ -44,6 +45,7 @@ export function useTabFormPaneBridge({ tabPath, onSaveRequest }: UseTabFormPaneB
   return {
     setDirty,
     setLabel,
+    setLabelStyle,
     saveRequestCount,
     notifySaveDone: () => emitTabSaveDone(tabPath),
   };

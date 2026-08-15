@@ -50,8 +50,10 @@ import {
   fetchCompetitionTourById,
   fetchCompetitionToursPublic,
   fetchCompetitionWizardData,
+  fetchTourParticipants,
 } from '../competition/competitionApi';
-import type { CircOptionRow, CompetitionTourRow } from '../competition/types';
+import type { CircOptionRow, CompetitionTourRow, TourParticipantRow } from '../competition/types';
+import { parsePaSourceForLabel, useProgrammedParticipantResolver } from '../competition/useProgrammedParticipantLabels';
 import { fetchRencontreDetailById, fetchRencontreHighlightsById, fetchRencontreTourMatches, updateRencontreDetail, deleteRencontreEvent, upsertRencontreMatchMeta } from './rencontreApi';
 import type { RencontreDetailRow, RencontreHighlightEventRow, RencontreHighlightsRow, TourMatchWithNamesRow } from './types';
 import { RencontreCompositionTab, type CompositionTabActions } from './RencontreCompositionTab';
@@ -349,6 +351,8 @@ function ProgrammeClubCell({ clubId, clubName, alignRight = false }: { clubId: s
 function ClubInlineLine({
   clubId,
   clubName,
+  hoverLabel,
+  isProgrammed,
   clubShortName,
   clubFond,
   clubTexte,
@@ -357,14 +361,18 @@ function ClubInlineLine({
 }: {
   clubId: string;
   clubName: string;
+  hoverLabel: string;
+  isProgrammed: boolean;
   clubShortName: string;
   clubFond: unknown;
   clubTexte: unknown;
   align: 'left' | 'right';
-  onOpenClub: () => void;
+  onOpenClub?: () => void;
 }) {
   const { src } = useEntityImage('club', clubId);
-  const tooltipLabel = `Ouvrir la fiche de ${clubShortName || clubName}`;
+  const tooltipLabel = String(hoverLabel ?? '').trim() || clubName;
+  const canOpenClub = Boolean(clubId) && Boolean(onOpenClub);
+  const ariaLabel = canOpenClub ? `Ouvrir la fiche de ${clubShortName || clubName}` : (clubShortName || clubName || 'Club');
   const fondColor = normalizeColorCode(clubFond, '#f2f4f7');
   const textColor = normalizeColorCode(clubTexte, '#111827');
 
@@ -382,11 +390,20 @@ function ClubInlineLine({
         }}
       >
         <Tooltip title={tooltipLabel}>
-          <IconButton
-            size="small"
-            onClick={onOpenClub}
-            aria-label={tooltipLabel}
-            sx={{ p: 0, borderRadius: 1 }}
+          <Box
+            component={canOpenClub ? 'button' : 'span'}
+            type={canOpenClub ? 'button' : undefined}
+            onClick={canOpenClub ? onOpenClub : undefined}
+            aria-label={ariaLabel}
+            sx={{
+              p: 0,
+              m: 0,
+              border: 'none',
+              background: 'none',
+              borderRadius: 1,
+              display: 'inline-flex',
+              cursor: canOpenClub ? 'pointer' : 'default',
+            }}
           >
             <Box
               sx={{
@@ -408,30 +425,41 @@ function ClubInlineLine({
                 <ShieldOutlinedIcon sx={{ color: 'text.disabled' }} />
               )}
             </Box>
-          </IconButton>
+          </Box>
         </Tooltip>
 
-        <Typography
-          variant="body1"
-          sx={{
-            fontSize: '1.25rem',
-            fontWeight: 600,
-            flex: 1,
-            width: '100%',
-            minWidth: 0,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            color: textColor,
-            bgcolor: fondColor,
-            borderRadius: 1,
-            px: 1,
-            py: 0.25,
-            textAlign: align === 'right' ? 'right' : 'left',
-          }}
-        >
-          {clubName}
-        </Typography>
+        <Tooltip title={tooltipLabel}>
+          <Typography
+            component={canOpenClub ? 'button' : 'span'}
+            type={canOpenClub ? 'button' : undefined}
+            onClick={canOpenClub ? onOpenClub : undefined}
+            variant="body1"
+            aria-label={ariaLabel}
+            sx={{
+              fontSize: '1.25rem',
+              fontWeight: 600,
+              fontStyle: isProgrammed ? 'italic' : 'normal',
+              flex: 1,
+              width: '100%',
+              minWidth: 0,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              color: textColor,
+              bgcolor: fondColor,
+              borderRadius: 1,
+              px: 1,
+              py: 0.25,
+              textAlign: align === 'right' ? 'right' : 'left',
+              border: 'none',
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              cursor: canOpenClub ? 'pointer' : 'default',
+            }}
+          >
+            {clubName}
+          </Typography>
+        </Tooltip>
       </Stack>
     </Stack>
   );
@@ -440,7 +468,7 @@ function ClubInlineLine({
 export function RencontreTabFormPane({ tabPath, rencontreId, active }: RencontreTabFormPaneProps) {
   const navigate = useNavigate();
   const handleSaveRef = useRef<(() => Promise<void>) | null>(null);
-  const { setDirty, setLabel, notifySaveDone } = useTabFormPaneBridge({
+  const { setDirty, setLabel, setLabelStyle, notifySaveDone } = useTabFormPaneBridge({
     tabPath,
     onSaveRequest: () => handleSaveRef.current?.(),
   });
@@ -473,6 +501,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
   const [arbitrePickerOpen, setArbitrePickerOpen] = useState(false);
   const [terrainPickerOpen, setTerrainPickerOpen] = useState(false);
   const [tourMatches, setTourMatches] = useState<TourMatchWithNamesRow[]>([]);
+  const [tourParticipants, setTourParticipants] = useState<TourParticipantRow[]>([]);
   const [tourMatchesLoading, setTourMatchesLoading] = useState(false);
 
   const loadCompetitionsForSeason = useCallback(async (season: string): Promise<CompetitionOption[]> => {
@@ -566,9 +595,23 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       .catch((error) => setSnackbar({ severity: 'error', message: toErrorMessage(error) }))
       .finally(() => setHighlightsLoading(false));
 
+    const tourId = Number(detail.TUCLEUNIK ?? 0);
+    if (!Number.isInteger(tourId) || tourId <= 0) {
+      setTourMatches([]);
+      setTourParticipants([]);
+      setTourMatchesLoading(false);
+      return;
+    }
+
     setTourMatchesLoading(true);
-    void fetchRencontreTourMatches(detail.RECLEUNIK)
-      .then((data) => setTourMatches(data))
+    void Promise.all([
+      fetchRencontreTourMatches(detail.RECLEUNIK),
+      fetchTourParticipants(tourId),
+    ])
+      .then(([matches, participants]) => {
+        setTourMatches(matches);
+        setTourParticipants(participants);
+      })
       .catch((error) => setSnackbar({ severity: 'error', message: toErrorMessage(error) }))
       .finally(() => setTourMatchesLoading(false));
   }, [active, detail]);
@@ -670,7 +713,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
         HEURE: String(draft.heure ?? '').trim() || null,
         SAISON: String(draft.saison ?? '').trim(),
         TUCLEUNIK: Number(draft.tourId) || detail.TUCLEUNIK,
-        IDCIRC: String(draft.circId ?? '').trim() || null,
+        IDCIRC: String(draft.circId ?? '').trim(),
         READMIN: readminValue,
         COMMENT: String(draft.comment ?? ''),
       });
@@ -698,6 +741,55 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
 
   const anyDirty = isDirty || isCompositionDirty || isEventDialogDirty;
   const anySaving = saving || isCompositionSaving || isEventDialogSaving;
+  const handleProgrammedResolveError = useCallback((message: string) => {
+    setSnackbar({ severity: 'error', message });
+  }, []);
+  const programmedSources = useMemo(
+    () => [
+      detail?.PADOMSource,
+      detail?.PAEXTSource,
+      ...tourMatches.flatMap((row) => [row.PADOMSource, row.PAEXTSource]),
+    ],
+    [detail?.PADOMSource, detail?.PAEXTSource, tourMatches],
+  );
+  const resolveProgrammedParticipantName = useProgrammedParticipantResolver(
+    tourParticipants,
+    Number(detail?.COCLEUNIK ?? 0),
+    String(detail?.SAISON ?? ''),
+    programmedSources,
+    handleProgrammedResolveError,
+  );
+  const participantById = useMemo(() => {
+    const map = new Map<string, TourParticipantRow>();
+    tourParticipants.forEach((participant) => {
+      const clubId = String(participant.IDCLUB ?? '').trim();
+      if (clubId) {
+        map.set(clubId, participant);
+      }
+    });
+    return map;
+  }, [tourParticipants]);
+  const resolvedTourMatches = useMemo(() => tourMatches.map((row) => {
+    const domId = String(row.DOMICILE ?? '').trim();
+    const extId = String(row.EXTERIEUR ?? '').trim();
+    const domSource = String(row.PADOMSource ?? '').trim();
+    const extSource = String(row.PAEXTSource ?? '').trim();
+    return {
+      ...row,
+      DOMICILE_NOM: resolveProgrammedParticipantName({
+        participant: domId ? participantById.get(domId) : undefined,
+        source: domSource,
+        fallbackClubName: domId ? row.DOMICILE_NOM : undefined,
+        mode: 'dynamic',
+      }),
+      EXTERIEUR_NOM: resolveProgrammedParticipantName({
+        participant: extId ? participantById.get(extId) : undefined,
+        source: extSource,
+        fallbackClubName: extId ? row.EXTERIEUR_NOM : undefined,
+        mode: 'dynamic',
+      }),
+    };
+  }), [participantById, resolveProgrammedParticipantName, tourMatches]);
 
   const handleGlobalSave = async () => {
     const saveCompo = isCompositionDirty && compositionActionsRef.current;
@@ -736,6 +828,47 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
   };
 
   handleSaveRef.current = handleGlobalSave;
+
+  const domicileClubId = String(detail?.DOMICILE ?? '').trim();
+  const exterieurClubId = String(detail?.EXTERIEUR ?? '').trim();
+  const domicileSource = String(detail?.PADOMSource ?? '').trim();
+  const exterieurSource = String(detail?.PAEXTSource ?? '').trim();
+  const resolvedDomicileName = resolveProgrammedParticipantName({
+    participant: domicileClubId ? participantById.get(domicileClubId) : undefined,
+    source: domicileSource,
+    fallbackClubName: domicileClubId ? detail?.DOMICILE_NOM_EFFECTIF : undefined,
+    mode: 'dynamic',
+  });
+  const resolvedExterieurName = resolveProgrammedParticipantName({
+    participant: exterieurClubId ? participantById.get(exterieurClubId) : undefined,
+    source: exterieurSource,
+    fallbackClubName: exterieurClubId ? detail?.EXTERIEUR_NOM_EFFECTIF : undefined,
+    mode: 'dynamic',
+  });
+  const isDomicileProgrammed = !domicileClubId && Boolean(parsePaSourceForLabel(domicileSource));
+  const isExterieurProgrammed = !exterieurClubId && Boolean(parsePaSourceForLabel(exterieurSource));
+  const displayDomicileName = isDomicileProgrammed
+    ? (String(detail?.DOMICILE_NOM_EFFECTIF ?? '').trim() || resolvedDomicileName)
+    : resolvedDomicileName;
+  const displayExterieurName = isExterieurProgrammed
+    ? (String(detail?.EXTERIEUR_NOM_EFFECTIF ?? '').trim() || resolvedExterieurName)
+    : resolvedExterieurName;
+  const domicileHoverLabel = isDomicileProgrammed
+    ? `Participants possibles: ${resolvedDomicileName}`
+    : (String(detail?.DOMICILE_NOM_COMPLET ?? '').trim()
+      || String(detail?.DOMICILE_NOM_EFFECTIF ?? '').trim()
+      || displayDomicileName);
+  const exterieurHoverLabel = isExterieurProgrammed
+    ? `Participants possibles: ${resolvedExterieurName}`
+    : (String(detail?.EXTERIEUR_NOM_COMPLET ?? '').trim()
+      || String(detail?.EXTERIEUR_NOM_EFFECTIF ?? '').trim()
+      || displayExterieurName);
+
+  useEffect(() => {
+    const tabLabel = `${displayDomicileName} - ${displayExterieurName}`;
+    setLabel(tabLabel);
+    setLabelStyle(isDomicileProgrammed || isExterieurProgrammed);
+  }, [displayDomicileName, displayExterieurName, isDomicileProgrammed, isExterieurProgrammed, setLabel, setLabelStyle]);
 
   if (!active) {
     return <Box sx={{ display: 'none' }} />;
@@ -841,14 +974,14 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
   const showCompositionContent = showTabs && activeTab === 'composition';
   const showProgrammeContent = showTabs && activeTab === 'programme';
   const supportedClubName = detail.SUPPORTED_CLUB_SIDE === 'home'
-    ? detail.DOMICILE_NOM_EFFECTIF
+    ? displayDomicileName
     : detail.SUPPORTED_CLUB_SIDE === 'away'
-      ? detail.EXTERIEUR_NOM_EFFECTIF
+      ? displayExterieurName
       : '';
   const opponentClubName = detail.SUPPORTED_CLUB_SIDE === 'home'
-    ? detail.EXTERIEUR_NOM_EFFECTIF
+    ? displayExterieurName
     : detail.SUPPORTED_CLUB_SIDE === 'away'
-      ? detail.DOMICILE_NOM_EFFECTIF
+      ? displayDomicileName
       : '';
 
   return (
@@ -857,26 +990,34 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.25, alignItems: 'center' }}>
         <ClubInlineLine
           clubId={detail.DOMICILE}
-          clubName={detail.DOMICILE_NOM_EFFECTIF}
+          clubName={displayDomicileName}
+          hoverLabel={domicileHoverLabel}
+          isProgrammed={isDomicileProgrammed}
           clubShortName={String(detail.DOMICILE_ABREGE ?? '').trim()}
           clubFond={detail.DOMICILE_FOND}
           clubTexte={detail.DOMICILE_TEXTE}
           align="right"
-          onOpenClub={() => {
-            navigate(`/admin/clubs/${encodeURIComponent(String(detail.DOMICILE))}`);
-          }}
+          onOpenClub={detail.DOMICILE
+            ? () => {
+              navigate(`/admin/clubs/${encodeURIComponent(String(detail.DOMICILE))}`);
+            }
+            : undefined}
         />
 
         <ClubInlineLine
           clubId={detail.EXTERIEUR}
-          clubName={detail.EXTERIEUR_NOM_EFFECTIF}
+          clubName={displayExterieurName}
+          hoverLabel={exterieurHoverLabel}
+          isProgrammed={isExterieurProgrammed}
           clubShortName={String(detail.EXTERIEUR_ABREGE ?? '').trim()}
           clubFond={detail.EXTERIEUR_FOND}
           clubTexte={detail.EXTERIEUR_TEXTE}
           align="left"
-          onOpenClub={() => {
-            navigate(`/admin/clubs/${encodeURIComponent(String(detail.EXTERIEUR))}`);
-          }}
+          onOpenClub={detail.EXTERIEUR
+            ? () => {
+              navigate(`/admin/clubs/${encodeURIComponent(String(detail.EXTERIEUR))}`);
+            }
+            : undefined}
         />
       </Box>
 
@@ -1352,7 +1493,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
             {!tourMatchesLoading && tourMatches.length > 0 ? (
               <Box sx={{ height: 260 }}>
                 <DataGrid
-                  rows={tourMatches}
+                  rows={resolvedTourMatches}
                   columns={programmeColumns}
                   loading={tourMatchesLoading}
                   getRowId={(row) => row.RECLEUNIK}

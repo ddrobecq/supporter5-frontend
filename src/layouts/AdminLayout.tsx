@@ -421,6 +421,7 @@ export function AdminLayout() {
   const [pickerModal, setPickerModal] = useState<PickerEntityKey | null>(null);
   const [rencontreWizardOpen, setRencontreWizardOpen] = useState(false);
   const [dirtyTabsByPath, setDirtyTabsByPath] = useState<Record<string, boolean>>({});
+  const [italicTabsByPath, setItalicTabsByPath] = useState<Record<string, boolean>>({});
   const [closeConfirmTabKey, setCloseConfirmTabKey] = useState<string | null>(null);
   const [savingBeforeClose, setSavingBeforeClose] = useState(false);
   const [recentOpenedRecords, setRecentOpenedRecords] = useState<RecentOpenedRecord[]>(() => readRecentOpenedRecordsFromStorage());
@@ -606,6 +607,11 @@ export function AdminLayout() {
       delete next[tab.path];
       return next;
     });
+    setItalicTabsByPath((prev) => {
+      const next = { ...prev };
+      delete next[tab.path];
+      return next;
+    });
 
     if (activeTabKey === tabKey) {
       if (fallbackTab) {
@@ -665,6 +671,25 @@ export function AdminLayout() {
 
     window.addEventListener('supporter:tab-label', handler);
     return () => window.removeEventListener('supporter:tab-label', handler);
+  }, []);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<{ path?: string; italic?: boolean }>;
+      const path = customEvent.detail?.path;
+      const italic = customEvent.detail?.italic;
+      if (!path || typeof italic !== 'boolean') return;
+      const normalizedPath = normalizeRoutePath(path);
+      setItalicTabsByPath((prev) => {
+        if (Boolean(prev[normalizedPath]) === italic) {
+          return prev;
+        }
+        return { ...prev, [normalizedPath]: italic };
+      });
+    };
+
+    window.addEventListener('supporter:tab-label-style', handler);
+    return () => window.removeEventListener('supporter:tab-label-style', handler);
   }, []);
 
   useEffect(() => {
@@ -1175,7 +1200,7 @@ export function AdminLayout() {
                     <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
                       {TAB_META[resolveTabMetaPath(tab.path)]?.icon ?? null}
                     </Box>
-                    <span>{tab.label}</span>
+                    <span style={{ fontStyle: italicTabsByPath[normalizeRoutePath(tab.path)] ? 'italic' : 'normal' }}>{tab.label}</span>
                     {dirtyTabsByPath[normalizeRoutePath(tab.path)] ? (
                       <Box
                         component="span"

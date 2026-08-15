@@ -58,7 +58,7 @@ import {
   parseDateInput,
 } from './tourWizardRencontresUtils';
 import { buildAdjacentSelectionState, getAdjacentSelectionValue } from './tourWizardSelection';
-import { useProgrammedParticipantLabels } from './useProgrammedParticipantLabels';
+import { useProgrammedParticipantResolver } from './useProgrammedParticipantLabels';
 import { TourParticipantGrid } from './TourParticipantGrid';
 import type { CircOptionRow, TourMatchRow, TourParticipantRow } from './types';
 
@@ -128,7 +128,17 @@ export function TourWizardStep6Rencontres({
   const [selectedGroup, setSelectedGroup] = useState<string>('');
   const [participantSelection, setParticipantSelection] = useState<GridRowId[]>([]);
   const [selectedParticipantId, setSelectedParticipantId] = useState<string>('');
-  const getProgrammedParticipantLabel = useProgrammedParticipantLabels(participants, competitionId, competitionSeason, onError);
+  const programmedSources = useMemo(
+    () => rencontres.flatMap((row) => [row.PADOMSource, row.PAEXTSource]),
+    [rencontres],
+  );
+  const resolveProgrammedParticipantName = useProgrammedParticipantResolver(
+    participants,
+    competitionId,
+    competitionSeason,
+    programmedSources,
+    onError,
+  );
   const [selectedRencontre, setSelectedRencontre] = useState<GridRowId[]>([]);
   const [pending, setPending] = useState<PendingRencontreModel | null>(null);
   const [loading, setLoading] = useState(false);
@@ -348,9 +358,9 @@ export function TourWizardStep6Rencontres({
       pending,
       participantById,
       participantBySource,
-      getProgrammedParticipantLabel,
+      resolveProgrammedParticipantName,
     );
-  }, [filteredRencontreRows, pending, participantById, participantBySource]);
+  }, [filteredRencontreRows, pending, participantById, participantBySource, resolveProgrammedParticipantName]);
 
   const columns = useMemo<GridColDef<RencontresGridModelRow>[]>(
     () => [
@@ -493,7 +503,7 @@ export function TourWizardStep6Rencontres({
 
     const clubId = String(participant.IDCLUB ?? '').trim();
     const paSource = String(participant.PASource ?? '').trim();
-    const participantLabel = getProgrammedParticipantLabel(participant);
+    const participantLabel = resolveProgrammedParticipantName({ participant, mode: 'stable' });
 
     if (!pending) {
       const lastMatch = filteredRencontreRows.length > 0
@@ -833,7 +843,7 @@ export function TourWizardStep6Rencontres({
                 setParticipantSelection(id ? [id] : []);
                 setSelectedParticipantId(id);
               }}
-              getLabel={getProgrammedParticipantLabel}
+              getLabel={(row) => resolveProgrammedParticipantName({ participant: row, mode: 'stable' })}
               onRowDoubleClick={(rowId) => {
                 const id = String(rowId ?? '').trim();
                 if (!id || loading || (hasMultipleGroups && !selectedGroup)) return;

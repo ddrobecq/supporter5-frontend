@@ -1,4 +1,5 @@
 import type { CircOptionRow, TourMatchRow, TourParticipantRow } from './types';
+import type { ProgrammedParticipantResolveArgs } from './useProgrammedParticipantLabels';
 
 export interface PendingRencontreModel {
   date: string;
@@ -111,7 +112,7 @@ export function buildRencontreGridRows(
   pending: PendingRencontreModel | null,
   participantById: Map<string, TourParticipantRow>,
   participantBySource: Map<string, TourParticipantRow>,
-  getProgrammedParticipantLabel: (row: TourParticipantRow) => string,
+  resolveProgrammedParticipantName: (args: ProgrammedParticipantResolveArgs) => string,
 ): RencontresGridModelRow[] {
   const rows = filteredRencontreRows.map((match) => {
     const domicileClubId = String(match.DOMICILE ?? '').trim();
@@ -128,12 +129,18 @@ export function buildRencontreGridRows(
 
     return {
       ...match,
-      DOMICILE_NOM: domicileParticipant
-        ? getProgrammedParticipantLabel(domicileParticipant)
-        : (domicileClubId || (domicileSource ? `Programme (${domicileSource})` : '')),
-      EXTERIEUR_NOM: exterieurParticipant
-        ? getProgrammedParticipantLabel(exterieurParticipant)
-        : (exterieurClubId || (exterieurSource ? `Programme (${exterieurSource})` : '')),
+      DOMICILE_NOM: resolveProgrammedParticipantName({
+        participant: domicileParticipant,
+        source: domicileSource,
+        fallbackClubName: domicileClubId,
+        mode: 'stable',
+      }),
+      EXTERIEUR_NOM: resolveProgrammedParticipantName({
+        participant: exterieurParticipant,
+        source: exterieurSource,
+        fallbackClubName: exterieurClubId,
+        mode: 'stable',
+      }),
     };
   });
 

@@ -29,6 +29,8 @@ export interface RencontreDetailRow {
   EXTERIEUR_TEXTE: string | number | null;
   DOMICILE_NOM_EFFECTIF: string;
   EXTERIEUR_NOM_EFFECTIF: string;
+  DOMICILE_NOM_COMPLET: string;
+  EXTERIEUR_NOM_COMPLET: string;
   IDARBITRE: string | null;
   ARBITRE_NOM: string;
   ARBITRE_PRENOM: string;
@@ -70,6 +72,8 @@ export interface TourMatchWithNamesRow {
   HEURE: string | null;
   DOMICILE: string;
   EXTERIEUR: string;
+  PADOMSource?: string | null;
+  PAEXTSource?: string | null;
   DOMICILE_NOM: string;
   EXTERIEUR_NOM: string;
   BUTDOM: number;
