@@ -33,6 +33,14 @@ export interface ClubTerrainHistoryRow {
 export interface ClubMatchRow {
   RECLEUNIK: number;
   DATE: string;
+  HEURE: string;
+  LIEU: 'Domicile' | 'Extérieur';
+  TERRAIN_NOM: string;
+  SAISON: string;
+  COCLEUNIK: number | null;
+  COMPET_NOM: string;
+  TOUR_NOM: string;
+  CIRC: string;
   CIRC_COMPLET: string;
   DOMICILE: string;
   EXTERIEUR: string;

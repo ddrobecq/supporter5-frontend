@@ -1,4 +1,7 @@
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
+import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
+import EventAvailableRoundedIcon from '@mui/icons-material/EventAvailableRounded';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import EuroRoundedIcon from '@mui/icons-material/EuroRounded';
 import EventNoteRoundedIcon from '@mui/icons-material/EventNoteRounded';
@@ -15,15 +18,21 @@ import StadiumRoundedIcon from '@mui/icons-material/StadiumRounded';
 import {
   Avatar,
   Box,
+  IconButton,
   Link,
   Paper,
   Stack,
+  Tooltip,
   Typography,
 } from '@mui/material';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { fetchClubMatches } from '../club/clubApi';
+import type { ClubMatchRow } from '../club/types';
+import { supportedClubStore } from '../system/supportedClubStore';
 import { fetchRencontreDetailById } from '../rencontre/rencontreApi';
 import { useEntityImage } from '../../lib/useEntityImage';
+import { formatHeureDisplay } from '../../components/heureUtils';
 import type { HomePageOutletContext, RecentEntityKind, RecentOpenedRecord } from './types';
 
 function resolveEntityIcon(kind: RecentEntityKind): ReactNode {
@@ -181,11 +190,231 @@ function MatchRecentRecordAvatar({ record }: { record: RecentOpenedRecord }) {
   );
 }
 
-export function HomePage() {
-  const { recentOpenedRecords, reopenRecentRecord } = useOutletContext<HomePageOutletContext>();
+function parseCompactDate(value: string): Date | null {
+  const match = String(value ?? '').trim().match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatMatchDate(value: string): string {
+  const date = parseCompactDate(value);
+  if (!date) return value;
+  return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).replace('.', '');
+}
+
+function matchTimeValue(row: ClubMatchRow): number {
+  const date = parseCompactDate(row.DATE);
+  if (!date) return Number.MAX_SAFE_INTEGER;
+  const digits = String(row.HEURE ?? '').replace(/\D/g, '');
+  const hours = Number(digits.slice(0, 2) || 0);
+  const minutes = Number(digits.slice(2, 4) || 0);
+  date.setHours(hours, minutes, 0, 0);
+  return date.getTime();
+}
+
+function isPlayedMatch(row: ClubMatchRow, now: Date): boolean {
+  if (Number(row.ETAT) === 3) return true;
+  const date = parseCompactDate(row.DATE);
+  return Boolean(date && date < new Date(now.getFullYear(), now.getMonth(), now.getDate()) && Number(row.ETAT) !== 5);
+}
+
+function openMatch(row: ClubMatchRow): void {
+  window.dispatchEvent(new CustomEvent('supporter:tab-open', {
+    detail: {
+      path: `/admin/rencontres/${encodeURIComponent(String(row.RECLEUNIK))}`,
+      label: `${row.DOMICILE_NOM} - ${row.EXTERIEUR_NOM}`,
+      unique: true,
+      uniqueByPath: true,
+    },
+  }));
+}
+
+function ClubCalendarMatchCard({ row, isNext }: { row: ClubMatchRow; isNext: boolean }) {
+  const { src: domicileLogo } = useEntityImage('club', row.DOMICILE);
+  const { src: exterieurLogo } = useEntityImage('club', row.EXTERIEUR);
+  const { src: competitionLogo } = useEntityImage('competition', row.COCLEUNIK);
+  const played = isPlayedMatch(row, new Date());
+  const circumstanceLabel = [String(row.CIRC ?? '').trim(), String(row.TOUR_NOM ?? '').trim()]
+    .filter(Boolean)
+    .join(' de ');
 
   return (
-    <Box sx={{ minHeight: '55vh' }}>
+    <Link
+      component="button"
+      underline="none"
+      onClick={() => openMatch(row)}
+      sx={{
+        flex: '0 0 250px',
+        minWidth: 250,
+        textAlign: 'left',
+        color: 'text.primary',
+        border: isNext ? '2px solid' : '1px solid',
+        borderColor: isNext ? 'primary.main' : 'divider',
+        borderRadius: 1.25,
+        bgcolor: isNext ? '#f8fbff' : '#fff',
+        p: 1.25,
+        '&:hover': { bgcolor: '#f8fafc' },
+      }}
+    >
+      <Stack spacing={0.7}>
+        <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+            {formatMatchDate(row.DATE)}
+          </Typography>
+          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', minWidth: 0 }}>
+            {competitionLogo ? <Box component="img" src={competitionLogo} alt="" sx={{ width: 18, height: 18, objectFit: 'contain' }} /> : null}
+            <Typography variant="caption" color="text.secondary" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {row.COMPET_NOM}
+            </Typography>
+          </Stack>
+        </Stack>
+        <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+          {played
+            ? (circumstanceLabel || row.CIRC_COMPLET)
+            : `${circumstanceLabel ? `${circumstanceLabel} · ` : ''}`}
+        </Typography>
+        <Stack direction="row" spacing={0.7} sx={{ alignItems: 'center', justifyContent: 'center' }}>
+          <Box component="img" src={domicileLogo ?? undefined} alt="" sx={{ width: 28, height: 28, objectFit: 'contain' }} />
+          <Typography variant="body2" sx={{ fontWeight: 700, textAlign: 'center', minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {row.DOMICILE_NOM}
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 800, flexShrink: 0 }}>
+            {played ? `${row.BUTDOM} - ${row.BUTEXT}` : '·'}
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 700, textAlign: 'center', minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {row.EXTERIEUR_NOM}
+          </Typography>
+          <Box component="img" src={exterieurLogo ?? undefined} alt="" sx={{ width: 28, height: 28, objectFit: 'contain' }} />
+        </Stack>
+        <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+          {played
+            ? (circumstanceLabel || row.CIRC_COMPLET)
+            : `${formatHeureDisplay(row.HEURE) || 'Heure non définie'} · ${row.TERRAIN_NOM || 'Stade non défini'}`}
+        </Typography>
+      </Stack>
+    </Link>
+  );
+}
+
+function SupportedClubCalendar({ clubId, clubName }: { clubId: string; clubName: string }) {
+  const [matches, setMatches] = useState<ClubMatchRow[]>([]);
+  const nextMatchRef = useRef<HTMLDivElement | null>(null);
+  const calendarScrollerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchClubMatches(clubId)
+      .then((rows) => {
+        if (!cancelled) setMatches(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setMatches([]);
+      });
+    return () => { cancelled = true; };
+  }, [clubId]);
+
+  const now = new Date();
+  const ordered = [...matches].sort((left, right) => matchTimeValue(left) - matchTimeValue(right));
+  const seasonGroups = new Map<string, ClubMatchRow[]>();
+  ordered.forEach((match) => {
+    const season = String(match.SAISON ?? '').trim() || 'Saison';
+    seasonGroups.set(season, [...(seasonGroups.get(season) ?? []), match]);
+  });
+  const currentSeason = [...seasonGroups.entries()].find(([, rows]) => {
+    const first = parseCompactDate(rows[0]?.DATE ?? '');
+    const last = parseCompactDate(rows[rows.length - 1]?.DATE ?? '');
+    return Boolean(first && last && first <= now && now <= last);
+  });
+  const seasonRows = currentSeason?.[1] ?? ordered;
+  const nextIndex = seasonRows.findIndex((row) => !isPlayedMatch(row, now));
+  useEffect(() => {
+    if (currentSeason && nextIndex >= 0) {
+      window.requestAnimationFrame(() => nextMatchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }));
+      return;
+    }
+  }, [currentSeason?.[0], nextIndex, seasonRows.length]);
+
+  const scrollMatches = (direction: -1 | 1) => {
+    calendarScrollerRef.current?.scrollBy({ left: direction * 270, behavior: 'smooth' });
+  };
+
+  const scrollToNextMatch = () => {
+    nextMatchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  };
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 2,
+        p: { xs: 1.5, md: 2 },
+        maxWidth: 820,
+        bgcolor: '#ffffff',
+      }}
+    >
+      <Stack spacing={1}>
+        <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography variant="h6" sx={{ fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+            <CalendarMonthIcon sx={{ fontSize: 20 }} />
+            Calendrier de {clubName}
+          </Typography>
+          <Stack direction="row" spacing={0.1}>
+            <Tooltip title="Rencontres précédentes">
+              <IconButton size="small" aria-label="Rencontres précédentes" onClick={() => scrollMatches(-1)}>
+                <ChevronLeftRoundedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Revenir au prochain match">
+              <IconButton size="small" aria-label="Revenir au prochain match" onClick={scrollToNextMatch}>
+                <EventAvailableRoundedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Rencontres suivantes">
+              <IconButton size="small" aria-label="Rencontres suivantes" onClick={() => scrollMatches(1)}>
+                <ChevronRightRoundedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+        </Stack>
+        {seasonRows.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">Aucun match à afficher.</Typography>
+        ) : (
+          <Box
+            ref={calendarScrollerRef}
+            onWheel={(event) => {
+              if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+                event.currentTarget.scrollLeft += event.deltaY;
+              }
+            }}
+            sx={{ display: 'flex', gap: 0.75, overflowX: 'auto', overflowY: 'hidden', pb: 0.75, px: 0.25, '&::-webkit-scrollbar': { height: 8 } }}
+          >
+            {seasonRows.map((row) => (
+              <Box key={row.RECLEUNIK} ref={row.RECLEUNIK === seasonRows[nextIndex]?.RECLEUNIK ? nextMatchRef : undefined} sx={{ display: 'flex', flex: '0 0 250px' }}>
+                <ClubCalendarMatchCard row={row} isNext={Boolean(currentSeason && nextIndex >= 0 && row.RECLEUNIK === seasonRows[nextIndex]?.RECLEUNIK)} />
+              </Box>
+            ))}
+          </Box>
+        )}
+      </Stack>
+    </Paper>
+  );
+}
+
+export function HomePage() {
+  const { recentOpenedRecords, reopenRecentRecord } = useOutletContext<HomePageOutletContext>();
+  const supportedClubId = supportedClubStore((state) => state.clubId);
+  const supportedClubName = supportedClubStore((state) => state.clubName);
+  const loadSupportedClub = supportedClubStore((state) => state.load);
+
+  useEffect(() => {
+    void loadSupportedClub();
+  }, [loadSupportedClub]);
+
+  return (
+    <Box sx={{ minHeight: '55vh', display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Paper
         elevation={0}
         sx={{
@@ -270,6 +499,7 @@ export function HomePage() {
           </Stack>
         )}
       </Paper>
+      <SupportedClubCalendar clubId={supportedClubId} clubName={supportedClubName} />
     </Box>
   );
 }
