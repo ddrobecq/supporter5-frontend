@@ -318,6 +318,7 @@ export function CalendrierPage() {
   const [heureDraftDigits, setHeureDraftDigits] = useState<string>('');
   const [statusDraft, setStatusDraft] = useState<number>(5);
   const [rowModified, setRowModified] = useState<Record<string, boolean>>({});
+  const rowModifiedRef = useRef<Record<string, boolean>>({});
   const [sortModel, setSortModel] = useState(DEFAULT_SORT_MODEL);
   const [selectedRowId, setSelectedRowId] = useState<string | number | null>(null);
   const [classementRows, setClassementRows] = useState<TourClassementRow[]>([]);
@@ -592,6 +593,7 @@ export function CalendrierPage() {
 
   const setRowModifiedFlag = (rowId: string | number, modified: boolean): void => {
     const key = String(rowId);
+    rowModifiedRef.current[key] = modified;
     setRowModified((prev) => {
       if ((prev[key] ?? false) === modified) {
         return prev;
@@ -736,7 +738,7 @@ export function CalendrierPage() {
     if (savingScoreRowIdRef.current === rowId) return false;
     if (!isValidHeureDigits(heureDraftDigits)) return false;
 
-    if (!(rowModified[String(rowId)] ?? false)) {
+    if (!(rowModifiedRef.current[String(rowId)] ?? rowModified[String(rowId)] ?? false)) {
       setEditingHeureRowId((current) => (current === rowId ? null : current));
       heureInitialDraftRef.current = '';
       return true;
@@ -802,7 +804,7 @@ export function CalendrierPage() {
       return false;
     }
 
-    if (!(rowModified[String(rowId)] ?? false)) {
+    if (!(rowModifiedRef.current[String(rowId)] ?? rowModified[String(rowId)] ?? false)) {
       scoreInitialDraftRef.current = null;
       setEditingScoreRowId((current) => (current === rowId ? null : current));
       return true;
