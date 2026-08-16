@@ -8,11 +8,11 @@ import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
 import EuroRoundedIcon from '@mui/icons-material/EuroRounded';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
+import MoreHorizRoundedIcon from '@mui/icons-material/MoreHorizRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
-import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import StadiumRoundedIcon from '@mui/icons-material/StadiumRounded';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
@@ -26,9 +26,12 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   IconButton,
-  InputAdornment,
-  OutlinedInput,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
   Tab,
   Tabs,
   Tooltip,
@@ -36,7 +39,7 @@ import {
   Typography,
 } from '@mui/material';
 import type { GridRowId } from '@mui/x-data-grid';
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { authStore } from '../features/auth/authStore';
 import type { HomePageOutletContext, RecentEntityKind, RecentOpenedRecord } from '../features/home/types';
@@ -69,13 +72,6 @@ import { RencontreTabFormPane } from '../features/rencontre/RencontreTabFormPane
 import { RencontreCreateWizardDialog } from '../features/rencontre/RencontreCreateWizardDialog';
 import { TerrainPickerDialog } from '../features/terrain/TerrainPickerDialog';
 
-const QUICK_ACTIONS = [
-  { label: 'Joueurs', icon: <PersonRoundedIcon />, path: '/joueurs' },
-  { label: 'Statistiques', icon: <BarChartRoundedIcon /> },
-  { label: 'Clubs', icon: <ShieldRoundedIcon />, path: '/clubs' },
-  { label: 'Matchs', icon: <SportsSoccerRoundedIcon /> },
-];
-
 interface NavTab {
   key: string;
   label: string;
@@ -102,6 +98,180 @@ interface TabMeta {
 
 type PickerEntityKey = 'joueur' | 'arbitre' | 'epreuve' | 'competition' | 'tourdef' | 'club' | 'natio' | 'ville' | 'terrain' | 'devise' | 'circ';
 
+type ToolbarButton =
+  | {
+      label: string;
+      ariaLabel: string;
+      icon: ReactNode;
+      secondaryCategory?: 'Référentiels' | 'Compétitions' | 'Organisation';
+      activeKey?: 'home' | 'calendrier' | PickerEntityKey;
+      action: 'navigate';
+      path: string;
+      unique?: boolean;
+    }
+  | {
+      label: string;
+      ariaLabel: string;
+      icon: ReactNode;
+      secondaryCategory?: 'Référentiels' | 'Compétitions' | 'Organisation';
+      activeKey?: 'home' | 'calendrier' | PickerEntityKey;
+      action: 'picker';
+      entity: PickerEntityKey;
+    }
+  | {
+      label: string;
+      ariaLabel: string;
+      icon: ReactNode;
+      secondaryCategory?: 'Référentiels' | 'Compétitions' | 'Organisation';
+      activeKey?: 'home' | 'calendrier' | PickerEntityKey;
+      action: 'wizard';
+      wizard: 'rencontre';
+    }
+  | {
+      label: string;
+      ariaLabel: string;
+      icon: ReactNode;
+      secondaryCategory?: 'Référentiels' | 'Compétitions' | 'Organisation';
+      activeKey?: 'home' | 'calendrier' | PickerEntityKey;
+      action: 'noop';
+    };
+
+const TOOLBAR_BUTTONS: ToolbarButton[] = [
+  {
+    label: 'Accueil',
+    ariaLabel: 'Accueil',
+    icon: <HomeRoundedIcon />,
+    activeKey: 'home',
+    action: 'navigate',
+    path: '/accueil',
+    unique: true,
+  },
+  {
+    label: 'Calendrier',
+    ariaLabel: 'Calendrier',
+    icon: <CalendarMonthIcon />,
+    activeKey: 'calendrier',
+    action: 'navigate',
+    path: '/calendrier',
+  },
+  {
+    label: 'Joueurs',
+    ariaLabel: 'Joueurs',
+    icon: <PersonRoundedIcon />,
+    activeKey: 'joueur',
+    action: 'picker',
+    entity: 'joueur',
+  },
+  {
+    label: 'Clubs',
+    ariaLabel: 'Clubs',
+    icon: <ShieldRoundedIcon />,
+    activeKey: 'club',
+    action: 'picker',
+    entity: 'club',
+  },
+  {
+    label: 'Competitions',
+    ariaLabel: 'Competitions',
+    icon: <EmojiEventsIcon />,
+    activeKey: 'competition',
+    action: 'picker',
+    entity: 'competition',
+  },
+  {
+    label: 'Arbitres',
+    ariaLabel: 'Arbitres',
+    icon: <SportsIcon />,
+    secondaryCategory: 'Organisation',
+    activeKey: 'arbitre',
+    action: 'picker',
+    entity: 'arbitre',
+  },
+  {
+    label: 'Statistiques',
+    ariaLabel: 'Statistiques',
+    icon: <BarChartRoundedIcon />,
+    action: 'noop',
+  },
+  {
+    label: 'Matchs',
+    ariaLabel: 'Matchs',
+    icon: <SportsSoccerRoundedIcon />,
+    secondaryCategory: 'Organisation',
+    action: 'wizard',
+    wizard: 'rencontre',
+  },
+  {
+    label: 'Pays',
+    ariaLabel: 'Pays',
+    icon: <FlagRoundedIcon />,
+    secondaryCategory: 'Référentiels',
+    activeKey: 'natio',
+    action: 'picker',
+    entity: 'natio',
+  },
+  {
+    label: 'Villes',
+    ariaLabel: 'Villes',
+    icon: <LocationCityRoundedIcon />,
+    secondaryCategory: 'Référentiels',
+    activeKey: 'ville',
+    action: 'picker',
+    entity: 'ville',
+  },
+  {
+    label: 'Stades',
+    ariaLabel: 'Stades',
+    icon: <StadiumRoundedIcon />,
+    secondaryCategory: 'Référentiels',
+    activeKey: 'terrain',
+    action: 'picker',
+    entity: 'terrain',
+  },
+  {
+    label: 'Devises',
+    ariaLabel: 'Devises',
+    icon: <EuroRoundedIcon />,
+    secondaryCategory: 'Référentiels',
+    activeKey: 'devise',
+    action: 'picker',
+    entity: 'devise',
+  },
+  {
+    label: 'Circonstances',
+    ariaLabel: 'Circonstances',
+    icon: <EventNoteRoundedIcon />,
+    secondaryCategory: 'Référentiels',
+    activeKey: 'circ',
+    action: 'picker',
+    entity: 'circ',
+  },
+  {
+    label: 'Épreuves',
+    ariaLabel: 'Épreuves',
+    icon: <MilitaryTechIcon />,
+    secondaryCategory: 'Compétitions',
+    activeKey: 'epreuve',
+    action: 'picker',
+    entity: 'epreuve',
+  },
+  {
+    label: 'Defs Tour',
+    ariaLabel: 'Definitions de Tour',
+    icon: <RuleRoundedIcon />,
+    secondaryCategory: 'Compétitions',
+    activeKey: 'tourdef',
+    action: 'picker',
+    entity: 'tourdef',
+  },
+];
+
+const TOOLBAR_SECONDARY_CATEGORIES: Array<NonNullable<ToolbarButton['secondaryCategory']>> = [
+  'Référentiels',
+  'Compétitions',
+  'Organisation',
+];
+
 interface PickerOpenPayload {
   rowId: GridRowId;
   label: string;
@@ -120,20 +290,20 @@ interface PickerEntityDefinition {
 
 const TAB_META: Record<string, TabMeta> = {
   '/admin/home': { label: 'Accueil', icon: <HomeRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/calendrier': { label: 'Calendrier', icon: <CalendarMonthIcon sx={{ fontSize: 14 }} /> },
+  '/admin/joueurs': { label: 'Joueurs', icon: <PersonRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/clubs': { label: 'Clubs', icon: <ShieldRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/competitions': { label: 'Competitions', icon: <EmojiEventsIcon sx={{ fontSize: 14 }} /> },
+  '/admin/arbitre': { label: 'Arbitres', icon: <SportsIcon sx={{ fontSize: 14 }} /> },
   '/admin/configuration': { label: 'Configuration', icon: <SettingsRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/natio': { label: 'Pays', icon: <FlagRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/ville': { label: 'Villes', icon: <LocationCityRoundedIcon sx={{ fontSize: 14 }} /> },
-  '/admin/arbitre': { label: 'Arbitres', icon: <SportsIcon sx={{ fontSize: 14 }} /> },
   '/admin/terrain': { label: 'Stades', icon: <StadiumRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/devise': { label: 'Devises', icon: <EuroRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/circ': { label: 'Circonstances', icon: <EventNoteRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/epreuve': { label: 'Épreuves', icon: <MilitaryTechIcon sx={{ fontSize: 14 }} /> },
-  '/admin/competitions': { label: 'Competitions', icon: <EmojiEventsIcon sx={{ fontSize: 14 }} /> },
   '/admin/tourdefs': { label: 'Defs Tour', icon: <RuleRoundedIcon sx={{ fontSize: 14 }} /> },
-  '/admin/calendrier': { label: 'Calendrier', icon: <CalendarMonthIcon sx={{ fontSize: 14 }} /> },
   '/admin/rencontres': { label: 'Rencontres', icon: <SportsSoccerRoundedIcon sx={{ fontSize: 14 }} /> },
-  '/admin/joueurs': { label: 'Joueurs', icon: <PersonRoundedIcon sx={{ fontSize: 14 }} /> },
-  '/admin/clubs': { label: 'Clubs', icon: <ShieldRoundedIcon sx={{ fontSize: 14 }} /> },
 };
 
 const HOME_TAB_KEY = 'tab-home';
@@ -414,10 +584,9 @@ export function AdminLayout() {
   const topBrandRef = useRef<HTMLDivElement | null>(null);
   const topActionsMeasureRef = useRef<HTMLDivElement | null>(null);
   const navButtonsRowRef = useRef<HTMLDivElement | null>(null);
-  const searchAreaRef = useRef<HTMLDivElement | null>(null);
   const [compactNavButtons, setCompactNavButtons] = useState(false);
   const [compactTopActions, setCompactTopActions] = useState(false);
-  const [compactSearchAction, setCompactSearchAction] = useState(false);
+  const [moreMenuAnchorEl, setMoreMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [pickerModal, setPickerModal] = useState<PickerEntityKey | null>(null);
   const [rencontreWizardOpen, setRencontreWizardOpen] = useState(false);
   const [dirtyTabsByPath, setDirtyTabsByPath] = useState<Record<string, boolean>>({});
@@ -446,23 +615,38 @@ export function AdminLayout() {
       || location.pathname === entity.shortPath
       || location.pathname.startsWith(`${entity.basePath}/`);
   };
-  const isJoueursActive = isEntityActive('joueur');
-  const isClubsActive = isEntityActive('club');
-  const isNatioActive = isEntityActive('natio');
-  const isVilleActive = isEntityActive('ville');
-  const isArbitreActive = isEntityActive('arbitre');
-  const isTerrainActive = isEntityActive('terrain');
-  const isDeviseActive = isEntityActive('devise');
-  const isCircActive = isEntityActive('circ');
-  const isEpreuveActive = isEntityActive('epreuve');
-  const isCompetitionActive = isEntityActive('competition');
-  const isTourDefActive = isEntityActive('tourdef');
+  const isToolbarButtonActive = (button: ToolbarButton) => {
+    if (button.activeKey === 'home') return isHomeActive;
+    if (button.activeKey === 'calendrier') return isCalendrierActive;
+    return button.activeKey ? isEntityActive(button.activeKey) : false;
+  };
+  const primaryToolbarButtons = TOOLBAR_BUTTONS.filter((button) => !button.secondaryCategory);
+  const secondaryToolbarButtons = TOOLBAR_BUTTONS.filter((button) => Boolean(button.secondaryCategory));
+  const isSecondaryToolbarActive = secondaryToolbarButtons.some(isToolbarButtonActive);
   const activeTab = typeof activeTabKey === 'string' ? tabs.find((tab) => tab.key === activeTabKey) : undefined;
   const isDynamicFormPath = (path: string) => (
     path.startsWith('/admin/rencontres/')
     || PICKER_ENTITY_DEFINITIONS.some((entity) => path.startsWith(`${entity.basePath}/`))
   );
   const activeTabIsDynamicForm = Boolean(activeTab?.path && isDynamicFormPath(activeTab.path)) || isDynamicFormPath(location.pathname);
+
+  const handleToolbarButtonClick = (button: ToolbarButton) => {
+    switch (button.action) {
+      case 'navigate':
+        openTab(button.path, button.label, button.unique ? { unique: true } : undefined);
+        return;
+      case 'picker':
+        setPickerModal(button.entity);
+        return;
+      case 'wizard':
+        if (button.wizard === 'rencontre') {
+          setRencontreWizardOpen(true);
+        }
+        return;
+      case 'noop':
+        return;
+    }
+  };
 
   const rememberOpenedRecord = (path: string, label: string) => {
     const next = buildRecentOpenedRecord(path, label);
@@ -491,7 +675,7 @@ export function AdminLayout() {
     if (!row) return;
 
     const updateCompactState = () => {
-      const buttonCount = 10 + QUICK_ACTIONS.length;
+      const buttonCount = primaryToolbarButtons.length + 1;
       const spacingPx = 8;
       const totalSpacing = spacingPx * Math.max(0, buttonCount - 1);
       const widthPerButton = (Math.max(0, row.clientWidth) - totalSpacing) / buttonCount;
@@ -744,22 +928,6 @@ export function AdminLayout() {
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    const area = searchAreaRef.current;
-    if (!area) return;
-
-    const updateCompactState = () => {
-      // Keep the label only when the right search area has enough room.
-      setCompactSearchAction(area.clientWidth < 440);
-    };
-
-    updateCompactState();
-    const observer = new ResizeObserver(updateCompactState);
-    observer.observe(area);
-
-    return () => observer.disconnect();
-  }, []);
-
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#eef2f6' }}>
       <Box
@@ -896,286 +1064,87 @@ export function AdminLayout() {
             }}
           >
           <Box ref={navButtonsRowRef} sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', minWidth: 0, flex: 1 }}>
-            <Tooltip title="Accueil" disableHoverListener={!compactNavButtons}>
+            {primaryToolbarButtons.map((button) => {
+              const active = isToolbarButtonActive(button);
+              return (
+                <Tooltip key={button.label} title={button.label} disableHoverListener={!compactNavButtons}>
+                  <Button
+                    size="small"
+                    variant={active ? 'contained' : 'outlined'}
+                    color={active ? 'primary' : 'inherit'}
+                    startIcon={compactNavButtons ? undefined : button.icon}
+                    sx={{
+                      minWidth: 36,
+                      px: compactNavButtons ? 1 : 1.25,
+                      '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
+                    }}
+                    aria-label={button.ariaLabel}
+                    onClick={() => handleToolbarButtonClick(button)}
+                  >
+                    {compactNavButtons ? button.icon : button.label}
+                  </Button>
+                </Tooltip>
+              );
+            })}
+
+            <Tooltip title="Plus" disableHoverListener={!compactNavButtons}>
               <Button
                 size="small"
-                variant={isHomeActive ? 'contained' : 'outlined'}
-                color={isHomeActive ? 'primary' : 'inherit'}
-                startIcon={compactNavButtons ? undefined : <HomeRoundedIcon />}
+                variant={isSecondaryToolbarActive ? 'contained' : 'outlined'}
+                color={isSecondaryToolbarActive ? 'primary' : 'inherit'}
+                startIcon={compactNavButtons ? undefined : <MoreHorizRoundedIcon />}
                 sx={{
                   minWidth: 36,
                   px: compactNavButtons ? 1 : 1.25,
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
-                aria-label="Accueil"
-                onClick={() => openTab('/accueil', 'Accueil', { unique: true })}
+                aria-label="Plus"
+                aria-haspopup="menu"
+                aria-expanded={Boolean(moreMenuAnchorEl) ? 'true' : undefined}
+                onClick={(event) => setMoreMenuAnchorEl(event.currentTarget)}
               >
-                {compactNavButtons ? <HomeRoundedIcon /> : 'Accueil'}
+                {compactNavButtons ? <MoreHorizRoundedIcon /> : 'Plus'}
               </Button>
             </Tooltip>
 
-            <Tooltip title="Pays" disableHoverListener={!compactNavButtons}>
-              <Button
-                size="small"
-                variant={isNatioActive ? 'contained' : 'outlined'}
-                color={isNatioActive ? 'primary' : 'inherit'}
-                startIcon={compactNavButtons ? undefined : <FlagRoundedIcon />}
-                sx={{
-                  minWidth: 36,
-                  px: compactNavButtons ? 1 : 1.25,
-                  '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
-                }}
-                aria-label="Pays"
-                onClick={() => setPickerModal('natio')}
-              >
-                {compactNavButtons ? <FlagRoundedIcon /> : 'Pays'}
-              </Button>
-            </Tooltip>
+            <Menu
+              anchorEl={moreMenuAnchorEl}
+              open={Boolean(moreMenuAnchorEl)}
+              onClose={() => setMoreMenuAnchorEl(null)}
+              slotProps={{ list: { 'aria-label': 'Fonctions secondaires' } }}
+            >
+              {TOOLBAR_SECONDARY_CATEGORIES.map((category, categoryIndex) => {
+                const categoryButtons = secondaryToolbarButtons.filter(
+                  (button) => button.secondaryCategory === category,
+                );
+                if (categoryButtons.length === 0) return null;
 
-            <Tooltip title="Villes" disableHoverListener={!compactNavButtons}>
-              <Button
-                size="small"
-                variant={isVilleActive ? 'contained' : 'outlined'}
-                color={isVilleActive ? 'primary' : 'inherit'}
-                startIcon={compactNavButtons ? undefined : <LocationCityRoundedIcon />}
-                sx={{
-                  minWidth: 36,
-                  px: compactNavButtons ? 1 : 1.25,
-                  '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
-                }}
-                aria-label="Villes"
-                onClick={() => setPickerModal('ville')}
-              >
-                {compactNavButtons ? <LocationCityRoundedIcon /> : 'Villes'}
-              </Button>
-            </Tooltip>
+                return (
+                  <Fragment key={category}>
+                    {categoryIndex > 0 && <Divider />}
+                    <MenuItem disabled sx={{ opacity: 1, fontWeight: 700 }}>
+                      {category}
+                    </MenuItem>
+                    {categoryButtons.map((button) => (
+                      <MenuItem
+                        key={button.label}
+                        selected={isToolbarButtonActive(button)}
+                        onClick={() => {
+                          setMoreMenuAnchorEl(null);
+                          handleToolbarButtonClick(button);
+                        }}
+                      >
+                        <ListItemIcon>{button.icon}</ListItemIcon>
+                        <ListItemText>{button.label}</ListItemText>
+                      </MenuItem>
+                    ))}
+                  </Fragment>
+                );
+              })}
+            </Menu>
 
-            <Tooltip title="Arbitres" disableHoverListener={!compactNavButtons}>
-              <Button
-                size="small"
-                variant={isArbitreActive ? 'contained' : 'outlined'}
-                color={isArbitreActive ? 'primary' : 'inherit'}
-                startIcon={compactNavButtons ? undefined : <SportsIcon />}
-                sx={{
-                  minWidth: 36,
-                  px: compactNavButtons ? 1 : 1.25,
-                  '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
-                }}
-                aria-label="Arbitres"
-                onClick={() => setPickerModal('arbitre')}
-              >
-                {compactNavButtons ? <SportsIcon /> : 'Arbitres'}
-              </Button>
-            </Tooltip>
-
-            <Tooltip title="Stades" disableHoverListener={!compactNavButtons}>
-              <Button
-                size="small"
-                variant={isTerrainActive ? 'contained' : 'outlined'}
-                color={isTerrainActive ? 'primary' : 'inherit'}
-                startIcon={compactNavButtons ? undefined : <StadiumRoundedIcon />}
-                sx={{
-                  minWidth: 36,
-                  px: compactNavButtons ? 1 : 1.25,
-                  '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
-                }}
-                aria-label="Stades"
-                onClick={() => setPickerModal('terrain')}
-              >
-                {compactNavButtons ? <StadiumRoundedIcon /> : 'Stades'}
-              </Button>
-            </Tooltip>
-
-            <Tooltip title="Devises" disableHoverListener={!compactNavButtons}>
-              <Button
-                size="small"
-                variant={isDeviseActive ? 'contained' : 'outlined'}
-                color={isDeviseActive ? 'primary' : 'inherit'}
-                startIcon={compactNavButtons ? undefined : <EuroRoundedIcon />}
-                sx={{
-                  minWidth: 36,
-                  px: compactNavButtons ? 1 : 1.25,
-                  '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
-                }}
-                aria-label="Devises"
-                onClick={() => setPickerModal('devise')}
-              >
-                {compactNavButtons ? <EuroRoundedIcon /> : 'Devises'}
-              </Button>
-            </Tooltip>
-
-            <Tooltip title="Circonstances" disableHoverListener={!compactNavButtons}>
-              <Button
-                size="small"
-                variant={isCircActive ? 'contained' : 'outlined'}
-                color={isCircActive ? 'primary' : 'inherit'}
-                startIcon={compactNavButtons ? undefined : <EventNoteRoundedIcon />}
-                sx={{
-                  minWidth: 36,
-                  px: compactNavButtons ? 1 : 1.25,
-                  '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
-                }}
-                aria-label="Circonstances"
-                onClick={() => setPickerModal('circ')}
-              >
-                {compactNavButtons ? <EventNoteRoundedIcon /> : 'Circonstances'}
-              </Button>
-            </Tooltip>
-
-            <Tooltip title="Épreuves" disableHoverListener={!compactNavButtons}>
-              <Button
-                size="small"
-                variant={isEpreuveActive ? 'contained' : 'outlined'}
-                color={isEpreuveActive ? 'primary' : 'inherit'}
-                startIcon={compactNavButtons ? undefined : <MilitaryTechIcon />}
-                sx={{
-                  minWidth: 36,
-                  px: compactNavButtons ? 1 : 1.25,
-                  '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
-                }}
-                aria-label="Épreuves"
-                onClick={() => setPickerModal('epreuve')}
-              >
-                {compactNavButtons ? <MilitaryTechIcon /> : 'Épreuves'}
-              </Button>
-            </Tooltip>
-
-            <Tooltip title="Competitions" disableHoverListener={!compactNavButtons}>
-              <Button
-                size="small"
-                variant={isCompetitionActive ? 'contained' : 'outlined'}
-                color={isCompetitionActive ? 'primary' : 'inherit'}
-                startIcon={compactNavButtons ? undefined : <EmojiEventsIcon />}
-                sx={{
-                  minWidth: 36,
-                  px: compactNavButtons ? 1 : 1.25,
-                  '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
-                }}
-                aria-label="Competitions"
-                onClick={() => setPickerModal('competition')}
-              >
-                {compactNavButtons ? <EmojiEventsIcon /> : 'Competitions'}
-              </Button>
-            </Tooltip>
-
-            <Tooltip title="Defs Tour" disableHoverListener={!compactNavButtons}>
-              <Button
-                size="small"
-                variant={isTourDefActive ? 'contained' : 'outlined'}
-                color={isTourDefActive ? 'primary' : 'inherit'}
-                startIcon={compactNavButtons ? undefined : <RuleRoundedIcon />}
-                sx={{
-                  minWidth: 36,
-                  px: compactNavButtons ? 1 : 1.25,
-                  '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
-                }}
-                aria-label="Definitions de Tour"
-                onClick={() => setPickerModal('tourdef')}
-              >
-                {compactNavButtons ? <RuleRoundedIcon /> : 'Defs Tour'}
-              </Button>
-            </Tooltip>
-
-            <Tooltip title="Calendrier" disableHoverListener={!compactNavButtons}>
-              <Button
-                size="small"
-                variant={isCalendrierActive ? 'contained' : 'outlined'}
-                color={isCalendrierActive ? 'primary' : 'inherit'}
-                startIcon={compactNavButtons ? undefined : <CalendarMonthIcon />}
-                sx={{
-                  minWidth: 36,
-                  px: compactNavButtons ? 1 : 1.25,
-                  '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
-                }}
-                aria-label="Calendrier"
-                onClick={() => openTab('/calendrier', 'Calendrier')}
-              >
-                {compactNavButtons ? <CalendarMonthIcon /> : 'Calendrier'}
-              </Button>
-            </Tooltip>
-
-            {QUICK_ACTIONS.map((action) => (
-              <Tooltip key={action.label} title={action.label} disableHoverListener={!compactNavButtons}>
-                <Button
-                  size="small"
-                  variant={
-                    (action.label === 'Joueurs' && isJoueursActive)
-                    || (action.label === 'Clubs' && isClubsActive)
-                      ? 'contained'
-                      : 'outlined'
-                  }
-                  color={
-                    (action.label === 'Joueurs' && isJoueursActive)
-                    || (action.label === 'Clubs' && isClubsActive)
-                      ? 'primary'
-                      : 'inherit'
-                  }
-                  startIcon={compactNavButtons ? undefined : action.icon}
-                  sx={{
-                    minWidth: 36,
-                    px: compactNavButtons ? 1 : 1.25,
-                    '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
-                  }}
-                  aria-label={action.label}
-                  onClick={() => {
-                    if (action.path) {
-                      if (action.path === '/clubs') {
-                        setPickerModal('club');
-                      } else if (action.path === '/joueurs') {
-                        setPickerModal('joueur');
-                      } else {
-                        openTab(action.path, action.label);
-                      }
-                    } else if (action.label === 'Matchs') {
-                      setRencontreWizardOpen(true);
-                    }
-                  }}
-                >
-                  {compactNavButtons ? action.icon : action.label}
-                </Button>
-              </Tooltip>
-            ))}
           </Box>
 
-          <Box
-            ref={searchAreaRef}
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr auto', md: '1fr auto' },
-              gap: 1,
-              alignItems: 'center',
-              width: { xs: '100%', md: 'auto' },
-              minWidth: 0,
-            }}
-          >
-            <OutlinedInput
-              size="small"
-              placeholder="Rechercher..."
-              sx={{ minWidth: { xs: 0, sm: 260 }, width: '100%' }}
-              startAdornment={
-                <InputAdornment position="start">
-                  <SearchRoundedIcon fontSize="small" />
-                </InputAdornment>
-              }
-            />
-            <Box sx={{ minWidth: 0 }}>
-              <Tooltip title="Recherche" disableHoverListener={!compactSearchAction}>
-                <Button
-                  size="small"
-                  variant="contained"
-                  startIcon={compactSearchAction ? undefined : <SearchRoundedIcon />}
-                  aria-label="Recherche"
-                  sx={{
-                    minWidth: 36,
-                    px: compactSearchAction ? 1 : 1.25,
-                    '.MuiButton-startIcon': { mr: compactSearchAction ? 0 : 1 },
-                  }}
-                >
-                  {compactSearchAction ? <SearchRoundedIcon /> : 'Recherche'}
-                </Button>
-              </Tooltip>
-            </Box>
-          </Box>
           </Toolbar>
         </Box>
 
