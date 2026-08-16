@@ -207,8 +207,8 @@ function createDraftFromRow(row?: TourDefRow): TourDefDraft {
     ALLER_RETOUR: Number(row.ALLER_RETOUR ?? 0) === 1,
     DUREE_TPS_REG: Number(row.DUREE_TPS_REG ?? 0) || '',
     FIN_TPS_REG: Number(row.FIN_TPS_REG ?? 0) || '',
-    DUREE_TPS_PROLONG: Number(row.DUREE_TPS_PROLONG ?? 0) || '',
-    FIN_PROLONG: Number(row.FIN_PROLONG ?? 0) || '',
+    DUREE_TPS_PROLONG: Number(row.FIN_TPS_REG ?? 0) !== 2 ? 0 : Number(row.DUREE_TPS_PROLONG ?? 0) || '',
+    FIN_PROLONG: Number(row.FIN_TPS_REG ?? 0) !== 2 ? 0 : Number(row.FIN_PROLONG ?? 0) || '',
     VALEUR_VD: row.VALEUR_VD != null ? Number(row.VALEUR_VD) : 0,
     VALEUR_VE: row.VALEUR_VE != null ? Number(row.VALEUR_VE) : 0,
     VALEUR_ND: row.VALEUR_ND != null ? Number(row.VALEUR_ND) : 0,
@@ -237,8 +237,8 @@ function mapDraftToPayload(
     ALLER_RETOUR: draft.ALLER_RETOUR ? 1 : 0,
     DUREE_TPS_REG: toNumberOrDefault(draft.DUREE_TPS_REG, 90),
     FIN_TPS_REG: toNumberOrDefault(draft.FIN_TPS_REG, 1),
-    DUREE_TPS_PROLONG: toNumberOrDefault(draft.DUREE_TPS_PROLONG, 30),
-    FIN_PROLONG: toNumberOrDefault(draft.FIN_PROLONG, 1),
+    DUREE_TPS_PROLONG: draft.FIN_TPS_REG !== 2 ? 0 : toNumberOrDefault(draft.DUREE_TPS_PROLONG, 30),
+    FIN_PROLONG: draft.FIN_TPS_REG !== 2 ? 0 : toNumberOrDefault(draft.FIN_PROLONG, 1),
     VALEUR_VD: toNumberOrDefault(draft.VALEUR_VD, 3),
     VALEUR_VE: toNumberOrDefault(draft.VALEUR_VE, 3),
     VALEUR_ND: toNumberOrDefault(draft.VALEUR_ND, 1),
@@ -426,7 +426,14 @@ export function TourDefFormDialog({
             labelId="tourdef-fin-reg-label"
             label="Fin temps reglementaire"
             value={values.FIN_TPS_REG === '' ? '' : String(values.FIN_TPS_REG)}
-            onChange={(event) => setValues((prev) => ({ ...prev, FIN_TPS_REG: parseNumericInput(event.target.value) }))}
+            onChange={(event) => {
+              const FIN_TPS_REG = parseNumericInput(event.target.value);
+              setValues((prev) => ({
+                ...prev,
+                FIN_TPS_REG,
+                ...(FIN_TPS_REG !== 2 ? { DUREE_TPS_PROLONG: 0, FIN_PROLONG: 0 } : {}),
+              }));
+            }}
           >
             <MenuItem value="">Aucune selection</MenuItem>
             {FIN_TIME_REG_OPTIONS.map((option) => (
@@ -442,6 +449,7 @@ export function TourDefFormDialog({
           value={String(values.DUREE_TPS_PROLONG)}
           onChange={(v) => setValues((prev) => ({ ...prev, DUREE_TPS_PROLONG: v === '' ? '' : Number(v) }))}
           fullWidth
+          disabled={values.FIN_TPS_REG !== 2}
         />
         <FormControl fullWidth size="small">
           <InputLabel id="tourdef-fin-prolong-label">Fin prolongation</InputLabel>
@@ -450,6 +458,7 @@ export function TourDefFormDialog({
             label="Fin prolongation"
             value={values.FIN_PROLONG === '' ? '' : String(values.FIN_PROLONG)}
             onChange={(event) => setValues((prev) => ({ ...prev, FIN_PROLONG: parseNumericInput(event.target.value) }))}
+            disabled={values.FIN_TPS_REG !== 2}
           >
             <MenuItem value="">Aucune selection</MenuItem>
             {FIN_PROLONG_OPTIONS.map((option) => (
@@ -526,13 +535,13 @@ export function TourDefFormDialog({
             ))}
           </Select>
         </FormControl>
-        <NumberField label="Seuil bonus" value={String(values.BONUS_NB_BUT)} onChange={(v) => setValues((prev) => ({ ...prev, BONUS_NB_BUT: v === '' ? '' : Number(v) }))} fullWidth />
+        <NumberField label="Seuil bonus" value={String(values.BONUS_NB_BUT)} onChange={(v) => setValues((prev) => ({ ...prev, BONUS_NB_BUT: v === '' ? '' : Number(v) }))} fullWidth disabled={values.BONUS_TYPE === 1} />
       </Stack>
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25}>
-        <NumberField label="Bonus victoire" value={String(values.VALEUR_BONUS_V)} onChange={(v) => setValues((prev) => ({ ...prev, VALEUR_BONUS_V: v === '' ? '' : Number(v) }))} fullWidth />
-        <NumberField label="Bonus nul" value={String(values.VALEUR_BONUS_N)} onChange={(v) => setValues((prev) => ({ ...prev, VALEUR_BONUS_N: v === '' ? '' : Number(v) }))} fullWidth />
-        <NumberField label="Bonus defaite" value={String(values.VALEUR_BONUS_D)} onChange={(v) => setValues((prev) => ({ ...prev, VALEUR_BONUS_D: v === '' ? '' : Number(v) }))} fullWidth />
+        <NumberField label="Bonus victoire" value={String(values.VALEUR_BONUS_V)} onChange={(v) => setValues((prev) => ({ ...prev, VALEUR_BONUS_V: v === '' ? '' : Number(v) }))} fullWidth disabled={values.BONUS_TYPE === 1} />
+        <NumberField label="Bonus nul" value={String(values.VALEUR_BONUS_N)} onChange={(v) => setValues((prev) => ({ ...prev, VALEUR_BONUS_N: v === '' ? '' : Number(v) }))} fullWidth disabled={values.BONUS_TYPE === 1} />
+        <NumberField label="Bonus defaite" value={String(values.VALEUR_BONUS_D)} onChange={(v) => setValues((prev) => ({ ...prev, VALEUR_BONUS_D: v === '' ? '' : Number(v) }))} fullWidth disabled={values.BONUS_TYPE === 1} />
       </Stack>
 
       <Box>
