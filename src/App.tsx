@@ -13,6 +13,7 @@ import { EpreuvePage } from './features/epreuve/EpreuvePage';
 import { CompetitionPage } from './features/competition/CompetitionPage';
 import { JoueurPage } from './features/joueur/JoueurPage';
 import { CalendrierPage } from './features/calendrier/CalendrierPage';
+import { StatistiquesPage } from './features/statistiques/StatistiquesPage';
 import { ClubPage } from './features/club/ClubPage';
 import { TourDefPage } from './features/tourdef/TourDefPage';
 import { ConfigurationPage } from './features/configuration/ConfigurationPage';
@@ -68,6 +69,8 @@ function App() {
           <Route path="/admin/configuration" element={<ConfigurationPage />} />
           <Route path="/calendrier" element={<Navigate to="/admin/calendrier" replace />} />
           <Route path="/admin/calendrier" element={<CalendrierPage />} />
+          <Route path="/statistiques" element={<Navigate to="/admin/statistiques" replace />} />
+          <Route path="/admin/statistiques" element={<StatistiquesPage />} />
           <Route path="/rencontres/:rencontreId" element={<RedirectByParam paramName="rencontreId" toPrefix="/admin/rencontres" />} />
           <Route path="/admin/rencontres/:rencontreId" element={<EmptyRoute />} />
           {ENTITY_ROUTES.map(({ shortPath, adminPath, paramName, PageComponent }) => (

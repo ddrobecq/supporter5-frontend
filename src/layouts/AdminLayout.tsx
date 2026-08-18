@@ -104,7 +104,7 @@ type ToolbarButton =
       ariaLabel: string;
       icon: ReactNode;
       secondaryCategory?: 'Référentiels' | 'Compétitions' | 'Organisation';
-      activeKey?: 'home' | 'calendrier' | PickerEntityKey;
+      activeKey?: 'home' | 'calendrier' | 'statistiques' | PickerEntityKey;
       action: 'navigate';
       path: string;
       unique?: boolean;
@@ -114,7 +114,7 @@ type ToolbarButton =
       ariaLabel: string;
       icon: ReactNode;
       secondaryCategory?: 'Référentiels' | 'Compétitions' | 'Organisation';
-      activeKey?: 'home' | 'calendrier' | PickerEntityKey;
+      activeKey?: 'home' | 'calendrier' | 'statistiques' | PickerEntityKey;
       action: 'picker';
       entity: PickerEntityKey;
     }
@@ -123,7 +123,7 @@ type ToolbarButton =
       ariaLabel: string;
       icon: ReactNode;
       secondaryCategory?: 'Référentiels' | 'Compétitions' | 'Organisation';
-      activeKey?: 'home' | 'calendrier' | PickerEntityKey;
+      activeKey?: 'home' | 'calendrier' | 'statistiques' | PickerEntityKey;
       action: 'wizard';
       wizard: 'rencontre';
     }
@@ -132,7 +132,7 @@ type ToolbarButton =
       ariaLabel: string;
       icon: ReactNode;
       secondaryCategory?: 'Référentiels' | 'Compétitions' | 'Organisation';
-      activeKey?: 'home' | 'calendrier' | PickerEntityKey;
+      activeKey?: 'home' | 'calendrier' | 'statistiques' | PickerEntityKey;
       action: 'noop';
     };
 
@@ -191,7 +191,9 @@ const TOOLBAR_BUTTONS: ToolbarButton[] = [
     label: 'Statistiques',
     ariaLabel: 'Statistiques',
     icon: <BarChartRoundedIcon />,
-    action: 'noop',
+    activeKey: 'statistiques',
+    action: 'navigate',
+    path: '/statistiques',
   },
   {
     label: 'Matchs',
@@ -303,6 +305,7 @@ const TAB_META: Record<string, TabMeta> = {
   '/admin/circ': { label: 'Circonstances', icon: <EventNoteRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/epreuve': { label: 'Épreuves', icon: <MilitaryTechIcon sx={{ fontSize: 14 }} /> },
   '/admin/tourdefs': { label: 'Defs Tour', icon: <RuleRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/statistiques': { label: 'Statistiques', icon: <BarChartRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/rencontres': { label: 'Rencontres', icon: <SportsSoccerRoundedIcon sx={{ fontSize: 14 }} /> },
 };
 
@@ -473,6 +476,8 @@ function normalizeRoutePath(path: string): string {
       return '/admin/tourdefs';
     case '/calendrier':
       return '/admin/calendrier';
+    case '/statistiques':
+      return '/admin/statistiques';
     case '/joueurs':
       return '/admin/joueurs';
     case '/clubs':
@@ -595,6 +600,8 @@ export function AdminLayout() {
   const [savingBeforeClose, setSavingBeforeClose] = useState(false);
   const [recentOpenedRecords, setRecentOpenedRecords] = useState<RecentOpenedRecord[]>(() => readRecentOpenedRecordsFromStorage());
   const tabCounterRef = useRef(0);
+  // Retient la derniere URL complete (avec query string) visitee par onglet, pour la restaurer au retour sur l'onglet.
+  const tabLocationByKeyRef = useRef<Record<string, string>>({});
   const [tabs, setTabs] = useState<NavTab[]>([
     {
       key: HOME_TAB_KEY,
@@ -608,6 +615,7 @@ export function AdminLayout() {
   const isHomeActive = location.pathname === '/admin/home' || location.pathname === '/accueil';
   const isConfigurationActive = location.pathname === '/admin/configuration' || location.pathname === '/configuration';
   const isCalendrierActive = location.pathname === '/admin/calendrier' || location.pathname === '/calendrier';
+  const isStatistiquesActive = location.pathname === '/admin/statistiques' || location.pathname === '/statistiques';
   const isEntityActive = (entityKey: PickerEntityKey) => {
     const entity = pickerDefinitionByKey.get(entityKey);
     if (!entity) return false;
@@ -618,6 +626,7 @@ export function AdminLayout() {
   const isToolbarButtonActive = (button: ToolbarButton) => {
     if (button.activeKey === 'home') return isHomeActive;
     if (button.activeKey === 'calendrier') return isCalendrierActive;
+    if (button.activeKey === 'statistiques') return isStatistiquesActive;
     return button.activeKey ? isEntityActive(button.activeKey) : false;
   };
   const primaryToolbarButtons = TOOLBAR_BUTTONS.filter((button) => !button.secondaryCategory);
@@ -633,7 +642,7 @@ export function AdminLayout() {
   const handleToolbarButtonClick = (button: ToolbarButton) => {
     switch (button.action) {
       case 'navigate':
-        openTab(button.path, button.label, button.unique ? { unique: true } : undefined);
+        openTab(button.path, button.label, { unique: true, uniqueByPath: true });
         return;
       case 'picker':
         setPickerModal(button.entity);
@@ -669,6 +678,12 @@ export function AdminLayout() {
     if (!activeTab) return;
     rememberOpenedRecord(activeTab.path, activeTab.label);
   }, [activeTab]);
+
+  useEffect(() => {
+    if (typeof activeTabKey === 'string') {
+      tabLocationByKeyRef.current[activeTabKey] = `${location.pathname}${location.search}`;
+    }
+  }, [activeTabKey, location.pathname, location.search]);
 
   useEffect(() => {
     const row = navButtonsRowRef.current;
@@ -741,22 +756,23 @@ export function AdminLayout() {
       return;
     }
 
-    setTabs((prev) => {
-      if (options?.unique) {
-        const existing = options.uniqueByPath
-          ? prev.find((tab) => tab.path === normalizedPath)
-          : prev.find((tab) => tab.path === normalizedPath && tab.label === resolvedLabel);
-        if (existing) {
-          setActiveTabKey(existing.key);
-          return prev;
-        }
-      }
+    const existing = options?.unique
+      ? (options.uniqueByPath
+        ? tabs.find((tab) => tab.path === normalizedPath)
+        : tabs.find((tab) => tab.path === normalizedPath && tab.label === resolvedLabel))
+      : undefined;
 
-      tabCounterRef.current += 1;
-      const key = `tab-${normalizedPath}-${tabCounterRef.current}`;
-      setActiveTabKey(key);
-      return [...prev, { key, label: resolvedLabel, path: normalizedPath, closable: true }];
-    });
+    if (existing) {
+      setActiveTabKey(existing.key);
+      // Restaure la derniere sous-navigation (query string) visitee dans cet onglet.
+      navigate(tabLocationByKeyRef.current[existing.key] ?? normalizedPath);
+      return;
+    }
+
+    tabCounterRef.current += 1;
+    const key = `tab-${normalizedPath}-${tabCounterRef.current}`;
+    setActiveTabKey(key);
+    setTabs((prev) => [...prev, { key, label: resolvedLabel, path: normalizedPath, closable: true }]);
     navigate(normalizedPath);
   };
 
@@ -1157,7 +1173,7 @@ export function AdminLayout() {
               const tab = tabs.find((item) => item.key === newValue);
               if (!tab) return;
               setActiveTabKey(tab.key);
-              navigate(tab.path);
+              navigate(tabLocationByKeyRef.current[tab.key] ?? tab.path);
             }}
           >
             {tabs.map((tab) => (

@@ -2,6 +2,8 @@
 import EastRoundedIcon from '@mui/icons-material/EastRounded';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import HealingRoundedIcon from '@mui/icons-material/HealingRounded';
+import ReportRoundedIcon from '@mui/icons-material/ReportRounded';
+import SquareRoundedIcon from '@mui/icons-material/SquareRounded';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
 import { Autocomplete, Box, CircularProgress, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
@@ -22,6 +24,9 @@ const EVENT_ICONS: Record<JoueurMatchEvent['type'], { icon: React.ReactElement; 
   passe:   { icon: <SportsSoccerRoundedIcon sx={{ fontSize: 16, color: 'info.main' }} />,     label: 'Passe decisive' },
   entree:  { icon: <EastRoundedIcon sx={{ fontSize: 16, color: 'success.main' }} />,           label: 'Entree' },
   sortie:  { icon: <ArrowBackRoundedIcon sx={{ fontSize: 16, color: 'error.main' }} />,        label: 'Sortie' },
+  avertissement: { icon: <SquareRoundedIcon sx={{ fontSize: 16, color: 'warning.main' }} />, label: 'Carton jaune' },
+  'second-avertissement': { icon: <ReportRoundedIcon sx={{ fontSize: 16, color: 'warning.dark' }} />, label: 'Second carton jaune' },
+  exclusion: { icon: <SquareRoundedIcon sx={{ fontSize: 16, color: 'error.dark' }} />,          label: 'Exclusion' },
   blessure:{ icon: <HealingRoundedIcon sx={{ fontSize: 16, color: 'error.main' }} />,         label: 'Blessure' },
 };
 

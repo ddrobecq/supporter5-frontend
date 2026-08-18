@@ -272,7 +272,7 @@ function ClubCalendarMatchCard({ row, isNext }: { row: ClubMatchRow; isNext: boo
         <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
           {played
             ? (circumstanceLabel || row.CIRC_COMPLET)
-            : `${circumstanceLabel ? `${circumstanceLabel} · ` : ''}`}
+            : `${circumstanceLabel ? `${circumstanceLabel}` : ''}`}
         </Typography>
         <Stack direction="row" spacing={0.7} sx={{ alignItems: 'center', justifyContent: 'center' }}>
           <Box component="img" src={domicileLogo ?? undefined} alt="" sx={{ width: 28, height: 28, objectFit: 'contain' }} />

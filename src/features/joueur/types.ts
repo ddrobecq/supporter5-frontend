@@ -84,7 +84,7 @@ export interface JoueurTransactionUpsertPayload {
 }
 
 export interface JoueurMatchEvent {
-  type: 'but' | 'passe' | 'entree' | 'sortie' | 'blessure';
+  type: 'but' | 'passe' | 'entree' | 'sortie' | 'avertissement' | 'second-avertissement' | 'exclusion' | 'blessure';
   minute: number;
   periode: number;
 }
