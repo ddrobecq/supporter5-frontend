@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
 import { type GridColDef, type GridRowId } from '@mui/x-data-grid';
-import { Box } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { ClubCell } from './ClubCell';
 import type { ScoreDraft } from '../features/calendrier/ScoreCell';
 import { ScoreCell } from '../features/calendrier/ScoreCell';
@@ -71,6 +71,23 @@ interface ReadonlyScoreColumnConfig {
 }
 
 type ScoreColumnConfig<R extends MatchGridBaseRow> = EditableScoreColumnConfig<R> | ReadonlyScoreColumnConfig;
+
+function formatReadonlyScore(row: MatchGridBaseRow): string {
+  return `${row.BUTDOM}-${row.BUTEXT}`;
+}
+
+function ReadonlyScoreCell({ row, value }: { row: MatchGridBaseRow; value: string }) {
+  const tabDom = Number(row.TABDOM ?? 0);
+  const tabExt = Number(row.TABEXT ?? 0);
+
+  return (
+    <Box sx={{ width: '100%', textAlign: 'center', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+      {tabDom > 0 ? <Typography component="sup" sx={{ fontSize: 9, mr: 0.3 }}>{tabDom}</Typography> : null}
+      {value}
+      {tabExt > 0 ? <Typography component="sup" sx={{ fontSize: 9, ml: 0.3 }}>{tabExt}</Typography> : null}
+    </Box>
+  );
+}
 
 interface CircColumnConfig {
   enabled: boolean;
@@ -201,27 +218,23 @@ export function buildMatchGridColumns<R extends MatchGridBaseRow>(
   columns.push({
     field: 'SCORE',
     headerName: 'Score',
-    width: 72,
-    minWidth: 72,
-    maxWidth: 72,
+    width: 100,
+    minWidth: 100,
+    maxWidth: 100,
     align: 'center',
     headerAlign: 'center',
     sortable: options.score.mode === 'readonly' ? (options.score.sortable ?? false) : false,
     valueGetter: (_value, row) => {
       if (options.score.mode === 'readonly') {
-        return options.score.valueGetter ? options.score.valueGetter(row) : `${row.BUTDOM}-${row.BUTEXT}`;
+        return options.score.valueGetter ? options.score.valueGetter(row) : formatReadonlyScore(row);
       }
       return `${row.BUTDOM}-${row.BUTEXT}`;
     },
     renderCell: (params) => {
       const row = params.row;
       if (options.score.mode === 'readonly') {
-        const value = options.score.valueGetter ? options.score.valueGetter(row) : `${row.BUTDOM}-${row.BUTEXT}`;
-        return (
-          <Box sx={{ width: '100%', textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
-            {value}
-          </Box>
-        );
+        const value = options.score.valueGetter ? options.score.valueGetter(row) : formatReadonlyScore(row);
+        return <ReadonlyScoreCell row={row} value={value} />;
       }
       const editableScore = options.score as EditableScoreColumnConfig<R>;
       return (
