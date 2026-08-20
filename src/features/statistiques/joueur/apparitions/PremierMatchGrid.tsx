@@ -1,12 +1,10 @@
 'use client';
 
-import { Avatar, Link as MuiLink, Stack, Typography } from '@mui/material';
-import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import type { GridColDef } from '@mui/x-data-grid';
 import { useEffect, useState } from 'react';
-import { NatioFlag } from '../../../../components/NatioFlag';
-import { useEntityImage } from '../../../../lib/useEntityImage';
+import { RencontreDateLink } from '../../components/RencontreDateLink';
 import { StatPlayerGrid } from '../../components/StatPlayerGrid';
+import { StatPlayerSentence } from '../../components/StatPlayerSentence';
 import { fetchDernierMatch, fetchPremierMatch, type PremierMatchRow } from './premierMatchApi';
 
 interface PremierMatchWithAge extends PremierMatchRow {
@@ -53,20 +51,6 @@ function calculateAge(birthDateStr: string, appearanceDateStr: string): { years:
   return { years, months, days };
 }
 
-/**
- * Format date from YYYY-MM-DD or YYYYMMDD to DD/MM/YYYY
- */
-function formatDateDisplay(dateStr: string): string {
-  if (dateStr.includes('-')) {
-    const [year, month, day] = dateStr.split('-');
-    return `${day}/${month}/${year}`;
-  }
-  const year = dateStr.substring(0, 4);
-  const month = dateStr.substring(4, 6);
-  const day = dateStr.substring(6, 8);
-  return `${day}/${month}/${year}`;
-}
-
 const VALUE_COLUMNS: GridColDef<PremierMatchWithAge>[] = [
   { field: 'AGE_SORT', headerName: 'Tri âge', sortable: true },
   {
@@ -84,45 +68,15 @@ const VALUE_COLUMNS: GridColDef<PremierMatchWithAge>[] = [
 ];
 
 function PremierMatchCell({ row }: { row: PremierMatchWithAge }) {
-  const { src } = useEntityImage('joueurrg', row.IDJOUEUR);
   const age = calculateAge(row.NAISSANCE, row.FIRST_DATE);
-  const dateDisplay = formatDateDisplay(row.FIRST_DATE);
-  const surnom = row.SURNOM?.trim();
-  const nom = row.NOM?.trim() ? row.NOM.toUpperCase() : '';
-  const prenom = row.PRENOM?.trim() ?? '';
-  const nomJoueur = surnom || `${nom}${prenom ? ` ${prenom}` : ''}` || row.IDJOUEUR;
 
   return (
-    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', minWidth: 0 }}>
-      <Avatar src={src ?? undefined} sx={{ width: 30, height: 30, bgcolor: 'grey.300', flexShrink: 0 }}>
-        {!src && <PersonRoundedIcon sx={{ fontSize: 17 }} />}
-      </Avatar>
-      {row.IDNATIO ? <NatioFlag idnatio={row.IDNATIO} /> : null}
-      <Typography variant="body2" sx={{ fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        <b>{nomJoueur}</b>
-        {' à l\'âge de '}
-        {age.years} ans, {age.months} mois et {age.days} jours
-        {' le '}
-        <MuiLink
-          component="button"
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            window.dispatchEvent(new CustomEvent('supporter:tab-open', {
-              detail: {
-                path: `/admin/rencontres/${encodeURIComponent(String(row.RECLEUNIK ?? ''))}`,
-                label: 'Rencontre',
-                unique: true,
-                uniqueByPath: true,
-              },
-            }));
-          }}
-          sx={{ cursor: 'pointer', textDecoration: 'underline', color: 'inherit', font: 'inherit', verticalAlign: 'baseline' }}
-        >
-          {dateDisplay}
-        </MuiLink>
-      </Typography>
-    </Stack>
+    <StatPlayerSentence joueur={row}>
+      {' à l\'âge de '}
+      {age.years} ans, {age.months} mois et {age.days} jours
+      {' le '}
+      <RencontreDateLink date={row.FIRST_DATE} recleunik={row.RECLEUNIK} />
+    </StatPlayerSentence>
   );
 }
 
@@ -134,10 +88,11 @@ interface AppearanceGridProps {
 export function PremierMatchGrid({ latest = false }: AppearanceGridProps) {
   const [rows, setRows] = useState<PremierMatchWithAge[]>([]);
   const [loading, setLoading] = useState(true);
+  const [scope, setScope] = useState<number | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
-    (latest ? fetchDernierMatch : fetchPremierMatch)(controller.signal)
+    (latest ? fetchDernierMatch : fetchPremierMatch)(scope, controller.signal)
       .then((data) => {
         const withAge = data.map((row) => {
           const age = calculateAge(row.NAISSANCE, row.FIRST_DATE);
@@ -151,7 +106,7 @@ export function PremierMatchGrid({ latest = false }: AppearanceGridProps) {
       })
       .finally(() => setLoading(false));
     return () => controller.abort();
-  }, [latest]);
+  }, [latest, scope]);
 
   return (
     <StatPlayerGrid<PremierMatchWithAge>
@@ -164,6 +119,8 @@ export function PremierMatchGrid({ latest = false }: AppearanceGridProps) {
         sorting: { sortModel: [{ field: 'AGE_SORT', sort: latest ? 'desc' : 'asc' }] },
         columns: { columnVisibilityModel: { AGE_SORT: false } },
       }}
+      scope={scope}
+      onScopeChange={setScope}
     />
   );
 }

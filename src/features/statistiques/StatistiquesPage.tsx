@@ -69,8 +69,8 @@ interface SelectedStat {
   typeKey: string;
 }
 
-function statMatchesSearch(domain: StatDomain, themeKey: string, typeLabel: string, search: string): boolean {
-  const haystack = `${domain.label} ${themeKey} ${typeLabel}`.toLowerCase();
+function statMatchesSearch(domain: StatDomain, themeLabel: string, typeLabel: string, search: string): boolean {
+  const haystack = `${domain.label} ${themeLabel} ${typeLabel}`.toLowerCase();
   return haystack.includes(search.toLowerCase());
 }
 
@@ -122,9 +122,9 @@ export function StatistiquesPage() {
         themes: domain.themes
           .map((theme) => ({
             ...theme,
-            types: theme.types.filter((type) => statMatchesSearch(domain, theme.label, type.label, normalizedSearch)),
+            types: theme.types?.filter((type) => statMatchesSearch(domain, theme.label, type.label, normalizedSearch)),
           }))
-          .filter((theme) => theme.types.length > 0),
+          .filter((theme) => (theme.types ? theme.types.length > 0 : statMatchesSearch(domain, theme.label, theme.label, normalizedSearch))),
       }))
       .filter((domain) => domain.themes.length > 0);
   }, [isFiltering, normalizedSearch]);
@@ -145,7 +145,7 @@ export function StatistiquesPage() {
 
   const selectedDomain = selected ? STAT_DOMAINS.find((domain) => domain.key === selected.domainKey) : undefined;
   const selectedTheme = selectedDomain?.themes.find((theme) => theme.key === selected?.themeKey);
-  const selectedType = selectedTheme?.types.find((type) => type.key === selected?.typeKey);
+  const selectedType = selectedTheme?.types?.find((type) => type.key === selected?.typeKey);
   const StatComponent = selected ? STAT_COMPONENTS[`${selected.domainKey}/${selected.themeKey}/${selected.typeKey}`] : undefined;
 
   const sidebarContent = (
@@ -188,6 +188,24 @@ export function StatistiquesPage() {
                 {domain.themes.map((theme) => {
                   const themeStateKey = `${domain.key}/${theme.key}`;
                   const themeOpen = isFiltering || Boolean(expandedThemes[themeStateKey]);
+                  const isLeafTheme = !theme.types;
+                  const isLeafSelected = isLeafTheme
+                    && selected?.domainKey === domain.key
+                    && selected?.themeKey === theme.key;
+                  if (isLeafTheme) {
+                    return (
+                      <ListItemButton
+                        key={theme.key}
+                        selected={isLeafSelected}
+                        onClick={() => selectStat(domain.key, theme.key, theme.key)}
+                        sx={{ pl: 4, py: 0.5 }}
+                      >
+                        <ListItemText slotProps={{ primary: { sx: { fontSize: 13, color: 'text.secondary', fontWeight: 600 } } }}>
+                          {theme.label}
+                        </ListItemText>
+                      </ListItemButton>
+                    );
+                  }
                   return (
                     <Box key={theme.key}>
                       <ListItemButton onClick={() => toggleTheme(themeStateKey)} sx={{ pl: 4, py: 0.5 }}>
@@ -200,7 +218,7 @@ export function StatistiquesPage() {
                         />
                       </ListItemButton>
                       <Collapse in={themeOpen} timeout="auto" unmountOnExit>
-                        {theme.types.map((type) => {
+                        {theme.types?.map((type) => {
                           const isSelected = selected?.domainKey === domain.key
                             && selected?.themeKey === theme.key
                             && selected?.typeKey === type.key;
@@ -268,7 +286,7 @@ export function StatistiquesPage() {
             </Typography>
           </Stack>
         ) : null}
-        {selected && selectedDomain && selectedTheme && selectedType ? (
+        {selected && selectedDomain && selectedTheme && (selectedType || !selectedTheme.types) ? (
           <>
             <Stack
               direction="row"
@@ -277,10 +295,10 @@ export function StatistiquesPage() {
             >
               <Stack spacing={0.25}>
                 <Typography variant="caption" color="text.secondary">
-                  {selectedDomain.label} · {selectedTheme.label}
+                  {selectedDomain.label}{selectedType ? ` · ${selectedTheme.label}` : ''}
                 </Typography>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  {selectedType.label}
+                  {selectedType?.label ?? selectedTheme.label}
                 </Typography>
               </Stack>
               <ToggleButtonGroup
@@ -305,7 +323,7 @@ export function StatistiquesPage() {
                 <Stack spacing={1} sx={{ flex: 1, alignItems: 'center', justifyContent: 'center', color: 'text.secondary' }}>
                   <ArticleRoundedIcon sx={{ fontSize: 40 }} />
                   <Typography variant="body2">
-                    StatGrid « {selectedType.label} » à venir ({viewMode === 'table' ? 'vue tableau' : 'vue graphe'}).
+                    StatGrid « {selectedType?.label ?? selectedTheme.label} » à venir ({viewMode === 'table' ? 'vue tableau' : 'vue graphe'}).
                   </Typography>
                 </Stack>
               )}

@@ -13,18 +13,18 @@ export interface PremierMatchRow {
   RECLEUNIK: number; // Encounter ID for match link
 }
 
-async function fetchAppearance(path: string, signal?: AbortSignal): Promise<PremierMatchRow[]> {
+async function fetchAppearance(path: string, scope?: number | null, signal?: AbortSignal): Promise<PremierMatchRow[]> {
   const { data } = await http.get<{ data: PremierMatchRow[] }>(
     `${env.statsPublicResource}/joueur/apparitions/${path}`,
-    { signal },
+    { params: scope != null ? { scope } : undefined, signal },
   );
   return data.data ?? [];
 }
 
-export function fetchPremierMatch(signal?: AbortSignal): Promise<PremierMatchRow[]> {
-  return fetchAppearance('plus-jeune', signal);
+export function fetchPremierMatch(scope?: number | null, signal?: AbortSignal): Promise<PremierMatchRow[]> {
+  return fetchAppearance('plus-jeune', scope, signal);
 }
 
-export function fetchDernierMatch(signal?: AbortSignal): Promise<PremierMatchRow[]> {
-  return fetchAppearance('plus-vieux', signal);
+export function fetchDernierMatch(scope?: number | null, signal?: AbortSignal): Promise<PremierMatchRow[]> {
+  return fetchAppearance('plus-vieux', scope, signal);
 }

@@ -240,19 +240,30 @@ export function TourWizardStep6Rencontres({
     setSelectedRencontre([]);
   }, [selectedCircId]);
 
+  const availableCircOptions = useMemo(() => {
+    const knownIds = new Set(circOptions.map((circ) => normalizeCircId(circ.IDCIRC)));
+    const missingExistingOptions = rencontres
+      .map((row) => normalizeCircId(row.IDCIRC))
+      .filter((circId) => circId.length > 0 && !knownIds.has(circId))
+      .filter((circId, index, values) => values.indexOf(circId) === index)
+      .map((circId) => ({ IDCIRC: circId, CIRC: circId, TYPE_TOUR: typeId }));
+
+    return [...circOptions, ...missingExistingOptions];
+  }, [circOptions, rencontres, typeId]);
+
   useEffect(() => {
     if (!selectedCircId) {
       return;
     }
-    const exists = circOptions.some((circ) => normalizeCircId(circ.IDCIRC) === selectedCircId);
+    const exists = availableCircOptions.some((circ) => normalizeCircId(circ.IDCIRC) === selectedCircId);
     if (!exists) {
       setSelectedCircId('');
     }
-  }, [circOptions, selectedCircId]);
+  }, [availableCircOptions, selectedCircId]);
 
   const circOptionIds = useMemo(
-    () => circOptions.map((circ) => normalizeCircId(circ.IDCIRC)).filter((value) => value.length > 0),
-    [circOptions],
+    () => availableCircOptions.map((circ) => normalizeCircId(circ.IDCIRC)).filter((value) => value.length > 0),
+    [availableCircOptions],
   );
 
   const circSelectionState = useMemo(
@@ -345,6 +356,20 @@ export function TourWizardStep6Rencontres({
     () => [...rencontres].sort(compareDateHeure),
     [rencontres],
   );
+
+  useEffect(() => {
+    if (selectedCircId || rencontreRows.length === 0) {
+      return;
+    }
+
+    const firstExistingCircId = rencontreRows
+      .map((row) => normalizeCircId(row.IDCIRC))
+      .find((circId) => circId.length > 0 && circOptionIds.includes(circId));
+
+    if (firstExistingCircId) {
+      setSelectedCircId(firstExistingCircId);
+    }
+  }, [circOptionIds, rencontreRows, selectedCircId]);
 
   const filteredRencontreRows = useMemo(() => {
     return buildFilteredRencontreRows(rencontreRows, selectedCircId, normalizeCircId);
@@ -771,7 +796,7 @@ export function TourWizardStep6Rencontres({
               onChange={(event) => setSelectedCircId(String(event.target.value ?? ''))}
             >
               <MenuItem value="">(Aucune)</MenuItem>
-              {circOptions.map((circ) => (
+              {availableCircOptions.map((circ) => (
                 <MenuItem key={circ.IDCIRC} value={circ.IDCIRC}>{circ.CIRC}</MenuItem>
               ))}
             </Select>

@@ -13,14 +13,8 @@ import { getEntityImageUrl, useEntityImage } from '../../lib/useEntityImage';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { useDirtySignature } from '../../lib/useDirtySignature';
+import { EPREUVE_SCOPE_OPTIONS as SCOPE_OPTIONS } from '../../lib/epreuveScope';
 import type { EpreuveRow } from './types';
-
-const SCOPE_OPTIONS = [
-  { value: 1, label: 'Régionale ou amateur' },
-  { value: 2, label: 'Championnat national' },
-  { value: 3, label: 'Coupe nationale' },
-  { value: 4, label: 'Compétitions européennes et intercontinentales' },
-] as const;
 
 interface EpreuveFormDialogProps {
   open: boolean;

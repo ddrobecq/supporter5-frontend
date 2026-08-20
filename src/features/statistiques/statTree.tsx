@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
-import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import SportsIcon from '@mui/icons-material/Sports';
 import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
 
@@ -13,7 +12,8 @@ export interface StatType {
 export interface StatTheme {
   key: string;
   label: string;
-  types: StatType[];
+  /** Absent = theme "feuille": clic direct ouvre la stat (registry key `${domain}/${theme}/${theme}`). */
+  types?: StatType[];
 }
 
 export interface StatDomain {
@@ -83,10 +83,31 @@ export const STAT_DOMAINS: StatDomain[] = [
         ],
       },
       {
-        key: 'titres',
-        label: 'Titres',
+        key: 'performances',
+        label: 'Performances',
         types: [
-          { key: 'general', label: 'Général' },
+          { key: 'victoires', label: 'Victoires' },
+          { key: 'defaites', label: 'Défaites' },
+          { key: 'nuls', label: 'Nuls' },
+        ],
+      },
+      {
+        key: 'transferts',
+        label: 'Transferts',
+        types: [
+          { key: 'achats', label: 'Achats' },
+          { key: 'ventes', label: 'Ventes' },
+          { key: 'plus-values', label: 'Plus-values' },
+          { key: 'moins-values', label: 'Moins-values' },
+        ],
+      },
+      {
+        key: 'physique',
+        label: 'Physique',
+        types: [
+          { key: 'grands', label: 'Grands' },
+          { key: 'petits', label: 'Petits' },
+          { key: 'gabarits', label: 'Gabarits' },
         ],
       },
     ],
@@ -100,29 +121,33 @@ export const STAT_DOMAINS: StatDomain[] = [
         key: 'scores',
         label: 'Scores',
         types: [
-          { key: 'plus-large',label: 'Plus large victoire' },
-          { key: 'plus-buts', label: 'Match le plus prolifique' },
+          { key: 'victoires', label: 'Victoires' },
+          { key: 'defaites', label: 'Défaites' },
+          { key: 'prolifiques', label: 'Prolifiques' },
         ],
       },
       {
         key: 'affluence',
         label: 'Affluence',
+      },
+      {
+        key: 'sanctions',
+        label: 'Sanctions',
         types: [
-          { key: 'general', label: 'Général' },
+          { key: 'avertissements', label: 'Avertissements' },
+          { key: 'exclusions', label: 'Exclusions' },
         ],
       },
-    ],
-  },
-  {
-    key: 'competition',
-    label: 'Compétition',
-    icon: <EmojiEventsRoundedIcon sx={{ fontSize: 18 }} />,
-    themes: [
       {
-        key: 'palmares',
-        label: 'Palmarès',
+        key: 'series',
+        label: 'Séries',
         types: [
-          { key: 'general', label: 'Général' },
+          { key: 'victoires', label: 'Victoires' },
+          { key: 'nuls', label: 'Nuls' },
+          { key: 'defaites', label: 'Défaites' },
+          { key: 'invincibilite', label: 'Invincibilité' },
+          { key: 'inviolabilite', label: 'Inviolabilité' },
+          { key: 'inefficacite', label: 'Inefficacité' },
         ],
       },
     ],
@@ -133,10 +158,15 @@ export const STAT_DOMAINS: StatDomain[] = [
     icon: <SportsIcon sx={{ fontSize: 18 }} />,
     themes: [
       {
+        key: 'matches',
+        label: 'Matches',
+      },
+      {
         key: 'sanctions',
-        label: 'Sanctions données',
+        label: 'Sanctions',
         types: [
-          { key: 'general', label: 'Général' },
+          { key: 'avertissements', label: 'Avertissements' },
+          { key: 'exclusions', label: 'Exclusions' },
         ],
       },
     ],

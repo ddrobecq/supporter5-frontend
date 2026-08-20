@@ -1,11 +1,7 @@
-import { Avatar, Stack, Typography } from '@mui/material';
-import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import type { GridColDef } from '@mui/x-data-grid';
 import { useEffect, useState } from 'react';
-import { NatioFlag } from '../../../../components/NatioFlag';
-import { JoueurClubIndicator } from '../../../../components/JoueurIdentityDisplay';
-import { useEntityImage } from '../../../../lib/useEntityImage';
 import { StatPlayerGrid } from '../../components/StatPlayerGrid';
+import { StatPlayerSentence } from '../../components/StatPlayerSentence';
 import { fetchSeriesButeurs, type SerieButeurRow } from './seriesApi';
 
 function formatDateDisplay(dateStr: string): string {
@@ -26,24 +22,10 @@ function valueColumns(metric: 'buts' | 'passes'): GridColDef<SerieButeurRow>[] {
 }
 
 function SerieCell({ row, metric }: { row: SerieButeurRow; metric: 'buts' | 'passes' }) {
-  const { src } = useEntityImage('joueurrg', row.IDJOUEUR);
-  const surnom = row.SURNOM?.trim();
-  const nom = row.NOM?.trim() ? row.NOM.toUpperCase() : '';
-  const prenom = row.PRENOM?.trim() ?? '';
-  const nomJoueur = surnom || `${nom}${prenom ? ` ${prenom}` : ''}` || row.IDJOUEUR;
-
   return (
-    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', minWidth: 0 }}>
-      <Avatar src={src ?? undefined} sx={{ width: 30, height: 30, bgcolor: 'grey.300', flexShrink: 0 }}>
-        {!src && <PersonRoundedIcon sx={{ fontSize: 17 }} />}
-      </Avatar>
-      {row.IDNATIO ? <NatioFlag idnatio={row.IDNATIO} /> : null}
-      <Typography variant="body2" sx={{ fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        <b>{nomJoueur}</b>
-        {row.EN_CLUB ? <JoueurClubIndicator /> : null}
-        {` : série de ${row.SERIE} ${metric === 'passes' ? 'passes décisives' : 'buts'} du ${formatDateDisplay(row.SERIE_DEBUT)} au ${formatDateDisplay(row.SERIE_FIN)}${row.EN_COURS ? ' (série en cours)' : ''}`}
-      </Typography>
-    </Stack>
+    <StatPlayerSentence joueur={row}>
+      {` : série de ${row.SERIE} ${metric === 'passes' ? 'passes décisives' : 'buts'} du ${formatDateDisplay(row.SERIE_DEBUT)} au ${formatDateDisplay(row.SERIE_FIN)}${row.EN_COURS ? ' (série en cours)' : ''}`}
+    </StatPlayerSentence>
   );
 }
 
@@ -51,15 +33,16 @@ function SerieCell({ row, metric }: { row: SerieButeurRow; metric: 'buts' | 'pas
 export function SeriesGrid({ metric = 'buts' }: { metric?: 'buts' | 'passes' }) {
   const [rows, setRows] = useState<SerieButeurRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [scope, setScope] = useState<number | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchSeriesButeurs(metric, controller.signal)
+    fetchSeriesButeurs(metric, scope, controller.signal)
       .then(setRows)
       .catch(() => setRows([]))
       .finally(() => setLoading(false));
     return () => controller.abort();
-  }, [metric]);
+  }, [metric, scope]);
 
   return (
     <StatPlayerGrid<SerieButeurRow>
@@ -68,6 +51,8 @@ export function SeriesGrid({ metric = 'buts' }: { metric?: 'buts' | 'passes' }) 
       loading={loading}
       hideIdentityColumn
       initialState={{ sorting: { sortModel: [{ field: 'SERIE', sort: 'desc' }] } }}
+      scope={scope}
+      onScopeChange={setScope}
     />
   );
 }

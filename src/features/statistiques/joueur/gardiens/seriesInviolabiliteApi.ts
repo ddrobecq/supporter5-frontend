@@ -14,10 +14,10 @@ export interface SerieInviolabiliteRow {
   EN_CLUB: number;
 }
 
-export async function fetchSeriesInviolabilite(signal?: AbortSignal): Promise<SerieInviolabiliteRow[]> {
+export async function fetchSeriesInviolabilite(scope?: number | null, signal?: AbortSignal): Promise<SerieInviolabiliteRow[]> {
   const { data } = await http.get<{ data: SerieInviolabiliteRow[] }>(
     `${env.statsPublicResource}/joueur/gardiens/serie-inviolabilite`,
-    { signal },
+    { params: scope != null ? { scope } : undefined, signal },
   );
   return data.data ?? [];
 }

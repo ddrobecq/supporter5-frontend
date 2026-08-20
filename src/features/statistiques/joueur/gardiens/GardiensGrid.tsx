@@ -16,13 +16,15 @@ const VALUE_COLUMNS: GridColDef<GardienRow>[] = [
 ];
 
 /** Joueur > Gardiens > Meilleur gardien: minutes per conceded official goal. */
+// Pas de filtre par competition ici: MATCHES/MINUTES viennent des totaux saison de JOUEUR
+// (non filtrables par match), donc le filtre fausserait le ratio (seul BUTS_ENCAISSES serait filtre).
 export function GardiensGrid() {
   const [rows, setRows] = useState<GardienRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchMeilleursGardiens(controller.signal)
+    fetchMeilleursGardiens(null, controller.signal)
       .then(setRows)
       .catch(() => setRows([]))
       .finally(() => setLoading(false));

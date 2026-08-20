@@ -11,9 +11,10 @@ interface ClubIdentityInlineProps {
   natioId?: string | null | undefined;
   size?: number;
   nameSx?: SxProps<Theme>;
+  sx?: SxProps<Theme>;
 }
 
-export function ClubIdentityInline({ clubId, clubName, natioId, size = 24, nameSx }: ClubIdentityInlineProps) {
+export function ClubIdentityInline({ clubId, clubName, natioId, size = 24, nameSx, sx }: ClubIdentityInlineProps) {
   const normalizedClubId = String(clubId ?? '').trim();
   const normalizedName = String(clubName ?? '').trim();
   const normalizedNatio = String(natioId ?? '').trim();
@@ -36,6 +37,7 @@ export function ClubIdentityInline({ clubId, clubName, natioId, size = 24, nameS
         color: 'inherit',
         textDecoration: 'none',
         ...(hasClubLink ? { cursor: 'pointer' } : null),
+        ...sx,
       }}
     >
       <Avatar src={src ?? undefined} sx={{ width: size, height: size, bgcolor: 'grey.200', flexShrink: 0 }}>

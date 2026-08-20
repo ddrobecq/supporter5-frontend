@@ -5,6 +5,7 @@ import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
 import { Box, CircularProgress, Stack, Typography } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material';
 import { ClubIdentityInline } from '../../components/ClubIdentityInline';
+import { formatMoney } from '../../lib/formatMoney';
 import type { JoueurTransactionRow } from './types';
 
 interface JoueurContractsTimelineProps {
@@ -30,25 +31,7 @@ function normalizeLabel(value: unknown): string {
     .toLowerCase();
 }
 
-function formatCompactAmount(value: number): string {
-  const rounded = Math.round(value * 10) / 10;
-  const text = rounded.toFixed(1).replace(/\.0$/, '');
-  return text.replace('.', ',');
-}
-
-function formatMoneyForSummary(amountValue: unknown, deviseSymbole: unknown): string {
-  const amount = Number(amountValue ?? 0);
-  if (!Number.isFinite(amount) || amount <= 0) return '';
-
-  const devise = String(deviseSymbole ?? '').trim();
-  if (amount >= 1_000_000) {
-    return `${formatCompactAmount(amount / 1_000_000)} M${devise}`;
-  }
-  if (amount >= 1_000) {
-    return `${formatCompactAmount(amount / 1_000)} k${devise}`;
-  }
-  return `${formatCompactAmount(amount)} ${devise}`.trim();
-}
+const formatMoneyForSummary = formatMoney;
 
 function isTransferTransaction(row: JoueurTransactionRow): boolean {
   const label = normalizeLabel(row.TYT_LIBELLE);

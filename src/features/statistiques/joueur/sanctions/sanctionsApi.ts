@@ -43,9 +43,10 @@ export async function fetchSanctionsParSaison(metric: SanctionMetric, signal?: A
   return data.data ?? [];
 }
 
-export async function fetchExclusionsRapides(signal?: AbortSignal): Promise<ExclusionRapideRow[]> {
+export async function fetchExclusionsRapides(scope?: number | null, signal?: AbortSignal): Promise<ExclusionRapideRow[]> {
   const { data } = await http.get<{ data: ExclusionRapideRow[] }>(
-    `${env.statsPublicResource}/joueur/sanctions/exclusions/rapides`, { signal },
+    `${env.statsPublicResource}/joueur/sanctions/exclusions/rapides`,
+    { params: scope != null ? { scope } : undefined, signal },
   );
   return data.data ?? [];
 }

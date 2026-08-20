@@ -1,20 +1,9 @@
-import { Avatar, Link as MuiLink, Stack, Typography } from '@mui/material';
-import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import type { GridColDef } from '@mui/x-data-grid';
 import { useEffect, useState } from 'react';
-import { NatioFlag } from '../../../../components/NatioFlag';
-import { JoueurClubIndicator } from '../../../../components/JoueurIdentityDisplay';
-import { useEntityImage } from '../../../../lib/useEntityImage';
+import { RencontreDateLink } from '../../components/RencontreDateLink';
 import { StatPlayerGrid } from '../../components/StatPlayerGrid';
+import { StatPlayerSentence } from '../../components/StatPlayerSentence';
 import { fetchButeursParMatch, type ButeurMatchRow } from './buteursMatchApi';
-
-function formatDateDisplay(dateStr: string): string {
-  if (dateStr.includes('-')) {
-    const [year, month, day] = dateStr.split('-');
-    return `${day}/${month}/${year}`;
-  }
-  return `${dateStr.substring(6, 8)}/${dateStr.substring(4, 6)}/${dateStr.substring(0, 4)}`;
-}
 
 function valueColumns(metric: 'buts' | 'passes'): GridColDef<ButeurMatchRow>[] {
   return [{
@@ -28,43 +17,12 @@ function valueColumns(metric: 'buts' | 'passes'): GridColDef<ButeurMatchRow>[] {
 }
 
 function ButeurMatchCell({ row, metric }: { row: ButeurMatchRow; metric: 'buts' | 'passes' }) {
-  const { src } = useEntityImage('joueurrg', row.IDJOUEUR);
-  const surnom = row.SURNOM?.trim();
-  const nom = row.NOM?.trim() ? row.NOM.toUpperCase() : '';
-  const prenom = row.PRENOM?.trim() ?? '';
-  const nomJoueur = surnom || `${nom}${prenom ? ` ${prenom}` : ''}` || row.IDJOUEUR;
-
   return (
-    <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', minWidth: 0 }}>
-      <Avatar src={src ?? undefined} sx={{ width: 30, height: 30, bgcolor: 'grey.300', flexShrink: 0 }}>
-        {!src && <PersonRoundedIcon sx={{ fontSize: 17 }} />}
-      </Avatar>
-      {row.IDNATIO ? <NatioFlag idnatio={row.IDNATIO} /> : null}
-      <Typography variant="body2" sx={{ fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        <b>{nomJoueur}</b>
-        {row.EN_CLUB ? <JoueurClubIndicator /> : null}
-        {' avec '}
-        {row.BUTS} {metric === 'passes' ? 'passes décisives' : 'buts'} le{' '}
-        <MuiLink
-          component="button"
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            window.dispatchEvent(new CustomEvent('supporter:tab-open', {
-              detail: {
-                path: `/admin/rencontres/${encodeURIComponent(String(row.RECLEUNIK))}`,
-                label: 'Rencontre',
-                unique: true,
-                uniqueByPath: true,
-              },
-            }));
-          }}
-          sx={{ cursor: 'pointer', textDecoration: 'underline', color: 'inherit', font: 'inherit', verticalAlign: 'baseline' }}
-        >
-          {formatDateDisplay(row.MATCH_DATE)}
-        </MuiLink>
-      </Typography>
-    </Stack>
+    <StatPlayerSentence joueur={row}>
+      {' avec '}
+      {row.BUTS} {metric === 'passes' ? 'passes décisives' : 'buts'} le{' '}
+      <RencontreDateLink date={row.MATCH_DATE} recleunik={row.RECLEUNIK} />
+    </StatPlayerSentence>
   );
 }
 
@@ -72,15 +30,16 @@ function ButeurMatchCell({ row, metric }: { row: ButeurMatchRow; metric: 'buts' 
 export function ButeursMatchGrid({ metric = 'buts' }: { metric?: 'buts' | 'passes' }) {
   const [rows, setRows] = useState<ButeurMatchRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [scope, setScope] = useState<number | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchButeursParMatch(metric, controller.signal)
+    fetchButeursParMatch(metric, scope, controller.signal)
       .then(setRows)
       .catch(() => setRows([]))
       .finally(() => setLoading(false));
     return () => controller.abort();
-  }, [metric]);
+  }, [metric, scope]);
 
   return (
     <StatPlayerGrid<ButeurMatchRow>
@@ -89,6 +48,8 @@ export function ButeursMatchGrid({ metric = 'buts' }: { metric?: 'buts' | 'passe
       loading={loading}
       hideIdentityColumn
       getRowId={(row) => row.IDJOUEUR}
+      scope={scope}
+      onScopeChange={setScope}
     />
   );
 }

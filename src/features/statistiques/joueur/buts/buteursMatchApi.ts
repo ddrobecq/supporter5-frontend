@@ -13,10 +13,10 @@ export interface ButeurMatchRow {
   EN_CLUB: number;
 }
 
-export async function fetchButeursParMatch(metric: 'buts' | 'passes' = 'buts', signal?: AbortSignal): Promise<ButeurMatchRow[]> {
+export async function fetchButeursParMatch(metric: 'buts' | 'passes' = 'buts', scope?: number | null, signal?: AbortSignal): Promise<ButeurMatchRow[]> {
   const { data } = await http.get<{ data: ButeurMatchRow[] }>(
     `${env.statsPublicResource}/joueur/${metric}/match`,
-    { signal },
+    { params: scope != null ? { scope } : undefined, signal },
   );
   return data.data ?? [];
 }

@@ -1,5 +1,6 @@
 import MilitaryTechRoundedIcon from '@mui/icons-material/MilitaryTechRounded';
 import { Box, Tooltip } from '@mui/material';
+import { useMemo } from 'react';
 import { DataGrid, useGridApiRef, type DataGridProps, type GridColDef, type GridRowClassNameParams, type GridValidRowModel } from '@mui/x-data-grid';
 
 export interface StatGridProps<R extends GridValidRowModel> extends Partial<DataGridProps<R>> {
@@ -59,6 +60,8 @@ export function StatGrid<R extends GridValidRowModel>({ rows, columns, loading, 
     },
   };
 
+  const gridColumns = useMemo(() => [rankColumn, ...columns], [columns]);
+
   const mergedGetRowClassName = (params: GridRowClassNameParams<R>) => {
     const externalClass = getRowClassName?.(params) ?? '';
     const firstSortedRowId = apiRef.current?.getSortedRowIds()[0];
@@ -97,7 +100,7 @@ export function StatGrid<R extends GridValidRowModel>({ rows, columns, loading, 
     >
       <DataGrid<R>
         rows={rows}
-        columns={[rankColumn, ...columns]}
+        columns={gridColumns}
         apiRef={apiRef}
         loading={loading}
         getRowClassName={mergedGetRowClassName}

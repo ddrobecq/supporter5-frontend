@@ -13,10 +13,10 @@ export interface GardienRow {
   EN_CLUB: number;
 }
 
-export async function fetchMeilleursGardiens(signal?: AbortSignal): Promise<GardienRow[]> {
+export async function fetchMeilleursGardiens(scope?: number | null, signal?: AbortSignal): Promise<GardienRow[]> {
   const { data } = await http.get<{ data: GardienRow[] }>(
     `${env.statsPublicResource}/joueur/gardiens/meilleurs`,
-    { signal },
+    { params: scope != null ? { scope } : undefined, signal },
   );
   return data.data ?? [];
 }
