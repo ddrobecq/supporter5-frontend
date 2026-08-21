@@ -1,7 +1,8 @@
 import type { GridColDef } from '@mui/x-data-grid';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { StatPlayerGrid } from '../../components/StatPlayerGrid';
 import { StatPlayerSentence } from '../../components/StatPlayerSentence';
+import { useStatRows } from '../../useStatRows';
 import { fetchPhysique, type PhysiqueMetric, type PhysiqueRow } from './physiqueApi';
 
 const HEADERS: Record<PhysiqueMetric, string> = {
@@ -24,17 +25,7 @@ function PhysiqueCell({ row, metric }: { row: PhysiqueRow; metric: PhysiqueMetri
 }
 
 export function PhysiqueGrid({ metric }: { metric: PhysiqueMetric }) {
-  const [rows, setRows] = useState<PhysiqueRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchPhysique(metric, controller.signal)
-      .then(setRows)
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [metric]);
+  const { rows, loading } = useStatRows<PhysiqueRow>((signal) => fetchPhysique(metric, signal), [metric]);
 
   const columns: GridColDef<PhysiqueRow>[] = useMemo(() => [{
     field: metric === 'gabarits' ? 'IMC' : 'HAUTEUR',

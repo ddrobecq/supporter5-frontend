@@ -2,6 +2,7 @@ import { ToggleButton, ToggleButtonGroup } from '@mui/material';
 import { useGridApiRef, type GridColDef } from '@mui/x-data-grid';
 import { useEffect, useMemo, useState } from 'react';
 import { StatPlayerGrid } from '../../components/StatPlayerGrid';
+import { useStatRows } from '../../useStatRows';
 import { fetchPerformances, type PerformanceMetric, type PerformanceRow } from './performancesApi';
 
 type DisplayMode = 'count' | 'percent';
@@ -18,26 +19,16 @@ const SORT_FIELD: Record<DisplayMode, string> = {
 };
 
 export function PerformancesGrid({ metric }: { metric: PerformanceMetric }) {
-  const [rows, setRows] = useState<PerformanceRow[]>([]);
-  const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<DisplayMode>('count');
   const [scope, setScope] = useState<number | null>(null);
   const apiRef = useGridApiRef();
+  const { rows, loading } = useStatRows<PerformanceRow>((signal) => fetchPerformances(metric, scope, signal), [metric, scope]);
 
   // Le tri doit suivre la colonne affichee par le switch, une fois les colonnes remontees.
   useEffect(() => {
     if (rows.length === 0) return;
     apiRef.current?.sortColumn(SORT_FIELD[mode], 'desc');
   }, [apiRef, mode, rows.length]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchPerformances(metric, scope, controller.signal)
-      .then(setRows)
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [metric, scope]);
 
   const columns: GridColDef<PerformanceRow>[] = useMemo(() => (mode === 'percent'
     ? [{

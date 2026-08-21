@@ -1,9 +1,10 @@
 import { Typography } from '@mui/material';
 import type { GridColDef } from '@mui/x-data-grid';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ClubIdentityInline } from '../../../../components/ClubIdentityInline';
 import { RencontreDateLink } from '../../components/RencontreDateLink';
 import { StatMatchGrid } from '../../components/StatMatchGrid';
+import { useStatRows } from '../../useStatRows';
 import { fetchScores, type ScoreMetric, type ScoreRow } from './scoresApi';
 
 const HEADERS: Record<ScoreMetric, string> = {
@@ -38,19 +39,8 @@ function ScoreSentence({ row }: { row: ScoreRow }) {
 }
 
 export function ScoresGrid({ metric }: { metric: ScoreMetric }) {
-  const [rows, setRows] = useState<ScoreRow[]>([]);
-  const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<number | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setLoading(true);
-    fetchScores(metric, scope, controller.signal)
-      .then(setRows)
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [metric, scope]);
+  const { rows, loading } = useStatRows<ScoreRow>((signal) => fetchScores(metric, scope, signal), [metric, scope]);
 
   const columns: GridColDef<ScoreRow>[] = useMemo(() => [{
     field: SORT_FIELDS[metric],

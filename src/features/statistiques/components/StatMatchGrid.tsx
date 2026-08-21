@@ -1,10 +1,9 @@
-import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
-import { Box, InputAdornment, MenuItem, Stack, TextField } from '@mui/material';
+import { Box } from '@mui/material';
 import { useGridApiRef, type DataGridProps, type GridColDef, type GridRowParams, type GridValidRowModel } from '@mui/x-data-grid';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import type { GridRowSelectionModel } from '@mui/x-data-grid';
-import { EPREUVE_SCOPE_OPTIONS } from '../../../lib/epreuveScope';
+import { useCallback, useState, type ReactNode } from 'react';
 import { StatGrid } from './StatGrid';
+import { StatGridToolbar } from './StatGridToolbar';
+import { useStatGridSearchSelection } from './useStatGridSearchSelection';
 
 export interface StatMatchRow extends GridValidRowModel {
   RECLEUNIK: number | string;
@@ -56,79 +55,27 @@ export function StatMatchGrid<R extends StatMatchRow>({ rows, valueColumns, load
   const localApiRef = useGridApiRef();
   const apiRef = externalApiRef ?? localApiRef;
   const [search, setSearch] = useState('');
-  const [rowSelectionModel, setRowSelectionModel] = useState<GridRowSelectionModel>({ type: 'include', ids: new Set() });
-
-  useEffect(() => {
-    const normalizedSearch = search.trim().toLocaleLowerCase();
-    if (!normalizedSearch) {
-      setRowSelectionModel({ type: 'include', ids: new Set() });
-      return;
-    }
-
-    const sortedIds = apiRef.current?.getSortedRowIds() ?? rows.map(resolveRowId);
-    const firstMatchId = sortedIds.find((rowId) => {
-      const row = apiRef.current?.getRow<R>(rowId) ?? rows.find((candidate) => resolveRowId(candidate) === rowId);
-      return row
-        ? [row.DOMICILE_NOM, row.EXTERIEUR_NOM, row.CIRC_COMPLET, row.TERRAIN_NOM]
-          .some((value) => String(value ?? '').toLocaleLowerCase().includes(normalizedSearch))
-        : false;
-    });
-
-    setRowSelectionModel({
-      type: 'include',
-      ids: firstMatchId == null ? new Set() : new Set([firstMatchId]),
-    });
-
-    if (firstMatchId != null) {
-      const sortedIndex = sortedIds.indexOf(firstMatchId);
-      const pageSize = apiRef.current?.state.pagination.paginationModel.pageSize ?? 25;
-      if (sortedIndex >= 0) {
-        apiRef.current?.setPage(Math.floor(sortedIndex / pageSize));
-        apiRef.current?.scrollToIndexes({ rowIndex: sortedIndex });
-      }
-    }
-  }, [apiRef, rows, search, resolveRowId]);
+  const getSearchValues = useCallback((row: R) => [row.DOMICILE_NOM, row.EXTERIEUR_NOM, row.CIRC_COMPLET, row.TERRAIN_NOM], []);
+  const { rowSelectionModel, setRowSelectionModel } = useStatGridSearchSelection({
+    rows,
+    apiRef,
+    resolveRowId,
+    search,
+    getSearchValues,
+  });
 
   return (
     <Box sx={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-        {hideSearch ? null : (
-          <TextField
-            size="small"
-            fullWidth
-            autoFocus
-            label="Rechercher une rencontre"
-            placeholder="Adversaire, compétition ou stade"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchRoundedIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-              },
-            }}
-          />
-        )}
-        {onScopeChange ? (
-          <TextField
-            select
-            size="small"
-            label="Type de compétition"
-            value={scope ?? ''}
-            onChange={(event) => onScopeChange(event.target.value === '' ? null : Number(event.target.value))}
-            sx={{ minWidth: 220, flexShrink: 0 }}
-          >
-            <MenuItem value="">Aucun</MenuItem>
-            {EPREUVE_SCOPE_OPTIONS.map((option) => (
-              <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
-            ))}
-          </TextField>
-        ) : null}
-        {toolbarActions}
-      </Stack>
+      <StatGridToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchLabel="Rechercher une rencontre"
+        searchPlaceholder="Adversaire, compétition ou stade"
+        hideSearch={hideSearch}
+        scope={scope}
+        onScopeChange={onScopeChange}
+        toolbarActions={toolbarActions}
+      />
       <Box sx={{ flex: 1, minHeight: 0 }}>
         <StatGrid<R>
           rows={rows}

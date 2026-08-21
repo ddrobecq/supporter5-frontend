@@ -3,6 +3,7 @@ import type { GridColDef } from '@mui/x-data-grid';
 import { useEffect, useMemo, useState } from 'react';
 import { StatPlayerGrid } from '../../components/StatPlayerGrid';
 import { StatPlayerSentence } from '../../components/StatPlayerSentence';
+import { useStatRows } from '../../useStatRows';
 import { fetchSaisonClassement, fetchSaisons, type SaisonClassementMetric, type SaisonClassementRow } from './saisonClassementApi';
 
 const HEADERS: Record<SaisonClassementMetric, string> = {
@@ -33,8 +34,11 @@ function sentence(row: SaisonClassementRow, metric: SaisonClassementMetric): str
 export function SaisonClassementGrid({ metric }: { metric: SaisonClassementMetric }) {
   const [saisons, setSaisons] = useState<string[]>([]);
   const [saison, setSaison] = useState('');
-  const [rows, setRows] = useState<SaisonClassementRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { rows, loading } = useStatRows<SaisonClassementRow>(
+    (signal) => fetchSaisonClassement(metric, saison, signal),
+    [metric, saison],
+    { enabled: Boolean(saison) },
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -46,17 +50,6 @@ export function SaisonClassementGrid({ metric }: { metric: SaisonClassementMetri
       .catch(() => setSaisons([]));
     return () => controller.abort();
   }, []);
-
-  useEffect(() => {
-    if (!saison) return;
-    const controller = new AbortController();
-    setLoading(true);
-    fetchSaisonClassement(metric, saison, controller.signal)
-      .then(setRows)
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [metric, saison]);
 
   const columns: GridColDef<SaisonClassementRow>[] = useMemo(() => [{
     field: 'VALEUR',

@@ -1,8 +1,8 @@
 import { FormControlLabel, Stack, Switch } from '@mui/material';
 import type { GridColDef } from '@mui/x-data-grid';
-import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { StatPlayerGrid } from '../../components/StatPlayerGrid';
+import { useStatRows } from '../../useStatRows';
 import { fetchNombreAnneesAuClub, type AncienneteRow } from './ancienneteApi';
 
 const VALUE_COLUMNS: GridColDef<AncienneteRow>[] = [
@@ -20,18 +20,7 @@ const VALUE_COLUMNS: GridColDef<AncienneteRow>[] = [
 export function AncienneteGrid() {
   const [searchParams, setSearchParams] = useSearchParams();
   const playerOnly = searchParams.get('playerOnly') === 'true';
-  const [rows, setRows] = useState<AncienneteRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setLoading(true);
-    fetchNombreAnneesAuClub(playerOnly, controller.signal)
-      .then(setRows)
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [playerOnly]);
+  const { rows, loading } = useStatRows<AncienneteRow>((signal) => fetchNombreAnneesAuClub(playerOnly, signal), [playerOnly]);
 
   const handlePlayerOnlyChange = (checked: boolean) => {
     const nextParams = new URLSearchParams(searchParams);

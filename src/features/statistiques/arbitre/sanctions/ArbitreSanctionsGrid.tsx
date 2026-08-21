@@ -1,7 +1,8 @@
 import type { GridColDef } from '@mui/x-data-grid';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { StatArbitreGrid } from '../../components/StatArbitreGrid';
 import { StatArbitreSentence } from '../../components/StatArbitreSentence';
+import { useStatRows } from '../../useStatRows';
 import { fetchArbitreSanctions, type ArbitreSanctionMetric, type ArbitreSanctionRow } from './arbitreSanctionsApi';
 
 const HEADERS: Record<ArbitreSanctionMetric, string> = {
@@ -24,19 +25,8 @@ function ArbitreSanctionCell({ row, metric }: { row: ArbitreSanctionRow; metric:
 
 /** Arbitre > Sanctions: classement decroissant par nombre de cartons donnes (avertissements ou exclusions). */
 export function ArbitreSanctionsGrid({ metric }: { metric: ArbitreSanctionMetric }) {
-  const [rows, setRows] = useState<ArbitreSanctionRow[]>([]);
-  const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<number | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setLoading(true);
-    fetchArbitreSanctions(metric, scope, controller.signal)
-      .then(setRows)
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [metric, scope]);
+  const { rows, loading } = useStatRows<ArbitreSanctionRow>((signal) => fetchArbitreSanctions(metric, scope, signal), [metric, scope]);
 
   const columns: GridColDef<ArbitreSanctionRow>[] = useMemo(() => [{
     field: 'TOTAL',

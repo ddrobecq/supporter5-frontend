@@ -1,8 +1,9 @@
 import type { GridColDef } from '@mui/x-data-grid';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { RencontreDateLink } from '../../components/RencontreDateLink';
 import { StatPlayerGrid } from '../../components/StatPlayerGrid';
 import { StatPlayerSentence } from '../../components/StatPlayerSentence';
+import { useStatRows } from '../../useStatRows';
 import { fetchButeursParMatch, type ButeurMatchRow } from './buteursMatchApi';
 
 function valueColumns(metric: 'buts' | 'passes'): GridColDef<ButeurMatchRow>[] {
@@ -28,18 +29,8 @@ function ButeurMatchCell({ row, metric }: { row: ButeurMatchRow; metric: 'buts' 
 
 /** Joueur > Buts > Sur un match: best official single-match scoring performance per player. */
 export function ButeursMatchGrid({ metric = 'buts' }: { metric?: 'buts' | 'passes' }) {
-  const [rows, setRows] = useState<ButeurMatchRow[]>([]);
-  const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<number | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchButeursParMatch(metric, scope, controller.signal)
-      .then(setRows)
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [metric, scope]);
+  const { rows, loading } = useStatRows<ButeurMatchRow>((signal) => fetchButeursParMatch(metric, scope, signal), [metric, scope]);
 
   return (
     <StatPlayerGrid<ButeurMatchRow>

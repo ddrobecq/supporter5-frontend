@@ -1,8 +1,9 @@
 import { Typography } from '@mui/material';
 import type { GridColDef } from '@mui/x-data-grid';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { RencontreDateLink } from '../../components/RencontreDateLink';
 import { StatMatchGrid, type StatMatchRow } from '../../components/StatMatchGrid';
+import { useStatRows } from '../../useStatRows';
 import { fetchRencontreSeries, type RencontreSerieMetric, type RencontreSerieRow } from './seriesApi';
 
 const HEADERS: Record<RencontreSerieMetric, string> = {
@@ -40,18 +41,10 @@ function SerieSentence({ row, metric }: { row: SerieRowWithId; metric: Rencontre
 }
 
 export function SeriesGrid({ metric }: { metric: RencontreSerieMetric }) {
-  const [rows, setRows] = useState<SerieRowWithId[]>([]);
-  const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<number | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setLoading(true);
-    fetchRencontreSeries(metric, scope, controller.signal)
-      .then((data) => setRows(data.map((row) => ({ ...row, RECLEUNIK: row.SERIE_FIN_RECLEUNIK }))))
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-    return () => controller.abort();
+  const { rows, loading } = useStatRows<SerieRowWithId>(async (signal) => {
+    const data = await fetchRencontreSeries(metric, scope, signal);
+    return data.map((row) => ({ ...row, RECLEUNIK: row.SERIE_FIN_RECLEUNIK }));
   }, [metric, scope]);
 
   const columns: GridColDef<SerieRowWithId>[] = useMemo(() => [{

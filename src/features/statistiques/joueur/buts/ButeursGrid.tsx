@@ -1,6 +1,6 @@
 import type { GridColDef } from '@mui/x-data-grid';
-import { useEffect, useState } from 'react';
 import { StatPlayerGrid } from '../../components/StatPlayerGrid';
+import { useStatRows } from '../../useStatRows';
 import { fetchButeurs, fetchButeursParSaison, fetchEfficaciteButeurs, type ButeurRow, type ButeurSaisonRow, type EfficaciteButeurRow } from './buteursApi';
 
 function valueColumns(metric: ScoringMetric): GridColDef<ButeurRow>[] {
@@ -49,17 +49,7 @@ interface ScoringGridProps {
 }
 
 export function ButeursGrid({ metric = 'buts' }: ScoringGridProps) {
-  const [rows, setRows] = useState<ButeurRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchButeurs(metric, controller.signal)
-      .then(setRows)
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [metric]);
+  const { rows, loading } = useStatRows<ButeurRow>((signal) => fetchButeurs(metric, signal), [metric]);
 
   return (
     <StatPlayerGrid<ButeurRow>
@@ -72,17 +62,7 @@ export function ButeursGrid({ metric = 'buts' }: ScoringGridProps) {
 }
 
 export function ButeursParSaisonGrid({ metric = 'buts' }: ScoringGridProps) {
-  const [rows, setRows] = useState<ButeurSaisonRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchButeursParSaison(metric, controller.signal)
-      .then(setRows)
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [metric]);
+  const { rows, loading } = useStatRows<ButeurSaisonRow>((signal) => fetchButeursParSaison(metric, signal), [metric]);
 
   return (
     <StatPlayerGrid<ButeurSaisonRow>
@@ -96,17 +76,7 @@ export function ButeursParSaisonGrid({ metric = 'buts' }: ScoringGridProps) {
 }
 
 export function EfficaciteButeursGrid({ metric = 'buts' }: ScoringGridProps) {
-  const [rows, setRows] = useState<EfficaciteButeurRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchEfficaciteButeurs(metric, controller.signal)
-      .then(setRows)
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [metric]);
+  const { rows, loading } = useStatRows<EfficaciteButeurRow>((signal) => fetchEfficaciteButeurs(metric, signal), [metric]);
 
   return (
     <StatPlayerGrid<EfficaciteButeurRow>

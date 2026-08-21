@@ -1,103 +1,163 @@
-import type { ComponentType } from 'react';
-import { PlusSelectionnesGrid } from './joueur/apparitions/PlusSelectionnesGrid';
-import { ParSaisonGrid } from './joueur/apparitions/ParSaisonGrid';
-import { AncienneteGrid } from './joueur/apparitions/AncienneteGrid';
-import { DernierMatchGrid, PremierMatchGrid } from './joueur/apparitions/PremierMatchGrid';
-import { ButeursGrid, ButeursParSaisonGrid, EfficaciteButeursGrid } from './joueur/buts/ButeursGrid';
-import { ButeursMatchGrid } from './joueur/buts/ButeursMatchGrid';
-import { SeriesGrid } from './joueur/buts/SeriesGrid';
-import { ExclusionsRapidesGrid, SanctionsGrid, SanctionsParSaisonGrid } from './joueur/sanctions/SanctionsGrid';
-import { GardiensGrid } from './joueur/gardiens/GardiensGrid';
-import { PerformancesGrid } from './joueur/performances/PerformancesGrid';
-import { TransfertsGrid } from './joueur/transferts/TransfertsGrid';
-import { PhysiqueGrid } from './joueur/physique/PhysiqueGrid';
-import { SerieInviolabiliteGrid } from './joueur/gardiens/SerieInviolabiliteGrid';
-import { ScoresGrid } from './rencontre/scores/ScoresGrid';
-import { AffluenceGrid } from './rencontre/affluence/AffluenceGrid';
-import { SanctionsGrid as RencontreSanctionsGrid } from './rencontre/sanctions/SanctionsGrid';
-import { SeriesGrid as RencontreSeriesGrid } from './rencontre/series/SeriesGrid';
-import { ArbitreMatchesGrid } from './arbitre/matches/ArbitreMatchesGrid';
-import { ArbitreSanctionsGrid } from './arbitre/sanctions/ArbitreSanctionsGrid';
-import { SaisonClassementGrid } from './saison/classements/SaisonClassementGrid';
-import { EquipeTypeView } from './saison/equipeType/EquipeTypeView';
-import { CompositionGrid } from './saison/composition/CompositionGrid';
-import { SchemaEvolutionView } from './saison/composition/SchemaEvolutionView';
-import { ButsEquipeGrid } from './saison/performance/ButsEquipeGrid';
-import { SanctionsEquipeGrid } from './saison/sanctions/SanctionsEquipeGrid';
-import { TransfertsEquipeGrid } from './saison/transferts/TransfertsEquipeGrid';
+import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
+
+type StatComponent = ComponentType | LazyExoticComponent<ComponentType>;
+
+function lazyStat(loader: () => Promise<{ default: ComponentType }>): LazyExoticComponent<ComponentType> {
+  return lazy(loader);
+}
+
+const SaisonClassementTemps = lazyStat(() => import('./saison/classements/SaisonClassementGrid').then((module) => ({ default: () => <module.SaisonClassementGrid metric="temps" /> })));
+const SaisonClassementButs = lazyStat(() => import('./saison/classements/SaisonClassementGrid').then((module) => ({ default: () => <module.SaisonClassementGrid metric="buts" /> })));
+const SaisonClassementPasses = lazyStat(() => import('./saison/classements/SaisonClassementGrid').then((module) => ({ default: () => <module.SaisonClassementGrid metric="passes" /> })));
+const SaisonClassementSanctions = lazyStat(() => import('./saison/classements/SaisonClassementGrid').then((module) => ({ default: () => <module.SaisonClassementGrid metric="sanctions" /> })));
+const EquipeTypeSaison = lazyStat(() => import('./saison/equipeType/EquipeTypeView').then((module) => ({ default: module.EquipeTypeView })));
+const EquipeTypeHistorique = lazyStat(() => import('./saison/equipeType/EquipeTypeView').then((module) => ({ default: () => <module.EquipeTypeView historique /> })));
+
+const CompositionNombreJoueurs = lazyStat(() => import('./saison/composition/CompositionGrid').then((module) => ({ default: () => <module.CompositionGrid metric="nombre-joueurs" /> })));
+const CompositionNombreEtrangers = lazyStat(() => import('./saison/composition/CompositionGrid').then((module) => ({ default: () => <module.CompositionGrid metric="nombre-etrangers" /> })));
+const CompositionNombreNationalites = lazyStat(() => import('./saison/composition/CompositionGrid').then((module) => ({ default: () => <module.CompositionGrid metric="nombre-nationalites" /> })));
+const CompositionAgeMoyen = lazyStat(() => import('./saison/composition/CompositionGrid').then((module) => ({ default: () => <module.CompositionGrid metric="age-moyen" /> })));
+const CompositionNombreMatches = lazyStat(() => import('./saison/composition/CompositionGrid').then((module) => ({ default: () => <module.CompositionGrid metric="nombre-matches" /> })));
+const CompositionNombreRemplacements = lazyStat(() => import('./saison/composition/CompositionGrid').then((module) => ({ default: () => <module.CompositionGrid metric="nombre-remplacements" /> })));
+const SchemaEvolutionView = lazyStat(() => import('./saison/composition/SchemaEvolutionView').then((module) => ({ default: module.SchemaEvolutionView })));
+
+const ButsEquipePour = lazyStat(() => import('./saison/performance/ButsEquipeGrid').then((module) => ({ default: () => <module.ButsEquipeGrid metric="buts-pour" /> })));
+const ButsEquipeContre = lazyStat(() => import('./saison/performance/ButsEquipeGrid').then((module) => ({ default: () => <module.ButsEquipeGrid metric="buts-contre" /> })));
+const ButsEquipePourMatch = lazyStat(() => import('./saison/performance/ButsEquipeGrid').then((module) => ({ default: () => <module.ButsEquipeGrid metric="buts-pour-match" /> })));
+const ButsEquipeContreMatch = lazyStat(() => import('./saison/performance/ButsEquipeGrid').then((module) => ({ default: () => <module.ButsEquipeGrid metric="buts-contre-match" /> })));
+const ButsEquipeMatch = lazyStat(() => import('./saison/performance/ButsEquipeGrid').then((module) => ({ default: () => <module.ButsEquipeGrid metric="buts-match" /> })));
+const SanctionsEquipeAvertissements = lazyStat(() => import('./saison/sanctions/SanctionsEquipeGrid').then((module) => ({ default: () => <module.SanctionsEquipeGrid metric="avertissements" /> })));
+const SanctionsEquipeExclusions = lazyStat(() => import('./saison/sanctions/SanctionsEquipeGrid').then((module) => ({ default: () => <module.SanctionsEquipeGrid metric="exclusions" /> })));
+const SanctionsEquipeAvertissementsMatch = lazyStat(() => import('./saison/sanctions/SanctionsEquipeGrid').then((module) => ({ default: () => <module.SanctionsEquipeGrid metric="avertissements-match" /> })));
+const SanctionsEquipeExclusionsMatch = lazyStat(() => import('./saison/sanctions/SanctionsEquipeGrid').then((module) => ({ default: () => <module.SanctionsEquipeGrid metric="exclusions-match" /> })));
+const TransfertsEquipeAchats = lazyStat(() => import('./saison/transferts/TransfertsEquipeGrid').then((module) => ({ default: () => <module.TransfertsEquipeGrid metric="achats-cumules" /> })));
+const TransfertsEquipeVentes = lazyStat(() => import('./saison/transferts/TransfertsEquipeGrid').then((module) => ({ default: () => <module.TransfertsEquipeGrid metric="ventes-cumulees" /> })));
+
+const PlusSelectionnesGrid = lazyStat(() => import('./joueur/apparitions/PlusSelectionnesGrid').then((module) => ({ default: module.PlusSelectionnesGrid })));
+const ParSaisonGrid = lazyStat(() => import('./joueur/apparitions/ParSaisonGrid').then((module) => ({ default: module.ParSaisonGrid })));
+const AncienneteGrid = lazyStat(() => import('./joueur/apparitions/AncienneteGrid').then((module) => ({ default: module.AncienneteGrid })));
+const PremierMatchGrid = lazyStat(() => import('./joueur/apparitions/PremierMatchGrid').then((module) => ({ default: module.PremierMatchGrid })));
+const DernierMatchGrid = lazyStat(() => import('./joueur/apparitions/PremierMatchGrid').then((module) => ({ default: module.DernierMatchGrid })));
+
+const ButeursGrid = lazyStat(() => import('./joueur/buts/ButeursGrid').then((module) => ({ default: module.ButeursGrid })));
+const ButeursParSaisonGrid = lazyStat(() => import('./joueur/buts/ButeursGrid').then((module) => ({ default: module.ButeursParSaisonGrid })));
+const EfficaciteButeursGrid = lazyStat(() => import('./joueur/buts/ButeursGrid').then((module) => ({ default: module.EfficaciteButeursGrid })));
+const ButeursMatchGrid = lazyStat(() => import('./joueur/buts/ButeursMatchGrid').then((module) => ({ default: module.ButeursMatchGrid })));
+const SeriesGrid = lazyStat(() => import('./joueur/buts/SeriesGrid').then((module) => ({ default: module.SeriesGrid })));
+const PasseursGrid = lazyStat(() => import('./joueur/buts/ButeursGrid').then((module) => ({ default: () => <module.ButeursGrid metric="passes" /> })));
+const PasseursParSaisonGrid = lazyStat(() => import('./joueur/buts/ButeursGrid').then((module) => ({ default: () => <module.ButeursParSaisonGrid metric="passes" /> })));
+const PasseursMatchGrid = lazyStat(() => import('./joueur/buts/ButeursMatchGrid').then((module) => ({ default: () => <module.ButeursMatchGrid metric="passes" /> })));
+const EfficacitePasseursGrid = lazyStat(() => import('./joueur/buts/ButeursGrid').then((module) => ({ default: () => <module.EfficaciteButeursGrid metric="passes" /> })));
+const SeriesPasseursGrid = lazyStat(() => import('./joueur/buts/SeriesGrid').then((module) => ({ default: () => <module.SeriesGrid metric="passes" /> })));
+
+const SanctionsAvertissementsGrid = lazyStat(() => import('./joueur/sanctions/SanctionsGrid').then((module) => ({ default: () => <module.SanctionsGrid metric="avertissements" /> })));
+const SanctionsAvertissementsSaisonGrid = lazyStat(() => import('./joueur/sanctions/SanctionsGrid').then((module) => ({ default: () => <module.SanctionsParSaisonGrid metric="avertissements" /> })));
+const SanctionsExclusionsGrid = lazyStat(() => import('./joueur/sanctions/SanctionsGrid').then((module) => ({ default: () => <module.SanctionsGrid metric="exclusions" /> })));
+const SanctionsExclusionsSaisonGrid = lazyStat(() => import('./joueur/sanctions/SanctionsGrid').then((module) => ({ default: () => <module.SanctionsParSaisonGrid metric="exclusions" /> })));
+const ExclusionsRapidesGrid = lazyStat(() => import('./joueur/sanctions/SanctionsGrid').then((module) => ({ default: module.ExclusionsRapidesGrid })));
+
+const GardiensGrid = lazyStat(() => import('./joueur/gardiens/GardiensGrid').then((module) => ({ default: module.GardiensGrid })));
+const SerieInviolabiliteGrid = lazyStat(() => import('./joueur/gardiens/SerieInviolabiliteGrid').then((module) => ({ default: module.SerieInviolabiliteGrid })));
+const PerformancesVictoiresGrid = lazyStat(() => import('./joueur/performances/PerformancesGrid').then((module) => ({ default: () => <module.PerformancesGrid metric="victoires" /> })));
+const PerformancesDefaitesGrid = lazyStat(() => import('./joueur/performances/PerformancesGrid').then((module) => ({ default: () => <module.PerformancesGrid metric="defaites" /> })));
+const PerformancesNulsGrid = lazyStat(() => import('./joueur/performances/PerformancesGrid').then((module) => ({ default: () => <module.PerformancesGrid metric="nuls" /> })));
+const TransfertsAchatsGrid = lazyStat(() => import('./joueur/transferts/TransfertsGrid').then((module) => ({ default: () => <module.TransfertsGrid metric="achats" /> })));
+const TransfertsVentesGrid = lazyStat(() => import('./joueur/transferts/TransfertsGrid').then((module) => ({ default: () => <module.TransfertsGrid metric="ventes" /> })));
+const TransfertsPlusValuesGrid = lazyStat(() => import('./joueur/transferts/TransfertsGrid').then((module) => ({ default: () => <module.TransfertsGrid metric="plus-values" /> })));
+const TransfertsMoinsValuesGrid = lazyStat(() => import('./joueur/transferts/TransfertsGrid').then((module) => ({ default: () => <module.TransfertsGrid metric="moins-values" /> })));
+const PhysiqueGrandsGrid = lazyStat(() => import('./joueur/physique/PhysiqueGrid').then((module) => ({ default: () => <module.PhysiqueGrid metric="grands" /> })));
+const PhysiquePetitsGrid = lazyStat(() => import('./joueur/physique/PhysiqueGrid').then((module) => ({ default: () => <module.PhysiqueGrid metric="petits" /> })));
+const PhysiqueGabaritsGrid = lazyStat(() => import('./joueur/physique/PhysiqueGrid').then((module) => ({ default: () => <module.PhysiqueGrid metric="gabarits" /> })));
+
+const ScoresVictoiresGrid = lazyStat(() => import('./rencontre/scores/ScoresGrid').then((module) => ({ default: () => <module.ScoresGrid metric="victoires" /> })));
+const ScoresDefaitesGrid = lazyStat(() => import('./rencontre/scores/ScoresGrid').then((module) => ({ default: () => <module.ScoresGrid metric="defaites" /> })));
+const ScoresProlifiquesGrid = lazyStat(() => import('./rencontre/scores/ScoresGrid').then((module) => ({ default: () => <module.ScoresGrid metric="prolifiques" /> })));
+const AffluenceGrid = lazyStat(() => import('./rencontre/affluence/AffluenceGrid').then((module) => ({ default: module.AffluenceGrid })));
+const RencontreSanctionsAvertissementsGrid = lazyStat(() => import('./rencontre/sanctions/SanctionsGrid').then((module) => ({ default: () => <module.SanctionsGrid metric="avertissements" /> })));
+const RencontreSanctionsExclusionsGrid = lazyStat(() => import('./rencontre/sanctions/SanctionsGrid').then((module) => ({ default: () => <module.SanctionsGrid metric="exclusions" /> })));
+const RencontreSeriesVictoiresGrid = lazyStat(() => import('./rencontre/series/SeriesGrid').then((module) => ({ default: () => <module.SeriesGrid metric="victoires" /> })));
+const RencontreSeriesNulsGrid = lazyStat(() => import('./rencontre/series/SeriesGrid').then((module) => ({ default: () => <module.SeriesGrid metric="nuls" /> })));
+const RencontreSeriesDefaitesGrid = lazyStat(() => import('./rencontre/series/SeriesGrid').then((module) => ({ default: () => <module.SeriesGrid metric="defaites" /> })));
+const RencontreSeriesInvincibiliteGrid = lazyStat(() => import('./rencontre/series/SeriesGrid').then((module) => ({ default: () => <module.SeriesGrid metric="invincibilite" /> })));
+const RencontreSeriesInviolabiliteGrid = lazyStat(() => import('./rencontre/series/SeriesGrid').then((module) => ({ default: () => <module.SeriesGrid metric="inviolabilite" /> })));
+const RencontreSeriesInefficaciteGrid = lazyStat(() => import('./rencontre/series/SeriesGrid').then((module) => ({ default: () => <module.SeriesGrid metric="inefficacite" /> })));
+
+const ArbitreMatchesGrid = lazyStat(() => import('./arbitre/matches/ArbitreMatchesGrid').then((module) => ({ default: module.ArbitreMatchesGrid })));
+const ArbitreSanctionsAvertissementsGrid = lazyStat(() => import('./arbitre/sanctions/ArbitreSanctionsGrid').then((module) => ({ default: () => <module.ArbitreSanctionsGrid metric="avertissements" /> })));
+const ArbitreSanctionsExclusionsGrid = lazyStat(() => import('./arbitre/sanctions/ArbitreSanctionsGrid').then((module) => ({ default: () => <module.ArbitreSanctionsGrid metric="exclusions" /> })));
 
 // Registre des grilles de stat implementees, une entree par fichier de stat.
 // Cle = `${domainKey}/${themeKey}/${typeKey}` (mirroir de STAT_DOMAINS dans statTree.tsx).
-export const STAT_COMPONENTS: Record<string, ComponentType> = {
-  'saison/performance/temps': () => <SaisonClassementGrid metric="temps" />,
-  'saison/performance/buts': () => <SaisonClassementGrid metric="buts" />,
-  'saison/performance/passes': () => <SaisonClassementGrid metric="passes" />,
-  'saison/performance/sanctions': () => <SaisonClassementGrid metric="sanctions" />,
-  'saison/performance/equipe-type': EquipeTypeView,
-  'saison/composition/nombre-joueurs': () => <CompositionGrid metric="nombre-joueurs" />,
-  'saison/composition/nombre-etrangers': () => <CompositionGrid metric="nombre-etrangers" />,
-  'saison/composition/nombre-nationalites': () => <CompositionGrid metric="nombre-nationalites" />,
-  'saison/composition/age-moyen': () => <CompositionGrid metric="age-moyen" />,
-  'saison/composition/nombre-matches': () => <CompositionGrid metric="nombre-matches" />,
-  'saison/composition/nombre-remplacements': () => <CompositionGrid metric="nombre-remplacements" />,
+export const STAT_COMPONENTS: Record<string, StatComponent> = {
+  'saison/performance/temps': SaisonClassementTemps,
+  'saison/performance/buts': SaisonClassementButs,
+  'saison/performance/passes': SaisonClassementPasses,
+  'saison/performance/sanctions': SaisonClassementSanctions,
+  'saison/performance/equipe-type': EquipeTypeSaison,
+  'saison/composition/nombre-joueurs': CompositionNombreJoueurs,
+  'saison/composition/nombre-etrangers': CompositionNombreEtrangers,
+  'saison/composition/nombre-nationalites': CompositionNombreNationalites,
+  'saison/composition/age-moyen': CompositionAgeMoyen,
+  'saison/composition/nombre-matches': CompositionNombreMatches,
+  'saison/composition/nombre-remplacements': CompositionNombreRemplacements,
   'saison/composition/evolution-schema': SchemaEvolutionView,
-  'saison/buts-equipe/buts-pour': () => <ButsEquipeGrid metric="buts-pour" />,
-  'saison/buts-equipe/buts-contre': () => <ButsEquipeGrid metric="buts-contre" />,
-  'saison/buts-equipe/buts-pour-match': () => <ButsEquipeGrid metric="buts-pour-match" />,
-  'saison/buts-equipe/buts-contre-match': () => <ButsEquipeGrid metric="buts-contre-match" />,
-  'saison/buts-equipe/buts-match': () => <ButsEquipeGrid metric="buts-match" />,
-  'saison/sanctions-equipe/avertissements': () => <SanctionsEquipeGrid metric="avertissements" />,
-  'saison/sanctions-equipe/exclusions': () => <SanctionsEquipeGrid metric="exclusions" />,
-  'saison/sanctions-equipe/avertissements-match': () => <SanctionsEquipeGrid metric="avertissements-match" />,
-  'saison/sanctions-equipe/exclusions-match': () => <SanctionsEquipeGrid metric="exclusions-match" />,
-  'saison/transferts-equipe/achats-cumules': () => <TransfertsEquipeGrid metric="achats-cumules" />,
-  'saison/transferts-equipe/ventes-cumulees': () => <TransfertsEquipeGrid metric="ventes-cumulees" />,
+  'saison/buts-equipe/buts-pour': ButsEquipePour,
+  'saison/buts-equipe/buts-contre': ButsEquipeContre,
+  'saison/buts-equipe/buts-pour-match': ButsEquipePourMatch,
+  'saison/buts-equipe/buts-contre-match': ButsEquipeContreMatch,
+  'saison/buts-equipe/buts-match': ButsEquipeMatch,
+  'saison/sanctions-equipe/avertissements': SanctionsEquipeAvertissements,
+  'saison/sanctions-equipe/exclusions': SanctionsEquipeExclusions,
+  'saison/sanctions-equipe/avertissements-match': SanctionsEquipeAvertissementsMatch,
+  'saison/sanctions-equipe/exclusions-match': SanctionsEquipeExclusionsMatch,
+  'saison/transferts-equipe/achats-cumules': TransfertsEquipeAchats,
+  'saison/transferts-equipe/ventes-cumulees': TransfertsEquipeVentes,
   'joueur/apparitions/plus-selectionnes': PlusSelectionnesGrid,
   'joueur/apparitions/saison': ParSaisonGrid,
   'joueur/apparitions/anciennete': AncienneteGrid,
   'joueur/apparitions/plus-jeune': PremierMatchGrid,
   'joueur/apparitions/plus-vieux': DernierMatchGrid,
-  'joueur/apparitions/equipe-type': () => <EquipeTypeView historique />,
+  'joueur/apparitions/equipe-type': EquipeTypeHistorique,
   'joueur/buts/general': ButeursGrid,
   'joueur/buts/saison': ButeursParSaisonGrid,
   'joueur/buts/match': ButeursMatchGrid,
   'joueur/buts/moyenne': EfficaciteButeursGrid,
   'joueur/buts/serie': SeriesGrid,
-  'joueur/passes/general': () => <ButeursGrid metric="passes" />,
-  'joueur/passes/saison': () => <ButeursParSaisonGrid metric="passes" />,
-  'joueur/passes/match': () => <ButeursMatchGrid metric="passes" />,
-  'joueur/passes/moyenne': () => <EfficaciteButeursGrid metric="passes" />,
-  'joueur/passes/serie': () => <SeriesGrid metric="passes" />,
-  'joueur/sanctions/avertissements-general': () => <SanctionsGrid metric="avertissements" />,
-  'joueur/sanctions/avertissements-saison': () => <SanctionsParSaisonGrid metric="avertissements" />,
-  'joueur/sanctions/exclusions-general': () => <SanctionsGrid metric="exclusions" />,
-  'joueur/sanctions/exclusions-saison': () => <SanctionsParSaisonGrid metric="exclusions" />,
+  'joueur/passes/general': PasseursGrid,
+  'joueur/passes/saison': PasseursParSaisonGrid,
+  'joueur/passes/match': PasseursMatchGrid,
+  'joueur/passes/moyenne': EfficacitePasseursGrid,
+  'joueur/passes/serie': SeriesPasseursGrid,
+  'joueur/sanctions/avertissements-general': SanctionsAvertissementsGrid,
+  'joueur/sanctions/avertissements-saison': SanctionsAvertissementsSaisonGrid,
+  'joueur/sanctions/exclusions-general': SanctionsExclusionsGrid,
+  'joueur/sanctions/exclusions-saison': SanctionsExclusionsSaisonGrid,
   'joueur/sanctions/exclusions-rapides': ExclusionsRapidesGrid,
   'joueur/gardiens/meilleurs': GardiensGrid,
   'joueur/gardiens/serie-inviolabilite': SerieInviolabiliteGrid,
-  'joueur/performances/victoires': () => <PerformancesGrid metric="victoires" />,
-  'joueur/performances/defaites': () => <PerformancesGrid metric="defaites" />,
-  'joueur/performances/nuls': () => <PerformancesGrid metric="nuls" />,
-  'joueur/transferts/achats': () => <TransfertsGrid metric="achats" />,
-  'joueur/transferts/ventes': () => <TransfertsGrid metric="ventes" />,
-  'joueur/transferts/plus-values': () => <TransfertsGrid metric="plus-values" />,
-  'joueur/transferts/moins-values': () => <TransfertsGrid metric="moins-values" />,
-  'joueur/physique/grands': () => <PhysiqueGrid metric="grands" />,
-  'joueur/physique/petits': () => <PhysiqueGrid metric="petits" />,
-  'joueur/physique/gabarits': () => <PhysiqueGrid metric="gabarits" />,
-  'rencontre/scores/victoires': () => <ScoresGrid metric="victoires" />,
-  'rencontre/scores/defaites': () => <ScoresGrid metric="defaites" />,
-  'rencontre/scores/prolifiques': () => <ScoresGrid metric="prolifiques" />,
+  'joueur/performances/victoires': PerformancesVictoiresGrid,
+  'joueur/performances/defaites': PerformancesDefaitesGrid,
+  'joueur/performances/nuls': PerformancesNulsGrid,
+  'joueur/transferts/achats': TransfertsAchatsGrid,
+  'joueur/transferts/ventes': TransfertsVentesGrid,
+  'joueur/transferts/plus-values': TransfertsPlusValuesGrid,
+  'joueur/transferts/moins-values': TransfertsMoinsValuesGrid,
+  'joueur/physique/grands': PhysiqueGrandsGrid,
+  'joueur/physique/petits': PhysiquePetitsGrid,
+  'joueur/physique/gabarits': PhysiqueGabaritsGrid,
+  'rencontre/scores/victoires': ScoresVictoiresGrid,
+  'rencontre/scores/defaites': ScoresDefaitesGrid,
+  'rencontre/scores/prolifiques': ScoresProlifiquesGrid,
   'rencontre/affluence/affluence': AffluenceGrid,
-  'rencontre/sanctions/avertissements': () => <RencontreSanctionsGrid metric="avertissements" />,
-  'rencontre/sanctions/exclusions': () => <RencontreSanctionsGrid metric="exclusions" />,
-  'rencontre/series/victoires': () => <RencontreSeriesGrid metric="victoires" />,
-  'rencontre/series/nuls': () => <RencontreSeriesGrid metric="nuls" />,
-  'rencontre/series/defaites': () => <RencontreSeriesGrid metric="defaites" />,
-  'rencontre/series/invincibilite': () => <RencontreSeriesGrid metric="invincibilite" />,
-  'rencontre/series/inviolabilite': () => <RencontreSeriesGrid metric="inviolabilite" />,
-  'rencontre/series/inefficacite': () => <RencontreSeriesGrid metric="inefficacite" />,
+  'rencontre/sanctions/avertissements': RencontreSanctionsAvertissementsGrid,
+  'rencontre/sanctions/exclusions': RencontreSanctionsExclusionsGrid,
+  'rencontre/series/victoires': RencontreSeriesVictoiresGrid,
+  'rencontre/series/nuls': RencontreSeriesNulsGrid,
+  'rencontre/series/defaites': RencontreSeriesDefaitesGrid,
+  'rencontre/series/invincibilite': RencontreSeriesInvincibiliteGrid,
+  'rencontre/series/inviolabilite': RencontreSeriesInviolabiliteGrid,
+  'rencontre/series/inefficacite': RencontreSeriesInefficaciteGrid,
   'arbitre/matches/matches': ArbitreMatchesGrid,
-  'arbitre/sanctions/avertissements': () => <ArbitreSanctionsGrid metric="avertissements" />,
-  'arbitre/sanctions/exclusions': () => <ArbitreSanctionsGrid metric="exclusions" />,
+  'arbitre/sanctions/avertissements': ArbitreSanctionsAvertissementsGrid,
+  'arbitre/sanctions/exclusions': ArbitreSanctionsExclusionsGrid,
 };

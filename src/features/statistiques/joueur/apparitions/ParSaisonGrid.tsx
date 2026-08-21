@@ -1,6 +1,6 @@
 import type { GridColDef } from '@mui/x-data-grid';
-import { useEffect, useState } from 'react';
 import { StatPlayerGrid } from '../../components/StatPlayerGrid';
+import { useStatRows } from '../../useStatRows';
 import { fetchParSaison, type ParSaisonRow } from './parSaisonApi';
 
 const VALUE_COLUMNS: GridColDef<ParSaisonRow>[] = [
@@ -21,18 +21,7 @@ const VALUE_COLUMNS: GridColDef<ParSaisonRow>[] = [
 
 /** Joueur > Apparitions > Sur une saison: TITULAIRETOTAL + REMPTOTAL, 1 ligne par joueur/saison. */
 export function ParSaisonGrid() {
-  const [rows, setRows] = useState<ParSaisonRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setLoading(true);
-    fetchParSaison(controller.signal)
-      .then(setRows)
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, []);
+  const { rows, loading } = useStatRows<ParSaisonRow>(fetchParSaison, []);
 
   return (
     <StatPlayerGrid<ParSaisonRow>

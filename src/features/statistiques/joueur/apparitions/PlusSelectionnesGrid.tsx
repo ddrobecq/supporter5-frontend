@@ -1,6 +1,6 @@
 import type { GridColDef } from '@mui/x-data-grid';
-import { useEffect, useState } from 'react';
 import { StatPlayerGrid } from '../../components/StatPlayerGrid';
+import { useStatRows } from '../../useStatRows';
 import { fetchPlusSelectionnes, type PlusSelectionneRow } from './plusSelectionnesApi';
 
 const VALUE_COLUMNS: GridColDef<PlusSelectionneRow>[] = [
@@ -16,18 +16,7 @@ const VALUE_COLUMNS: GridColDef<PlusSelectionneRow>[] = [
 
 /** Joueur > Apparitions > Plus selectionnes: cumul TITULAIRETOTAL + REMPTOTAL de toutes les saisons. */
 export function PlusSelectionnesGrid() {
-  const [rows, setRows] = useState<PlusSelectionneRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setLoading(true);
-    fetchPlusSelectionnes(controller.signal)
-      .then(setRows)
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, []);
+  const { rows, loading } = useStatRows<PlusSelectionneRow>(fetchPlusSelectionnes, []);
 
   return <StatPlayerGrid<PlusSelectionneRow> rows={rows} valueColumns={VALUE_COLUMNS} loading={loading} />;
 }

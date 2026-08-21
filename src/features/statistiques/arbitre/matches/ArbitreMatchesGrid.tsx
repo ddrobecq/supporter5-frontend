@@ -1,7 +1,8 @@
 import type { GridColDef } from '@mui/x-data-grid';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { StatArbitreGrid } from '../../components/StatArbitreGrid';
 import { StatArbitreSentence } from '../../components/StatArbitreSentence';
+import { useStatRows } from '../../useStatRows';
 import { fetchArbitreMatches, type ArbitreMatchesRow } from './arbitreMatchesApi';
 
 function ArbitreMatchesCell({ row }: { row: ArbitreMatchesRow }) {
@@ -24,18 +25,8 @@ const VALUE_COLUMNS: GridColDef<ArbitreMatchesRow>[] = [{
 
 /** Arbitre > Matches: classement decroissant par nombre de matchs officiels arbitres. */
 export function ArbitreMatchesGrid() {
-  const [rows, setRows] = useState<ArbitreMatchesRow[]>([]);
-  const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<number | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchArbitreMatches(scope, controller.signal)
-      .then(setRows)
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [scope]);
+  const { rows, loading } = useStatRows<ArbitreMatchesRow>((signal) => fetchArbitreMatches(scope, signal), [scope]);
 
   const columns = useMemo(() => VALUE_COLUMNS, []);
 

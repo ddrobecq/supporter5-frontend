@@ -1,8 +1,9 @@
 import type { GridColDef } from '@mui/x-data-grid';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { RencontreDateLink } from '../../components/RencontreDateLink';
 import { StatPlayerSentence } from '../../components/StatPlayerSentence';
 import { StatPlayerGrid } from '../../components/StatPlayerGrid';
+import { useStatRows } from '../../useStatRows';
 import { fetchExclusionsRapides, fetchSanctions, fetchSanctionsParSaison, type ExclusionRapideRow, type SanctionRow, type SanctionSaisonRow } from './sanctionsApi';
 
 type SanctionMetric = 'avertissements' | 'exclusions';
@@ -16,14 +17,7 @@ function label(metric: SanctionMetric): string {
 }
 
 export function SanctionsGrid({ metric }: SanctionsGridProps) {
-  const [rows, setRows] = useState<SanctionRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchSanctions(metric, controller.signal).then(setRows).catch(() => setRows([])).finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [metric]);
+  const { rows, loading } = useStatRows<SanctionRow>((signal) => fetchSanctions(metric, signal), [metric]);
 
   const columns: GridColDef<SanctionRow>[] = [{
     field: 'BUTS', headerName: label(metric), width: 150, type: 'number', align: 'right', headerAlign: 'right',
@@ -33,14 +27,7 @@ export function SanctionsGrid({ metric }: SanctionsGridProps) {
 }
 
 export function SanctionsParSaisonGrid({ metric }: SanctionsGridProps) {
-  const [rows, setRows] = useState<SanctionSaisonRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchSanctionsParSaison(metric, controller.signal).then(setRows).catch(() => setRows([])).finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [metric]);
+  const { rows, loading } = useStatRows<SanctionSaisonRow>((signal) => fetchSanctionsParSaison(metric, signal), [metric]);
 
   const columns: GridColDef<SanctionSaisonRow>[] = [
     { field: 'SAISON', headerName: 'Saison', width: 120 },
@@ -59,15 +46,8 @@ export function SanctionsParSaisonGrid({ metric }: SanctionsGridProps) {
 }
 
 export function ExclusionsRapidesGrid() {
-  const [rows, setRows] = useState<ExclusionRapideRow[]>([]);
-  const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<number | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchExclusionsRapides(scope, controller.signal).then(setRows).catch(() => setRows([])).finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [scope]);
+  const { rows, loading } = useStatRows<ExclusionRapideRow>((signal) => fetchExclusionsRapides(scope, signal), [scope]);
 
   const columns: GridColDef<ExclusionRapideRow>[] = [{
     field: 'MINUTE',

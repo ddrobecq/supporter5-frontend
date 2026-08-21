@@ -1,7 +1,8 @@
 import type { GridColDef } from '@mui/x-data-grid';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { StatPlayerGrid } from '../../components/StatPlayerGrid';
 import { StatPlayerSentence } from '../../components/StatPlayerSentence';
+import { useStatRows } from '../../useStatRows';
 import { fetchSeriesButeurs, type SerieButeurRow } from './seriesApi';
 
 function formatDateDisplay(dateStr: string): string {
@@ -31,18 +32,8 @@ function SerieCell({ row, metric }: { row: SerieButeurRow; metric: 'buts' | 'pas
 
 /** Joueur > Buts > Serie: longest run of scored matches, ignoring matches not played. */
 export function SeriesGrid({ metric = 'buts' }: { metric?: 'buts' | 'passes' }) {
-  const [rows, setRows] = useState<SerieButeurRow[]>([]);
-  const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<number | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchSeriesButeurs(metric, scope, controller.signal)
-      .then(setRows)
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [metric, scope]);
+  const { rows, loading } = useStatRows<SerieButeurRow>((signal) => fetchSeriesButeurs(metric, scope, signal), [metric, scope]);
 
   return (
     <StatPlayerGrid<SerieButeurRow>

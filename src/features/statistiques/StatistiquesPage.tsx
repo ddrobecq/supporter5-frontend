@@ -18,7 +18,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { STAT_DOMAINS, type StatDomain } from './statTree';
 import { STAT_COMPONENTS } from './statRegistry';
@@ -299,7 +299,9 @@ export function StatistiquesPage() {
             {/* Zone filtres: à alimenter par stat (compétition, domicile/extérieur, saison…) */}
             <Box sx={{ p: 2, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
               {StatComponent ? (
-                <StatComponent />
+                <Suspense fallback={null}>
+                  <StatComponent />
+                </Suspense>
               ) : (
                 <Stack spacing={1} sx={{ flex: 1, alignItems: 'center', justifyContent: 'center', color: 'text.secondary' }}>
                   <ArticleRoundedIcon sx={{ fontSize: 40 }} />

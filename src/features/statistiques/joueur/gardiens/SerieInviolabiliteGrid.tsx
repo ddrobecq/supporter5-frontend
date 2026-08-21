@@ -1,7 +1,8 @@
 import type { GridColDef } from '@mui/x-data-grid';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { StatPlayerGrid } from '../../components/StatPlayerGrid';
 import { StatPlayerSentence } from '../../components/StatPlayerSentence';
+import { useStatRows } from '../../useStatRows';
 import { fetchSeriesInviolabilite, type SerieInviolabiliteRow } from './seriesInviolabiliteApi';
 
 function formatDateDisplay(dateStr: string): string {
@@ -28,18 +29,8 @@ function SerieInviolabiliteCell({ row }: { row: SerieInviolabiliteRow }) {
 }
 
 export function SerieInviolabiliteGrid() {
-  const [rows, setRows] = useState<SerieInviolabiliteRow[]>([]);
-  const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<number | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchSeriesInviolabilite(scope, controller.signal)
-      .then(setRows)
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [scope]);
+  const { rows, loading } = useStatRows<SerieInviolabiliteRow>((signal) => fetchSeriesInviolabilite(scope, signal), [scope]);
 
   return (
     <StatPlayerGrid<SerieInviolabiliteRow>

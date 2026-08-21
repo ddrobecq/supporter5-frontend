@@ -1,9 +1,10 @@
 import { Typography } from '@mui/material';
 import type { GridColDef } from '@mui/x-data-grid';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ClubIdentityInline } from '../../../../components/ClubIdentityInline';
 import { RencontreDateLink } from '../../components/RencontreDateLink';
 import { StatMatchGrid } from '../../components/StatMatchGrid';
+import { useStatRows } from '../../useStatRows';
 import { fetchRencontreSanctions, type RencontreSanctionRow, type SanctionMetric } from './sanctionsApi';
 
 const HEADERS: Record<SanctionMetric, string> = {
@@ -36,19 +37,8 @@ function SanctionSentence({ row, metric }: { row: RencontreSanctionRow; metric: 
 }
 
 export function SanctionsGrid({ metric }: { metric: SanctionMetric }) {
-  const [rows, setRows] = useState<RencontreSanctionRow[]>([]);
-  const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<number | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setLoading(true);
-    fetchRencontreSanctions(metric, scope, controller.signal)
-      .then(setRows)
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [metric, scope]);
+  const { rows, loading } = useStatRows<RencontreSanctionRow>((signal) => fetchRencontreSanctions(metric, scope, signal), [metric, scope]);
 
   const columns: GridColDef<RencontreSanctionRow>[] = useMemo(() => [{
     field: 'NB_SANCTIONS',

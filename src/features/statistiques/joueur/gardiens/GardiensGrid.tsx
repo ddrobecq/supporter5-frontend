@@ -1,6 +1,6 @@
 import type { GridColDef } from '@mui/x-data-grid';
-import { useEffect, useState } from 'react';
 import { StatPlayerGrid } from '../../components/StatPlayerGrid';
+import { useStatRows } from '../../useStatRows';
 import { fetchMeilleursGardiens, type GardienRow } from './gardiensApi';
 
 const VALUE_COLUMNS: GridColDef<GardienRow>[] = [
@@ -19,17 +19,7 @@ const VALUE_COLUMNS: GridColDef<GardienRow>[] = [
 // Pas de filtre par competition ici: MATCHES/MINUTES viennent des totaux saison de JOUEUR
 // (non filtrables par match), donc le filtre fausserait le ratio (seul BUTS_ENCAISSES serait filtre).
 export function GardiensGrid() {
-  const [rows, setRows] = useState<GardienRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchMeilleursGardiens(null, controller.signal)
-      .then(setRows)
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, []);
+  const { rows, loading } = useStatRows<GardienRow>((signal) => fetchMeilleursGardiens(null, signal), []);
 
   return (
     <StatPlayerGrid<GardienRow>

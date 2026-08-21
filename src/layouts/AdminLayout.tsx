@@ -1,23 +1,9 @@
-import BarChartRoundedIcon from '@mui/icons-material/BarChartRounded';
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
-import EventNoteRoundedIcon from '@mui/icons-material/EventNoteRounded';
-import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
-import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
-import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
-import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
-import EuroRoundedIcon from '@mui/icons-material/EuroRounded';
-import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
 import MoreHorizRoundedIcon from '@mui/icons-material/MoreHorizRounded';
-import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
-import StadiumRoundedIcon from '@mui/icons-material/StadiumRounded';
-import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
-import SportsIcon from '@mui/icons-material/Sports';
-import RuleRoundedIcon from '@mui/icons-material/RuleRounded';
 import {
   AppBar,
   Box,
@@ -38,46 +24,34 @@ import {
   Toolbar,
   Typography,
 } from '@mui/material';
-import type { GridRowId } from '@mui/x-data-grid';
-import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react';
+import { Fragment, lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { authStore } from '../features/auth/authStore';
-import type { HomePageOutletContext, RecentEntityKind, RecentOpenedRecord } from '../features/home/types';
+import type { HomePageOutletContext, RecentOpenedRecord } from '../features/home/types';
 import { emitTabSaveRequest } from '../lib/useTabMetaEvents';
 import { useEntityImage } from '../lib/useEntityImage';
 import { supportedClubStore } from '../features/system/supportedClubStore';
-import { NatioPage } from '../features/natio/NatioPage';
-import { NatioTabFormPane } from '../features/natio/NatioTabFormPane';
-import { VillePage } from '../features/ville/VillePage';
-import { VilleTabFormPane } from '../features/ville/VilleTabFormPane';
-import { TerrainPage } from '../features/terrain/TerrainPage';
-import { TerrainTabFormPane } from '../features/terrain/TerrainTabFormPane';
-import { DevisePage } from '../features/devise/DevisePage';
-import { DeviseTabFormPane } from '../features/devise/DeviseTabFormPane';
-import { CircPage } from '../features/circ/CircPage';
-import { CircTabFormPane } from '../features/circ/CircTabFormPane';
-import { ClubPage } from '../features/club/ClubPage';
-import { ClubTabFormPane } from '../features/club/ClubTabFormPane';
-import { ArbitrePage } from '../features/arbitre/ArbitrePage';
-import { ArbitreTabFormPane } from '../features/arbitre/ArbitreTabFormPane';
-import { EpreuvePage } from '../features/epreuve/EpreuvePage';
-import { EpreuveTabFormPane } from '../features/epreuve/EpreuveTabFormPane';
-import { CompetitionPage } from '../features/competition/CompetitionPage';
-import { CompetitionTabFormPane } from '../features/competition/CompetitionTabFormPane';
-import { TourDefPage } from '../features/tourdef/TourDefPage';
-import { TourDefTabFormPane } from '../features/tourdef/TourDefTabFormPane';
-import { JoueurPage } from '../features/joueur/JoueurPage';
-import { JoueurTabFormPane } from '../features/joueur/JoueurTabFormPane';
-import { RencontreTabFormPane } from '../features/rencontre/RencontreTabFormPane';
-import { RencontreCreateWizardDialog } from '../features/rencontre/RencontreCreateWizardDialog';
-import { TerrainPickerDialog } from '../features/terrain/TerrainPickerDialog';
+import {
+  RECENT_OPENED_STORAGE_KEY,
+  readRecentOpenedRecordsFromStorage,
+  renameRecentOpenedRecord,
+  upsertRecentOpenedRecord,
+} from './adminRecentRecords';
+import {
+  PICKER_ENTITY_DEFINITIONS,
+  TAB_META,
+  TOOLBAR_BUTTONS,
+  TOOLBAR_SECONDARY_CATEGORIES,
+  type NavTab,
+  type PickerEntityKey,
+  type PickerOpenPayload,
+  type ToolbarButton,
+} from './adminLayoutConfig';
+import { decodeRouteSegment, normalizeRoutePath, resolveTabMetaPath } from './adminLayoutRoutes';
 
-interface NavTab {
-  key: string;
-  label: string;
-  path: string;
-  closable: boolean;
-}
+const RencontreTabFormPane = lazy(() => import('../features/rencontre/RencontreTabFormPane').then((module) => ({ default: module.RencontreTabFormPane })));
+const RencontreCreateWizardDialog = lazy(() => import('../features/rencontre/RencontreCreateWizardDialog').then((module) => ({ default: module.RencontreCreateWizardDialog })));
+const TerrainPickerDialog = lazy(() => import('../features/terrain/TerrainPickerDialog').then((module) => ({ default: module.TerrainPickerDialog })));
 
 interface OpenTabOptions {
   unique?: boolean;
@@ -91,492 +65,7 @@ interface TabOpenEventDetail {
   uniqueByPath?: boolean;
 }
 
-interface TabMeta {
-  label: string;
-  icon: ReactNode;
-}
-
-type PickerEntityKey = 'joueur' | 'arbitre' | 'epreuve' | 'competition' | 'tourdef' | 'club' | 'natio' | 'ville' | 'terrain' | 'devise' | 'circ';
-
-type ToolbarButton =
-  | {
-      label: string;
-      ariaLabel: string;
-      icon: ReactNode;
-      secondaryCategory?: 'Référentiels' | 'Compétitions' | 'Organisation';
-      activeKey?: 'home' | 'calendrier' | 'statistiques' | PickerEntityKey;
-      action: 'navigate';
-      path: string;
-      unique?: boolean;
-    }
-  | {
-      label: string;
-      ariaLabel: string;
-      icon: ReactNode;
-      secondaryCategory?: 'Référentiels' | 'Compétitions' | 'Organisation';
-      activeKey?: 'home' | 'calendrier' | 'statistiques' | PickerEntityKey;
-      action: 'picker';
-      entity: PickerEntityKey;
-    }
-  | {
-      label: string;
-      ariaLabel: string;
-      icon: ReactNode;
-      secondaryCategory?: 'Référentiels' | 'Compétitions' | 'Organisation';
-      activeKey?: 'home' | 'calendrier' | 'statistiques' | PickerEntityKey;
-      action: 'wizard';
-      wizard: 'rencontre';
-    }
-  | {
-      label: string;
-      ariaLabel: string;
-      icon: ReactNode;
-      secondaryCategory?: 'Référentiels' | 'Compétitions' | 'Organisation';
-      activeKey?: 'home' | 'calendrier' | 'statistiques' | PickerEntityKey;
-      action: 'noop';
-    };
-
-const TOOLBAR_BUTTONS: ToolbarButton[] = [
-  {
-    label: 'Accueil',
-    ariaLabel: 'Accueil',
-    icon: <HomeRoundedIcon />,
-    activeKey: 'home',
-    action: 'navigate',
-    path: '/accueil',
-    unique: true,
-  },
-  {
-    label: 'Calendrier',
-    ariaLabel: 'Calendrier',
-    icon: <CalendarMonthIcon />,
-    activeKey: 'calendrier',
-    action: 'navigate',
-    path: '/calendrier',
-  },
-  {
-    label: 'Joueurs',
-    ariaLabel: 'Joueurs',
-    icon: <PersonRoundedIcon />,
-    activeKey: 'joueur',
-    action: 'picker',
-    entity: 'joueur',
-  },
-  {
-    label: 'Clubs',
-    ariaLabel: 'Clubs',
-    icon: <ShieldRoundedIcon />,
-    activeKey: 'club',
-    action: 'picker',
-    entity: 'club',
-  },
-  {
-    label: 'Competitions',
-    ariaLabel: 'Competitions',
-    icon: <EmojiEventsIcon />,
-    activeKey: 'competition',
-    action: 'picker',
-    entity: 'competition',
-  },
-  {
-    label: 'Arbitres',
-    ariaLabel: 'Arbitres',
-    icon: <SportsIcon />,
-    secondaryCategory: 'Organisation',
-    activeKey: 'arbitre',
-    action: 'picker',
-    entity: 'arbitre',
-  },
-  {
-    label: 'Statistiques',
-    ariaLabel: 'Statistiques',
-    icon: <BarChartRoundedIcon />,
-    activeKey: 'statistiques',
-    action: 'navigate',
-    path: '/statistiques',
-  },
-  {
-    label: 'Matchs',
-    ariaLabel: 'Matchs',
-    icon: <SportsSoccerRoundedIcon />,
-    secondaryCategory: 'Organisation',
-    action: 'wizard',
-    wizard: 'rencontre',
-  },
-  {
-    label: 'Pays',
-    ariaLabel: 'Pays',
-    icon: <FlagRoundedIcon />,
-    secondaryCategory: 'Référentiels',
-    activeKey: 'natio',
-    action: 'picker',
-    entity: 'natio',
-  },
-  {
-    label: 'Villes',
-    ariaLabel: 'Villes',
-    icon: <LocationCityRoundedIcon />,
-    secondaryCategory: 'Référentiels',
-    activeKey: 'ville',
-    action: 'picker',
-    entity: 'ville',
-  },
-  {
-    label: 'Stades',
-    ariaLabel: 'Stades',
-    icon: <StadiumRoundedIcon />,
-    secondaryCategory: 'Référentiels',
-    activeKey: 'terrain',
-    action: 'picker',
-    entity: 'terrain',
-  },
-  {
-    label: 'Devises',
-    ariaLabel: 'Devises',
-    icon: <EuroRoundedIcon />,
-    secondaryCategory: 'Référentiels',
-    activeKey: 'devise',
-    action: 'picker',
-    entity: 'devise',
-  },
-  {
-    label: 'Circonstances',
-    ariaLabel: 'Circonstances',
-    icon: <EventNoteRoundedIcon />,
-    secondaryCategory: 'Référentiels',
-    activeKey: 'circ',
-    action: 'picker',
-    entity: 'circ',
-  },
-  {
-    label: 'Épreuves',
-    ariaLabel: 'Épreuves',
-    icon: <MilitaryTechIcon />,
-    secondaryCategory: 'Compétitions',
-    activeKey: 'epreuve',
-    action: 'picker',
-    entity: 'epreuve',
-  },
-  {
-    label: 'Defs Tour',
-    ariaLabel: 'Definitions de Tour',
-    icon: <RuleRoundedIcon />,
-    secondaryCategory: 'Compétitions',
-    activeKey: 'tourdef',
-    action: 'picker',
-    entity: 'tourdef',
-  },
-];
-
-const TOOLBAR_SECONDARY_CATEGORIES: Array<NonNullable<ToolbarButton['secondaryCategory']>> = [
-  'Référentiels',
-  'Compétitions',
-  'Organisation',
-];
-
-interface PickerOpenPayload {
-  rowId: GridRowId;
-  label: string;
-}
-
-interface PickerEntityDefinition {
-  key: PickerEntityKey;
-  basePath: string;
-  shortPath: string;
-  modalTitle: string;
-  closeAriaLabel: string;
-  titleIcon: ReactNode;
-  renderPage: (onOpenInTab: (payload: PickerOpenPayload) => void) => ReactNode;
-  renderTabPane: (args: { tab: NavTab; decodedId: string; active: boolean }) => ReactNode;
-}
-
-const TAB_META: Record<string, TabMeta> = {
-  '/admin/home': { label: 'Accueil', icon: <HomeRoundedIcon sx={{ fontSize: 14 }} /> },
-  '/admin/calendrier': { label: 'Calendrier', icon: <CalendarMonthIcon sx={{ fontSize: 14 }} /> },
-  '/admin/joueurs': { label: 'Joueurs', icon: <PersonRoundedIcon sx={{ fontSize: 14 }} /> },
-  '/admin/clubs': { label: 'Clubs', icon: <ShieldRoundedIcon sx={{ fontSize: 14 }} /> },
-  '/admin/competitions': { label: 'Competitions', icon: <EmojiEventsIcon sx={{ fontSize: 14 }} /> },
-  '/admin/arbitre': { label: 'Arbitres', icon: <SportsIcon sx={{ fontSize: 14 }} /> },
-  '/admin/configuration': { label: 'Configuration', icon: <SettingsRoundedIcon sx={{ fontSize: 14 }} /> },
-  '/admin/natio': { label: 'Pays', icon: <FlagRoundedIcon sx={{ fontSize: 14 }} /> },
-  '/admin/ville': { label: 'Villes', icon: <LocationCityRoundedIcon sx={{ fontSize: 14 }} /> },
-  '/admin/terrain': { label: 'Stades', icon: <StadiumRoundedIcon sx={{ fontSize: 14 }} /> },
-  '/admin/devise': { label: 'Devises', icon: <EuroRoundedIcon sx={{ fontSize: 14 }} /> },
-  '/admin/circ': { label: 'Circonstances', icon: <EventNoteRoundedIcon sx={{ fontSize: 14 }} /> },
-  '/admin/epreuve': { label: 'Épreuves', icon: <MilitaryTechIcon sx={{ fontSize: 14 }} /> },
-  '/admin/tourdefs': { label: 'Defs Tour', icon: <RuleRoundedIcon sx={{ fontSize: 14 }} /> },
-  '/admin/statistiques': { label: 'Statistiques', icon: <BarChartRoundedIcon sx={{ fontSize: 14 }} /> },
-  '/admin/rencontres': { label: 'Rencontres', icon: <SportsSoccerRoundedIcon sx={{ fontSize: 14 }} /> },
-};
-
 const HOME_TAB_KEY = 'tab-home';
-const RECENT_OPENED_STORAGE_KEY = 'supporter:recent-opened-records:v1';
-const MAX_RECENT_OPENED_RECORDS = 10;
-
-const PICKER_ENTITY_DEFINITIONS: PickerEntityDefinition[] = [
-  {
-    key: 'joueur',
-    basePath: '/admin/joueurs',
-    shortPath: '/joueurs',
-    modalTitle: 'Selectionner un Joueur',
-    closeAriaLabel: 'Fermer la liste des joueurs',
-    titleIcon: <PersonRoundedIcon sx={{ fontSize: 18 }} />,
-    renderPage: (onOpenInTab) => <JoueurPage variant="modalPicker" onOpenInTab={onOpenInTab} />,
-    renderTabPane: ({ tab, decodedId, active }) => (
-      <JoueurTabFormPane key={tab.key} tabPath={tab.path} joueurId={decodedId} active={active} />
-    ),
-  },
-  {
-    key: 'arbitre',
-    basePath: '/admin/arbitre',
-    shortPath: '/arbitre',
-    modalTitle: 'Selectionner un Arbitre',
-    closeAriaLabel: 'Fermer la liste des arbitres',
-    titleIcon: <SportsIcon sx={{ fontSize: 18 }} />,
-    renderPage: (onOpenInTab) => <ArbitrePage variant="modalPicker" onOpenInTab={onOpenInTab} />,
-    renderTabPane: ({ tab, decodedId, active }) => (
-      <ArbitreTabFormPane key={tab.key} tabPath={tab.path} arbitreId={decodedId} active={active} />
-    ),
-  },
-  {
-    key: 'epreuve',
-    basePath: '/admin/epreuve',
-    shortPath: '/epreuve',
-    modalTitle: 'Selectionner une Epreuve',
-    closeAriaLabel: 'Fermer la liste des epreuves',
-    titleIcon: <EmojiEventsIcon sx={{ fontSize: 18 }} />,
-    renderPage: (onOpenInTab) => <EpreuvePage variant="modalPicker" onOpenInTab={onOpenInTab} />,
-    renderTabPane: ({ tab, decodedId, active }) => (
-      <EpreuveTabFormPane key={tab.key} tabPath={tab.path} epreuveId={decodedId} active={active} />
-    ),
-  },
-  {
-    key: 'competition',
-    basePath: '/admin/competitions',
-    shortPath: '/competitions',
-    modalTitle: 'Selectionner une Competition',
-    closeAriaLabel: 'Fermer la liste des competitions',
-    titleIcon: <MilitaryTechIcon sx={{ fontSize: 18 }} />,
-    renderPage: (onOpenInTab) => <CompetitionPage variant="modalPicker" onOpenInTab={onOpenInTab} />,
-    renderTabPane: ({ tab, decodedId, active }) => (
-      <CompetitionTabFormPane key={tab.key} tabPath={tab.path} competitionId={decodedId} active={active} />
-    ),
-  },
-  {
-    key: 'tourdef',
-    basePath: '/admin/tourdefs',
-    shortPath: '/tourdefs',
-    modalTitle: 'Selectionner une Definition de Tour',
-    closeAriaLabel: 'Fermer la liste des definitions de tour',
-    titleIcon: <RuleRoundedIcon sx={{ fontSize: 18 }} />,
-    renderPage: (onOpenInTab) => <TourDefPage variant="modalPicker" onOpenInTab={onOpenInTab} />,
-    renderTabPane: ({ tab, decodedId, active }) => (
-      <TourDefTabFormPane key={tab.key} tabPath={tab.path} tourDefId={decodedId} active={active} />
-    ),
-  },
-  {
-    key: 'club',
-    basePath: '/admin/clubs',
-    shortPath: '/clubs',
-    modalTitle: 'Selectionner un Club',
-    closeAriaLabel: 'Fermer la liste des clubs',
-    titleIcon: <ShieldRoundedIcon sx={{ fontSize: 18 }} />,
-    renderPage: (onOpenInTab) => <ClubPage variant="modalPicker" onOpenInTab={onOpenInTab} />,
-    renderTabPane: ({ tab, decodedId, active }) => (
-      <ClubTabFormPane key={tab.key} tabPath={tab.path} clubId={decodedId} active={active} />
-    ),
-  },
-  {
-    key: 'natio',
-    basePath: '/admin/natio',
-    shortPath: '/natio',
-    modalTitle: 'Sélectionner un Pays',
-    closeAriaLabel: 'Fermer la liste des pays',
-    titleIcon: <FlagRoundedIcon sx={{ fontSize: 18 }} />,
-    renderPage: (onOpenInTab) => <NatioPage variant="modalPicker" onOpenInTab={onOpenInTab} />,
-    renderTabPane: ({ tab, decodedId, active }) => (
-      <NatioTabFormPane key={tab.key} tabPath={tab.path} natioId={decodedId} active={active} />
-    ),
-  },
-  {
-    key: 'ville',
-    basePath: '/admin/ville',
-    shortPath: '/ville',
-    modalTitle: 'Sélectionner une Ville',
-    closeAriaLabel: 'Fermer la liste des villes',
-    titleIcon: <LocationCityRoundedIcon sx={{ fontSize: 18 }} />,
-    renderPage: (onOpenInTab) => <VillePage variant="modalPicker" onOpenInTab={onOpenInTab} />,
-    renderTabPane: ({ tab, decodedId, active }) => (
-      <VilleTabFormPane key={tab.key} tabPath={tab.path} villeId={decodedId} active={active} />
-    ),
-  },
-  {
-    key: 'terrain',
-    basePath: '/admin/terrain',
-    shortPath: '/terrain',
-    modalTitle: 'Sélectionner un Stade',
-    closeAriaLabel: 'Fermer la liste des stades',
-    titleIcon: <StadiumRoundedIcon sx={{ fontSize: 18 }} />,
-    renderPage: (onOpenInTab) => <TerrainPage variant="modalPicker" onOpenInTab={onOpenInTab} />,
-    renderTabPane: ({ tab, decodedId, active }) => (
-      <TerrainTabFormPane key={tab.key} tabPath={tab.path} terrainId={decodedId} active={active} />
-    ),
-  },
-  {
-    key: 'devise',
-    basePath: '/admin/devise',
-    shortPath: '/devise',
-    modalTitle: 'Sélectionner une Devise',
-    closeAriaLabel: 'Fermer la liste des devises',
-    titleIcon: <EuroRoundedIcon sx={{ fontSize: 18 }} />,
-    renderPage: (onOpenInTab) => <DevisePage variant="modalPicker" onOpenInTab={onOpenInTab} />,
-    renderTabPane: ({ tab, decodedId, active }) => (
-      <DeviseTabFormPane key={tab.key} tabPath={tab.path} deviseId={decodedId} active={active} />
-    ),
-  },
-  {
-    key: 'circ',
-    basePath: '/admin/circ',
-    shortPath: '/circ',
-    modalTitle: 'Sélectionner une Circonstance',
-    closeAriaLabel: 'Fermer la liste des circonstances',
-    titleIcon: <EventNoteRoundedIcon sx={{ fontSize: 18 }} />,
-    renderPage: (onOpenInTab) => <CircPage variant="modalPicker" onOpenInTab={onOpenInTab} />,
-    renderTabPane: ({ tab, decodedId, active }) => (
-      <CircTabFormPane key={tab.key} tabPath={tab.path} circId={decodedId} active={active} />
-    ),
-  },
-];
-
-function normalizeRoutePath(path: string): string {
-  const trimmedPath = path.trim();
-  const normalized = trimmedPath.toLowerCase();
-  switch (normalized) {
-    case '/accueil':
-      return '/admin/home';
-    case '/configuration':
-      return '/admin/configuration';
-    case '/natio':
-      return '/admin/natio';
-    case '/ville':
-      return '/admin/ville';
-    case '/arbitre':
-      return '/admin/arbitre';
-    case '/terrain':
-      return '/admin/terrain';
-    case '/devise':
-      return '/admin/devise';
-    case '/circ':
-      return '/admin/circ';
-    case '/epreuve':
-      return '/admin/epreuve';
-    case '/competitions':
-      return '/admin/competitions';
-    case '/tourdefs':
-      return '/admin/tourdefs';
-    case '/calendrier':
-      return '/admin/calendrier';
-    case '/statistiques':
-      return '/admin/statistiques';
-    case '/joueurs':
-      return '/admin/joueurs';
-    case '/clubs':
-      return '/admin/clubs';
-    default:
-      // Keep original case for dynamic segments like /admin/natio/FRA.
-      return trimmedPath;
-  }
-}
-
-function resolveTabMetaPath(path: string): string {
-  const normalized = normalizeRoutePath(path);
-  if (normalized.startsWith('/admin/rencontres/')) {
-    return '/admin/rencontres';
-  }
-  for (const entity of PICKER_ENTITY_DEFINITIONS) {
-    if (normalized.startsWith(`${entity.basePath}/`)) {
-      return entity.basePath;
-    }
-  }
-  return normalized;
-}
-
-function decodeSegment(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
-
-function sanitizeRecentLabel(label: string, fallback: string): string {
-  const trimmed = String(label ?? '').trim();
-  return trimmed || fallback;
-}
-
-function buildRecentOpenedRecord(path: string, label: string): RecentOpenedRecord | null {
-  const normalizedPath = normalizeRoutePath(path);
-
-  if (normalizedPath.startsWith('/admin/rencontres/')) {
-    const entityId = decodeSegment(normalizedPath.slice('/admin/rencontres/'.length));
-    if (!entityId) return null;
-    return {
-      path: normalizedPath,
-      label: sanitizeRecentLabel(label, `Rencontre ${entityId}`),
-      entityKind: 'rencontre',
-      entityId,
-      lastOpenedAt: Date.now(),
-    };
-  }
-
-  for (const entity of PICKER_ENTITY_DEFINITIONS) {
-    const prefix = `${entity.basePath}/`;
-    if (!normalizedPath.startsWith(prefix)) continue;
-
-    const entityId = decodeSegment(normalizedPath.slice(prefix.length));
-    if (!entityId) return null;
-
-    return {
-      path: normalizedPath,
-      label: sanitizeRecentLabel(label, entityId),
-      entityKind: entity.key as RecentEntityKind,
-      entityId,
-      lastOpenedAt: Date.now(),
-    };
-  }
-
-  return null;
-}
-
-function readRecentOpenedRecordsFromStorage(): RecentOpenedRecord[] {
-  try {
-    const raw = window.localStorage.getItem(RECENT_OPENED_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-
-    const normalizedRows = parsed.flatMap((row): RecentOpenedRecord[] => {
-      if (!row || typeof row !== 'object') return [];
-
-      const path = String((row as { path?: unknown }).path ?? '');
-      const label = String((row as { label?: unknown }).label ?? '');
-      const base = buildRecentOpenedRecord(path, label);
-      if (!base) return [];
-
-      const lastOpenedAtRaw = Number((row as { lastOpenedAt?: unknown }).lastOpenedAt);
-      return [{
-        ...base,
-        lastOpenedAt: Number.isFinite(lastOpenedAtRaw) ? lastOpenedAtRaw : Date.now(),
-      }];
-    });
-
-    return normalizedRows
-      .sort((a, b) => b.lastOpenedAt - a.lastOpenedAt)
-      .slice(0, MAX_RECENT_OPENED_RECORDS);
-  } catch {
-    return [];
-  }
-}
 
 export function AdminLayout() {
   const navigate = useNavigate();
@@ -658,12 +147,7 @@ export function AdminLayout() {
   };
 
   const rememberOpenedRecord = (path: string, label: string) => {
-    const next = buildRecentOpenedRecord(path, label);
-    if (!next) return;
-    setRecentOpenedRecords((prev) => {
-      const deduped = prev.filter((row) => row.path !== next.path);
-      return [next, ...deduped].slice(0, MAX_RECENT_OPENED_RECORDS);
-    });
+    setRecentOpenedRecords((prev) => upsertRecentOpenedRecord(prev, path, label));
   };
 
   useEffect(() => {
@@ -860,15 +344,7 @@ export function AdminLayout() {
       if (!path || !label) return;
       const normalizedPath = normalizeRoutePath(path);
       setTabs((prev) => prev.map((tab) => (tab.path === normalizedPath ? { ...tab, label } : tab)));
-      setRecentOpenedRecords((prev) => {
-        let changed = false;
-        const next = prev.map((row) => {
-          if (row.path !== normalizedPath || row.label === label) return row;
-          changed = true;
-          return { ...row, label };
-        });
-        return changed ? next : prev;
-      });
+      setRecentOpenedRecords((prev) => renameRecentOpenedRecord(prev, normalizedPath, label));
     };
 
     window.addEventListener('supporter:tab-label', handler);
@@ -1225,34 +701,36 @@ export function AdminLayout() {
       </Box>
 
       <Box sx={{ p: { xs: 1.5, md: 2.5 } }}>
-        {tabs
-          .filter((tab) => tab.path.startsWith('/admin/rencontres/'))
-          .map((tab) => {
-            const encodedId = tab.path.slice('/admin/rencontres/'.length);
-            if (!encodedId) return null;
-            const decodedId = decodeURIComponent(encodedId);
-            return (
-              <RencontreTabFormPane
-                key={tab.key}
-                tabPath={tab.path}
-                rencontreId={decodedId}
-                active={activeTabKey === tab.key}
-              />
-            );
-          })}
-        {PICKER_ENTITY_DEFINITIONS.flatMap((entity) => tabs
-          .filter((tab) => tab.path.startsWith(`${entity.basePath}/`))
-          .map((tab) => {
-            const encodedId = tab.path.slice(`${entity.basePath}/`.length);
-            if (!encodedId) return null;
-            const decodedId = decodeURIComponent(encodedId);
-            return entity.renderTabPane({ tab, decodedId, active: activeTabKey === tab.key });
-          }))}
-        {!activeTabIsDynamicForm ? <Outlet context={homeOutletContext} /> : null}
+        <Suspense fallback={null}>
+          {tabs
+            .filter((tab) => tab.path.startsWith('/admin/rencontres/'))
+            .map((tab) => {
+              const encodedId = tab.path.slice('/admin/rencontres/'.length);
+              if (!encodedId) return null;
+              const decodedId = decodeRouteSegment(encodedId);
+              return (
+                <RencontreTabFormPane
+                  key={tab.key}
+                  tabPath={tab.path}
+                  rencontreId={decodedId}
+                  active={activeTabKey === tab.key}
+                />
+              );
+            })}
+          {PICKER_ENTITY_DEFINITIONS.flatMap((entity) => tabs
+            .filter((tab) => tab.path.startsWith(`${entity.basePath}/`))
+            .map((tab) => {
+              const encodedId = tab.path.slice(`${entity.basePath}/`.length);
+              if (!encodedId) return null;
+              const decodedId = decodeRouteSegment(encodedId);
+              return entity.renderTabPane({ tab, decodedId, active: activeTabKey === tab.key });
+            }))}
+          {!activeTabIsDynamicForm ? <Outlet context={homeOutletContext} /> : null}
+        </Suspense>
       </Box>
 
       <Dialog
-        open={Boolean(activePickerEntity) && activePickerEntity?.key !== 'terrain'}
+        open={activePickerEntity !== null && activePickerEntity.key !== 'terrain'}
         onClose={() => setPickerModal(null)}
         fullWidth
         maxWidth="xl"
@@ -1279,7 +757,9 @@ export function AdminLayout() {
             </DialogTitle>
             <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6', overflow: 'hidden', display: 'flex', minHeight: 0, minWidth: 0 }}>
               <Box sx={{ flex: 1, minHeight: 0, minWidth: 0, display: 'flex', '& > *': { flex: 1, minHeight: 0, minWidth: 0 } }}>
-                {activePickerEntity.renderPage(handleOpenPickerEntityInTab(activePickerEntity.key))}
+                <Suspense fallback={null}>
+                  {activePickerEntity.renderPage(handleOpenPickerEntityInTab(activePickerEntity.key))}
+                </Suspense>
               </Box>
             </DialogContent>
           </>
@@ -1287,20 +767,26 @@ export function AdminLayout() {
       </Dialog>
 
       {activePickerEntity?.key === 'terrain' ? (
-        <TerrainPickerDialog
-          open
-          onClose={() => setPickerModal(null)}
-          onSelect={handleOpenPickerEntityInTab('terrain')}
-        />
+        <Suspense fallback={null}>
+          <TerrainPickerDialog
+            open
+            onClose={() => setPickerModal(null)}
+            onSelect={handleOpenPickerEntityInTab('terrain')}
+          />
+        </Suspense>
       ) : null}
 
-      <RencontreCreateWizardDialog
-        open={rencontreWizardOpen}
-        onClose={() => setRencontreWizardOpen(false)}
-        onCreated={async (createdId, label) => {
-          openTab(`/admin/rencontres/${encodeURIComponent(String(createdId))}`, label || 'Rencontre', { unique: true, uniqueByPath: true });
-        }}
-      />
+      {rencontreWizardOpen ? (
+        <Suspense fallback={null}>
+          <RencontreCreateWizardDialog
+            open
+            onClose={() => setRencontreWizardOpen(false)}
+            onCreated={async (createdId, label) => {
+              openTab(`/admin/rencontres/${encodeURIComponent(String(createdId))}`, label || 'Rencontre', { unique: true, uniqueByPath: true });
+            }}
+          />
+        </Suspense>
+      ) : null}
 
       <Dialog
         open={Boolean(closeConfirmTabKey)}

@@ -1,6 +1,7 @@
 import { Box, Stack, Typography } from '@mui/material';
 import { BarChart } from '@mui/x-charts/BarChart';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { useStatRows } from '../../useStatRows';
 import { fetchLignesEvolution, type LigneEvolutionRow } from './schemaEvolutionApi';
 
 const LINE_SERIES: { key: keyof Omit<LigneEvolutionRow, 'SAISON' | 'MATCHES'>; label: string; color: string }[] = [
@@ -13,18 +14,7 @@ const LINE_SERIES: { key: keyof Omit<LigneEvolutionRow, 'SAISON' | 'MATCHES'>; l
 
 /** Saison > composition: nombre moyen de joueurs par ligne tactique, saisons triees chronologiquement. */
 export function SchemaEvolutionView() {
-  const [rows, setRows] = useState<LigneEvolutionRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setLoading(true);
-    fetchLignesEvolution(controller.signal)
-      .then(setRows)
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, []);
+  const { rows, loading } = useStatRows<LigneEvolutionRow>(fetchLignesEvolution, []);
 
   const chronologicalRows = useMemo(
     () => [...rows].sort((a, b) => a.SAISON.localeCompare(b.SAISON)),

@@ -1,9 +1,10 @@
 import { Typography } from '@mui/material';
 import type { GridColDef } from '@mui/x-data-grid';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ClubIdentityInline } from '../../../../components/ClubIdentityInline';
 import { RencontreDateLink } from '../../components/RencontreDateLink';
 import { StatMatchGrid } from '../../components/StatMatchGrid';
+import { useStatRows } from '../../useStatRows';
 import { fetchAffluence, type AffluenceRow } from './affluenceApi';
 
 function AffluenceSentence({ row }: { row: AffluenceRow }) {
@@ -26,19 +27,8 @@ function AffluenceSentence({ row }: { row: AffluenceRow }) {
 }
 
 export function AffluenceGrid() {
-  const [rows, setRows] = useState<AffluenceRow[]>([]);
-  const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<number | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setLoading(true);
-    fetchAffluence(scope, controller.signal)
-      .then(setRows)
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [scope]);
+  const { rows, loading } = useStatRows<AffluenceRow>((signal) => fetchAffluence(scope, signal), [scope]);
 
   const columns: GridColDef<AffluenceRow>[] = useMemo(() => [{
     field: 'NBSPECT',

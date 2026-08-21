@@ -1,10 +1,11 @@
 'use client';
 
 import type { GridColDef } from '@mui/x-data-grid';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { RencontreDateLink } from '../../components/RencontreDateLink';
 import { StatPlayerGrid } from '../../components/StatPlayerGrid';
 import { StatPlayerSentence } from '../../components/StatPlayerSentence';
+import { useStatRows } from '../../useStatRows';
 import { fetchDernierMatch, fetchPremierMatch, type PremierMatchRow } from './premierMatchApi';
 
 interface PremierMatchWithAge extends PremierMatchRow {
@@ -86,26 +87,13 @@ interface AppearanceGridProps {
 }
 
 export function PremierMatchGrid({ latest = false }: AppearanceGridProps) {
-  const [rows, setRows] = useState<PremierMatchWithAge[]>([]);
-  const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<number | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    (latest ? fetchDernierMatch : fetchPremierMatch)(scope, controller.signal)
-      .then((data) => {
-        const withAge = data.map((row) => {
-          const age = calculateAge(row.NAISSANCE, row.FIRST_DATE);
-          return { ...row, AGE_SORT: age.years * 10000 + age.months * 100 + age.days };
-        });
-        setRows(withAge);
-      })
-      .catch((err) => {
-        console.error('PremierMatchGrid: Error fetching data:', err);
-        setRows([]);
-      })
-      .finally(() => setLoading(false));
-    return () => controller.abort();
+  const { rows, loading } = useStatRows<PremierMatchWithAge>(async (signal) => {
+    const data = await (latest ? fetchDernierMatch : fetchPremierMatch)(scope, signal);
+    return data.map((row) => {
+      const age = calculateAge(row.NAISSANCE, row.FIRST_DATE);
+      return { ...row, AGE_SORT: age.years * 10000 + age.months * 100 + age.days };
+    });
   }, [latest, scope]);
 
   return (

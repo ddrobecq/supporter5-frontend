@@ -1,29 +1,32 @@
-import type { ComponentType } from 'react';
+import { lazy, Suspense, type ComponentType, type LazyExoticComponent } from 'react';
 import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { LoginPage } from './features/auth/LoginPage';
-import { HomePage } from './features/home/HomePage';
-import { VillePage } from './features/ville/VillePage';
-import { NatioPage } from './features/natio/NatioPage';
-import { ArbitrePage } from './features/arbitre/ArbitrePage';
-import { TerrainPage } from './features/terrain/TerrainPage';
-import { DevisePage } from './features/devise/DevisePage';
-import { CircPage } from './features/circ/CircPage';
-import { EpreuvePage } from './features/epreuve/EpreuvePage';
-import { CompetitionPage } from './features/competition/CompetitionPage';
-import { JoueurPage } from './features/joueur/JoueurPage';
-import { CalendrierPage } from './features/calendrier/CalendrierPage';
-import { StatistiquesPage } from './features/statistiques/StatistiquesPage';
-import { ClubPage } from './features/club/ClubPage';
-import { TourDefPage } from './features/tourdef/TourDefPage';
-import { ConfigurationPage } from './features/configuration/ConfigurationPage';
-import { AdminLayout } from './layouts/AdminLayout';
+
+const LoginPage = lazy(() => import('./features/auth/LoginPage').then((module) => ({ default: module.LoginPage })));
+const HomePage = lazy(() => import('./features/home/HomePage').then((module) => ({ default: module.HomePage })));
+const VillePage = lazy(() => import('./features/ville/VillePage').then((module) => ({ default: module.VillePage })));
+const NatioPage = lazy(() => import('./features/natio/NatioPage').then((module) => ({ default: module.NatioPage })));
+const ArbitrePage = lazy(() => import('./features/arbitre/ArbitrePage').then((module) => ({ default: module.ArbitrePage })));
+const TerrainPage = lazy(() => import('./features/terrain/TerrainPage').then((module) => ({ default: module.TerrainPage })));
+const DevisePage = lazy(() => import('./features/devise/DevisePage').then((module) => ({ default: module.DevisePage })));
+const CircPage = lazy(() => import('./features/circ/CircPage').then((module) => ({ default: module.CircPage })));
+const EpreuvePage = lazy(() => import('./features/epreuve/EpreuvePage').then((module) => ({ default: module.EpreuvePage })));
+const CompetitionPage = lazy(() => import('./features/competition/CompetitionPage').then((module) => ({ default: module.CompetitionPage })));
+const JoueurPage = lazy(() => import('./features/joueur/JoueurPage').then((module) => ({ default: module.JoueurPage })));
+const CalendrierPage = lazy(() => import('./features/calendrier/CalendrierPage').then((module) => ({ default: module.CalendrierPage })));
+const StatistiquesPage = lazy(() => import('./features/statistiques/StatistiquesPage').then((module) => ({ default: module.StatistiquesPage })));
+const ClubPage = lazy(() => import('./features/club/ClubPage').then((module) => ({ default: module.ClubPage })));
+const TourDefPage = lazy(() => import('./features/tourdef/TourDefPage').then((module) => ({ default: module.TourDefPage })));
+const ConfigurationPage = lazy(() => import('./features/configuration/ConfigurationPage').then((module) => ({ default: module.ConfigurationPage })));
+const AdminLayout = lazy(() => import('./layouts/AdminLayout').then((module) => ({ default: module.AdminLayout })));
+
+type RouteComponent = ComponentType | LazyExoticComponent<ComponentType>;
 
 interface EntityRouteDefinition {
   shortPath: string;
   adminPath: string;
   paramName: string;
-  PageComponent: ComponentType;
+  PageComponent: RouteComponent;
 }
 
 interface RedirectByParamProps {
@@ -58,34 +61,36 @@ const ENTITY_ROUTES: EntityRouteDefinition[] = [
 
 function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
+    <Suspense fallback={null}>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
 
-      <Route element={<ProtectedRoute />}>
-        <Route element={<AdminLayout />}>
-          <Route path="/accueil" element={<Navigate to="/admin/home" replace />} />
-          <Route path="/admin/home" element={<HomePage />} />
-          <Route path="/configuration" element={<Navigate to="/admin/configuration" replace />} />
-          <Route path="/admin/configuration" element={<ConfigurationPage />} />
-          <Route path="/calendrier" element={<Navigate to="/admin/calendrier" replace />} />
-          <Route path="/admin/calendrier" element={<CalendrierPage />} />
-          <Route path="/statistiques" element={<Navigate to="/admin/statistiques" replace />} />
-          <Route path="/admin/statistiques" element={<StatistiquesPage />} />
-          <Route path="/rencontres/:rencontreId" element={<RedirectByParam paramName="rencontreId" toPrefix="/admin/rencontres" />} />
-          <Route path="/admin/rencontres/:rencontreId" element={<EmptyRoute />} />
-          {ENTITY_ROUTES.map(({ shortPath, adminPath, paramName, PageComponent }) => (
-            <Route key={adminPath}>
-              <Route path={`/${shortPath}`} element={<Navigate to={`/${adminPath}`} replace />} />
-              <Route path={`/${shortPath}/:${paramName}`} element={<RedirectByParam paramName={paramName} toPrefix={`/${adminPath}`} />} />
-              <Route path={`/${adminPath}`} element={<PageComponent />} />
-              <Route path={`/${adminPath}/:${paramName}`} element={<PageComponent />} />
-            </Route>
-          ))}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<AdminLayout />}>
+            <Route path="/accueil" element={<Navigate to="/admin/home" replace />} />
+            <Route path="/admin/home" element={<HomePage />} />
+            <Route path="/configuration" element={<Navigate to="/admin/configuration" replace />} />
+            <Route path="/admin/configuration" element={<ConfigurationPage />} />
+            <Route path="/calendrier" element={<Navigate to="/admin/calendrier" replace />} />
+            <Route path="/admin/calendrier" element={<CalendrierPage />} />
+            <Route path="/statistiques" element={<Navigate to="/admin/statistiques" replace />} />
+            <Route path="/admin/statistiques" element={<StatistiquesPage />} />
+            <Route path="/rencontres/:rencontreId" element={<RedirectByParam paramName="rencontreId" toPrefix="/admin/rencontres" />} />
+            <Route path="/admin/rencontres/:rencontreId" element={<EmptyRoute />} />
+            {ENTITY_ROUTES.map(({ shortPath, adminPath, paramName, PageComponent }) => (
+              <Route key={adminPath}>
+                <Route path={`/${shortPath}`} element={<Navigate to={`/${adminPath}`} replace />} />
+                <Route path={`/${shortPath}/:${paramName}`} element={<RedirectByParam paramName={paramName} toPrefix={`/${adminPath}`} />} />
+                <Route path={`/${adminPath}`} element={<PageComponent />} />
+                <Route path={`/${adminPath}/:${paramName}`} element={<PageComponent />} />
+              </Route>
+            ))}
+          </Route>
         </Route>
-      </Route>
 
-      <Route path="*" element={<Navigate to="/admin/home" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/admin/home" replace />} />
+      </Routes>
+    </Suspense>
   );
 }
 

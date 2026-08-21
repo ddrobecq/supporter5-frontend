@@ -1,9 +1,10 @@
 import type { GridColDef } from '@mui/x-data-grid';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { ClubIdentityInline } from '../../../../components/ClubIdentityInline';
 import { formatMoney } from '../../../../lib/formatMoney';
 import { StatPlayerGrid } from '../../components/StatPlayerGrid';
 import { StatPlayerSentence } from '../../components/StatPlayerSentence';
+import { useStatRows } from '../../useStatRows';
 import { fetchTransferts, type TransfertMetric, type TransfertRow } from './transfertsApi';
 
 const HEADERS: Record<TransfertMetric, string> = {
@@ -37,17 +38,7 @@ function TransfertCell({ row, metric }: { row: TransfertRow; metric: TransfertMe
 }
 
 export function TransfertsGrid({ metric }: { metric: TransfertMetric }) {
-  const [rows, setRows] = useState<TransfertRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchTransferts(metric, controller.signal)
-      .then(setRows)
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [metric]);
+  const { rows, loading } = useStatRows<TransfertRow>((signal) => fetchTransferts(metric, signal), [metric]);
 
   const columns: GridColDef<TransfertRow>[] = useMemo(() => [{
     field: 'MONTANT',
