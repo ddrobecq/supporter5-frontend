@@ -103,7 +103,7 @@ export function PitchPlayerAvatar({ playerId, size = PITCH_AVATAR_SIZE }: { play
 }
 
 /** Conteneur positionne d'un poste sur le terrain. */
-export function PitchSlotShell({ x, y, sx, children, ...boxProps }: { x: number; y: number } & BoxProps) {
+export function PitchSlotShell({ x, y, width = PITCH_SLOT_WIDTH, sx, children, ...boxProps }: { x: number; y: number; width?: number } & BoxProps) {
   return (
     <Box
       {...boxProps}
@@ -115,7 +115,7 @@ export function PitchSlotShell({ x, y, sx, children, ...boxProps }: { x: number;
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        width: PITCH_SLOT_WIDTH,
+        width,
         userSelect: 'none',
         ...sx,
       }}
@@ -126,9 +126,11 @@ export function PitchSlotShell({ x, y, sx, children, ...boxProps }: { x: number;
 }
 
 /** Representation commune d'un joueur place sur le terrain: pastille + nom + drapeau. */
-export function PitchPlayerMarker({ player, highlighted, avatarSx, ...avatarBoxProps }: {
+export function PitchPlayerMarker({ player, highlighted, avatarSize = PITCH_AVATAR_SIZE, showFlag = true, avatarSx, ...avatarBoxProps }: {
   player: PitchPlayerIdentity;
   highlighted?: boolean;
+  avatarSize?: number;
+  showFlag?: boolean;
   avatarSx?: BoxProps['sx'];
 } & Omit<BoxProps, 'sx'>) {
   return (
@@ -142,7 +144,7 @@ export function PitchPlayerMarker({ player, highlighted, avatarSx, ...avatarBoxP
           ...avatarSx,
         }}
       >
-        <PitchPlayerAvatar playerId={player.IDJOUEUR} />
+        <PitchPlayerAvatar playerId={player.IDJOUEUR} size={avatarSize} />
       </Box>
       <Stack direction="row" spacing={0.4} sx={{ alignItems: 'center', maxWidth: '100%', mt: 0.25 }}>
         <Typography
@@ -160,7 +162,7 @@ export function PitchPlayerMarker({ player, highlighted, avatarSx, ...avatarBoxP
         >
           {pitchPlayerLabel(player)}
         </Typography>
-        {player.IDNATIO?.trim() ? <NatioFlag idnatio={player.IDNATIO} /> : null}
+        {showFlag && player.IDNATIO?.trim() ? <NatioFlag idnatio={player.IDNATIO} /> : null}
       </Stack>
     </>
   );

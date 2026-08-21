@@ -742,11 +742,13 @@ export function AdminLayout() {
   }, [location.pathname]);
 
   const openTab = (path: string, label?: string, options?: OpenTabOptions) => {
-    const normalizedPath = normalizeRoutePath(path);
+    const requestedPath = normalizeRoutePath(path);
+    // Une query string (ex: selection de stat) cible un onglet existant sans creer de doublon.
+    const [normalizedPath, query] = requestedPath.split('?');
     const metaPath = resolveTabMetaPath(normalizedPath);
     const resolvedLabel = label ?? TAB_META[metaPath]?.label;
     if (!resolvedLabel) {
-      navigate(normalizedPath);
+      navigate(requestedPath);
       return;
     }
 
@@ -765,7 +767,7 @@ export function AdminLayout() {
     if (existing) {
       setActiveTabKey(existing.key);
       // Restaure la derniere sous-navigation (query string) visitee dans cet onglet.
-      navigate(tabLocationByKeyRef.current[existing.key] ?? normalizedPath);
+      navigate(query ? requestedPath : (tabLocationByKeyRef.current[existing.key] ?? normalizedPath));
       return;
     }
 
@@ -773,7 +775,7 @@ export function AdminLayout() {
     const key = `tab-${normalizedPath}-${tabCounterRef.current}`;
     setActiveTabKey(key);
     setTabs((prev) => [...prev, { key, label: resolvedLabel, path: normalizedPath, closable: true }]);
-    navigate(normalizedPath);
+    navigate(requestedPath);
   };
 
   useEffect(() => {

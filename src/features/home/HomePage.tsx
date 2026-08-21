@@ -34,6 +34,7 @@ import { fetchRencontreDetailById } from '../rencontre/rencontreApi';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { formatHeureDisplay } from '../../components/heureUtils';
 import type { HomePageOutletContext, RecentEntityKind, RecentOpenedRecord } from './types';
+import { SeasonStatsOverview } from './SeasonStatsOverview';
 
 function resolveEntityIcon(kind: RecentEntityKind): ReactNode {
   switch (kind) {
@@ -501,6 +502,7 @@ export function HomePage() {
         )}
       </Paper>
       <SupportedClubCalendar clubId={supportedClubId} clubName={supportedClubName} />
+      <SeasonStatsOverview />
     </Box>
   );
 }
