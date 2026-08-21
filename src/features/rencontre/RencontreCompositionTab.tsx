@@ -1,7 +1,5 @@
-import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
 import {
-  Avatar,
   Box,
   CircularProgress,
   Dialog,
@@ -19,60 +17,22 @@ import {
 import { useTheme } from '@mui/material/styles';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { http } from '../../lib/http';
-import { useEntityImage } from '../../lib/useEntityImage';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { fetchRencontreComposition, fetchRencontreSquad, saveRencontreComposition } from './rencontreApi';
 import type { CompositionMap, SquadPlayerRow } from './types';
 import { NatioFlag } from '../../components/NatioFlag';
+import {
+  PITCH_AVATAR_SIZE,
+  PITCH_SLOTS,
+  PitchField,
+  PitchPlayerAvatar as PlayerAvatar,
+  PitchPlayerMarker,
+  PitchSlotShell,
+  pitchPlayerLabel as playerLabel,
+} from '../../components/PitchField';
 import { JoueurPage } from '../joueur/JoueurPage';
 
-// Position slots on the pitch with their percentage coordinates (x%, y%)
-// Pitch is shown top=attack, bottom=goalkeeper
-const PITCH_SLOTS: { code: string; label: string; x: number; y: number }[] = [
-  { code: 'AVC',  label: 'AVC',  x: 50, y: 7  },
-  { code: 'ACD',  label: 'ACD',  x: 66, y: 12 },
-  { code: 'ACG',  label: 'ACG',  x: 34, y: 12 },
-  { code: 'ALD',  label: 'ALD',  x: 83, y: 17 },
-  { code: 'ALG',  label: 'ALG',  x: 17, y: 17 },
-  { code: 'MOCC', label: 'MOCC', x: 50, y: 28 },
-  { code: 'MOCD', label: 'MOCD', x: 67, y: 30 },
-  { code: 'MOCG', label: 'MOCG', x: 33, y: 30 },
-  { code: 'MOLD', label: 'MOLD', x: 84, y: 34 },
-  { code: 'MOLG', label: 'MOLG', x: 16, y: 34 },
-  { code: 'MDCC', label: 'MDCC', x: 50, y: 46 },
-  { code: 'MDCD', label: 'MDCD', x: 67, y: 48 },
-  { code: 'MDCG', label: 'MDCG', x: 33, y: 48 },
-  { code: 'MDLD', label: 'MDLD', x: 84, y: 52 },
-  { code: 'MDLG', label: 'MDLG', x: 16, y: 52 },
-  { code: 'STO',  label: 'STO',  x: 50, y: 60 },
-  { code: 'LIB',  label: 'LIB',  x: 50, y: 66 },
-  { code: 'DCD',  label: 'DCD',  x: 65, y: 75 },
-  { code: 'DCG',  label: 'DCG',  x: 35, y: 75 },
-  { code: 'DLD',  label: 'DLD',  x: 83, y: 78 },
-  { code: 'DLG',  label: 'DLG',  x: 17, y: 78 },
-  { code: 'GOAL', label: 'GB',   x: 50, y: 93 },
-];
-
 const REMP_CODES = ['REMP1','REMP2','REMP3','REMP4','REMP5','REMP6','REMP7','REMP8','REMP9','REMP10','REMP11'] as const;
-
-const AVATAR_SIZE = 38;
-
-// ---------------------------------------------------------------------------
-
-function PlayerAvatar({ playerId, size = AVATAR_SIZE }: { playerId: string; size?: number }) {
-  const { src } = useEntityImage('joueurrg', playerId);
-  return (
-    <Avatar src={src ?? undefined} sx={{ width: size, height: size, bgcolor: 'grey.300' }}>
-      {!src && <PersonOutlineRoundedIcon sx={{ fontSize: size * 0.6 }} />}
-    </Avatar>
-  );
-}
-
-function playerLabel(p: SquadPlayerRow): string {
-  if (p.SURNOM?.trim()) return p.SURNOM.trim();
-  const nom = p.NOM?.trim() ?? '';
-  return nom || p.IDJOUEUR;
-}
 
 // ---------------------------------------------------------------------------
 
@@ -91,19 +51,10 @@ function PitchSlot({ code, label, x, y, player, onDrop, onRemove, setDragSource 
   const [over, setOver] = useState(false);
 
   return (
-    <Box
-      sx={{
-        position: 'absolute',
-        left: `${x}%`,
-        top: `${y}%`,
-        transform: 'translate(-50%, -50%)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        width: 60,
-        cursor: player ? 'default' : 'pointer',
-        userSelect: 'none',
-      }}
+    <PitchSlotShell
+      x={x}
+      y={y}
+      sx={{ cursor: player ? 'default' : 'pointer' }}
       title={label}
       onDragOver={(e) => { e.preventDefault(); setOver(true); }}
       onDragLeave={() => setOver(false)}
@@ -117,47 +68,22 @@ function PitchSlot({ code, label, x, y, player, onDrop, onRemove, setDragSource 
       onDoubleClick={() => { if (player) onRemove(code); }}
     >
       {player ? (
-        <>
-          <Box
-            draggable
-            onDragStart={(e) => {
-              e.dataTransfer.setData('playerId', player.IDJOUEUR);
-              e.dataTransfer.setData('source', code);
-              setDragSource(code);
-            }}
-            sx={{
-              borderRadius: '50%',
-              border: over ? '2px solid #FFD700' : '2px solid rgba(255,255,255,0.8)',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.5)',
-              cursor: 'grab',
-            }}
-          >
-            <PlayerAvatar playerId={player.IDJOUEUR} />
-          </Box>
-          <Typography
-            variant="caption"
-            sx={{
-              fontSize: 9,
-              lineHeight: 1.1,
-              fontWeight: 700,
-              color: '#fff',
-              textShadow: '0 1px 2px rgba(0,0,0,0.8)',
-              textAlign: 'center',
-              mt: 0.25,
-              maxWidth: 58,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {playerLabel(player)}
-          </Typography>
-        </>
+        <PitchPlayerMarker
+          player={player}
+          highlighted={over}
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData('playerId', player.IDJOUEUR);
+            e.dataTransfer.setData('source', code);
+            setDragSource(code);
+          }}
+          avatarSx={{ cursor: 'grab' }}
+        />
       ) : (
         <Box
           sx={{
-            width: AVATAR_SIZE,
-            height: AVATAR_SIZE,
+            width: PITCH_AVATAR_SIZE,
+            height: PITCH_AVATAR_SIZE,
             borderRadius: '50%',
             border: over
               ? '2px solid #FFD700'
@@ -170,7 +96,7 @@ function PitchSlot({ code, label, x, y, player, onDrop, onRemove, setDragSource 
           }}
         />
       )}
-    </Box>
+    </PitchSlotShell>
   );
 }
 
@@ -520,50 +446,7 @@ export function RencontreCompositionTab({
         {/* ── Center: pitch ── */}
         <Box sx={{ maxWidth: 420, width: '100%', justifySelf: 'start' }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Terrain</Typography>
-          <Box
-            sx={{
-              position: 'relative',
-              width: '100%',
-              paddingTop: '150%',
-              bgcolor: '#2d8a4e',
-              borderRadius: 2,
-              border: '3px solid #fff',
-              overflow: 'hidden',
-            }}
-          >
-            {/* SVG pitch markings — viewBox 70×105 matches CSS paddingTop:150% exactly */}
-            <svg
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
-              viewBox="0 0 70 105"
-              preserveAspectRatio="none"
-            >
-              {/* Center line */}
-              <line x1="0" y1="52.5" x2="70" y2="52.5" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" />
-              {/* Center circle */}
-              <circle cx="35" cy="52.5" r="9.15" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" fill="none" />
-              {/* Center spot */}
-              <circle cx="35" cy="52.5" r="0.6" fill="rgba(255,255,255,0.5)" />
-
-              {/* Top penalty area (16.5m deep, 40.32m wide) */}
-              <rect x="14.84" y="0" width="40.32" height="16.5" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" fill="none" />
-              {/* Top 6-yard box (5.5m deep, 18.32m wide) */}
-              <rect x="25.84" y="0" width="18.32" height="5.5" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" fill="none" />
-              {/* Top penalty spot at 11m */}
-              <circle cx="35" cy="11" r="0.6" fill="rgba(255,255,255,0.5)" />
-              {/* Top penalty arc — center (35,11) r=9.15, intersects y=16.5 at x=35±7.31 */}
-              <path d="M 27.69 16.5 A 9.15 9.15 0 0 0 42.31 16.5" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" fill="none" />
-
-              {/* Bottom penalty area (16.5m deep, 40.32m wide) */}
-              <rect x="14.84" y="88.5" width="40.32" height="16.5" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" fill="none" />
-              {/* Bottom 6-yard box (5.5m deep, 18.32m wide) */}
-              <rect x="25.84" y="99.5" width="18.32" height="5.5" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" fill="none" />
-              {/* Bottom penalty spot at 11m from bottom */}
-              <circle cx="35" cy="94" r="0.6" fill="rgba(255,255,255,0.5)" />
-              {/* Bottom penalty arc — center (35,94) r=9.15, intersects y=88.5 at x=35±7.31 */}
-              <path d="M 27.69 88.5 A 9.15 9.15 0 0 1 42.31 88.5" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" fill="none" />
-            </svg>
-
-            {/* Position slots */}
+          <PitchField>
             {PITCH_SLOTS.map((slot) => (
               <PitchSlot
                 key={slot.code}
@@ -574,7 +457,7 @@ export function RencontreCompositionTab({
                 setDragSource={(src) => { dragSourceRef.current = src; }}
               />
             ))}
-          </Box>
+          </PitchField>
         </Box>
 
         {/* ── Right: bench + coach ── */}

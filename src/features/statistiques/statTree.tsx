@@ -3,6 +3,7 @@ import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
 import SportsIcon from '@mui/icons-material/Sports';
 import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
+import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
 
 export interface StatType {
   key: string;
@@ -25,6 +26,33 @@ export interface StatDomain {
 
 // Catalogue de démonstration: à remplacer/étendre par domaine au fur et à mesure des besoins réels.
 export const STAT_DOMAINS: StatDomain[] = [
+  {
+    key: 'saison',
+    label: 'Saison',
+    icon: <CalendarMonthRoundedIcon sx={{ fontSize: 18 }} />,
+    themes: [
+      {
+        key: 'temps',
+        label: 'Temps de jeu',
+      },
+      {
+        key: 'buts',
+        label: 'Buteurs',
+      },
+      {
+        key: 'passes',
+        label: 'Passeurs',
+      },
+      {
+        key: 'sanctions',
+        label: 'Sanctions',
+      },
+      {
+        key: 'equipe-type',
+        label: 'Equipe type',
+      },
+    ],
+  },
   {
     key: 'joueur',
     label: 'Joueur',

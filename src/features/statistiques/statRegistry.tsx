@@ -18,10 +18,17 @@ import { SanctionsGrid as RencontreSanctionsGrid } from './rencontre/sanctions/S
 import { SeriesGrid as RencontreSeriesGrid } from './rencontre/series/SeriesGrid';
 import { ArbitreMatchesGrid } from './arbitre/matches/ArbitreMatchesGrid';
 import { ArbitreSanctionsGrid } from './arbitre/sanctions/ArbitreSanctionsGrid';
+import { SaisonClassementGrid } from './saison/classements/SaisonClassementGrid';
+import { EquipeTypeView } from './saison/equipeType/EquipeTypeView';
 
 // Registre des grilles de stat implementees, une entree par fichier de stat.
 // Cle = `${domainKey}/${themeKey}/${typeKey}` (mirroir de STAT_DOMAINS dans statTree.tsx).
 export const STAT_COMPONENTS: Record<string, ComponentType> = {
+  'saison/temps/temps': () => <SaisonClassementGrid metric="temps" />,
+  'saison/buts/buts': () => <SaisonClassementGrid metric="buts" />,
+  'saison/passes/passes': () => <SaisonClassementGrid metric="passes" />,
+  'saison/sanctions/sanctions': () => <SaisonClassementGrid metric="sanctions" />,
+  'saison/equipe-type/equipe-type': EquipeTypeView,
   'joueur/apparitions/plus-selectionnes': PlusSelectionnesGrid,
   'joueur/apparitions/saison': ParSaisonGrid,
   'joueur/apparitions/anciennete': AncienneteGrid,
