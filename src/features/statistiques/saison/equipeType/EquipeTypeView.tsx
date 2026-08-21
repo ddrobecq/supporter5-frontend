@@ -9,7 +9,7 @@ import {
   pitchPlayerLabel as joueurLabel,
 } from '../../../../components/PitchField';
 import { fetchSaisons } from '../classements/saisonClassementApi';
-import { fetchEquipeType, type EquipeTypeJoueur, type EquipeTypeResult } from './equipeTypeApi';
+import { fetchEquipeType, fetchEquipeTypeHistorique, type EquipeTypeJoueur, type EquipeTypeResult } from './equipeTypeApi';
 
 function openJoueurTab(joueur: EquipeTypeJoueur): void {
   window.dispatchEvent(new CustomEvent('supporter:tab-open', {
@@ -33,13 +33,14 @@ function PitchPlayer({ joueur, label, x, y }: { joueur: EquipeTypeJoueur; label:
 }
 
 /** Saison > Equipe type: formation la plus utilisee et joueur type de chaque poste. */
-export function EquipeTypeView() {
+export function EquipeTypeView({ historique = false }: { historique?: boolean } = {}) {
   const [saisons, setSaisons] = useState<string[]>([]);
   const [saison, setSaison] = useState('');
   const [data, setData] = useState<EquipeTypeResult | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (historique) return;
     const controller = new AbortController();
     fetchSaisons(controller.signal)
       .then((list) => {
@@ -48,9 +49,18 @@ export function EquipeTypeView() {
       })
       .catch(() => setSaisons([]));
     return () => controller.abort();
-  }, []);
+  }, [historique]);
 
   useEffect(() => {
+    if (historique) {
+      const controller = new AbortController();
+      setLoading(true);
+      fetchEquipeTypeHistorique(controller.signal)
+        .then(setData)
+        .catch(() => setData(null))
+        .finally(() => setLoading(false));
+      return () => controller.abort();
+    }
     if (!saison) return;
     const controller = new AbortController();
     setLoading(true);
@@ -59,7 +69,7 @@ export function EquipeTypeView() {
       .catch(() => setData(null))
       .finally(() => setLoading(false));
     return () => controller.abort();
-  }, [saison]);
+  }, [historique, saison]);
 
   const joueurParPoste = useMemo(
     () => new Map((data?.POSTES ?? []).map((joueur) => [joueur.CODE, joueur])),
@@ -69,31 +79,33 @@ export function EquipeTypeView() {
   return (
     <Stack spacing={1.5} sx={{ height: '100%', minHeight: 0 }}>
       <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-        <TextField
-          select
-          size="small"
-          label="Saison"
-          value={saison}
-          onChange={(event) => setSaison(event.target.value)}
-          sx={{ minWidth: 160 }}
-        >
-          {saisons.map((option) => (
-            <MenuItem key={option} value={option}>{option}</MenuItem>
-          ))}
-        </TextField>
+        {historique ? null : (
+          <TextField
+            select
+            size="small"
+            label="Saison"
+            value={saison}
+            onChange={(event) => setSaison(event.target.value)}
+            sx={{ minWidth: 160 }}
+          >
+            {saisons.map((option) => (
+              <MenuItem key={option} value={option}>{option}</MenuItem>
+            ))}
+          </TextField>
+        )}
         {data && data.FORMATION ? (
           <>
-            <Chip size="small" color="primary" label={data.FORMATION} sx={{ fontWeight: 700 }} />
             <Typography variant="body2" color="text.secondary">
-              schéma le plus utilisé : {data.MATCHES_FORMATION} matchs sur {data.MATCHES_TOTAL}
+              Schéma le plus utilisé :
             </Typography>
+            <Chip size="small" color="primary" label={data.FORMATION} sx={{ fontWeight: 700 }} />
           </>
         ) : null}
       </Stack>
 
       {!loading && data && data.POSTES.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
-          Aucune composition disponible pour cette saison.
+          {historique ? 'Aucune composition disponible.' : 'Aucune composition disponible pour cette saison.'}
         </Typography>
       ) : null}
 

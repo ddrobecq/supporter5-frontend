@@ -27,3 +27,12 @@ export async function fetchEquipeType(saison: string, signal?: AbortSignal): Pro
   );
   return data.data ?? null;
 }
+
+/** Equipe type historique (toutes saisons confondues), memes calculs mais sans filtre de saison. */
+export async function fetchEquipeTypeHistorique(signal?: AbortSignal): Promise<EquipeTypeResult | null> {
+  const { data } = await http.get<{ data: EquipeTypeResult }>(
+    `${env.statsPublicResource}/joueur/apparitions/equipe-type`,
+    { signal },
+  );
+  return data.data ?? null;
+}

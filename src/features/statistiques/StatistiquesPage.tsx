@@ -3,7 +3,6 @@ import BarChartRoundedIcon from '@mui/icons-material/BarChartRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
-import TableRowsRoundedIcon from '@mui/icons-material/TableRowsRounded';
 import {
   Box,
   Collapse,
@@ -17,8 +16,6 @@ import {
   ListItemText,
   Stack,
   TextField,
-  ToggleButton,
-  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -34,7 +31,6 @@ interface StatisticsUiState {
   search: string;
   expandedDomains: Record<string, boolean>;
   expandedThemes: Record<string, boolean>;
-  viewMode: 'table' | 'chart';
   drawerOpen: boolean;
 }
 
@@ -42,7 +38,6 @@ const DEFAULT_STATISTICS_UI_STATE: StatisticsUiState = {
   search: '',
   expandedDomains: {},
   expandedThemes: {},
-  viewMode: 'table',
   drawerOpen: false,
 };
 
@@ -56,7 +51,6 @@ function readStatisticsUiState(): StatisticsUiState {
       ...parsed,
       expandedDomains: parsed.expandedDomains ?? {},
       expandedThemes: parsed.expandedThemes ?? {},
-      viewMode: parsed.viewMode === 'chart' ? 'chart' : 'table',
     };
   } catch {
     return DEFAULT_STATISTICS_UI_STATE;
@@ -79,7 +73,7 @@ export function StatistiquesPage() {
   const [uiState, setUiState] = useState<StatisticsUiState>(() => readStatisticsUiState());
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isNarrow, setIsNarrow] = useState(false);
-  const { search, expandedDomains, expandedThemes, viewMode, drawerOpen } = uiState;
+  const { search, expandedDomains, expandedThemes, drawerOpen } = uiState;
 
   useEffect(() => {
     window.sessionStorage.setItem(STATISTICS_UI_STORAGE_KEY, JSON.stringify(uiState));
@@ -301,19 +295,6 @@ export function StatistiquesPage() {
                   {selectedType?.label ?? selectedTheme.label}
                 </Typography>
               </Stack>
-              <ToggleButtonGroup
-                size="small"
-                exclusive
-                value={viewMode}
-                onChange={(_event, next) => next && setUiState((prev) => ({ ...prev, viewMode: next }))}
-              >
-                <ToggleButton value="table" aria-label="Vue tableau">
-                  <TableRowsRoundedIcon fontSize="small" />
-                </ToggleButton>
-                <ToggleButton value="chart" aria-label="Vue graphe">
-                  <BarChartRoundedIcon fontSize="small" />
-                </ToggleButton>
-              </ToggleButtonGroup>
             </Stack>
             {/* Zone filtres: à alimenter par stat (compétition, domicile/extérieur, saison…) */}
             <Box sx={{ p: 2, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
@@ -323,7 +304,7 @@ export function StatistiquesPage() {
                 <Stack spacing={1} sx={{ flex: 1, alignItems: 'center', justifyContent: 'center', color: 'text.secondary' }}>
                   <ArticleRoundedIcon sx={{ fontSize: 40 }} />
                   <Typography variant="body2">
-                    StatGrid « {selectedType?.label ?? selectedTheme.label} » à venir ({viewMode === 'table' ? 'vue tableau' : 'vue graphe'}).
+                    StatGrid « {selectedType?.label ?? selectedTheme.label} » à venir.
                   </Typography>
                 </Stack>
               )}
