@@ -143,6 +143,21 @@ export async function createClubWithWizard(payload: ClubCreateWizardPayload): Pr
   return data;
 }
 
+export interface ClubMergeResult {
+  sourceId: string;
+  targetId: string;
+  rencontresDomicile: number;
+  rencontresExterieur: number;
+  participations: number;
+  nomsSupprimes: number;
+  terrainsSupprimes: number;
+}
+
+export async function mergeClubs(sourceId: string, targetId: string): Promise<ClubMergeResult> {
+  const { data } = await http.post<ClubMergeResult>(`${env.clubAdminResource}/merge`, { sourceId, targetId });
+  return data;
+}
+
 export async function updateClubColors(
   id: string,
   payload: { fond: string | number | null; texte: string | number | null },

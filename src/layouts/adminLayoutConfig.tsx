@@ -8,6 +8,7 @@ import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
+import MergeRoundedIcon from '@mui/icons-material/MergeRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import RuleRoundedIcon from '@mui/icons-material/RuleRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
@@ -131,6 +132,22 @@ export const TOOLBAR_SECONDARY_CATEGORIES: Array<NonNullable<ToolbarButton['seco
   'Référentiels',
   'Compétitions',
   'Organisation',
+];
+
+export type ToolsMenuAction = 'club-merge';
+
+export interface ToolsMenuGroup {
+  label: string;
+  items: Array<{ label: string; icon: ReactNode; action: ToolsMenuAction }>;
+}
+
+export const TOOLBAR_TOOLS_GROUPS: ToolsMenuGroup[] = [
+  {
+    label: 'Clubs',
+    items: [
+      { label: 'Fusionner...', icon: <MergeRoundedIcon />, action: 'club-merge' },
+    ],
+  },
 ];
 
 export const TAB_META: Record<string, TabMeta> = {

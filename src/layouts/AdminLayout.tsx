@@ -1,4 +1,5 @@
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import BuildRoundedIcon from '@mui/icons-material/BuildRounded';
 import MoreHorizRoundedIcon from '@mui/icons-material/MoreHorizRounded';
 import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
@@ -42,16 +43,19 @@ import {
   TAB_META,
   TOOLBAR_BUTTONS,
   TOOLBAR_SECONDARY_CATEGORIES,
+  TOOLBAR_TOOLS_GROUPS,
   type NavTab,
   type PickerEntityKey,
   type PickerOpenPayload,
   type ToolbarButton,
+  type ToolsMenuAction,
 } from './adminLayoutConfig';
 import { decodeRouteSegment, normalizeRoutePath, resolveTabMetaPath } from './adminLayoutRoutes';
 
 const RencontreTabFormPane = lazy(() => import('../features/rencontre/RencontreTabFormPane').then((module) => ({ default: module.RencontreTabFormPane })));
 const RencontreCreateWizardDialog = lazy(() => import('../features/rencontre/RencontreCreateWizardDialog').then((module) => ({ default: module.RencontreCreateWizardDialog })));
 const TerrainPickerDialog = lazy(() => import('../features/terrain/TerrainPickerDialog').then((module) => ({ default: module.TerrainPickerDialog })));
+const ClubMergeDialog = lazy(() => import('../features/club/ClubMergeDialog').then((module) => ({ default: module.ClubMergeDialog })));
 
 interface OpenTabOptions {
   unique?: boolean;
@@ -81,6 +85,8 @@ export function AdminLayout() {
   const [compactNavButtons, setCompactNavButtons] = useState(false);
   const [compactTopActions, setCompactTopActions] = useState(false);
   const [moreMenuAnchorEl, setMoreMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [toolsMenuAnchorEl, setToolsMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [clubMergeOpen, setClubMergeOpen] = useState(false);
   const [pickerModal, setPickerModal] = useState<PickerEntityKey | null>(null);
   const [rencontreWizardOpen, setRencontreWizardOpen] = useState(false);
   const [dirtyTabsByPath, setDirtyTabsByPath] = useState<Record<string, boolean>>({});
@@ -127,6 +133,12 @@ export function AdminLayout() {
     || PICKER_ENTITY_DEFINITIONS.some((entity) => path.startsWith(`${entity.basePath}/`))
   );
   const activeTabIsDynamicForm = Boolean(activeTab?.path && isDynamicFormPath(activeTab.path)) || isDynamicFormPath(location.pathname);
+
+  const handleToolsMenuAction = (action: ToolsMenuAction) => {
+    if (action === 'club-merge') {
+      setClubMergeOpen(true);
+    }
+  };
 
   const handleToolbarButtonClick = (button: ToolbarButton) => {
     switch (button.action) {
@@ -581,6 +593,54 @@ export function AdminLayout() {
               );
             })}
 
+            <Tooltip title="Outils" disableHoverListener={!compactNavButtons}>
+              <Button
+                size="small"
+                variant="outlined"
+                color="inherit"
+                startIcon={compactNavButtons ? undefined : <BuildRoundedIcon />}
+                sx={{
+                  minWidth: 36,
+                  px: compactNavButtons ? 1 : 1.25,
+                  '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
+                }}
+                aria-label="Outils"
+                aria-haspopup="menu"
+                aria-expanded={Boolean(toolsMenuAnchorEl) ? 'true' : undefined}
+                onClick={(event) => setToolsMenuAnchorEl(event.currentTarget)}
+              >
+                {compactNavButtons ? <BuildRoundedIcon /> : 'Outils'}
+              </Button>
+            </Tooltip>
+
+            <Menu
+              anchorEl={toolsMenuAnchorEl}
+              open={Boolean(toolsMenuAnchorEl)}
+              onClose={() => setToolsMenuAnchorEl(null)}
+              slotProps={{ list: { 'aria-label': 'Outils' } }}
+            >
+              {TOOLBAR_TOOLS_GROUPS.map((group, groupIndex) => (
+                <Fragment key={group.label}>
+                  {groupIndex > 0 && <Divider />}
+                  <MenuItem disabled sx={{ opacity: 1, fontWeight: 700 }}>
+                    {group.label}
+                  </MenuItem>
+                  {group.items.map((item) => (
+                    <MenuItem
+                      key={item.label}
+                      onClick={() => {
+                        setToolsMenuAnchorEl(null);
+                        handleToolsMenuAction(item.action);
+                      }}
+                    >
+                      <ListItemIcon>{item.icon}</ListItemIcon>
+                      <ListItemText>{item.label}</ListItemText>
+                    </MenuItem>
+                  ))}
+                </Fragment>
+              ))}
+            </Menu>
+
             <Tooltip title="Plus" disableHoverListener={!compactNavButtons}>
               <Button
                 size="small"
@@ -785,6 +845,12 @@ export function AdminLayout() {
               openTab(`/admin/rencontres/${encodeURIComponent(String(createdId))}`, label || 'Rencontre', { unique: true, uniqueByPath: true });
             }}
           />
+        </Suspense>
+      ) : null}
+
+      {clubMergeOpen ? (
+        <Suspense fallback={null}>
+          <ClubMergeDialog open onClose={() => setClubMergeOpen(false)} />
         </Suspense>
       ) : null}
 
