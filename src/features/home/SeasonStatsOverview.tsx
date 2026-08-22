@@ -132,7 +132,7 @@ export function SeasonStatsOverview() {
             size="small"
             variant="outlined"
             startIcon={<BarChartRoundedIcon />}
-            onClick={() => openStatTab('d=saison&t=temps&s=temps')}
+            onClick={() => openStatTab('d=saison&t=performance&s=temps')}
           >
             Détail
           </Button>
@@ -145,14 +145,14 @@ export function SeasonStatsOverview() {
               icon={<SportsSoccerRoundedIcon sx={{ fontSize: 16 }} />}
               rows={buteurs.slice(0, TOP_COUNT)}
               unit="buts"
-              onOpenMore={() => openStatTab('d=saison&t=buts&s=buts')}
+              onOpenMore={() => openStatTab('d=saison&t=performance&s=buts')}
             />
             <TopList
               title="Meilleurs passeurs"
               icon={<HandshakeRoundedIcon sx={{ fontSize: 16 }} />}
               rows={passeurs.slice(0, TOP_COUNT)}
               unit="passes"
-              onOpenMore={() => openStatTab('d=saison&t=passes&s=passes')}
+              onOpenMore={() => openStatTab('d=saison&t=performance&s=passes')}
             />
           </Stack>
 
@@ -160,7 +160,7 @@ export function SeasonStatsOverview() {
             <Stack
               direction="row"
               spacing={0.75}
-              onClick={() => openStatTab('d=saison&t=equipe-type&s=equipe-type')}
+              onClick={() => openStatTab('d=saison&t=performance&s=equipe-type')}
               sx={{ alignItems: 'center', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
             >
               <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Équipe type</Typography>
@@ -168,7 +168,7 @@ export function SeasonStatsOverview() {
                 <Chip size="small" color="primary" label={equipeType.FORMATION} sx={{ height: 20, fontSize: 11, fontWeight: 700 }} />
               ) : null}
             </Stack>
-            <Box onClick={() => openStatTab('d=saison&t=equipe-type&s=equipe-type')} sx={{ cursor: 'pointer' }}>
+            <Box onClick={() => openStatTab('d=saison&t=performance&s=equipe-type')} sx={{ cursor: 'pointer' }}>
               <PitchField>
                 {PITCH_SLOTS.filter((slot) => joueurParPoste.has(slot.code)).map((slot) => {
                   const joueur = joueurParPoste.get(slot.code)!;
