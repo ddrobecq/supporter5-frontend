@@ -56,32 +56,33 @@ export function PitchField({ children }: { children?: ReactNode }) {
       sx={{
         position: 'relative',
         width: '100%',
-        paddingTop: '150%',
+        // Ratio longueur/largeur = 1,54 (mutualise pour match, stat saison et stat toutes saisons).
+        paddingTop: '154%',
         bgcolor: '#2d8a4e',
         borderRadius: 2,
         border: '3px solid #fff',
         overflow: 'hidden',
       }}
     >
-      {/* viewBox 70x105 calque exactement le paddingTop:150% */}
+      {/* viewBox 70x107.8 calque exactement le paddingTop:154% (ratio 1.54) */}
       <svg
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
-        viewBox="0 0 70 105"
+        viewBox="0 0 70 107.8"
         preserveAspectRatio="none"
       >
-        <line x1="0" y1="52.5" x2="70" y2="52.5" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" />
-        <circle cx="35" cy="52.5" r="9.15" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" fill="none" />
-        <circle cx="35" cy="52.5" r="0.6" fill="rgba(255,255,255,0.5)" />
+        <line x1="0" y1="53.9" x2="70" y2="53.9" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" />
+        <circle cx="35" cy="53.9" r="9.15" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" fill="none" />
+        <circle cx="35" cy="53.9" r="0.6" fill="rgba(255,255,255,0.5)" />
 
         <rect x="14.84" y="0" width="40.32" height="16.5" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" fill="none" />
         <rect x="25.84" y="0" width="18.32" height="5.5" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" fill="none" />
         <circle cx="35" cy="11" r="0.6" fill="rgba(255,255,255,0.5)" />
         <path d="M 27.69 16.5 A 9.15 9.15 0 0 0 42.31 16.5" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" fill="none" />
 
-        <rect x="14.84" y="88.5" width="40.32" height="16.5" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" fill="none" />
-        <rect x="25.84" y="99.5" width="18.32" height="5.5" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" fill="none" />
-        <circle cx="35" cy="94" r="0.6" fill="rgba(255,255,255,0.5)" />
-        <path d="M 27.69 88.5 A 9.15 9.15 0 0 1 42.31 88.5" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" fill="none" />
+        <rect x="14.84" y="91.3" width="40.32" height="16.5" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" fill="none" />
+        <rect x="25.84" y="102.3" width="18.32" height="5.5" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" fill="none" />
+        <circle cx="35" cy="96.8" r="0.6" fill="rgba(255,255,255,0.5)" />
+        <path d="M 27.69 91.3 A 9.15 9.15 0 0 1 42.31 91.3" stroke="rgba(255,255,255,0.4)" strokeWidth="0.4" fill="none" />
       </svg>
       {children}
     </Box>
