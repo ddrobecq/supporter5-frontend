@@ -5,6 +5,8 @@ import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
 import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
 import HealingRoundedIcon from '@mui/icons-material/HealingRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
+import FindReplaceRoundedIcon from '@mui/icons-material/FindReplaceRounded';
+import SwapHorizRoundedIcon from '@mui/icons-material/SwapHorizRounded';
 import ReportRoundedIcon from '@mui/icons-material/ReportRounded';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
 import SquareRoundedIcon from '@mui/icons-material/SquareRounded';
@@ -32,7 +34,7 @@ import {
 } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactElement } from 'react';
+import type { MouseEvent as ReactMouseEvent, ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
@@ -61,6 +63,8 @@ import { EventFormDialog, type EventFormDialogActions } from './EventFormDialog'
 import { ArbitrePage } from '../arbitre/ArbitrePage';
 import { ArbitreIdentityDisplay } from '../../components/ArbitreIdentityDisplay';
 import { TerrainPickerDialog } from '../terrain/TerrainPickerDialog';
+import { ClubSelectionDialog } from '../competition/ClubSelectionDialog';
+import type { ClubGridRow } from '../club/types';
 
 interface RencontreTabFormPaneProps {
   tabPath: string;
@@ -88,6 +92,16 @@ interface RencontreDraft {
   terrainLabel: string;
   nbSpect: string;
   houseClosed: boolean;
+  domicileId: string;
+  domicileName: string;
+  domicileAbrege: string;
+  domicileFond: string | number | null;
+  domicileTexte: string | number | null;
+  exterieurId: string;
+  exterieurName: string;
+  exterieurAbrege: string;
+  exterieurFond: string | number | null;
+  exterieurTexte: string | number | null;
 }
 
 interface CompetitionOption {
@@ -293,6 +307,16 @@ function buildDraftFromDetail(detail: RencontreDetailRow): RencontreDraft {
     terrainLabel: String(detail.TERRAIN_DISPLAY ?? detail.TERRAIN_NOM ?? '').trim(),
     nbSpect: houseClosed ? '0' : toNonNegativeIntegerString(detail.NBSPECT),
     houseClosed,
+    domicileId: String(detail.DOMICILE ?? '').trim(),
+    domicileName: String(detail.DOMICILE_NOM_EFFECTIF ?? '').trim(),
+    domicileAbrege: String(detail.DOMICILE_ABREGE ?? '').trim(),
+    domicileFond: detail.DOMICILE_FOND,
+    domicileTexte: detail.DOMICILE_TEXTE,
+    exterieurId: String(detail.EXTERIEUR ?? '').trim(),
+    exterieurName: String(detail.EXTERIEUR_NOM_EFFECTIF ?? '').trim(),
+    exterieurAbrege: String(detail.EXTERIEUR_ABREGE ?? '').trim(),
+    exterieurFond: detail.EXTERIEUR_FOND,
+    exterieurTexte: detail.EXTERIEUR_TEXTE,
   };
 }
 
@@ -315,6 +339,8 @@ function getDraftSignature(draft: RencontreDraft, adminDecisionEnabled: boolean)
     terrainId: String(draft.terrainId ?? '').trim(),
     nbSpect: Number(toNonNegativeIntegerString(draft.nbSpect)),
     houseClosed: Boolean(draft.houseClosed),
+    domicileId: String(draft.domicileId ?? '').trim(),
+    exterieurId: String(draft.exterieurId ?? '').trim(),
   });
 }
 
@@ -358,6 +384,8 @@ function ClubInlineLine({
   clubTexte,
   align,
   onOpenClub,
+  onReplaceClub,
+  onSwapClubs,
 }: {
   clubId: string;
   clubName: string;
@@ -368,6 +396,8 @@ function ClubInlineLine({
   clubTexte: unknown;
   align: 'left' | 'right';
   onOpenClub?: () => void;
+  onReplaceClub?: () => void;
+  onSwapClubs?: () => void;
 }) {
   const { src } = useEntityImage('club', clubId);
   const tooltipLabel = String(hoverLabel ?? '').trim() || clubName;
@@ -377,7 +407,21 @@ function ClubInlineLine({
   const textColor = normalizeColorCode(clubTexte, '#111827');
 
   return (
-    <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minWidth: 0, width: '100%', justifyContent: align === 'right' ? 'flex-end' : 'flex-start' }}>
+    <Stack
+      direction="row"
+      spacing={1}
+      sx={{
+        alignItems: 'center',
+        minWidth: 0,
+        width: '100%',
+        justifyContent: align === 'right' ? 'flex-end' : 'flex-start',
+        position: 'relative',
+        '&:hover .club-line-actions, &:focus-within .club-line-actions': {
+          opacity: 1,
+          pointerEvents: 'auto',
+        },
+      }}
+    >
       <Stack
         direction="row"
         spacing={1}
@@ -433,6 +477,12 @@ function ClubInlineLine({
             component={canOpenClub ? 'button' : 'span'}
             type={canOpenClub ? 'button' : undefined}
             onClick={canOpenClub ? onOpenClub : undefined}
+            onContextMenu={onReplaceClub
+              ? (event: ReactMouseEvent) => {
+                event.preventDefault();
+                onReplaceClub();
+              }
+              : undefined}
             variant="body1"
             aria-label={ariaLabel}
             sx={{
@@ -461,6 +511,44 @@ function ClubInlineLine({
           </Typography>
         </Tooltip>
       </Stack>
+
+      {onReplaceClub || onSwapClubs ? (
+        <Stack
+          className="club-line-actions"
+          direction="row"
+          spacing={0.25}
+          sx={{
+            position: 'absolute',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            ...(align === 'right' ? { left: 0 } : { right: 0 }),
+            alignItems: 'center',
+            bgcolor: 'rgba(255, 255, 255, 0.9)',
+            backdropFilter: 'blur(2px)',
+            borderRadius: 999,
+            px: 0.25,
+            boxShadow: '0 1px 4px rgba(0, 0, 0, 0.16)',
+            opacity: 0,
+            pointerEvents: 'none',
+            transition: 'opacity 160ms ease',
+          }}
+        >
+          {onReplaceClub ? (
+            <Tooltip title="Remplacer ce club">
+              <IconButton size="small" onClick={onReplaceClub} aria-label="Remplacer ce club">
+                <FindReplaceRoundedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          ) : null}
+          {onSwapClubs ? (
+            <Tooltip title="Permuter domicile et exterieur">
+              <IconButton size="small" onClick={onSwapClubs} aria-label="Permuter domicile et exterieur">
+                <SwapHorizRoundedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          ) : null}
+        </Stack>
+      ) : null}
     </Stack>
   );
 }
@@ -497,6 +585,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
   const [highlightsLoading, setHighlightsLoading] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
+  const [clubReplaceSide, setClubReplaceSide] = useState<'home' | 'away' | null>(null);
   const [eventDialogMode, setEventDialogMode] = useState<'create' | 'edit'>('create');
   const [arbitrePickerOpen, setArbitrePickerOpen] = useState(false);
   const [terrainPickerOpen, setTerrainPickerOpen] = useState(false);
@@ -702,6 +791,12 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       const readminValue = adminDecisionEnabled
         ? Math.max(1, Math.min(4, Number(draft.readmin) || 1))
         : 0;
+      const nextDomicile = String(draft.domicileId ?? '').trim();
+      const nextExterieur = String(draft.exterieurId ?? '').trim();
+      if (nextDomicile && nextDomicile === nextExterieur) {
+        setSnackbar({ severity: 'error', message: 'Les equipes domicile et exterieure doivent etre differentes.' });
+        return;
+      }
 
       await updateRencontreDetail(detail.RECLEUNIK, {
         BUTDOM: Number(toNonNegativeIntegerString(draft.butDom)),
@@ -716,6 +811,8 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
         IDCIRC: String(draft.circId ?? '').trim(),
         READMIN: readminValue,
         COMMENT: String(draft.comment ?? ''),
+        ...(nextDomicile !== String(detail.DOMICILE ?? '').trim() ? { DOMICILE: nextDomicile } : {}),
+        ...(nextExterieur !== String(detail.EXTERIEUR ?? '').trim() ? { EXTERIEUR: nextExterieur } : {}),
       });
 
       if (Number(detail.IS_SUPPORTED_CLUB_MATCH ?? 0) === 1) {
@@ -737,6 +834,36 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleReplaceClub = (side: 'home' | 'away', club: ClubGridRow) => {
+    const nextId = String(club.IDCLUB ?? '').trim();
+    if (!nextId) return;
+    const nextName = String(club.CLUB_NOM_COMPLET ?? '').trim() || nextId;
+    const nextAbrege = String(club.CLUB_ABREGE ?? '').trim();
+    setDraft((prev) => (prev
+      ? (side === 'home'
+        ? { ...prev, domicileId: nextId, domicileName: nextName, domicileAbrege: nextAbrege, domicileFond: null, domicileTexte: null }
+        : { ...prev, exterieurId: nextId, exterieurName: nextName, exterieurAbrege: nextAbrege, exterieurFond: null, exterieurTexte: null })
+      : prev));
+  };
+
+  const handleSwapClubs = () => {
+    setDraft((prev) => (prev
+      ? {
+        ...prev,
+        domicileId: prev.exterieurId,
+        domicileName: prev.exterieurName,
+        domicileAbrege: prev.exterieurAbrege,
+        domicileFond: prev.exterieurFond,
+        domicileTexte: prev.exterieurTexte,
+        exterieurId: prev.domicileId,
+        exterieurName: prev.domicileName,
+        exterieurAbrege: prev.domicileAbrege,
+        exterieurFond: prev.domicileFond,
+        exterieurTexte: prev.domicileTexte,
+      }
+      : prev));
   };
 
   const anyDirty = isDirty || isCompositionDirty || isEventDialogDirty;
@@ -831,6 +958,11 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
 
   const domicileClubId = String(detail?.DOMICILE ?? '').trim();
   const exterieurClubId = String(detail?.EXTERIEUR ?? '').trim();
+  // Un club remplace dans le brouillon prend le pas sur les donnees chargees tant que l'utilisateur n'a pas enregistre.
+  const draftDomicileId = String(draft?.domicileId ?? domicileClubId).trim();
+  const draftExterieurId = String(draft?.exterieurId ?? exterieurClubId).trim();
+  const isDomicileReplaced = Boolean(draft) && draftDomicileId !== domicileClubId;
+  const isExterieurReplaced = Boolean(draft) && draftExterieurId !== exterieurClubId;
   const domicileSource = String(detail?.PADOMSource ?? '').trim();
   const exterieurSource = String(detail?.PAEXTSource ?? '').trim();
   const resolvedDomicileName = resolveProgrammedParticipantName({
@@ -845,24 +977,32 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     fallbackClubName: exterieurClubId ? detail?.EXTERIEUR_NOM_EFFECTIF : undefined,
     mode: 'dynamic',
   });
-  const isDomicileProgrammed = !domicileClubId && Boolean(parsePaSourceForLabel(domicileSource));
-  const isExterieurProgrammed = !exterieurClubId && Boolean(parsePaSourceForLabel(exterieurSource));
-  const displayDomicileName = isDomicileProgrammed
-    ? (String(detail?.DOMICILE_NOM_EFFECTIF ?? '').trim() || resolvedDomicileName)
-    : resolvedDomicileName;
-  const displayExterieurName = isExterieurProgrammed
-    ? (String(detail?.EXTERIEUR_NOM_EFFECTIF ?? '').trim() || resolvedExterieurName)
-    : resolvedExterieurName;
-  const domicileHoverLabel = isDomicileProgrammed
-    ? `Participants possibles: ${resolvedDomicileName}`
-    : (String(detail?.DOMICILE_NOM_COMPLET ?? '').trim()
-      || String(detail?.DOMICILE_NOM_EFFECTIF ?? '').trim()
-      || displayDomicileName);
-  const exterieurHoverLabel = isExterieurProgrammed
-    ? `Participants possibles: ${resolvedExterieurName}`
-    : (String(detail?.EXTERIEUR_NOM_COMPLET ?? '').trim()
-      || String(detail?.EXTERIEUR_NOM_EFFECTIF ?? '').trim()
-      || displayExterieurName);
+  const isDomicileProgrammed = !isDomicileReplaced && !domicileClubId && Boolean(parsePaSourceForLabel(domicileSource));
+  const isExterieurProgrammed = !isExterieurReplaced && !exterieurClubId && Boolean(parsePaSourceForLabel(exterieurSource));
+  const displayDomicileName = isDomicileReplaced
+    ? (String(draft?.domicileAbrege ?? '').trim() || String(draft?.domicileName ?? '').trim())
+    : isDomicileProgrammed
+      ? (String(detail?.DOMICILE_NOM_EFFECTIF ?? '').trim() || resolvedDomicileName)
+      : resolvedDomicileName;
+  const displayExterieurName = isExterieurReplaced
+    ? (String(draft?.exterieurAbrege ?? '').trim() || String(draft?.exterieurName ?? '').trim())
+    : isExterieurProgrammed
+      ? (String(detail?.EXTERIEUR_NOM_EFFECTIF ?? '').trim() || resolvedExterieurName)
+      : resolvedExterieurName;
+  const domicileHoverLabel = isDomicileReplaced
+    ? (String(draft?.domicileName ?? '').trim() || displayDomicileName)
+    : isDomicileProgrammed
+      ? `Participants possibles: ${resolvedDomicileName}`
+      : (String(detail?.DOMICILE_NOM_COMPLET ?? '').trim()
+        || String(detail?.DOMICILE_NOM_EFFECTIF ?? '').trim()
+        || displayDomicileName);
+  const exterieurHoverLabel = isExterieurReplaced
+    ? (String(draft?.exterieurName ?? '').trim() || displayExterieurName)
+    : isExterieurProgrammed
+      ? `Participants possibles: ${resolvedExterieurName}`
+      : (String(detail?.EXTERIEUR_NOM_COMPLET ?? '').trim()
+        || String(detail?.EXTERIEUR_NOM_EFFECTIF ?? '').trim()
+        || displayExterieurName);
 
   useEffect(() => {
     const tabLabel = `${displayDomicileName} - ${displayExterieurName}`;
@@ -989,35 +1129,43 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     <Stack spacing={1.5}>
       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.25, alignItems: 'center' }}>
         <ClubInlineLine
-          clubId={detail.DOMICILE}
+          clubId={draftDomicileId}
           clubName={displayDomicileName}
           hoverLabel={domicileHoverLabel}
           isProgrammed={isDomicileProgrammed}
-          clubShortName={String(detail.DOMICILE_ABREGE ?? '').trim()}
-          clubFond={detail.DOMICILE_FOND}
-          clubTexte={detail.DOMICILE_TEXTE}
+          clubShortName={isDomicileReplaced
+            ? String(draft?.domicileAbrege ?? '').trim()
+            : String(detail.DOMICILE_ABREGE ?? '').trim()}
+          clubFond={isDomicileReplaced ? draft?.domicileFond : detail.DOMICILE_FOND}
+          clubTexte={isDomicileReplaced ? draft?.domicileTexte : detail.DOMICILE_TEXTE}
           align="right"
-          onOpenClub={detail.DOMICILE
+          onOpenClub={draftDomicileId
             ? () => {
-              navigate(`/admin/clubs/${encodeURIComponent(String(detail.DOMICILE))}`);
+              navigate(`/admin/clubs/${encodeURIComponent(draftDomicileId)}`);
             }
             : undefined}
+          onReplaceClub={() => setClubReplaceSide('home')}
+          onSwapClubs={handleSwapClubs}
         />
 
         <ClubInlineLine
-          clubId={detail.EXTERIEUR}
+          clubId={draftExterieurId}
           clubName={displayExterieurName}
           hoverLabel={exterieurHoverLabel}
           isProgrammed={isExterieurProgrammed}
-          clubShortName={String(detail.EXTERIEUR_ABREGE ?? '').trim()}
-          clubFond={detail.EXTERIEUR_FOND}
-          clubTexte={detail.EXTERIEUR_TEXTE}
+          clubShortName={isExterieurReplaced
+            ? String(draft?.exterieurAbrege ?? '').trim()
+            : String(detail.EXTERIEUR_ABREGE ?? '').trim()}
+          clubFond={isExterieurReplaced ? draft?.exterieurFond : detail.EXTERIEUR_FOND}
+          clubTexte={isExterieurReplaced ? draft?.exterieurTexte : detail.EXTERIEUR_TEXTE}
           align="left"
-          onOpenClub={detail.EXTERIEUR
+          onOpenClub={draftExterieurId
             ? () => {
-              navigate(`/admin/clubs/${encodeURIComponent(String(detail.EXTERIEUR))}`);
+              navigate(`/admin/clubs/${encodeURIComponent(draftExterieurId)}`);
             }
             : undefined}
+          onReplaceClub={() => setClubReplaceSide('away')}
+          onSwapClubs={handleSwapClubs}
         />
       </Box>
 
@@ -1585,6 +1733,16 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
             terrainId: String(rowId),
             terrainLabel: String(label ?? '').trim(),
           } : prev));
+        }}
+      />
+
+      <ClubSelectionDialog
+        open={clubReplaceSide !== null}
+        onClose={() => setClubReplaceSide(null)}
+        onSelect={(_clubId, club) => {
+          const side = clubReplaceSide;
+          setClubReplaceSide(null);
+          if (side && club) handleReplaceClub(side, club);
         }}
       />
 
