@@ -15,6 +15,10 @@ const CompetitionPage = lazy(() => import('./features/competition/CompetitionPag
 const JoueurPage = lazy(() => import('./features/joueur/JoueurPage').then((module) => ({ default: module.JoueurPage })));
 const CalendrierPage = lazy(() => import('./features/calendrier/CalendrierPage').then((module) => ({ default: module.CalendrierPage })));
 const StatistiquesPage = lazy(() => import('./features/statistiques/StatistiquesPage').then((module) => ({ default: module.StatistiquesPage })));
+const JoueursIncompletsPage = lazy(() => import('./features/incomplets/JoueursIncompletsPage').then((module) => ({ default: module.JoueursIncompletsPage })));
+const ClubsIncompletsPage = lazy(() => import('./features/incomplets/ClubsIncompletsPage').then((module) => ({ default: module.ClubsIncompletsPage })));
+const RencontresIncompletesPage = lazy(() => import('./features/incomplets/RencontresIncompletesPage').then((module) => ({ default: module.RencontresIncompletesPage })));
+const RencontreImportPage = lazy(() => import('./features/import/RencontreImportPage').then((module) => ({ default: module.RencontreImportPage })));
 const ClubPage = lazy(() => import('./features/club/ClubPage').then((module) => ({ default: module.ClubPage })));
 const TourDefPage = lazy(() => import('./features/tourdef/TourDefPage').then((module) => ({ default: module.TourDefPage })));
 const ConfigurationPage = lazy(() => import('./features/configuration/ConfigurationPage').then((module) => ({ default: module.ConfigurationPage })));
@@ -75,6 +79,14 @@ function App() {
             <Route path="/admin/calendrier" element={<CalendrierPage />} />
             <Route path="/statistiques" element={<Navigate to="/admin/statistiques" replace />} />
             <Route path="/admin/statistiques" element={<StatistiquesPage />} />
+            <Route path="/joueurs-incomplets" element={<Navigate to="/admin/joueurs-incomplets" replace />} />
+            <Route path="/admin/joueurs-incomplets" element={<JoueursIncompletsPage />} />
+            <Route path="/clubs-incomplets" element={<Navigate to="/admin/clubs-incomplets" replace />} />
+            <Route path="/admin/clubs-incomplets" element={<ClubsIncompletsPage />} />
+            <Route path="/rencontres-incompletes" element={<Navigate to="/admin/rencontres-incompletes" replace />} />
+            <Route path="/admin/rencontres-incompletes" element={<RencontresIncompletesPage />} />
+            <Route path="/import-rencontres" element={<Navigate to="/admin/import-rencontres" replace />} />
+            <Route path="/admin/import-rencontres" element={<RencontreImportPage />} />
             <Route path="/rencontres/:rencontreId" element={<RedirectByParam paramName="rencontreId" toPrefix="/admin/rencontres" />} />
             <Route path="/admin/rencontres/:rencontreId" element={<EmptyRoute />} />
             {ENTITY_ROUTES.map(({ shortPath, adminPath, paramName, PageComponent }) => (

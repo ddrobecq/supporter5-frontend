@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import BarChartRoundedIcon from '@mui/icons-material/BarChartRounded';
+import CalculateRoundedIcon from '@mui/icons-material/CalculateRounded';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import EventNoteRoundedIcon from '@mui/icons-material/EventNoteRounded';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
@@ -10,12 +11,14 @@ import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
 import MergeRoundedIcon from '@mui/icons-material/MergeRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
+import PersonSearchRoundedIcon from '@mui/icons-material/PersonSearchRounded';
 import RuleRoundedIcon from '@mui/icons-material/RuleRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
 import SportsIcon from '@mui/icons-material/Sports';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
 import StadiumRoundedIcon from '@mui/icons-material/StadiumRounded';
+import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded';
 import type { GridRowId } from '@mui/x-data-grid';
 import { lazy, type ReactNode } from 'react';
 
@@ -134,11 +137,17 @@ export const TOOLBAR_SECONDARY_CATEGORIES: Array<NonNullable<ToolbarButton['seco
   'Organisation',
 ];
 
-export type ToolsMenuAction = 'club-merge';
+export type ToolsMenuAction =
+  | 'club-merge'
+  | 'stats-recompute'
+  | 'rencontres-import'
+  | 'incomplets-joueurs'
+  | 'incomplets-clubs'
+  | 'incomplets-rencontres';
 
 export interface ToolsMenuGroup {
   label: string;
-  items: Array<{ label: string; icon: ReactNode; action: ToolsMenuAction }>;
+  items: Array<{ label: string; icon: ReactNode; action: ToolsMenuAction; disabled?: boolean }>;
 }
 
 export const TOOLBAR_TOOLS_GROUPS: ToolsMenuGroup[] = [
@@ -146,6 +155,26 @@ export const TOOLBAR_TOOLS_GROUPS: ToolsMenuGroup[] = [
     label: 'Clubs',
     items: [
       { label: 'Fusionner...', icon: <MergeRoundedIcon />, action: 'club-merge' },
+    ],
+  },
+  {
+    label: 'Rencontres',
+    items: [
+      { label: 'Importer...', icon: <UploadFileRoundedIcon />, action: 'rencontres-import' },
+    ],
+  },
+  {
+    label: 'Statistiques',
+    items: [
+      { label: 'Calculer statistiques...', icon: <CalculateRoundedIcon />, action: 'stats-recompute' },
+    ],
+  },
+  {
+    label: 'Fiches incomplètes',
+    items: [
+      { label: 'Joueurs incomplets', icon: <PersonSearchRoundedIcon />, action: 'incomplets-joueurs' },
+      { label: 'Clubs incomplets', icon: <ShieldRoundedIcon />, action: 'incomplets-clubs' },
+      { label: 'Rencontres incomplètes', icon: <SportsSoccerRoundedIcon />, action: 'incomplets-rencontres' },
     ],
   },
 ];
@@ -166,6 +195,10 @@ export const TAB_META: Record<string, TabMeta> = {
   '/admin/epreuve': { label: 'Épreuves', icon: <MilitaryTechIcon sx={{ fontSize: 14 }} /> },
   '/admin/tourdefs': { label: 'Defs Tour', icon: <RuleRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/statistiques': { label: 'Statistiques', icon: <BarChartRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/joueurs-incomplets': { label: 'Joueurs incomplets', icon: <PersonSearchRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/clubs-incomplets': { label: 'Clubs incomplets', icon: <ShieldRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/rencontres-incompletes': { label: 'Rencontres incomplètes', icon: <SportsSoccerRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/import-rencontres': { label: 'Import de rencontres', icon: <UploadFileRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/rencontres': { label: 'Rencontres', icon: <SportsSoccerRoundedIcon sx={{ fontSize: 14 }} /> },
 };
 

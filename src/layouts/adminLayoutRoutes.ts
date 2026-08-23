@@ -30,6 +30,14 @@ export function normalizeRoutePath(path: string): string {
       return '/admin/calendrier';
     case '/statistiques':
       return '/admin/statistiques';
+    case '/joueurs-incomplets':
+      return '/admin/joueurs-incomplets';
+    case '/clubs-incomplets':
+      return '/admin/clubs-incomplets';
+    case '/rencontres-incompletes':
+      return '/admin/rencontres-incompletes';
+    case '/import-rencontres':
+      return '/admin/import-rencontres';
     case '/joueurs':
       return '/admin/joueurs';
     case '/clubs':

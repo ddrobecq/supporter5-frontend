@@ -56,6 +56,8 @@ const RencontreTabFormPane = lazy(() => import('../features/rencontre/RencontreT
 const RencontreCreateWizardDialog = lazy(() => import('../features/rencontre/RencontreCreateWizardDialog').then((module) => ({ default: module.RencontreCreateWizardDialog })));
 const TerrainPickerDialog = lazy(() => import('../features/terrain/TerrainPickerDialog').then((module) => ({ default: module.TerrainPickerDialog })));
 const ClubMergeDialog = lazy(() => import('../features/club/ClubMergeDialog').then((module) => ({ default: module.ClubMergeDialog })));
+const StatsRecomputeDialog = lazy(() => import('../features/statistiques/StatsRecomputeDialog').then((module) => ({ default: module.StatsRecomputeDialog })));
+const RencontreImportWizardDialog = lazy(() => import('../features/import/RencontreImportWizardDialog').then((module) => ({ default: module.RencontreImportWizardDialog })));
 
 interface OpenTabOptions {
   unique?: boolean;
@@ -87,6 +89,8 @@ export function AdminLayout() {
   const [moreMenuAnchorEl, setMoreMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [toolsMenuAnchorEl, setToolsMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [clubMergeOpen, setClubMergeOpen] = useState(false);
+  const [statsRecomputeOpen, setStatsRecomputeOpen] = useState(false);
+  const [rencontreImportOpen, setRencontreImportOpen] = useState(false);
   const [pickerModal, setPickerModal] = useState<PickerEntityKey | null>(null);
   const [rencontreWizardOpen, setRencontreWizardOpen] = useState(false);
   const [dirtyTabsByPath, setDirtyTabsByPath] = useState<Record<string, boolean>>({});
@@ -137,6 +141,16 @@ export function AdminLayout() {
   const handleToolsMenuAction = (action: ToolsMenuAction) => {
     if (action === 'club-merge') {
       setClubMergeOpen(true);
+    } else if (action === 'stats-recompute') {
+      setStatsRecomputeOpen(true);
+    } else if (action === 'rencontres-import') {
+      setRencontreImportOpen(true);
+    } else if (action === 'incomplets-joueurs') {
+      openTab('/admin/joueurs-incomplets', 'Joueurs incomplets', { unique: true, uniqueByPath: true });
+    } else if (action === 'incomplets-clubs') {
+      openTab('/admin/clubs-incomplets', 'Clubs incomplets', { unique: true, uniqueByPath: true });
+    } else if (action === 'incomplets-rencontres') {
+      openTab('/admin/rencontres-incompletes', 'Rencontres incomplètes', { unique: true, uniqueByPath: true });
     }
   };
 
@@ -628,6 +642,7 @@ export function AdminLayout() {
                   {group.items.map((item) => (
                     <MenuItem
                       key={item.label}
+                      disabled={item.disabled}
                       onClick={() => {
                         setToolsMenuAnchorEl(null);
                         handleToolsMenuAction(item.action);
@@ -851,6 +866,22 @@ export function AdminLayout() {
       {clubMergeOpen ? (
         <Suspense fallback={null}>
           <ClubMergeDialog open onClose={() => setClubMergeOpen(false)} />
+        </Suspense>
+      ) : null}
+
+      {statsRecomputeOpen ? (
+        <Suspense fallback={null}>
+          <StatsRecomputeDialog open onClose={() => setStatsRecomputeOpen(false)} />
+        </Suspense>
+      ) : null}
+
+      {rencontreImportOpen ? (
+        <Suspense fallback={null}>
+          <RencontreImportWizardDialog
+            open
+            onClose={() => setRencontreImportOpen(false)}
+            onReady={() => openTab('/admin/import-rencontres', 'Import de rencontres', { unique: true, uniqueByPath: true })}
+          />
         </Suspense>
       ) : null}
 
