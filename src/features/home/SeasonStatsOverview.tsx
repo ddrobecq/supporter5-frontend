@@ -137,7 +137,7 @@ export function SeasonStatsOverview({ publicMode = false }: { publicMode?: boole
         borderColor: 'divider',
         borderRadius: 2,
         p: { xs: 1.5, md: 2 },
-        maxWidth: 820,
+        width: '100%',
         bgcolor: 'background.paper',
       }}
     >

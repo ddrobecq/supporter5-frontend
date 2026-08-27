@@ -617,8 +617,6 @@ export function AdminLayout() {
                 sx={{
                   minWidth: 36,
                   px: compactNavButtons ? 1 : 1.25,
-                  color: 'text.primary',
-                  borderColor: 'divider',
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Outils"

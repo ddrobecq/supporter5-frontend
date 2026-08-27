@@ -372,7 +372,7 @@ function SupportedClubCalendar({ clubId, clubName, publicMode }: { clubId: strin
         <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
           <Typography variant="h6" sx={{ fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
             <CalendarMonthIcon sx={{ fontSize: 20 }} />
-            Calendrier de {clubName}
+            Agenda
           </Typography>
           <Stack direction="row" spacing={0.1}>
             <Tooltip title="Rencontres précédentes">
@@ -429,7 +429,21 @@ export function HomePage({ publicMode = false }: { publicMode?: boolean }) {
   }, [loadSupportedClub]);
 
   return (
-    <Box sx={{ minHeight: '55vh', display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box
+      sx={publicMode
+        ? { minHeight: '55vh', display: 'flex', flexDirection: 'column', gap: 2 }
+        : {
+          minHeight: '55vh',
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: '1fr',
+            md: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))',
+            lg: 'minmax(0, 1fr) 360px minmax(0, 1fr)',
+          },
+          alignItems: 'start',
+          gap: 2,
+        }}
+    >
       {!publicMode ? (
       <Paper
         elevation={0}
@@ -438,8 +452,10 @@ export function HomePage({ publicMode = false }: { publicMode?: boolean }) {
           borderColor: 'divider',
           borderRadius: 2,
           p: { xs: 1.5, md: 2 },
-          maxWidth: 820,
+          maxWidth: 360,
+          width: '100%',
           bgcolor: 'background.paper',
+          order: 2,
         }}
       >
         <Stack spacing={0.5}>
@@ -516,8 +532,20 @@ export function HomePage({ publicMode = false }: { publicMode?: boolean }) {
         )}
       </Paper>
       ) : null}
-      <SupportedClubCalendar clubId={supportedClubId} clubName={supportedClubName} publicMode={publicMode} />
-      <SeasonStatsOverview publicMode={publicMode} />
+      <Box
+        sx={publicMode
+          ? { display: 'flex', flexDirection: 'column', gap: 2 }
+          : {
+            display: 'contents',
+          }}
+      >
+        <Box sx={{ minWidth: 0, order: 1 }}>
+          <SupportedClubCalendar clubId={supportedClubId} clubName={supportedClubName} publicMode={publicMode} />
+        </Box>
+        <Box sx={{ minWidth: 0, order: 3 }}>
+          <SeasonStatsOverview publicMode={publicMode} />
+        </Box>
+      </Box>
     </Box>
   );
 }
