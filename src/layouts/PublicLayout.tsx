@@ -11,7 +11,7 @@ import { useEntityImage } from '../lib/useEntityImage';
 import { supportedClubStore } from '../features/system/supportedClubStore';
 import { PublicSearchDialog } from '../features/public/PublicSearchDialog';
 import { useState } from 'react';
-import { publicPathFromAdminPath } from '../lib/entityNavigation';
+import { adminPathFromPublicPath, publicPathFromAdminPath } from '../lib/entityNavigation';
 
 export function PublicLayout() {
   const navigate = useNavigate();
@@ -70,7 +70,7 @@ export function PublicLayout() {
                 <IconButton color={isSettings ? 'primary' : 'default'} onClick={() => navigate('/parametres')} aria-label="Paramètres"><SettingsRoundedIcon /></IconButton>
               </Tooltip>
               <Tooltip title="Mode Admin" disableInteractive>
-                <IconButton onClick={() => navigate('/admin/home')} aria-label="Mode Admin"><AdminPanelSettingsRoundedIcon /></IconButton>
+                <IconButton onClick={() => navigate(adminPathFromPublicPath(`${location.pathname}${location.search}`))} aria-label="Mode Admin"><AdminPanelSettingsRoundedIcon /></IconButton>
               </Tooltip>
             </Box>
           </Box>

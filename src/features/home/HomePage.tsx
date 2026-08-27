@@ -309,7 +309,7 @@ function ClubCalendarMatchCard({ row, isNext, publicMode }: { row: ClubMatchRow;
   );
 }
 
-function SupportedClubCalendar({ clubId, clubName, publicMode }: { clubId: string; clubName: string; publicMode: boolean }) {
+function SupportedClubCalendar({ clubId, publicMode }: { clubId: string; publicMode: boolean }) {
   const [matches, setMatches] = useState<ClubMatchRow[]>([]);
   const nextMatchRef = useRef<HTMLDivElement | null>(null);
   const calendarScrollerRef = useRef<HTMLDivElement | null>(null);
@@ -421,7 +421,6 @@ export function HomePage({ publicMode = false }: { publicMode?: boolean }) {
   const recentOpenedRecords = outletContext?.recentOpenedRecords ?? [];
   const reopenRecentRecord = outletContext?.reopenRecentRecord;
   const supportedClubId = supportedClubStore((state) => state.clubId);
-  const supportedClubName = supportedClubStore((state) => state.clubName);
   const loadSupportedClub = supportedClubStore((state) => state.load);
 
   useEffect(() => {
@@ -540,7 +539,7 @@ export function HomePage({ publicMode = false }: { publicMode?: boolean }) {
           }}
       >
         <Box sx={{ minWidth: 0, order: 1 }}>
-          <SupportedClubCalendar clubId={supportedClubId} clubName={supportedClubName} publicMode={publicMode} />
+          <SupportedClubCalendar clubId={supportedClubId} publicMode={publicMode} />
         </Box>
         <Box sx={{ minWidth: 0, order: 3 }}>
           <SeasonStatsOverview publicMode={publicMode} />

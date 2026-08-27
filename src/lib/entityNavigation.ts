@@ -36,3 +36,16 @@ export function publicPathFromAdminPath(path: string): string {
     .replace(/^\/admin\/competitions\//, '/competitions/')
     .replace(/^\/admin\/rencontres\//, '/rencontres/');
 }
+
+export function adminPathFromPublicPath(path: string): string {
+  const [pathname, query = ''] = path.split('?');
+  const adminPath = pathname
+    .replace(/^\/clubs\//, '/admin/clubs/')
+    .replace(/^\/joueurs\//, '/admin/joueurs/')
+    .replace(/^\/competitions\//, '/admin/competitions/')
+    .replace(/^\/rencontres\//, '/admin/rencontres/')
+    .replace(/^\/calendrier$/, '/admin/calendrier')
+    .replace(/^\/statistiques$/, '/admin/statistiques');
+
+  return `${adminPath === '/' || adminPath === '/parametres' ? '/admin/home' : adminPath}${query ? `?${query}` : ''}`;
+}
