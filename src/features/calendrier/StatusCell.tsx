@@ -97,7 +97,7 @@ export function StatusCell({ value, isEditing, draftValue, onStartEdit, onDraftC
             width: '100%',
             '& .MuiOutlinedInput-root': {
               height: 22,
-              bgcolor: 'grey.200',
+              bgcolor: 'action.hover',
             },
             '& .MuiOutlinedInput-notchedOutline': {
               border: 0,

@@ -46,7 +46,7 @@ export function ArbitreIdentityDisplay({ arbitreId, size = 30, compact = false, 
 
     return (
       <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', minWidth: 0 }}>
-        <Avatar sx={{ width: size, height: size, bgcolor: 'grey.300' }}>
+        <Avatar sx={{ width: size, height: size, bgcolor: 'action.hover' }}>
           <SportsIcon sx={{ fontSize: Math.round(size * 0.58) }} />
         </Avatar>
         <Typography
@@ -69,7 +69,7 @@ export function ArbitreIdentityDisplay({ arbitreId, size = 30, compact = false, 
   if (inField) {
     return (
       <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', minWidth: 0 }}>
-        <Avatar src={src ?? undefined} sx={{ width: size, height: size, bgcolor: 'grey.300', flexShrink: 0 }}>
+        <Avatar src={src ?? undefined} sx={{ width: size, height: size, bgcolor: 'action.hover', flexShrink: 0 }}>
           {!src && <SportsIcon sx={{ fontSize: Math.round(size * 0.58) }} />}
         </Avatar>
         <Stack direction="row" spacing={0.5} sx={{ minWidth: 0, alignItems: 'center' }}>
@@ -94,7 +94,7 @@ export function ArbitreIdentityDisplay({ arbitreId, size = 30, compact = false, 
 
   return (
     <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', minWidth: 0 }}>
-      <Avatar src={src ?? undefined} sx={{ width: size, height: size, bgcolor: 'grey.300', flexShrink: 0 }}>
+      <Avatar src={src ?? undefined} sx={{ width: size, height: size, bgcolor: 'action.hover', flexShrink: 0 }}>
         {!src && <SportsIcon sx={{ fontSize: Math.round(size * 0.58) }} />}
       </Avatar>
       <Box sx={{ minWidth: 0 }}>

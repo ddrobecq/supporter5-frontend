@@ -86,7 +86,7 @@ export function LoginPage() {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', bgcolor: '#eef2f6', p: 2 }}>
+    <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', bgcolor: 'background.default', p: 2 }}>
       <Card sx={{ width: '100%', maxWidth: 420 }}>
         <CardContent>
           <Stack spacing={2} component="form" onSubmit={handleSubmit(onSubmit)}>

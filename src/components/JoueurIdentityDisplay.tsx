@@ -51,7 +51,7 @@ export function JoueurIdentityDisplay({ joueur, size = 30 }: JoueurIdentityDispl
 
   return (
     <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', minWidth: 0 }}>
-      <Avatar src={src ?? undefined} sx={{ width: size, height: size, bgcolor: 'grey.300', flexShrink: 0 }}>
+      <Avatar src={src ?? undefined} sx={{ width: size, height: size, bgcolor: 'action.hover', flexShrink: 0 }}>
         {!src && <PersonRoundedIcon sx={{ fontSize: Math.round(size * 0.58) }} />}
       </Avatar>
       <Typography

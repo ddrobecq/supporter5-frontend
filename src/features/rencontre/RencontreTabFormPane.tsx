@@ -360,7 +360,7 @@ function ClubInlineLine({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                bgcolor: '#fafafa',
+                bgcolor: 'background.paper',
               }}
             >
               {src ? (
@@ -423,11 +423,11 @@ function ClubInlineLine({
             transform: 'translateY(-50%)',
             ...(align === 'right' ? { left: 0 } : { right: 0 }),
             alignItems: 'center',
-            bgcolor: 'rgba(255, 255, 255, 0.9)',
+            bgcolor: 'background.paper',
             backdropFilter: 'blur(2px)',
             borderRadius: 999,
             px: 0.25,
-            boxShadow: '0 1px 4px rgba(0, 0, 0, 0.16)',
+            boxShadow: 2,
             opacity: 0,
             pointerEvents: 'none',
             transition: 'opacity 160ms ease',
@@ -1018,7 +1018,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       : '';
 
   return (
-    <Box sx={{ bgcolor: '#ffffff', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+    <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
     <Stack spacing={1.5}>
       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.25, alignItems: 'center' }}>
         <ClubInlineLine
@@ -1430,7 +1430,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       ) : null}
 
       {showProgrammeContent ? (
-        <Box sx={{ bgcolor: '#ffffff', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+        <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
           <Stack spacing={0.75}>
             {tourMatchesLoading ? (
               <Typography variant="body2" color="text.secondary">Chargement du programme...</Typography>
@@ -1456,7 +1456,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
                   sx={{
                     width: '100%',
                     '& .MuiDataGrid-cell': { cursor: 'default' },
-                    '& .MuiDataGrid-row.status-terminee .MuiDataGrid-cell': { color: 'common.black' },
+                    '& .MuiDataGrid-row.status-terminee .MuiDataGrid-cell': { color: 'text.primary' },
                     '& .MuiDataGrid-row.status-en-cours .MuiDataGrid-cell': { color: 'success.main' },
                     '& .MuiDataGrid-row.status-en-attente .MuiDataGrid-cell': { color: 'text.secondary' },
                     '& .MuiDataGrid-row.status-programmee .MuiDataGrid-cell': { color: 'text.secondary' },

@@ -446,7 +446,7 @@ export function AdminLayout() {
   }, []);
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#eef2f6' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <Box
         sx={{
           position: 'sticky',
@@ -496,6 +496,8 @@ export function AdminLayout() {
                   sx={{
                     minWidth: 40,
                     px: compactTopActions ? 1 : 1.5,
+                    color: isConfigurationActive ? undefined : 'text.primary',
+                    borderColor: isConfigurationActive ? undefined : 'divider',
                     '.MuiButton-startIcon': { mr: compactTopActions ? 0 : 1 },
                   }}
                   aria-label="Configuration"
@@ -513,6 +515,8 @@ export function AdminLayout() {
                   sx={{
                     minWidth: 40,
                     px: compactTopActions ? 1 : 1.5,
+                    color: 'text.primary',
+                    borderColor: 'divider',
                     '.MuiButton-startIcon': { mr: compactTopActions ? 0 : 1 },
                   }}
                   aria-label="Refresh"
@@ -571,7 +575,7 @@ export function AdminLayout() {
           </Toolbar>
         </AppBar>
 
-        <Box sx={{ borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#ffffff' }}>
+        <Box sx={{ borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
           <Toolbar
             sx={{
               gap: 1,
@@ -613,6 +617,8 @@ export function AdminLayout() {
                 sx={{
                   minWidth: 36,
                   px: compactNavButtons ? 1 : 1.25,
+                  color: 'text.primary',
+                  borderColor: 'divider',
                   '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
                 }}
                 aria-label="Outils"
@@ -687,7 +693,7 @@ export function AdminLayout() {
           </Toolbar>
         </Box>
 
-        <Box sx={{ bgcolor: '#ffffff', borderBottom: '1px solid', borderColor: 'divider', px: 1.5 }}>
+        <Box sx={{ bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider', px: 1.5 }}>
           <Tabs
             value={activeTabKey}
             variant="scrollable"
@@ -800,7 +806,7 @@ export function AdminLayout() {
                 </IconButton>
               </Box>
             </DialogTitle>
-            <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6', overflow: 'hidden', display: 'flex', minHeight: 0, minWidth: 0 }}>
+            <DialogContent dividers sx={{ p: 2, bgcolor: 'background.default', overflow: 'hidden', display: 'flex', minHeight: 0, minWidth: 0 }}>
               <Box sx={{ flex: 1, minHeight: 0, minWidth: 0, display: 'flex', '& > *': { flex: 1, minHeight: 0, minWidth: 0 } }}>
                 <Suspense fallback={null}>
                   {activePickerEntity.renderPage(handleOpenPickerEntityInTab(activePickerEntity.key))}

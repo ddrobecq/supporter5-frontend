@@ -103,7 +103,7 @@ export function ClubPublicPage() {
             </Stack>
           </Stack>
           <EntityImageFrame
-            sx={{ bgcolor: '#f5f5f5', justifySelf: 'center', gridArea: { xs: '1 / 2', sm: '1 / 3' } }}
+            sx={{ bgcolor: 'background.paper', justifySelf: 'center', gridArea: { xs: '1 / 2', sm: '1 / 3' } }}
             width={132}
             height={150}
             src={createJerseyVisualDataUri(String(profile.FOND ?? '#2e7d32'), String(profile.TEXTE ?? '#1f1f1f'), clubName)}

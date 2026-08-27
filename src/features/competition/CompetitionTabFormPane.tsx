@@ -955,7 +955,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
             />
           ) : (
             <Stack spacing={2}>
-              <Box sx={{ bgcolor: '#ffffff', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+              <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
                 <Stack spacing={0.75}>
                   <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>Tours de la competition</Typography>
@@ -977,7 +977,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
                 </Stack>
               </Box>
 
-              <Box sx={{ bgcolor: '#ffffff', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+              <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
                 <Stack spacing={0.75}>
                   <Typography variant="subtitle1" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
                     Rencontres du tour selectionne

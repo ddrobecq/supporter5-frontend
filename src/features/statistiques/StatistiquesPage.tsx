@@ -270,7 +270,8 @@ export function StatistiquesPage({ publicMode = false }: { publicMode?: boolean 
           sx={{
             width: SIDEBAR_WIDTH,
             flexShrink: 0,
-            borderRight: '1px solid #e2e8f0',
+            borderRight: '1px solid',
+            borderColor: 'divider',
             display: 'flex',
             flexDirection: 'column',
             minHeight: 0,
@@ -282,7 +283,7 @@ export function StatistiquesPage({ publicMode = false }: { publicMode?: boolean 
 
       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         {isNarrow ? (
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', p: 1, borderBottom: '1px solid #e2e8f0' }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', p: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
             <IconButton size="small" onClick={() => setUiState((prev) => ({ ...prev, drawerOpen: true }))} aria-label="Ouvrir le menu des statistiques">
               <MenuRoundedIcon fontSize="small" />
             </IconButton>
@@ -296,7 +297,7 @@ export function StatistiquesPage({ publicMode = false }: { publicMode?: boolean 
             <Stack
               direction="row"
               spacing={1}
-              sx={{ alignItems: 'center', justifyContent: 'space-between', p: 2, borderBottom: '1px solid #e2e8f0' }}
+              sx={{ alignItems: 'center', justifyContent: 'space-between', p: 2, borderBottom: '1px solid', borderColor: 'divider' }}
             >
               <Stack spacing={0.25}>
                 <Typography variant="caption" color="text.secondary">

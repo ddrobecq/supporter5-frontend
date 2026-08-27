@@ -283,7 +283,7 @@ export function ClubCreateDialog({
                   <Box
                     key={club.IDCLUB}
                     sx={{
-                      bgcolor: isSelected ? '#244a73' : 'transparent',
+                      bgcolor: isSelected ? 'primary.main' : 'transparent',
                       color: isSelected ? '#ffffff' : 'inherit',
                       borderRadius: isSelected ? 0.75 : 0,
                       mx: 0.25,
@@ -326,7 +326,7 @@ export function ClubCreateDialog({
                             color: 'inherit',
                           },
                           '&.Mui-selected:hover': {
-                            bgcolor: 'rgba(255, 255, 255, 0.08)',
+                            bgcolor: 'action.hover',
                           },
                         }}
                         onClick={() => {
@@ -368,7 +368,7 @@ export function ClubCreateDialog({
                                   },
                                   color: isHistorySelected ? 'inherit' : undefined,
                                   '&:hover': {
-                                    bgcolor: isHistorySelected ? 'rgba(255, 255, 255, 0.08)' : undefined,
+                                    bgcolor: isHistorySelected ? 'action.selected' : undefined,
                                   },
                                 }}
                               >

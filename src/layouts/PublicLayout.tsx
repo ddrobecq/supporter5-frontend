@@ -40,8 +40,8 @@ export function PublicLayout() {
   }, [navigate]);
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#eef2f6' }}>
-      <AppBar position="sticky" color="inherit" elevation={0} sx={{ borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#ffffff' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+      <AppBar position="sticky" color="inherit" elevation={0} sx={{ borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
         <Toolbar sx={{ minHeight: '60px !important', px: { xs: 1, sm: 2 }, position: 'relative' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2, md: 3 }, pr: { xs: 3, sm: 4, md: 4 }, flex: 1, justifyContent: 'space-evenly' }}>

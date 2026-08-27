@@ -86,7 +86,7 @@ function getEventVisual(typeEvent: number): { icon: ReactElement; color: string;
   return {
     icon: <FlagRoundedIcon fontSize="inherit" />,
     color: '#4b5563',
-    backgroundColor: '#f3f4f6',
+    backgroundColor: 'action.hover',
   };
 }
 

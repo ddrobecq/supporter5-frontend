@@ -14,7 +14,7 @@ function ClubIdentityCell({ row }: { row: ClubIncompletRow }) {
 
   return (
     <Stack direction="row" spacing={0.9} sx={{ alignItems: 'center', minWidth: 0, height: '100%' }}>
-      <Avatar src={src ?? undefined} sx={{ width: 26, height: 26, bgcolor: 'grey.200', flexShrink: 0 }}>
+      <Avatar src={src ?? undefined} sx={{ width: 26, height: 26, bgcolor: 'action.hover', flexShrink: 0 }}>
         {!src ? <ShieldRoundedIcon sx={{ fontSize: 16 }} /> : null}
       </Avatar>
       <Typography variant="body2" sx={{ fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>

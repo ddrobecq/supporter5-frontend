@@ -225,7 +225,7 @@ export function ScoreCell({ row, isEditing, canEdit, draft, onStartEdit, onDraft
       width: 18,
       '& .MuiOutlinedInput-root': {
         height: 22,
-        bgcolor: 'grey.200',
+        bgcolor: 'action.hover',
       },
       '& .MuiOutlinedInput-notchedOutline': {
         border: 0,

@@ -295,7 +295,7 @@ export function DateGridEditor({ value, onChange, onCommit, onCancel, onTabOut }
         }}
         sx={{
           width: 22,
-          '& .MuiOutlinedInput-root': { height: 22, bgcolor: 'grey.200' },
+          '& .MuiOutlinedInput-root': { height: 22, bgcolor: 'action.hover' },
           '& .MuiOutlinedInput-notchedOutline': { border: 0 },
           '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { border: 0 },
           '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { border: 0 },
@@ -324,7 +324,7 @@ export function DateGridEditor({ value, onChange, onCommit, onCancel, onTabOut }
         }}
         sx={{
           width: 22,
-          '& .MuiOutlinedInput-root': { height: 22, bgcolor: 'grey.200' },
+          '& .MuiOutlinedInput-root': { height: 22, bgcolor: 'action.hover' },
           '& .MuiOutlinedInput-notchedOutline': { border: 0 },
           '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { border: 0 },
           '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { border: 0 },
@@ -353,7 +353,7 @@ export function DateGridEditor({ value, onChange, onCommit, onCancel, onTabOut }
         }}
         sx={{
           width: 34,
-          '& .MuiOutlinedInput-root': { height: 22, bgcolor: 'grey.200' },
+          '& .MuiOutlinedInput-root': { height: 22, bgcolor: 'action.hover' },
           '& .MuiOutlinedInput-notchedOutline': { border: 0 },
           '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { border: 0 },
           '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { border: 0 },

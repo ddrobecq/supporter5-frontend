@@ -145,7 +145,7 @@ export function VillePicker({
         }}
       >
         <DialogTitle>Sélectionner une Ville</DialogTitle>
-        <DialogContent dividers sx={{ p: 2, bgcolor: '#eef2f6', overflow: 'hidden', display: 'flex', minHeight: 0 }}>
+        <DialogContent dividers sx={{ p: 2, bgcolor: 'background.default', overflow: 'hidden', display: 'flex', minHeight: 0 }}>
           <Box sx={{ flex: 1, minHeight: 0, minWidth: 0, display: 'flex', '& > *': { flex: 1, minHeight: 0, minWidth: 0 } }}>
             <VillePage variant="modalPicker" onSelectVille={handleSelect} />
           </Box>

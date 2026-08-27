@@ -33,7 +33,7 @@ import { supportedClubStore } from '../system/supportedClubStore';
 import { fetchRencontreDetailById } from '../rencontre/rencontreApi';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { formatHeureDisplay } from '../../components/heureUtils';
-import { entityPathForPublicMode } from '../../lib/entityNavigation';
+import { entityPath, entityPathForPublicMode } from '../../lib/entityNavigation';
 import type { HomePageOutletContext, RecentEntityKind, RecentOpenedRecord } from './types';
 import { SeasonStatsOverview } from './SeasonStatsOverview';
 
@@ -98,7 +98,7 @@ function RecentRecordAvatar({ record }: { record: RecentOpenedRecord }) {
       sx={{
         width: 36,
         height: 36,
-        bgcolor: '#e2e8f0',
+        bgcolor: 'action.hover',
         color: 'text.secondary',
         border: '1px solid',
         borderColor: 'divider',
@@ -160,7 +160,7 @@ function MatchRecentRecordAvatar({ record }: { record: RecentOpenedRecord }) {
           bottom: 0,
           width: 22,
           height: 22,
-          bgcolor: '#e2e8f0',
+          bgcolor: 'action.hover',
           color: 'text.secondary',
           border: '1px solid',
           borderColor: 'divider',
@@ -178,7 +178,7 @@ function MatchRecentRecordAvatar({ record }: { record: RecentOpenedRecord }) {
           top: 0,
           width: 22,
           height: 22,
-          bgcolor: '#e2e8f0',
+          bgcolor: 'action.hover',
           color: 'text.secondary',
           border: '1px solid',
           borderColor: 'divider',
@@ -221,7 +221,9 @@ function isPlayedMatch(row: ClubMatchRow, now: Date): boolean {
 }
 
 function openMatch(row: ClubMatchRow, publicMode: boolean, navigate: (path: string) => void): void {
-  const path = entityPathForPublicMode('rencontre', row.RECLEUNIK);
+  const path = publicMode
+    ? entityPathForPublicMode('rencontre', row.RECLEUNIK)
+    : entityPath('rencontre', row.RECLEUNIK, '/admin/home');
 
   if (publicMode) {
     navigate(path);
@@ -259,12 +261,12 @@ function ClubCalendarMatchCard({ row, isNext, publicMode }: { row: ClubMatchRow;
         textAlign: 'left',
         color: 'text.primary',
         border: isNext ? '2px solid' : '1px solid',
-        borderColor: isNext ? 'primary.main' : '#cbd5e1',
+        borderColor: isNext ? 'primary.main' : 'divider',
         borderRadius: 1.25,
-        bgcolor: isNext ? '#eef6ff' : '#f8fafc',
+        bgcolor: 'background.paper',
         boxShadow: isNext ? '0 2px 8px rgba(37, 99, 235, 0.14)' : '0 1px 3px rgba(15, 23, 42, 0.08)',
         p: 1.25,
-        '&:hover': { bgcolor: isNext ? '#e5f0ff' : '#f1f5f9' },
+        '&:hover': { bgcolor: 'action.hover' },
       }}
     >
       <Stack spacing={0.7}>
@@ -363,7 +365,7 @@ function SupportedClubCalendar({ clubId, clubName, publicMode }: { clubId: strin
         borderRadius: 2,
         p: { xs: 1.5, md: 2 },
         maxWidth: 820,
-        bgcolor: '#ffffff',
+        bgcolor: 'background.paper',
       }}
     >
       <Stack spacing={1}>
@@ -437,7 +439,7 @@ export function HomePage({ publicMode = false }: { publicMode?: boolean }) {
           borderRadius: 2,
           p: { xs: 1.5, md: 2 },
           maxWidth: 820,
-          bgcolor: '#ffffff',
+          bgcolor: 'background.paper',
         }}
       >
         <Stack spacing={0.5}>
@@ -464,7 +466,7 @@ export function HomePage({ publicMode = false }: { publicMode?: boolean }) {
                   px: 0.75,
                   py: 0.45,
                   borderRadius: 1.25,
-                  '&:hover': { bgcolor: '#f8fafc' },
+                  '&:hover': { bgcolor: 'action.hover' },
                 }}
               >
                 <Link

@@ -219,7 +219,7 @@ export function MatchDataGrid<R extends GridValidRowModel>(props: MatchDataGridP
             to: { transform: 'rotate(360deg)' },
           },
           '& .MuiDataGrid-cell': { cursor: 'default' },
-          '& .MuiDataGrid-row.status-terminee .MuiDataGrid-cell': { color: 'common.black' },
+          '& .MuiDataGrid-row.status-terminee .MuiDataGrid-cell': { color: 'text.primary' },
           '& .MuiDataGrid-row.status-terminee.Mui-selected .MuiDataGrid-cell': { color: 'common.white' },
           '& .MuiDataGrid-row.status-en-cours .MuiDataGrid-cell': { color: 'success.light' },
           '& .MuiDataGrid-row.status-en-attente .MuiDataGrid-cell': { color: 'grey.400' },

@@ -98,7 +98,7 @@ export function pitchPlayerLabel(player: PitchPlayerIdentity): string {
 export function PitchPlayerAvatar({ playerId, size = PITCH_AVATAR_SIZE }: { playerId: string; size?: number }) {
   const { src } = useEntityImage('joueurrg', playerId);
   return (
-    <Avatar src={src ?? undefined} sx={{ width: size, height: size, bgcolor: 'grey.300' }}>
+    <Avatar src={src ?? undefined} sx={{ width: size, height: size, bgcolor: 'action.hover' }}>
       {!src && <PersonOutlineRoundedIcon sx={{ fontSize: size * 0.6 }} />}
     </Avatar>
   );

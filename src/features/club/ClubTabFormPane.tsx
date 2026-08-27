@@ -45,6 +45,7 @@ import { updateEntityImage } from '../../lib/entityImageApi';
 import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { useEntityImage } from '../../lib/useEntityImage';
+import { pickScreenColor } from '../../lib/screenColorPicker';
 import { fetchNatio } from '../natio/natioApi';
 import type { NatioRow } from '../natio/types';
 import { VillePicker } from '../../components/VillePicker';
@@ -420,7 +421,7 @@ function PalmareListItem({ row }: { row: ClubPalmareRow }) {
     <Stack direction="row" spacing={2} sx={{ alignItems: 'center', py: 1.5, px: 0.5 }}>
       <Avatar
         src={image.src ?? undefined}
-        sx={{ width: 44, height: 44, bgcolor: 'grey.100', flexShrink: 0 }}
+        sx={{ width: 44, height: 44, bgcolor: 'action.hover', flexShrink: 0 }}
       >
         {!image.src && <EmojiEventsRoundedIcon sx={{ fontSize: 26, color: 'text.disabled' }} />}
       </Avatar>
@@ -503,20 +504,12 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
   const isAnyDirty = isProfileDirty || isNameDialogDirty || isTerrainDialogDirty;
 
   const handlePickScreenColor = async (target: 'fond' | 'texte') => {
-    const EyeDropperConstructor = (window as Window & {
-      EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> };
-    }).EyeDropper;
-    if (!EyeDropperConstructor) {
-      setSnackbar({ severity: 'error', message: 'La pipette n est pas disponible dans ce navigateur.' });
-      return;
-    }
-
     try {
-      const result = await new EyeDropperConstructor().open();
+      const color = await pickScreenColor();
       if (target === 'fond') {
-        handleFondChange(result.sRGBHex);
+        handleFondChange(color);
       } else {
-        handleTexteChange(result.sRGBHex);
+        handleTexteChange(color);
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
@@ -1134,12 +1127,12 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       spacing={0.25}
       sx={{
         justifyContent: 'center',
-        bgcolor: 'rgba(255, 255, 255, 0.22)',
+        bgcolor: 'background.paper',
         backdropFilter: 'blur(2px)',
         borderRadius: 999,
         px: 0.5,
         py: 0.25,
-        boxShadow: '0 1px 4px rgba(0, 0, 0, 0.12)',
+        boxShadow: 2,
       }}
     >
       <Tooltip title="Pipette : choisir la couleur du FOND">
@@ -1178,7 +1171,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
           <Typography variant="body2" color="text.secondary">Chargement du club...</Typography>
         </Box>
       ) : row ? (
-        <Box sx={{ bgcolor: '#ffffff', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+        <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
           <Stack spacing={2.25}>
             <Tabs
               value={activeTab}
@@ -1300,7 +1293,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
                     clear: 'Supprimer l ecusson',
                   }}
                   fallback={<ShieldRoundedIcon sx={{ width: '100%', height: '100%', p: 1.5, color: 'text.disabled' }} />}
-                  sx={{ bgcolor: '#f5f5f5' }}
+                  sx={{ bgcolor: 'background.paper' }}
                 />
 
                 <Stack spacing={0.5} sx={{ width: 132, flexShrink: 0 }}>
@@ -1313,7 +1306,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
                     objectPosition="center top"
                     imageSx={{ transform: 'translateY(-10px) scale(1.56)', transformOrigin: 'center 24%' }}
                     sx={{
-                      bgcolor: '#f5f5f5',
+                      bgcolor: 'background.paper',
                       '&:hover .club-kit-actions, &:focus-within .club-kit-actions': {
                         opacity: 1,
                         pointerEvents: 'auto',
@@ -1351,7 +1344,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
                   slotProps={{
                     input: {
                       readOnly: true,
-                      sx: { color: 'text.secondary', bgcolor: '#f3f4f6' },
+                      sx: { color: 'text.secondary', bgcolor: 'action.hover' },
                     },
                   }}
                 />

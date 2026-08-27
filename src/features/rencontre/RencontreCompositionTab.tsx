@@ -88,8 +88,9 @@ function PitchSlot({ code, label, x, y, player, onDrop, onRemove, setDragSource 
             borderRadius: '50%',
             border: over
               ? '2px solid #FFD700'
-              : '2px solid rgba(255,255,255,0.1)',
-            bgcolor: over ? 'rgba(255,215,0,0.15)' : 'rgba(255,255,255,0.05)',
+              : '2px solid',
+            borderColor: over ? '#FFD700' : 'divider',
+            bgcolor: over ? 'rgba(255,215,0,0.15)' : 'action.hover',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

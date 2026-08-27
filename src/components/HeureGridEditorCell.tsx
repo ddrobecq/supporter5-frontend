@@ -142,7 +142,7 @@ export function HeureGridEditorCell({
           width,
           '& .MuiOutlinedInput-root': {
             height: 22,
-            bgcolor: 'grey.200',
+            bgcolor: 'action.hover',
           },
           '& .MuiOutlinedInput-notchedOutline': {
             border: 0,

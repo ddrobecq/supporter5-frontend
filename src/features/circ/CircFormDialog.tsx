@@ -120,7 +120,7 @@ export function CircFormDialog({ open, mode, embedded = false, primaryKey, initi
 
   if (embedded) {
     return (
-      <Box sx={{ bgcolor: '#ffffff', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+      <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
         <Stack spacing={2}>
           {content}
           <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>

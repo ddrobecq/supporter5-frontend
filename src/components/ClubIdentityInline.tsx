@@ -43,7 +43,7 @@ export function ClubIdentityInline({ clubId, clubName, natioId, size = 24, nameS
         ...sx,
       }}
     >
-      <Avatar src={src ?? undefined} sx={{ width: size, height: size, bgcolor: 'grey.200', flexShrink: 0 }}>
+      <Avatar src={src ?? undefined} sx={{ width: size, height: size, bgcolor: 'action.hover', flexShrink: 0 }}>
         {!src ? <ShieldRoundedIcon sx={{ fontSize: Math.round(size * 0.62) }} /> : null}
       </Avatar>
       <Stack direction="row" spacing={0.7} sx={{ alignItems: 'center', minWidth: 0, flexWrap: 'wrap' }}>

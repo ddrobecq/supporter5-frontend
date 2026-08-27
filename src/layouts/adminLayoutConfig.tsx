@@ -115,12 +115,12 @@ export interface PickerEntityDefinition {
 
 export const TOOLBAR_BUTTONS: ToolbarButton[] = [
   { label: 'Accueil', ariaLabel: 'Accueil', icon: <HomeRoundedIcon />, activeKey: 'home', action: 'navigate', path: '/accueil', unique: true },
-  { label: 'Calendrier', ariaLabel: 'Calendrier', icon: <CalendarMonthIcon />, activeKey: 'calendrier', action: 'navigate', path: '/calendrier' },
+  { label: 'Calendrier', ariaLabel: 'Calendrier', icon: <CalendarMonthIcon />, activeKey: 'calendrier', action: 'navigate', path: '/admin/calendrier' },
   { label: 'Joueurs', ariaLabel: 'Joueurs', icon: <PersonRoundedIcon />, activeKey: 'joueur', action: 'picker', entity: 'joueur' },
   { label: 'Clubs', ariaLabel: 'Clubs', icon: <ShieldRoundedIcon />, activeKey: 'club', action: 'picker', entity: 'club' },
   { label: 'Competitions', ariaLabel: 'Competitions', icon: <EmojiEventsIcon />, activeKey: 'competition', action: 'picker', entity: 'competition' },
   { label: 'Arbitres', ariaLabel: 'Arbitres', icon: <SportsIcon />, secondaryCategory: 'Organisation', activeKey: 'arbitre', action: 'picker', entity: 'arbitre' },
-  { label: 'Statistiques', ariaLabel: 'Statistiques', icon: <BarChartRoundedIcon />, activeKey: 'statistiques', action: 'navigate', path: '/statistiques' },
+  { label: 'Statistiques', ariaLabel: 'Statistiques', icon: <BarChartRoundedIcon />, activeKey: 'statistiques', action: 'navigate', path: '/admin/statistiques' },
   { label: 'Matchs', ariaLabel: 'Matchs', icon: <SportsSoccerRoundedIcon />, secondaryCategory: 'Organisation', action: 'wizard', wizard: 'rencontre' },
   { label: 'Pays', ariaLabel: 'Pays', icon: <FlagRoundedIcon />, secondaryCategory: 'Référentiels', activeKey: 'natio', action: 'picker', entity: 'natio' },
   { label: 'Villes', ariaLabel: 'Villes', icon: <LocationCityRoundedIcon />, secondaryCategory: 'Référentiels', activeKey: 'ville', action: 'picker', entity: 'ville' },

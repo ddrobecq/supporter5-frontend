@@ -121,7 +121,7 @@ export function EntityImageFrame({
         alignItems: 'center',
         justifyContent: 'center',
         overflow: 'hidden',
-        backgroundColor: '#f5f5f5',
+        backgroundColor: 'background.paper',
         position: 'relative',
         '&:hover .entity-image-actions, &:focus-within .entity-image-actions': {
           opacity: 1,
@@ -172,12 +172,12 @@ export function EntityImageFrame({
             spacing={0.25}
             sx={{
               justifyContent: 'center',
-              bgcolor: 'rgba(255, 255, 255, 0.22)',
+              bgcolor: 'background.paper',
               backdropFilter: 'blur(2px)',
               borderRadius: 999,
               px: 0.5,
               py: 0.25,
-              boxShadow: '0 1px 4px rgba(0, 0, 0, 0.12)',
+              boxShadow: 2,
             }}
           >
             <Tooltip title={actionLabels?.upload ?? 'Importer une image'}>

@@ -14,7 +14,7 @@ import {
 } from '../../components/PitchField';
 import { fetchSaisonClassement, fetchSaisons, type SaisonClassementRow } from '../statistiques/saison/classements/saisonClassementApi';
 import { fetchEquipeType, type EquipeTypeResult } from '../statistiques/saison/equipeType/equipeTypeApi';
-import { entityPathForPublicMode } from '../../lib/entityNavigation';
+import { entityPath, entityPathForPublicMode } from '../../lib/entityNavigation';
 
 const TOP_COUNT = 3;
 
@@ -35,7 +35,9 @@ function openStatTab(selection: string, publicMode: boolean): void {
 }
 
 function openJoueurTab(row: { IDJOUEUR: string; NOM?: string | null; SURNOM?: string | null }, publicMode: boolean, navigate: (path: string) => void): void {
-  const path = entityPathForPublicMode('joueur', row.IDJOUEUR);
+  const path = publicMode
+    ? entityPathForPublicMode('joueur', row.IDJOUEUR)
+    : entityPath('joueur', row.IDJOUEUR, '/admin/home');
 
   if (publicMode) {
     navigate(path);
@@ -136,7 +138,7 @@ export function SeasonStatsOverview({ publicMode = false }: { publicMode?: boole
         borderRadius: 2,
         p: { xs: 1.5, md: 2 },
         maxWidth: 820,
-        bgcolor: '#ffffff',
+        bgcolor: 'background.paper',
       }}
     >
       <Stack spacing={1.5}>
