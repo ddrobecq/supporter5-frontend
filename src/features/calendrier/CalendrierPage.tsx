@@ -1,6 +1,5 @@
-import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
-import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
-import TodayRoundedIcon from '@mui/icons-material/TodayRounded';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded';
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
@@ -15,8 +14,6 @@ import {
   Typography,
 } from '@mui/material';
 import { type GridColDef, type GridSortModel } from '@mui/x-data-grid';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { DateInputField, fromInputDateToDisplay, toInputDateFromDisplay } from '../../components/DateInputField';
 import { MatchDataGrid } from '../../components/MatchDataGrid';
 import { buildMatchGridColumns } from '../../components/matchGridColumns';
 import { useEntityImage } from '../../lib/useEntityImage';
@@ -28,6 +25,8 @@ import {
   updateCalendarScore,
   updateCalendarStatus,
 } from './calendrierApi';
+import { CalendarDateNavigator } from './CalendarDateNavigator';
+import { entityPath } from '../../lib/entityNavigation';
 import {
   heureDigitsToApiValue,
   isValidHeureDigits,
@@ -101,13 +100,6 @@ function getInitialCalendrierDate(): string {
     return stored;
   }
   return fallback;
-}
-
-function shiftDate(date: string, deltaDays: number): string {
-  const [year, month, day] = date.split('-').map((part) => Number(part));
-  const base = new Date(year, month - 1, day);
-  base.setDate(base.getDate() + deltaDays);
-  return formatInputDate(base);
 }
 
 function rowStatusClass(etat: number): string {
@@ -237,17 +229,23 @@ function ClassementClubCell({
   lockedQualifAbrege,
   lockedQualifLibelle,
   lockedQualifCouleur,
+  onClick,
 }: {
   clubId: string;
   clubName: string;
   lockedQualifAbrege?: string | null;
   lockedQualifLibelle?: string | null;
   lockedQualifCouleur?: number | null;
+  onClick?: () => void;
 }) {
   const { src } = useEntityImage('club', clubId);
   const lockedLabel = String(lockedQualifLibelle ?? '').trim();
   const lockedAbrege = String(lockedQualifAbrege ?? '').trim();
   const lockedColor = qualifColorToCss(lockedQualifCouleur);
+  const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    onClick?.();
+  };
   const pill = lockedAbrege ? (
     <Tooltip title={`Verrouillé : ${lockedLabel || lockedAbrege}`}>
       <Box
@@ -277,7 +275,27 @@ function ClassementClubCell({
   ) : null;
 
   return (
-    <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', minWidth: 0 }}>
+    <Box
+      component={onClick ? 'button' : 'div'}
+      type={onClick ? 'button' : undefined}
+      onClick={onClick ? handleClick : undefined}
+      aria-label={onClick ? `Ouvrir la fiche de ${clubName}` : undefined}
+      sx={{
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        minWidth: 0,
+        border: 0,
+        p: 0,
+        m: 0,
+        bgcolor: 'transparent',
+        color: 'inherit',
+        font: 'inherit',
+        textAlign: 'left',
+        cursor: onClick ? 'pointer' : 'default',
+        '&:hover': onClick ? { textDecoration: 'underline' } : undefined,
+      }}
+    >
       <Box
         sx={{
           width: 18,
@@ -353,9 +371,10 @@ function isProgrammedUnresolvedSide(sourceValue: unknown, clubIdValue: unknown):
   return source.length > 0 && clubId.length === 0;
 }
 
-export function CalendrierPage() {
+export function CalendrierPage({ readOnly = false }: { readOnly?: boolean }) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [date, setDate] = useState<string>(() => getInitialCalendrierDate());
-  const [dateDraft, setDateDraft] = useState<string>(() => fromInputDateToDisplay(getInitialCalendrierDate()));
   const [rows, setRows] = useState<CalendrierRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -446,6 +465,24 @@ export function CalendrierPage() {
     [classementRows],
   );
 
+  const openClub = useCallback((clubId: string, clubName: string) => {
+    const normalizedId = clubId.trim();
+    if (!normalizedId) return;
+    const path = entityPath('club', normalizedId, location.pathname);
+    if (readOnly) {
+      navigate(path);
+      return;
+    }
+    window.dispatchEvent(new CustomEvent('supporter:tab-open', {
+      detail: {
+        path,
+        label: clubName.trim() || normalizedId,
+        unique: true,
+        uniqueByPath: true,
+      },
+    }));
+  }, [location.pathname, navigate, readOnly]);
+
   const isEliminatoryMatchWinner = useCallback((row: CalendrierRow, side: 'domicile' | 'exterieur'): boolean => {
     if (Number(row.TYPE_TOUR ?? 0) !== 2 || Number(row.TUCLEUNIK) !== Number(classementTourId ?? 0)) {
       return false;
@@ -482,9 +519,14 @@ export function CalendrierPage() {
     if (!Number.isInteger(competitionId) || competitionId <= 0) {
       return;
     }
+    const path = entityPath('competition', competitionId, location.pathname);
+    if (readOnly) {
+      navigate(path);
+      return;
+    }
     window.dispatchEvent(new CustomEvent('supporter:tab-open', {
       detail: {
-        path: `/admin/competitions/${encodeURIComponent(String(competitionId))}`,
+        path,
         label: `${String(selectedRow?.COMPET_NOM ?? '').trim()} ${String(selectedRow?.SAISON ?? '').trim()}`.trim() || 'Competition',
         unique: true,
         uniqueByPath: true,
@@ -537,7 +579,7 @@ export function CalendrierPage() {
     setClassementLoading(true);
     try {
       const [data, qualifs] = await Promise.all([
-        fetchTourClassement(tourId),
+        fetchTourClassement(tourId, readOnly),
         fetchTourQualifs(tourId),
       ]);
       if (token !== classementRequestTokenRef.current) {
@@ -561,7 +603,7 @@ export function CalendrierPage() {
         setClassementLoading(false);
       }
     }
-  }, []);
+  }, [readOnly]);
 
   useEffect(() => {
     if (rows.length === 0) {
@@ -631,23 +673,11 @@ export function CalendrierPage() {
   }, []);
 
   useEffect(() => {
-    setDateDraft(fromInputDateToDisplay(date));
-  }, [date]);
-
-  useEffect(() => {
     if (typeof window === 'undefined') {
       return;
     }
     window.sessionStorage.setItem(CALENDRIER_DATE_STORAGE_KEY, date);
   }, [date]);
-
-  const handleDateDraftChange = useCallback((nextDate: string) => {
-    setDateDraft(nextDate);
-    const isoDate = toInputDateFromDisplay(nextDate);
-    if (isoDate) {
-      setDate(isoDate);
-    }
-  }, []);
 
   const setRowStatusWithAutoHide = (rowId: string | number, status: RowSaveStatus): void => {
     const key = String(rowId);
@@ -1037,7 +1067,7 @@ export function CalendrierPage() {
   };
 
   const columns = useMemo<GridColDef<CalendrierRow>[]>(() => buildMatchGridColumns({
-    status: {
+    status: readOnly ? { mode: 'readonly' } : {
       editingRowId: editingStatusRowId,
       draftValue: statusDraft,
       onStartEdit: startStatusEdit,
@@ -1047,7 +1077,7 @@ export function CalendrierPage() {
       onTabOut: handleStatusTabOut,
       sortable: true,
     },
-    heure: {
+    heure: readOnly ? { mode: 'readonly' } : {
       editingRowId: editingHeureRowId,
       draftDigits: heureDraftDigits,
       onStartEdit: startHeureEdit,
@@ -1058,7 +1088,7 @@ export function CalendrierPage() {
       onTabOut: handleHeureTabOut,
       sortable: true,
     },
-    score: {
+    score: readOnly ? { mode: 'readonly' } : {
       editingRowId: editingScoreRowId,
       draft: scoreDraft,
       canEdit: (row) => canEditScore(Number(row.ETAT)),
@@ -1072,7 +1102,8 @@ export function CalendrierPage() {
     },
     isDomicileWinner: (row) => isEliminatoryMatchWinner(row, 'domicile'),
     isExterieurWinner: (row) => isEliminatoryMatchWinner(row, 'exterieur'),
-  }), [editingHeureRowId, editingScoreRowId, editingStatusRowId, heureDraftDigits, isEliminatoryMatchWinner, scoreDraft, statusDraft]);
+    onClubClick: openClub,
+  }), [editingHeureRowId, editingScoreRowId, editingStatusRowId, heureDraftDigits, isEliminatoryMatchWinner, openClub, readOnly, scoreDraft, statusDraft]);
 
   const classementColumns = useMemo<GridColDef<TourClassementRow>[]>(() => {
     const columns: GridColDef<TourClassementRow>[] = [
@@ -1124,6 +1155,7 @@ export function CalendrierPage() {
           lockedQualifAbrege={params.row.LOCKED_QUALIF_ABREGE}
           lockedQualifLibelle={params.row.LOCKED_QUALIF_LIBELLE}
           lockedQualifCouleur={params.row.LOCKED_QUALIF_COULEUR}
+          onClick={String(params.row.IDCLUB ?? '').trim() ? () => openClub(String(params.row.IDCLUB), String(params.row.CLUB ?? '')) : undefined}
         />
       ),
     },
@@ -1238,42 +1270,7 @@ export function CalendrierPage() {
             alignItems: 'center',
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: '1px', flexWrap: 'nowrap' }}>
-            <IconButton
-              color="primary"
-              aria-label="Précédent"
-              onClick={() => setDate((current) => shiftDate(current, -1))}
-              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, flex: '0 0 auto' }}
-            >
-              <ChevronLeftRoundedIcon />
-            </IconButton>
-
-            <DateInputField
-              label="Date"
-              value={dateDraft}
-              onChange={handleDateDraftChange}
-              calendarAriaLabel="Calendrier"
-              sx={{ width: { xs: 162, sm: 162 }, minWidth: 162, maxWidth: 162, flex: '0 0 auto' }}
-            />
-
-            <IconButton
-              color="primary"
-              aria-label="Aujourd'hui"
-              onClick={() => setDate(formatInputDate(new Date()))}
-              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, flex: '0 0 auto' }}
-            >
-              <TodayRoundedIcon sx={{ fontSize: 18 }} />
-            </IconButton>
-
-            <IconButton
-              color="primary"
-              aria-label="Suivant"
-              onClick={() => setDate((current) => shiftDate(current, 1))}
-              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, flex: '0 0 auto' }}
-            >
-              <ChevronRightRoundedIcon />
-            </IconButton>
-          </Box>
+          <CalendarDateNavigator date={date} onDateChange={setDate} />
         </Box>
       </Stack>
 
@@ -1299,7 +1296,10 @@ export function CalendrierPage() {
               onRowClick={(params) => {
                 setSelectedRowId(params.row.RECLEUNIK);
               }}
-              openMatchOnDoubleClick
+              openMatchOnDoubleClick={!readOnly}
+              onRowDoubleClick={readOnly ? (params) => {
+                navigate(`/rencontres/${encodeURIComponent(String(params.row.RECLEUNIK))}`);
+              } : undefined}
               disableColumnMenu
               density="compact"
               pageSizeOptions={[25, 50, 100]}

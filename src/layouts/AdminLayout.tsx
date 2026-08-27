@@ -1,6 +1,5 @@
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import BuildRoundedIcon from '@mui/icons-material/BuildRounded';
-import MoreHorizRoundedIcon from '@mui/icons-material/MoreHorizRounded';
 import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
@@ -86,7 +85,6 @@ export function AdminLayout() {
   const navButtonsRowRef = useRef<HTMLDivElement | null>(null);
   const [compactNavButtons, setCompactNavButtons] = useState(false);
   const [compactTopActions, setCompactTopActions] = useState(false);
-  const [moreMenuAnchorEl, setMoreMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [toolsMenuAnchorEl, setToolsMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [clubMergeOpen, setClubMergeOpen] = useState(false);
   const [statsRecomputeOpen, setStatsRecomputeOpen] = useState(false);
@@ -130,7 +128,6 @@ export function AdminLayout() {
   };
   const primaryToolbarButtons = TOOLBAR_BUTTONS.filter((button) => !button.secondaryCategory);
   const secondaryToolbarButtons = TOOLBAR_BUTTONS.filter((button) => Boolean(button.secondaryCategory));
-  const isSecondaryToolbarActive = secondaryToolbarButtons.some(isToolbarButtonActive);
   const activeTab = typeof activeTabKey === 'string' ? tabs.find((tab) => tab.key === activeTabKey) : undefined;
   const isDynamicFormPath = (path: string) => (
     path.startsWith('/admin/rencontres/')
@@ -540,7 +537,7 @@ export function AdminLayout() {
                   aria-label="Deconnexion"
                   onClick={() => {
                     logout();
-                    navigate('/login');
+                    window.location.assign('/');
                   }}
                 >
                   {compactTopActions ? <LogoutRoundedIcon /> : 'Deconnexion'}
@@ -654,34 +651,7 @@ export function AdminLayout() {
                   ))}
                 </Fragment>
               ))}
-            </Menu>
-
-            <Tooltip title="Plus" disableHoverListener={!compactNavButtons}>
-              <Button
-                size="small"
-                variant={isSecondaryToolbarActive ? 'contained' : 'outlined'}
-                color={isSecondaryToolbarActive ? 'primary' : 'inherit'}
-                startIcon={compactNavButtons ? undefined : <MoreHorizRoundedIcon />}
-                sx={{
-                  minWidth: 36,
-                  px: compactNavButtons ? 1 : 1.25,
-                  '.MuiButton-startIcon': { mr: compactNavButtons ? 0 : 1 },
-                }}
-                aria-label="Plus"
-                aria-haspopup="menu"
-                aria-expanded={Boolean(moreMenuAnchorEl) ? 'true' : undefined}
-                onClick={(event) => setMoreMenuAnchorEl(event.currentTarget)}
-              >
-                {compactNavButtons ? <MoreHorizRoundedIcon /> : 'Plus'}
-              </Button>
-            </Tooltip>
-
-            <Menu
-              anchorEl={moreMenuAnchorEl}
-              open={Boolean(moreMenuAnchorEl)}
-              onClose={() => setMoreMenuAnchorEl(null)}
-              slotProps={{ list: { 'aria-label': 'Fonctions secondaires' } }}
-            >
+              {secondaryToolbarButtons.length > 0 && <Divider />}
               {TOOLBAR_SECONDARY_CATEGORIES.map((category, categoryIndex) => {
                 const categoryButtons = secondaryToolbarButtons.filter(
                   (button) => button.secondaryCategory === category,
@@ -699,7 +669,7 @@ export function AdminLayout() {
                         key={button.label}
                         selected={isToolbarButtonActive(button)}
                         onClick={() => {
-                          setMoreMenuAnchorEl(null);
+                          setToolsMenuAnchorEl(null);
                           handleToolbarButtonClick(button);
                         }}
                       >

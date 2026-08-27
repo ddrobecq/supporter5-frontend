@@ -8,11 +8,17 @@ import {
   Card,
   CardContent,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { http } from '../../lib/http';
 import { toErrorMessage } from '../../components/useEntityPage';
+import {
+  clearStoredAdminCredentials,
+  getStoredAdminCredentials,
+  storeAdminCredentials,
+} from '../auth/authStore';
 
 interface UploadDatabaseResponse {
   message?: string;
@@ -43,6 +49,9 @@ export function ConfigurationPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [backendVersion, setBackendVersion] = useState<string>('...');
+  const [adminUsername, setAdminUsername] = useState(() => getStoredAdminCredentials()?.username ?? '');
+  const [adminPassword, setAdminPassword] = useState(() => getStoredAdminCredentials()?.password ?? '');
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -162,6 +171,28 @@ export function ConfigurationPage() {
     }
   };
 
+  const handleSaveCredentials = () => {
+    const username = adminUsername.trim();
+    if (!username || !adminPassword) {
+      setAuthMessage('Renseignez le login et le mot de passe.');
+      return;
+    }
+    const confirmed = window.confirm('Êtes vous sûr de vouloir enregistrer vos données d\'authentification sur ce navigateur ?');
+    if (!confirmed) {
+      return;
+    }
+    storeAdminCredentials({ username, password: adminPassword });
+    setAdminUsername(username);
+    setAuthMessage('Identifiants enregistres dans ce navigateur.');
+  };
+
+  const handleClearCredentials = () => {
+    clearStoredAdminCredentials();
+    setAdminUsername('');
+    setAdminPassword('');
+    setAuthMessage('Identifiants effaces.');
+  };
+
   return (
     <Stack spacing={2}>
       <Typography variant="h5" sx={{ fontWeight: 700 }}>Configuration</Typography>
@@ -172,6 +203,34 @@ export function ConfigurationPage() {
             <Typography variant="h6" sx={{ fontWeight: 700 }}>Version</Typography>
             <Typography variant="body2">Front: v{__APP_VERSION__}</Typography>
             <Typography variant="body2">Back: v{backendVersion}</Typography>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <Stack spacing={2}>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>Authentification</Typography>
+            <TextField
+              label="Login"
+              value={adminUsername}
+              onChange={(event) => setAdminUsername(event.target.value)}
+              autoComplete="username"
+              fullWidth
+            />
+            <TextField
+              label="Mot de passe"
+              type="password"
+              value={adminPassword}
+              onChange={(event) => setAdminPassword(event.target.value)}
+              autoComplete="current-password"
+              fullWidth
+            />
+            {authMessage ? <Alert severity="info">{authMessage}</Alert> : null}
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+              <Button variant="contained" onClick={handleSaveCredentials}>Enregistrer</Button>
+              <Button variant="outlined" onClick={handleClearCredentials}>Effacer</Button>
+            </Stack>
           </Stack>
         </CardContent>
       </Card>

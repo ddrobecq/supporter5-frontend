@@ -6,7 +6,7 @@ export interface SupportedClubContext {
 }
 
 export async function fetchSupportedClubContext(): Promise<SupportedClubContext> {
-  const { data } = await http.get<SupportedClubContext>('/api/admin/system/context');
+  const { data } = await http.get<SupportedClubContext>('/api/system/context');
   return {
     clubId: String(data?.clubId ?? '').trim(),
     clubName: String(data?.clubName ?? '').trim(),

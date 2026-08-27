@@ -282,7 +282,7 @@ function wrapClubNameLines(rawName: string): string[] {
   return lines;
 }
 
-function createJerseyVisualDataUri(fondColor: string, texteColor: string, clubName: string): string {
+export function createJerseyVisualDataUri(fondColor: string, texteColor: string, clubName: string): string {
   let svg = jerseySvgSource;
   svg = replaceSvgStyleColor(svg, '#32BEA6', 'transparent');
   svg = replaceSvgStyleColor(svg, '#000000', fondColor);
@@ -486,8 +486,6 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
   const [terrainSelectorOpen, setTerrainSelectorOpen] = useState(false);
   const [clubImageDraft, setClubImageDraft] = useState<string | null | undefined>(undefined);
   const [clubImageRefreshToken, setClubImageRefreshToken] = useState(0);
-  const fondColorInputRef = useRef<HTMLInputElement | null>(null);
-  const texteColorInputRef = useRef<HTMLInputElement | null>(null);
   const profileSignatureRef = useRef('');
   const nameDialogSignatureRef = useRef('');
   const terrainDialogSignatureRef = useRef('');
@@ -504,12 +502,26 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     && getClubTerrainDialogSignature(terrainDialogDraft) !== terrainDialogSignatureRef.current;
   const isAnyDirty = isProfileDirty || isNameDialogDirty || isTerrainDialogDirty;
 
-  const handlePickFondColor = () => {
-    fondColorInputRef.current?.click();
-  };
+  const handlePickScreenColor = async (target: 'fond' | 'texte') => {
+    const EyeDropperConstructor = (window as Window & {
+      EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> };
+    }).EyeDropper;
+    if (!EyeDropperConstructor) {
+      setSnackbar({ severity: 'error', message: 'La pipette n est pas disponible dans ce navigateur.' });
+      return;
+    }
 
-  const handlePickTexteColor = () => {
-    texteColorInputRef.current?.click();
+    try {
+      const result = await new EyeDropperConstructor().open();
+      if (target === 'fond') {
+        handleFondChange(result.sRGBHex);
+      } else {
+        handleTexteChange(result.sRGBHex);
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      setSnackbar({ severity: 'error', message: 'Impossible de sélectionner cette couleur.' });
+    }
   };
 
   const handleFondChange = (nextFond: string) => {
@@ -1130,21 +1142,21 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
         boxShadow: '0 1px 4px rgba(0, 0, 0, 0.12)',
       }}
     >
-      <Tooltip title="Choisir la couleur du FOND">
+      <Tooltip title="Pipette : choisir la couleur du FOND">
         <IconButton
           size="small"
-          onClick={handlePickFondColor}
-          aria-label="Choisir la couleur du FOND"
+          onClick={() => void handlePickScreenColor('fond')}
+          aria-label="Pipette : choisir la couleur du FOND"
           sx={{ color: currentFondColor }}
         >
           <FormatColorFillRoundedIcon fontSize="small" />
         </IconButton>
       </Tooltip>
-      <Tooltip title="Choisir la couleur du TEXTE">
+      <Tooltip title="Pipette : choisir la couleur du TEXTE">
         <IconButton
           size="small"
-          onClick={handlePickTexteColor}
-          aria-label="Choisir la couleur du TEXTE"
+          onClick={() => void handlePickScreenColor('texte')}
+          aria-label="Pipette : choisir la couleur du TEXTE"
           sx={{ color: currentTexteColor }}
         >
           <FormatColorTextRoundedIcon fontSize="small" />
@@ -1369,26 +1381,6 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
                 label="Pays"
               />
             </Stack>
-
-            <input
-              ref={fondColorInputRef}
-              type="color"
-              value={currentFondColor}
-              onChange={(event) => handleFondChange(event.target.value)}
-              style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
-              tabIndex={-1}
-              aria-hidden="true"
-            />
-
-            <input
-              ref={texteColorInputRef}
-              type="color"
-              value={currentTexteColor}
-              onChange={(event) => handleTexteChange(event.target.value)}
-              style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
-              tabIndex={-1}
-              aria-hidden="true"
-            />
 
             <Stack spacing={0.75}>
               <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>

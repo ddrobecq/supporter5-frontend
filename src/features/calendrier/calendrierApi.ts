@@ -52,8 +52,9 @@ export async function updateCalendarStatus(
   await http.put(`/api/admin/rencontres/${encodeURIComponent(String(id))}`, payload);
 }
 
-export async function fetchTourClassement(tourId: string | number): Promise<TourClassementRow[]> {
-  const { data } = await http.get<{ data: TourClassementRow[] }>(`/api/admin/tours/${encodeURIComponent(String(tourId))}/participants`);
+export async function fetchTourClassement(tourId: string | number, publicMode = false): Promise<TourClassementRow[]> {
+  const resource = publicMode ? '/api/tours' : '/api/admin/tours';
+  const { data } = await http.get<{ data: TourClassementRow[] }>(`${resource}/${encodeURIComponent(String(tourId))}/participants`);
   return data.data ?? [];
 }
 

@@ -27,7 +27,8 @@ export interface MatchGridBaseRow {
   TABEXT: number;
 }
 
-interface StatusColumnConfig<R extends MatchGridBaseRow> {
+interface EditableStatusColumnConfig<R extends MatchGridBaseRow> {
+  mode?: 'editable';
   editingRowId: GridRowId | null;
   draftValue: number;
   onStartEdit: (row: R) => void;
@@ -38,7 +39,15 @@ interface StatusColumnConfig<R extends MatchGridBaseRow> {
   sortable?: boolean;
 }
 
-interface HeureColumnConfig<R extends MatchGridBaseRow> {
+interface ReadonlyStatusColumnConfig {
+  mode: 'readonly';
+  sortable?: boolean;
+}
+
+type StatusColumnConfig<R extends MatchGridBaseRow> = EditableStatusColumnConfig<R> | ReadonlyStatusColumnConfig;
+
+interface EditableHeureColumnConfig<R extends MatchGridBaseRow> {
+  mode?: 'editable';
   editingRowId: GridRowId | null;
   draftDigits: string;
   onStartEdit: (row: R) => void;
@@ -49,6 +58,13 @@ interface HeureColumnConfig<R extends MatchGridBaseRow> {
   onTabOut?: (row: R, direction: 'next' | 'prev') => void;
   sortable?: boolean;
 }
+
+interface ReadonlyHeureColumnConfig {
+  mode: 'readonly';
+  sortable?: boolean;
+}
+
+type HeureColumnConfig<R extends MatchGridBaseRow> = EditableHeureColumnConfig<R> | ReadonlyHeureColumnConfig;
 
 interface EditableScoreColumnConfig<R extends MatchGridBaseRow> {
   mode?: 'editable';
@@ -73,7 +89,18 @@ interface ReadonlyScoreColumnConfig {
 type ScoreColumnConfig<R extends MatchGridBaseRow> = EditableScoreColumnConfig<R> | ReadonlyScoreColumnConfig;
 
 function formatReadonlyScore(row: MatchGridBaseRow): string {
+  const status = Number(row.ETAT);
+  if (status === 1 || status === 5) {
+    return '-vs-';
+  }
+  if (status === 4) {
+    return '';
+  }
   return `${row.BUTDOM}-${row.BUTEXT}`;
+}
+
+function getStatusLabel(value: number): string {
+  return ({ 1: 'En attente', 2: 'En cours', 3: 'Terminée', 4: 'Non jouée', 5: 'Programmée' } as Record<number, string>)[value] ?? `Etat ${value}`;
 }
 
 function ReadonlyScoreCell({ row, value }: { row: MatchGridBaseRow; value: string }) {
@@ -106,6 +133,7 @@ export function buildMatchGridColumns<R extends MatchGridBaseRow>(
     circ?: CircColumnConfig;
     domicileHeaderName?: string;
     exterieurHeaderName?: string;
+    onClubClick?: (clubId: string, clubName: string) => void;
     isDomicileWinner?: (row: R) => boolean;
     isExterieurWinner?: (row: R) => boolean;
   },
@@ -122,16 +150,20 @@ export function buildMatchGridColumns<R extends MatchGridBaseRow>(
       sortable: options.status.sortable ?? true,
       renderCell: (params) => {
         const row = params.row;
+        if (options.status!.mode === 'readonly') {
+          return getStatusLabel(Number(row.ETAT));
+        }
+        const editableStatus = options.status as EditableStatusColumnConfig<R>;
         return (
           <StatusCell
             value={Number(row.ETAT)}
-            isEditing={String(options.status!.editingRowId) === String(row.RECLEUNIK)}
-            draftValue={options.status!.draftValue}
-            onStartEdit={() => options.status!.onStartEdit(row)}
-            onDraftChange={(nextValue) => options.status!.onDraftChange(row, nextValue)}
-            onCommit={(nextValue) => options.status!.onCommit(row, nextValue)}
-            onCancel={() => options.status!.onCancel(row)}
-            onTabOut={(direction) => options.status!.onTabOut?.(row, direction)}
+            isEditing={String(editableStatus.editingRowId) === String(row.RECLEUNIK)}
+            draftValue={editableStatus.draftValue}
+            onStartEdit={() => editableStatus.onStartEdit(row)}
+            onDraftChange={(nextValue) => editableStatus.onDraftChange(row, nextValue)}
+            onCommit={(nextValue) => editableStatus.onCommit(row, nextValue)}
+            onCancel={() => editableStatus.onCancel(row)}
+            onTabOut={(direction) => editableStatus.onTabOut?.(row, direction)}
           />
         );
       },
@@ -163,17 +195,21 @@ export function buildMatchGridColumns<R extends MatchGridBaseRow>(
       sortable: options.heure.sortable ?? true,
       renderCell: (params) => {
         const row = params.row;
+        if (options.heure!.mode === 'readonly') {
+          return <Box sx={{ width: '100%', textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>{String(row.HEURE ?? '').replace(/^(\d{2})(\d{2})$/, '$1:$2')}</Box>;
+        }
+        const editableHeure = options.heure as EditableHeureColumnConfig<R>;
         return (
           <HeureCell
             value={row.HEURE}
-            isEditing={String(options.heure!.editingRowId) === String(row.RECLEUNIK)}
-            draftDigits={options.heure!.draftDigits}
-            onStartEdit={() => options.heure!.onStartEdit(row)}
-            onDraftChange={(digits) => options.heure!.onDraftChange(row, digits)}
-            onCommit={() => options.heure!.onCommit(row)}
-            onCancel={() => options.heure!.onCancel(row)}
-            onMoveVertical={(direction) => options.heure!.onMoveVertical(row, direction)}
-            onTabOut={(direction) => options.heure!.onTabOut?.(row, direction)}
+            isEditing={String(editableHeure.editingRowId) === String(row.RECLEUNIK)}
+            draftDigits={editableHeure.draftDigits}
+            onStartEdit={() => editableHeure.onStartEdit(row)}
+            onDraftChange={(digits) => editableHeure.onDraftChange(row, digits)}
+            onCommit={() => editableHeure.onCommit(row)}
+            onCancel={() => editableHeure.onCancel(row)}
+            onMoveVertical={(direction) => editableHeure.onMoveVertical(row, direction)}
+            onTabOut={(direction) => editableHeure.onTabOut?.(row, direction)}
           />
         );
       },
@@ -211,6 +247,7 @@ export function buildMatchGridColumns<R extends MatchGridBaseRow>(
           && String(params.row.DOMICILE ?? '').trim().length === 0
         }
         bold={options.isDomicileWinner?.(params.row) ?? false}
+        onClick={String(params.row.DOMICILE ?? '').trim() ? () => options.onClubClick?.(String(params.row.DOMICILE), String(params.row.DOMICILE_NOM ?? '')) : undefined}
       />
     ),
   });
@@ -271,6 +308,7 @@ export function buildMatchGridColumns<R extends MatchGridBaseRow>(
           && String(params.row.EXTERIEUR ?? '').trim().length === 0
         }
         bold={options.isExterieurWinner?.(params.row) ?? false}
+        onClick={String(params.row.EXTERIEUR ?? '').trim() ? () => options.onClubClick?.(String(params.row.EXTERIEUR), String(params.row.EXTERIEUR_NOM ?? '')) : undefined}
       />
     ),
   });

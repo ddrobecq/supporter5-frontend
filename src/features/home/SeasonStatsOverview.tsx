@@ -3,6 +3,7 @@ import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
 import HandshakeRoundedIcon from '@mui/icons-material/HandshakeRounded';
 import { Box, Button, Chip, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import { useEffect, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   PITCH_SLOTS,
   PitchField,
@@ -13,10 +14,16 @@ import {
 } from '../../components/PitchField';
 import { fetchSaisonClassement, fetchSaisons, type SaisonClassementRow } from '../statistiques/saison/classements/saisonClassementApi';
 import { fetchEquipeType, type EquipeTypeResult } from '../statistiques/saison/equipeType/equipeTypeApi';
+import { entityPathForPublicMode } from '../../lib/entityNavigation';
 
 const TOP_COUNT = 3;
 
-function openStatTab(selection: string): void {
+function openStatTab(selection: string, publicMode: boolean): void {
+  if (publicMode) {
+    window.location.assign(`/statistiques?${selection}`);
+    return;
+  }
+
   window.dispatchEvent(new CustomEvent('supporter:tab-open', {
     detail: {
       path: `/admin/statistiques?${selection}`,
@@ -27,10 +34,17 @@ function openStatTab(selection: string): void {
   }));
 }
 
-function openJoueurTab(row: { IDJOUEUR: string; NOM?: string | null; SURNOM?: string | null }): void {
+function openJoueurTab(row: { IDJOUEUR: string; NOM?: string | null; SURNOM?: string | null }, publicMode: boolean, navigate: (path: string) => void): void {
+  const path = entityPathForPublicMode('joueur', row.IDJOUEUR);
+
+  if (publicMode) {
+    navigate(path);
+    return;
+  }
+
   window.dispatchEvent(new CustomEvent('supporter:tab-open', {
     detail: {
-      path: `/admin/joueurs/${encodeURIComponent(row.IDJOUEUR)}`,
+      path,
       label: pitchPlayerLabel(row),
       unique: true,
       uniqueByPath: true,
@@ -38,12 +52,14 @@ function openJoueurTab(row: { IDJOUEUR: string; NOM?: string | null; SURNOM?: st
   }));
 }
 
-function TopList({ title, icon, rows, unit, onOpenMore }: {
+function TopList({ title, icon, rows, unit, onOpenMore, publicMode, navigate }: {
   title: string;
   icon: ReactNode;
   rows: SaisonClassementRow[];
   unit: string;
   onOpenMore: () => void;
+  publicMode: boolean;
+  navigate: (path: string) => void;
 }) {
   return (
     <Stack spacing={0.75} sx={{ minWidth: 160, flex: 1 }}>
@@ -62,7 +78,7 @@ function TopList({ title, icon, rows, unit, onOpenMore }: {
           key={row.IDJOUEUR}
           direction="row"
           spacing={1}
-          onClick={() => openJoueurTab(row)}
+          onClick={() => openJoueurTab(row, publicMode, navigate)}
           sx={{ alignItems: 'center', cursor: 'pointer', borderRadius: 1, p: 0.4, '&:hover': { bgcolor: 'action.hover' } }}
         >
           <Typography variant="caption" sx={{ fontWeight: 800, width: 14, color: 'text.secondary' }}>
@@ -81,7 +97,8 @@ function TopList({ title, icon, rows, unit, onOpenMore }: {
 }
 
 /** Accueil: apercu des stats de la derniere saison (top buteurs/passeurs + equipe type). */
-export function SeasonStatsOverview() {
+export function SeasonStatsOverview({ publicMode = false }: { publicMode?: boolean }) {
+  const navigate = useNavigate();
   const [saison, setSaison] = useState('');
   const [buteurs, setButeurs] = useState<SaisonClassementRow[]>([]);
   const [passeurs, setPasseurs] = useState<SaisonClassementRow[]>([]);
@@ -132,7 +149,7 @@ export function SeasonStatsOverview() {
             size="small"
             variant="outlined"
             startIcon={<BarChartRoundedIcon />}
-            onClick={() => openStatTab('d=saison&t=performance&s=temps')}
+            onClick={() => openStatTab('d=saison&t=performance&s=temps', publicMode)}
           >
             Détail
           </Button>
@@ -145,14 +162,18 @@ export function SeasonStatsOverview() {
               icon={<SportsSoccerRoundedIcon sx={{ fontSize: 16 }} />}
               rows={buteurs.slice(0, TOP_COUNT)}
               unit="buts"
-              onOpenMore={() => openStatTab('d=saison&t=performance&s=buts')}
+              onOpenMore={() => openStatTab('d=saison&t=performance&s=buts', publicMode)}
+              publicMode={publicMode}
+              navigate={navigate}
             />
             <TopList
               title="Meilleurs passeurs"
               icon={<HandshakeRoundedIcon sx={{ fontSize: 16 }} />}
               rows={passeurs.slice(0, TOP_COUNT)}
               unit="passes"
-              onOpenMore={() => openStatTab('d=saison&t=performance&s=passes')}
+              onOpenMore={() => openStatTab('d=saison&t=performance&s=passes', publicMode)}
+              publicMode={publicMode}
+              navigate={navigate}
             />
           </Stack>
 
@@ -160,7 +181,7 @@ export function SeasonStatsOverview() {
             <Stack
               direction="row"
               spacing={0.75}
-              onClick={() => openStatTab('d=saison&t=performance&s=equipe-type')}
+              onClick={() => openStatTab('d=saison&t=performance&s=equipe-type', publicMode)}
               sx={{ alignItems: 'center', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
             >
               <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Équipe type</Typography>
@@ -168,7 +189,7 @@ export function SeasonStatsOverview() {
                 <Chip size="small" color="primary" label={equipeType.FORMATION} sx={{ height: 20, fontSize: 11, fontWeight: 700 }} />
               ) : null}
             </Stack>
-            <Box onClick={() => openStatTab('d=saison&t=performance&s=equipe-type')} sx={{ cursor: 'pointer' }}>
+            <Box onClick={() => openStatTab('d=saison&t=performance&s=equipe-type', publicMode)} sx={{ cursor: 'pointer' }}>
               <PitchField>
                 {PITCH_SLOTS.filter((slot) => joueurParPoste.has(slot.code)).map((slot) => {
                   const joueur = joueurParPoste.get(slot.code)!;

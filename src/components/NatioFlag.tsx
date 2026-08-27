@@ -6,9 +6,10 @@ import { http } from '../lib/http';
 interface NatioFlagProps {
   idnatio: string | null | undefined;
   name?: string | null;
+  showLocal?: boolean;
 }
 
-export function NatioFlag({ idnatio, name }: NatioFlagProps) {
+export function NatioFlag({ idnatio, name, showLocal = false }: NatioFlagProps) {
   const normalized = String(idnatio ?? '').trim();
   const { src } = useEntityImage('natio', normalized || null);
   const [resolvedName, setResolvedName] = useState<string>(() => name ?? normalized);
@@ -30,7 +31,7 @@ export function NatioFlag({ idnatio, name }: NatioFlagProps) {
   }, [normalized, name]);
 
   // NALOCAL = 1 means a local/fictional nationality — don't display
-  if (!normalized || nalocal === null || nalocal !== 0) return null;
+  if (!normalized || nalocal === null || (!showLocal && nalocal !== 0)) return null;
 
   const tooltipTitle = resolvedName || normalized;
 

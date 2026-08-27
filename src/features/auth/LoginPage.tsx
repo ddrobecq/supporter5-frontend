@@ -1,11 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Alert, Box, Button, Card, CardContent, Stack, TextField, Typography } from '@mui/material';
-import { type BaseSyntheticEvent, useMemo, useState } from 'react';
+import { type BaseSyntheticEvent, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { login } from './authApi';
-import { authStore } from './authStore';
+import { authStore, getStoredAdminCredentials } from './authStore';
 
 const LAST_USERNAME_KEY = 'supporter_last_username';
 
@@ -29,8 +29,32 @@ export function LoginPage() {
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { username: initialUsername, password: '' },
+    defaultValues: { username: getStoredAdminCredentials()?.username ?? initialUsername, password: '' },
   });
+
+  useEffect(() => {
+    const storedCredentials = getStoredAdminCredentials();
+    if (!storedCredentials) {
+      return;
+    }
+
+    let cancelled = false;
+    void login(storedCredentials.username, storedCredentials.password)
+      .then((token) => {
+        if (cancelled) {
+          return;
+        }
+        setToken(token);
+        navigate((location.state as { from?: string } | undefined)?.from ?? '/admin/home', { replace: true });
+      })
+      .catch(() => {
+        // Keep the normal login form available when stored credentials are invalid.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [location.state, navigate, setToken]);
 
   const onSubmit = async (values: LoginForm, event?: BaseSyntheticEvent) => {
     setError(null);

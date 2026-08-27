@@ -19,6 +19,7 @@ export interface RencontreDetailRow {
   PADOMSource: string | null;
   PAEXTSource: string | null;
   COCLEUNIK: number;
+  CIRC: string;
   TOUR_NOM: string;
   TYPE_TOUR: number;
   DOMICILE_ABREGE: string;

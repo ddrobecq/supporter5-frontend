@@ -13,16 +13,22 @@ const CircPage = lazy(() => import('./features/circ/CircPage').then((module) => 
 const EpreuvePage = lazy(() => import('./features/epreuve/EpreuvePage').then((module) => ({ default: module.EpreuvePage })));
 const CompetitionPage = lazy(() => import('./features/competition/CompetitionPage').then((module) => ({ default: module.CompetitionPage })));
 const JoueurPage = lazy(() => import('./features/joueur/JoueurPage').then((module) => ({ default: module.JoueurPage })));
+const JoueurPublicPage = lazy(() => import('./features/joueur/JoueurPublicPage').then((module) => ({ default: module.JoueurPublicPage })));
+const RencontrePublicPage = lazy(() => import('./features/rencontre/RencontrePublicPage').then((module) => ({ default: module.RencontrePublicPage })));
 const CalendrierPage = lazy(() => import('./features/calendrier/CalendrierPage').then((module) => ({ default: module.CalendrierPage })));
+const CalendrierPublicPage = lazy(() => import('./features/calendrier/CalendrierPublicPage').then((module) => ({ default: module.CalendrierPublicPage })));
 const StatistiquesPage = lazy(() => import('./features/statistiques/StatistiquesPage').then((module) => ({ default: module.StatistiquesPage })));
 const JoueursIncompletsPage = lazy(() => import('./features/incomplets/JoueursIncompletsPage').then((module) => ({ default: module.JoueursIncompletsPage })));
 const ClubsIncompletsPage = lazy(() => import('./features/incomplets/ClubsIncompletsPage').then((module) => ({ default: module.ClubsIncompletsPage })));
 const RencontresIncompletesPage = lazy(() => import('./features/incomplets/RencontresIncompletesPage').then((module) => ({ default: module.RencontresIncompletesPage })));
 const RencontreImportPage = lazy(() => import('./features/import/RencontreImportPage').then((module) => ({ default: module.RencontreImportPage })));
 const ClubPage = lazy(() => import('./features/club/ClubPage').then((module) => ({ default: module.ClubPage })));
+const ClubPublicPage = lazy(() => import('./features/club/ClubPublicPage').then((module) => ({ default: module.ClubPublicPage })));
 const TourDefPage = lazy(() => import('./features/tourdef/TourDefPage').then((module) => ({ default: module.TourDefPage })));
 const ConfigurationPage = lazy(() => import('./features/configuration/ConfigurationPage').then((module) => ({ default: module.ConfigurationPage })));
 const AdminLayout = lazy(() => import('./layouts/AdminLayout').then((module) => ({ default: module.AdminLayout })));
+const PublicLayout = lazy(() => import('./layouts/PublicLayout').then((module) => ({ default: module.PublicLayout })));
+const PublicSettingsPage = lazy(() => import('./features/public/PublicSettingsPage').then((module) => ({ default: module.PublicSettingsPage })));
 
 type RouteComponent = ComponentType | LazyExoticComponent<ComponentType>;
 
@@ -67,6 +73,15 @@ function App() {
   return (
     <Suspense fallback={null}>
       <Routes>
+        <Route element={<PublicLayout />}>
+          <Route path="/" element={<HomePage publicMode />} />
+          <Route path="/calendrier" element={<CalendrierPublicPage />} />
+          <Route path="/statistiques" element={<StatistiquesPage publicMode />} />
+          <Route path="/parametres" element={<PublicSettingsPage />} />
+          <Route path="/clubs/:clubId" element={<ClubPublicPage />} />
+          <Route path="/joueurs/:joueurId" element={<JoueurPublicPage />} />
+                  <Route path="/rencontres/:rencontreId" element={<RencontrePublicPage />} />
+        </Route>
         <Route path="/login" element={<LoginPage />} />
 
         <Route element={<ProtectedRoute />}>

@@ -57,7 +57,7 @@ export function ClubSelectField({
     <>
       <TextField
         label={label}
-        value=""
+        value={normalizedClubName}
         size="small"
         fullWidth
         required={required}
@@ -75,14 +75,7 @@ export function ClubSelectField({
                   clubId={normalizedClubId}
                   clubName={normalizedClubName || normalizedClubId}
                   size={20}
-                  nameSx={{
-                    fontFamily: 'inherit',
-                    fontSize: '1rem',
-                    fontWeight: 'inherit',
-                    lineHeight: '1.4375em',
-                    letterSpacing: 'inherit',
-                    color: 'text.primary',
-                  }}
+                  showName={false}
                 />
               </InputAdornment>
             ) : undefined,

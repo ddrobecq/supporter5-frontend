@@ -127,13 +127,12 @@ export const TOOLBAR_BUTTONS: ToolbarButton[] = [
   { label: 'Stades', ariaLabel: 'Stades', icon: <StadiumRoundedIcon />, secondaryCategory: 'Référentiels', activeKey: 'terrain', action: 'picker', entity: 'terrain' },
   { label: 'Devises', ariaLabel: 'Devises', icon: <EuroRoundedIcon />, secondaryCategory: 'Référentiels', activeKey: 'devise', action: 'picker', entity: 'devise' },
   { label: 'Circonstances', ariaLabel: 'Circonstances', icon: <EventNoteRoundedIcon />, secondaryCategory: 'Référentiels', activeKey: 'circ', action: 'picker', entity: 'circ' },
-  { label: 'Épreuves', ariaLabel: 'Épreuves', icon: <MilitaryTechIcon />, secondaryCategory: 'Compétitions', activeKey: 'epreuve', action: 'picker', entity: 'epreuve' },
-  { label: 'Defs Tour', ariaLabel: 'Definitions de Tour', icon: <RuleRoundedIcon />, secondaryCategory: 'Compétitions', activeKey: 'tourdef', action: 'picker', entity: 'tourdef' },
+  { label: 'Épreuves', ariaLabel: 'Épreuves', icon: <MilitaryTechIcon />, secondaryCategory: 'Référentiels', activeKey: 'epreuve', action: 'picker', entity: 'epreuve' },
+  { label: 'Defs Tour', ariaLabel: 'Definitions de Tour', icon: <RuleRoundedIcon />, secondaryCategory: 'Référentiels', activeKey: 'tourdef', action: 'picker', entity: 'tourdef' },
 ];
 
 export const TOOLBAR_SECONDARY_CATEGORIES: Array<NonNullable<ToolbarButton['secondaryCategory']>> = [
   'Référentiels',
-  'Compétitions',
   'Organisation',
 ];
 
@@ -152,20 +151,10 @@ export interface ToolsMenuGroup {
 
 export const TOOLBAR_TOOLS_GROUPS: ToolsMenuGroup[] = [
   {
-    label: 'Clubs',
+    label: 'Actions',
     items: [
       { label: 'Fusionner...', icon: <MergeRoundedIcon />, action: 'club-merge' },
-    ],
-  },
-  {
-    label: 'Rencontres',
-    items: [
       { label: 'Importer...', icon: <UploadFileRoundedIcon />, action: 'rencontres-import' },
-    ],
-  },
-  {
-    label: 'Statistiques',
-    items: [
       { label: 'Calculer statistiques...', icon: <CalculateRoundedIcon />, action: 'stats-recompute' },
     ],
   },

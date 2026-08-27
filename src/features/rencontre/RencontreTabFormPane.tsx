@@ -1,16 +1,8 @@
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import ClearRoundedIcon from '@mui/icons-material/ClearRounded';
-import AutorenewRoundedIcon from '@mui/icons-material/AutorenewRounded';
-import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
-import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
-import HealingRoundedIcon from '@mui/icons-material/HealingRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import FindReplaceRoundedIcon from '@mui/icons-material/FindReplaceRounded';
 import SwapHorizRoundedIcon from '@mui/icons-material/SwapHorizRounded';
-import ReportRoundedIcon from '@mui/icons-material/ReportRounded';
-import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
-import SquareRoundedIcon from '@mui/icons-material/SquareRounded';
-import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
 import {
   Box,
   Button,
@@ -32,9 +24,8 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import type { SxProps, Theme } from '@mui/material/styles';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { MouseEvent as ReactMouseEvent, ReactElement } from 'react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
@@ -57,8 +48,9 @@ import {
 import type { CircOptionRow, CompetitionTourRow, TourParticipantRow } from '../competition/types';
 import { parsePaSourceForLabel, useProgrammedParticipantResolver } from '../competition/useProgrammedParticipantLabels';
 import { fetchRencontreDetailById, fetchRencontreHighlightsById, fetchRencontreTourMatches, updateRencontreDetail, deleteRencontreEvent, upsertRencontreMatchMeta } from './rencontreApi';
-import type { RencontreDetailRow, RencontreHighlightEventRow, RencontreHighlightsRow, TourMatchWithNamesRow } from './types';
+import type { RencontreDetailRow, RencontreHighlightsRow, TourMatchWithNamesRow } from './types';
 import { RencontreCompositionTab, type CompositionTabActions } from './RencontreCompositionTab';
+import { RencontreHighlightsTimeline, sortHighlightEvents } from './RencontreHighlightsTimeline';
 import { EventFormDialog, type EventFormDialogActions } from './EventFormDialog';
 import { ArbitrePage } from '../arbitre/ArbitrePage';
 import { ArbitreIdentityDisplay } from '../../components/ArbitreIdentityDisplay';
@@ -118,98 +110,6 @@ const STATUS_OPTIONS = [
 ] as const;
 
 type RencontreTabKey = 'info' | 'highlights' | 'composition' | 'resume' | 'programme';
-
-function formatEventMinute(eventRow: RencontreHighlightEventRow): string {
-  const minute = Number(eventRow.MINUTE ?? 0);
-  if (!Number.isFinite(minute) || minute <= 0) {
-    return '';
-  }
-  return `${Math.trunc(minute)}'`;
-}
-
-function getEventVisual(typeEvent: number): { icon: ReactElement; color: string; backgroundColor: string } {
-  if (typeEvent === 1) {
-    return {
-      icon: <SportsSoccerRoundedIcon fontSize="inherit" />,
-      color: '#0f766e',
-      backgroundColor: '#ccfbf1',
-    };
-  }
-  if (typeEvent === 2) {
-    return {
-      icon: <AutorenewRoundedIcon fontSize="inherit" />,
-      color: '#1d4ed8',
-      backgroundColor: '#dbeafe',
-    };
-  }
-  if (typeEvent === 3) {
-    return {
-      icon: <SquareRoundedIcon fontSize="inherit" />,
-      color: '#eab308',
-      backgroundColor: '#fefce8',
-    };
-  }
-  if (typeEvent === 4) {
-    return {
-      icon: <ReportRoundedIcon fontSize="inherit" />,
-      color: '#ea580c',
-      backgroundColor: '#ffedd5',
-    };
-  }
-  if (typeEvent === 5) {
-    return {
-      icon: <SquareRoundedIcon fontSize="inherit" />,
-      color: '#dc2626',
-      backgroundColor: '#fee2e2',
-    };
-  }
-  if (typeEvent === 6) {
-    return {
-      icon: <FlagRoundedIcon fontSize="inherit" />,
-      color: '#7c3aed',
-      backgroundColor: '#ede9fe',
-    };
-  }
-  if (typeEvent === 7) {
-    return {
-      icon: <TaskAltRoundedIcon fontSize="inherit" />,
-      color: '#16a34a',
-      backgroundColor: '#dcfce7',
-    };
-  }
-  if (typeEvent === 8) {
-    return {
-      icon: <CancelRoundedIcon fontSize="inherit" />,
-      color: '#b91c1c',
-      backgroundColor: '#fee2e2',
-    };
-  }
-  if (typeEvent === 9) {
-    return {
-      icon: <HealingRoundedIcon fontSize="inherit" />,
-      color: '#be185d',
-      backgroundColor: '#fce7f3',
-    };
-  }
-  return {
-    icon: <FlagRoundedIcon fontSize="inherit" />,
-    color: '#4b5563',
-    backgroundColor: '#f3f4f6',
-  };
-}
-
-function buildEventCardSx(align: 'left' | 'right'): SxProps<Theme> {
-  return {
-    border: '1px solid',
-    borderColor: 'divider',
-    borderRadius: 1,
-    px: 0.75,
-    py: 0.5,
-    maxWidth: '100%',
-    minHeight: 32,
-    textAlign: align,
-  };
-}
 
 function toNonNegativeIntegerString(value: unknown): string {
   const numeric = Number(value);
@@ -1100,14 +1000,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     },
   ];
 
-  const orderedEvents = [...(highlights?.EVENTS ?? [])].sort((a, b) => {
-    const minuteA = Number(a.MINUTE ?? 0);
-    const minuteB = Number(b.MINUTE ?? 0);
-    if (minuteA !== minuteB) {
-      return minuteA - minuteB;
-    }
-    return Number(a.EVCLEUNIK ?? 0) - Number(b.EVCLEUNIK ?? 0);
-  });
+  const orderedEvents = sortHighlightEvents(highlights?.EVENTS ?? []);
   const showTabs = isSupportedClubMatch;
   const showInfoContent = !showTabs || activeTab === 'info';
   const showResumeContent = showTabs && activeTab === 'resume';
@@ -1521,110 +1414,17 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
             <Typography variant="body2" color="text.secondary">Chargement des faits marquants...</Typography>
           ) : null}
 
-          {!highlightsLoading && orderedEvents.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">Aucun fait marquant pour cette rencontre.</Typography>
-          ) : null}
-
-          {!highlightsLoading && orderedEvents.length > 0 ? (
-            <Stack spacing={0.75}>
-              {orderedEvents.map((eventRow) => {
-                const isHomeEvent = eventRow.SIDE === 'home';
-                const eventText = eventRow.TEXT || String(eventRow.COMMENT ?? '');
-                const visual = getEventVisual(Number(eventRow.TYPE_EVENT ?? 0));
-                const minuteText = formatEventMinute(eventRow) || '-';
-                const isSelected = selectedEventId === eventRow.EVCLEUNIK;
-
-                const card = (
-                  <Box
-                    sx={{
-                      ...buildEventCardSx(isHomeEvent ? 'right' : 'left'),
-                      cursor: 'pointer',
-                      outline: isSelected ? '2px solid' : 'none',
-                      outlineColor: 'primary.main',
-                    }}
-                    onClick={() => setSelectedEventId(isSelected ? null : eventRow.EVCLEUNIK)}
-                    onDoubleClick={() => { setSelectedEventId(eventRow.EVCLEUNIK); setEventDialogMode('edit'); setEventDialogOpen(true); }}
-                  >
-                    <Stack
-                      direction="row"
-                      spacing={0.75}
-                      sx={{
-                        alignItems: 'center',
-                        justifyContent: isHomeEvent ? 'flex-end' : 'flex-start',
-                      }}
-                    >
-                      {isHomeEvent ? (
-                        <>
-                          <Typography variant="body2" sx={{ lineHeight: 1.2, overflowWrap: 'anywhere' }}>{eventText}</Typography>
-                          <Box
-                            sx={{
-                              width: 18,
-                              height: 18,
-                              minWidth: 18,
-                              borderRadius: '50%',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: 14,
-                              color: visual.color,
-                              bgcolor: visual.backgroundColor,
-                            }}
-                          >
-                            {visual.icon}
-                          </Box>
-                        </>
-                      ) : (
-                        <>
-                          <Box
-                            sx={{
-                              width: 18,
-                              height: 18,
-                              minWidth: 18,
-                              borderRadius: '50%',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: 14,
-                              color: visual.color,
-                              bgcolor: visual.backgroundColor,
-                            }}
-                          >
-                            {visual.icon}
-                          </Box>
-                          <Typography variant="body2" sx={{ lineHeight: 1.2, overflowWrap: 'anywhere' }}>{eventText}</Typography>
-                        </>
-                      )}
-                    </Stack>
-                  </Box>
-                );
-
-                return (
-                  <Box
-                    key={eventRow.EVCLEUNIK}
-                    sx={{
-                      display: 'grid',
-                      gridTemplateColumns: { xs: 'minmax(0,1fr) 56px minmax(0,1fr)', md: 'minmax(0,1fr) 68px minmax(0,1fr)' },
-                      columnGap: 0.75,
-                      alignItems: 'center',
-                    }}
-                  >
-                    <Box sx={{ minWidth: 0 }}>
-                      {isHomeEvent ? card : null}
-                    </Box>
-
-                    <Box sx={{ textAlign: 'center' }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
-                        {minuteText}
-                      </Typography>
-                    </Box>
-
-                    <Box sx={{ minWidth: 0 }}>
-                      {!isHomeEvent ? card : null}
-                    </Box>
-                  </Box>
-                );
-              })}
-            </Stack>
+          {!highlightsLoading ? (
+            <RencontreHighlightsTimeline
+              events={highlights?.EVENTS ?? []}
+              selectedEventId={selectedEventId}
+              onSelectEvent={setSelectedEventId}
+              onEventDoubleClick={(eventId) => {
+                setSelectedEventId(eventId);
+                setEventDialogMode('edit');
+                setEventDialogOpen(true);
+              }}
+            />
           ) : null}
         </Stack>
       ) : null}

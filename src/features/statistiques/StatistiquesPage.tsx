@@ -68,12 +68,23 @@ function statMatchesSearch(domain: StatDomain, themeLabel: string, typeLabel: st
   return haystack.includes(search.toLowerCase());
 }
 
-export function StatistiquesPage() {
+export function StatistiquesPage({ publicMode = false }: { publicMode?: boolean }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [uiState, setUiState] = useState<StatisticsUiState>(() => readStatisticsUiState());
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isNarrow, setIsNarrow] = useState(false);
   const { search, expandedDomains, expandedThemes, drawerOpen } = uiState;
+
+  useEffect(() => {
+    if (!publicMode || searchParams.get('d') || searchParams.get('t') || searchParams.get('s')) return;
+
+    const firstDomain = STAT_DOMAINS[0];
+    const firstTheme = firstDomain?.themes[0];
+    const firstType = firstTheme?.types?.[0];
+    if (firstDomain && firstTheme && firstType) {
+      setSearchParams({ d: firstDomain.key, t: firstTheme.key, s: firstType.key }, { replace: true });
+    }
+  }, [publicMode, searchParams, setSearchParams]);
 
   useEffect(() => {
     window.sessionStorage.setItem(STATISTICS_UI_STORAGE_KEY, JSON.stringify(uiState));

@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import { http } from '../../lib/http';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { fetchRencontreComposition, fetchRencontreSquad, saveRencontreComposition } from './rencontreApi';
@@ -102,7 +103,7 @@ function PitchSlot({ code, label, x, y, player, onDrop, onRemove, setDragSource 
 
 // ---------------------------------------------------------------------------
 
-function CoachInlineDisplay({ player }: { player: SquadPlayerRow }) {
+function CoachInlineDisplay({ player, href }: { player: SquadPlayerRow; href?: string }) {
   const nom = player.NOM?.trim() ? player.NOM.toUpperCase() : player.IDJOUEUR;
   const prenom = player.PRENOM?.trim() ?? '';
   const [idnatio, setIdnatio] = useState<string | null>(() => player.IDNATIO?.trim() || null);
@@ -121,13 +122,49 @@ function CoachInlineDisplay({ player }: { player: SquadPlayerRow }) {
   return (
     <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', minWidth: 0 }}>
       <PlayerAvatar playerId={player.IDJOUEUR} size={30} />
-      <Typography variant="body2" sx={{ fontSize: 11, fontWeight: 600 }}>
+      <Typography
+        variant="body2"
+        {...(href ? { component: RouterLink, to: href } : {})}
+        sx={{ fontSize: 11, fontWeight: 600, ...(href ? { color: 'inherit', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } } : {}) }}
+      >
         {nom}{prenom ? ` ${prenom}` : ''}
       </Typography>
       {idnatio ? <NatioFlag idnatio={idnatio} /> : null}
     </Stack>
   );
 }
+
+/** Cadre d'un poste de banc, partage entre la compo admin et la compo publique. */
+export const BENCH_SLOT_SX = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 0.75,
+  height: 38,
+  px: 0.75,
+  borderRadius: 1,
+  border: '1.5px dashed',
+  borderColor: 'divider',
+} as const;
+
+export function BenchPlayerLabel({ player, href }: { player: SquadPlayerRow; href?: string }) {
+  return (
+    <Typography
+      variant="caption"
+      {...(href ? { component: RouterLink, to: href } : {})}
+      sx={{
+        fontSize: 10,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        ...(href ? { color: 'inherit', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } } : {}),
+      }}
+    >
+      {playerLabel(player)}
+    </Typography>
+  );
+}
+
+export { CoachInlineDisplay };
 
 // ---------------------------------------------------------------------------
 
@@ -504,14 +541,7 @@ export function RencontreCompositionTab({
                 <Box
                   key={code}
                   sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.75,
-                    height: 38,
-                    px: 0.75,
-                    borderRadius: 1,
-                    border: '1.5px dashed',
-                    borderColor: 'divider',
+                    ...BENCH_SLOT_SX,
                     bgcolor: player ? 'action.hover' : 'background.default',
                   }}
                   onDragOver={(e) => e.preventDefault()}
@@ -535,9 +565,7 @@ export function RencontreCompositionTab({
                       >
                         <PlayerAvatar playerId={player.IDJOUEUR} size={28} />
                       </Box>
-                      <Typography variant="caption" sx={{ fontSize: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {playerLabel(player)}
-                      </Typography>
+                      <BenchPlayerLabel player={player} />
                     </>
                   ) : (
                     <Typography variant="caption" sx={{ fontSize: 10, color: 'text.disabled' }}>

@@ -5,6 +5,8 @@ import { Box } from '@mui/material';
 import { DataGrid, type DataGridProps, type GridRowParams, type GridValidRowModel } from '@mui/x-data-grid';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { normalizeHeureDigits } from './heureUtils';
+import { entityPath } from '../lib/entityNavigation';
+import { useLocation } from 'react-router-dom';
 
 type RowSaveStatus = 'idle' | 'saving' | 'saved' | 'failed';
 
@@ -68,6 +70,7 @@ interface MatchDataGridProps<R extends GridValidRowModel> extends DataGridProps<
 }
 
 export function MatchDataGrid<R extends GridValidRowModel>(props: MatchDataGridProps<R>) {
+  const location = useLocation();
   const {
     sx,
     density = 'compact',
@@ -114,7 +117,7 @@ export function MatchDataGrid<R extends GridValidRowModel>(props: MatchDataGridP
     if (matchId === null || matchId === '') {
       return;
     }
-    const path = `/admin/rencontres/${encodeURIComponent(String(matchId))}`;
+    const path = entityPath('rencontre', matchId, location.pathname);
     const label = 'Rencontre';
 
     window.dispatchEvent(new CustomEvent('supporter:tab-open', {

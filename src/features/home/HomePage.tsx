@@ -26,13 +26,14 @@ import {
   Typography,
 } from '@mui/material';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { fetchClubMatches } from '../club/clubApi';
 import type { ClubMatchRow } from '../club/types';
 import { supportedClubStore } from '../system/supportedClubStore';
 import { fetchRencontreDetailById } from '../rencontre/rencontreApi';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { formatHeureDisplay } from '../../components/heureUtils';
+import { entityPathForPublicMode } from '../../lib/entityNavigation';
 import type { HomePageOutletContext, RecentEntityKind, RecentOpenedRecord } from './types';
 import { SeasonStatsOverview } from './SeasonStatsOverview';
 
@@ -219,10 +220,17 @@ function isPlayedMatch(row: ClubMatchRow, now: Date): boolean {
   return Boolean(date && date < new Date(now.getFullYear(), now.getMonth(), now.getDate()) && Number(row.ETAT) !== 5);
 }
 
-function openMatch(row: ClubMatchRow): void {
+function openMatch(row: ClubMatchRow, publicMode: boolean, navigate: (path: string) => void): void {
+  const path = entityPathForPublicMode('rencontre', row.RECLEUNIK);
+
+  if (publicMode) {
+    navigate(path);
+    return;
+  }
+
   window.dispatchEvent(new CustomEvent('supporter:tab-open', {
     detail: {
-      path: `/admin/rencontres/${encodeURIComponent(String(row.RECLEUNIK))}`,
+      path,
       label: `${row.DOMICILE_NOM} - ${row.EXTERIEUR_NOM}`,
       unique: true,
       uniqueByPath: true,
@@ -230,7 +238,8 @@ function openMatch(row: ClubMatchRow): void {
   }));
 }
 
-function ClubCalendarMatchCard({ row, isNext }: { row: ClubMatchRow; isNext: boolean }) {
+function ClubCalendarMatchCard({ row, isNext, publicMode }: { row: ClubMatchRow; isNext: boolean; publicMode: boolean }) {
+  const navigate = useNavigate();
   const { src: domicileLogo } = useEntityImage('club', row.DOMICILE);
   const { src: exterieurLogo } = useEntityImage('club', row.EXTERIEUR);
   const { src: competitionLogo } = useEntityImage('competition', row.COCLEUNIK);
@@ -243,7 +252,7 @@ function ClubCalendarMatchCard({ row, isNext }: { row: ClubMatchRow; isNext: boo
     <Link
       component="button"
       underline="none"
-      onClick={() => openMatch(row)}
+      onClick={() => openMatch(row, publicMode, navigate)}
       sx={{
         flex: '0 0 250px',
         minWidth: 250,
@@ -298,7 +307,7 @@ function ClubCalendarMatchCard({ row, isNext }: { row: ClubMatchRow; isNext: boo
   );
 }
 
-function SupportedClubCalendar({ clubId, clubName }: { clubId: string; clubName: string }) {
+function SupportedClubCalendar({ clubId, clubName, publicMode }: { clubId: string; clubName: string; publicMode: boolean }) {
   const [matches, setMatches] = useState<ClubMatchRow[]>([]);
   const nextMatchRef = useRef<HTMLDivElement | null>(null);
   const calendarScrollerRef = useRef<HTMLDivElement | null>(null);
@@ -395,7 +404,7 @@ function SupportedClubCalendar({ clubId, clubName }: { clubId: string; clubName:
           >
             {seasonRows.map((row) => (
               <Box key={row.RECLEUNIK} ref={row.RECLEUNIK === seasonRows[nextIndex]?.RECLEUNIK ? nextMatchRef : undefined} sx={{ display: 'flex', flex: '0 0 250px' }}>
-                <ClubCalendarMatchCard row={row} isNext={Boolean(currentSeason && nextIndex >= 0 && row.RECLEUNIK === seasonRows[nextIndex]?.RECLEUNIK)} />
+                <ClubCalendarMatchCard row={row} isNext={Boolean(currentSeason && nextIndex >= 0 && row.RECLEUNIK === seasonRows[nextIndex]?.RECLEUNIK)} publicMode={publicMode} />
               </Box>
             ))}
           </Box>
@@ -405,8 +414,10 @@ function SupportedClubCalendar({ clubId, clubName }: { clubId: string; clubName:
   );
 }
 
-export function HomePage() {
-  const { recentOpenedRecords, reopenRecentRecord } = useOutletContext<HomePageOutletContext>();
+export function HomePage({ publicMode = false }: { publicMode?: boolean }) {
+  const outletContext = useOutletContext<HomePageOutletContext | null>();
+  const recentOpenedRecords = outletContext?.recentOpenedRecords ?? [];
+  const reopenRecentRecord = outletContext?.reopenRecentRecord;
   const supportedClubId = supportedClubStore((state) => state.clubId);
   const supportedClubName = supportedClubStore((state) => state.clubName);
   const loadSupportedClub = supportedClubStore((state) => state.load);
@@ -417,6 +428,7 @@ export function HomePage() {
 
   return (
     <Box sx={{ minHeight: '55vh', display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {!publicMode ? (
       <Paper
         elevation={0}
         sx={{
@@ -458,7 +470,7 @@ export function HomePage() {
                 <Link
                   component="button"
                   underline="none"
-                  onClick={() => reopenRecentRecord(record)}
+                  onClick={() => reopenRecentRecord?.(record)}
                   aria-label={`Rouvrir ${resolveDisplayLabel(record)}`}
                   sx={{
                     display: 'inline-flex',
@@ -479,7 +491,7 @@ export function HomePage() {
                   <Link
                     component="button"
                     underline="hover"
-                    onClick={() => reopenRecentRecord(record)}
+                    onClick={() => reopenRecentRecord?.(record)}
                     sx={{
                       display: 'block',
                       width: '100%',
@@ -501,8 +513,9 @@ export function HomePage() {
           </Stack>
         )}
       </Paper>
-      <SupportedClubCalendar clubId={supportedClubId} clubName={supportedClubName} />
-      <SeasonStatsOverview />
+      ) : null}
+      <SupportedClubCalendar clubId={supportedClubId} clubName={supportedClubName} publicMode={publicMode} />
+      <SeasonStatsOverview publicMode={publicMode} />
     </Box>
   );
 }

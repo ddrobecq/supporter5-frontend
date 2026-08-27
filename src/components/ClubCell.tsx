@@ -1,5 +1,6 @@
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import { Box, Stack } from '@mui/material';
+import type { KeyboardEvent, MouseEvent } from 'react';
 import { useEntityImage } from '../lib/useEntityImage';
 
 interface ClubCellProps {
@@ -8,13 +9,44 @@ interface ClubCellProps {
   alignRight?: boolean;
   italic?: boolean;
   bold?: boolean;
+  onClick?: () => void;
 }
 
-export function ClubCell({ clubId, clubName, alignRight = false, italic = false, bold = false }: ClubCellProps) {
+export function ClubCell({ clubId, clubName, alignRight = false, italic = false, bold = false, onClick }: ClubCellProps) {
   const { src } = useEntityImage('club', clubId);
+  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onClick?.();
+    }
+  };
+  const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    onClick?.();
+  };
 
   return (
-    <Box sx={{ width: '100%', display: 'flex', justifyContent: alignRight ? 'flex-end' : 'flex-start' }}>
+    <Box
+      component={onClick ? 'button' : 'div'}
+      type={onClick ? 'button' : undefined}
+      onClick={onClick ? handleClick : undefined}
+      onKeyDown={onClick ? handleKeyDown : undefined}
+      aria-label={onClick ? `Ouvrir la fiche de ${clubName}` : undefined}
+      sx={{
+        width: '100%',
+        display: 'flex',
+        justifyContent: alignRight ? 'flex-end' : 'flex-start',
+        border: 0,
+        p: 0,
+        m: 0,
+        bgcolor: 'transparent',
+        color: 'inherit',
+        font: 'inherit',
+        textAlign: 'inherit',
+        cursor: onClick ? 'pointer' : 'default',
+        '&:hover': onClick ? { textDecoration: 'underline' } : undefined,
+      }}
+    >
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minWidth: 0 }}>
         {alignRight ? (
           <>

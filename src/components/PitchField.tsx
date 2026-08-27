@@ -1,6 +1,7 @@
 import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded';
 import { Avatar, Box, Stack, Typography, type BoxProps } from '@mui/material';
 import type { ReactNode } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import { NatioFlag } from './NatioFlag';
 import { useEntityImage } from '../lib/useEntityImage';
 
@@ -127,11 +128,12 @@ export function PitchSlotShell({ x, y, width = PITCH_SLOT_WIDTH, sx, children, .
 }
 
 /** Representation commune d'un joueur place sur le terrain: pastille + nom + drapeau. */
-export function PitchPlayerMarker({ player, highlighted, avatarSize = PITCH_AVATAR_SIZE, showFlag = true, avatarSx, ...avatarBoxProps }: {
+export function PitchPlayerMarker({ player, highlighted, avatarSize = PITCH_AVATAR_SIZE, showFlag = true, nameHref, avatarSx, ...avatarBoxProps }: {
   player: PitchPlayerIdentity;
   highlighted?: boolean;
   avatarSize?: number;
   showFlag?: boolean;
+  nameHref?: string;
   avatarSx?: BoxProps['sx'];
 } & Omit<BoxProps, 'sx'>) {
   return (
@@ -150,6 +152,7 @@ export function PitchPlayerMarker({ player, highlighted, avatarSize = PITCH_AVAT
       <Stack direction="row" spacing={0.4} sx={{ alignItems: 'center', maxWidth: '100%', mt: 0.25 }}>
         <Typography
           variant="caption"
+          {...(nameHref ? { component: RouterLink, to: nameHref } : {})}
           sx={{
             fontSize: 9,
             lineHeight: 1.1,
@@ -159,6 +162,7 @@ export function PitchPlayerMarker({ player, highlighted, avatarSize = PITCH_AVAT
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
+            ...(nameHref ? { textDecoration: 'none', '&:hover': { textDecoration: 'underline' } } : {}),
           }}
         >
           {pitchPlayerLabel(player)}
