@@ -885,16 +885,18 @@ export function TourWizardDialog({
           ) : null}
 
           {!loading && stepIndex === STEP_PARTICIPANTS ? (
-            <TourWizardStep5Participants
-              competitionId={Number(competitionId) || 0}
-              currentTourOrder={Number(draft.ordre) || 0}
-              competitionSeason={String(competitionSeason ?? '').trim()}
-              nbGroupe={draft.nbGroupe}
-              groupNames={groupNames}
-              rows={participantDraftRows}
-              onRowsChange={setParticipantDraftRows}
-              onError={onError}
-            />
+            <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+              <TourWizardStep5Participants
+                competitionId={Number(competitionId) || 0}
+                currentTourOrder={Number(draft.ordre) || 0}
+                competitionSeason={String(competitionSeason ?? '').trim()}
+                nbGroupe={draft.nbGroupe}
+                groupNames={groupNames}
+                rows={participantDraftRows}
+                onRowsChange={setParticipantDraftRows}
+                onError={onError}
+              />
+            </Box>
           ) : null}
 
           {!loading && stepIndex === STEP_RENCONTRES ? (

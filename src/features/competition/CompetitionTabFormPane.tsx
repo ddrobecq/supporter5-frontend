@@ -241,6 +241,19 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
   const canMoveUp = selectedTourIndex > 0 && !tourMoveSaving && !toursLoading;
   const canMoveDown = selectedTourIndex >= 0 && selectedTourIndex < tourRows.length - 1 && !tourMoveSaving && !toursLoading;
 
+  const TOUR_ROW_HEIGHT = 45;
+  const TOUR_GRID_HEADER_HEIGHT = 36;
+  const TOUR_GRID_FOOTER_HEIGHT = 52;
+  const TOUR_GRID_MIN_HEIGHT = TOUR_GRID_HEADER_HEIGHT + TOUR_ROW_HEIGHT + TOUR_GRID_FOOTER_HEIGHT;
+  const TOUR_GRID_MAX_HEIGHT = 280;
+  const tourGridHeight = Math.min(
+    TOUR_GRID_MAX_HEIGHT,
+    Math.max(
+      TOUR_GRID_MIN_HEIGHT,
+      TOUR_GRID_HEADER_HEIGHT + Math.max(tourRows.length, 1) * TOUR_ROW_HEIGHT + TOUR_GRID_FOOTER_HEIGHT,
+    ),
+  );
+
   const orderedMatchRows = useMemo(() => {
     const participantById = new Map<string, import('./types').TourParticipantRow>();
     const participantBySource = new Map<string, import('./types').TourParticipantRow>();
@@ -962,7 +975,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
                     {tourActions}
                   </Stack>
 
-                  <Box sx={{ height: 260 }}>
+                  <Box sx={{ height: tourGridHeight }}>
                     <EntityDataGrid
                       rows={tourRows}
                       columns={tourColumns}

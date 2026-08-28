@@ -210,7 +210,7 @@ export function TourWizardStep5Participants({ competitionId, currentTourOrder, c
   };
 
   return (
-    <Stack spacing={1.5}>
+    <Stack spacing={1.5} sx={{ height: '100%', minHeight: 0 }}>
       {hasMultipleGroups ? (
         <TextField
           select
@@ -240,19 +240,20 @@ export function TourWizardStep5Participants({ competitionId, currentTourOrder, c
               onClick={() => setSelectorOpen(true)}
               disabled={hasMultipleGroups && !selectedGroupId}
             >
-              Ajouter
+              Ajouter un club
             </Button>
           </span>
         </Tooltip>
-        <Tooltip title="Ajouter un participant programme">
+        <Tooltip title="Ajouter un qualifié">
           <Button
             size="small"
             variant="outlined"
+            startIcon={<AddCircleOutlineRoundedIcon />}
             sx={{ minWidth: 0, px: 1.1 }}
             onClick={() => setProgramDialogOpen(true)}
             disabled={hasMultipleGroups && !selectedGroupId}
           >
-            Ajouter un participant programme
+            Ajouter un qualifié
           </Button>
         </Tooltip>
         <Tooltip title="Supprimer">
@@ -269,7 +270,7 @@ export function TourWizardStep5Participants({ competitionId, currentTourOrder, c
         </Tooltip>
       </Stack>
 
-      <Box sx={{ height: 260, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+      <Box sx={{ flex: 1, minHeight: 0, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
         <TourParticipantGrid
           rows={visibleRows}
           loading={false}

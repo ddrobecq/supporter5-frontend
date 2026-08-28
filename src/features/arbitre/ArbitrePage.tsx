@@ -84,11 +84,9 @@ export function ArbitrePage({ variant = 'page', onOpenInTab }: ArbitrePageProps)
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <span>{nom} {prenom}</span>
           {showFlag && (
-            <>
-              <span style={{ marginLeft: '0.25rem' }}>(</span>
+            <span style={{ marginLeft: '0.25rem', display: 'inline-flex', alignItems: 'center' }}>
               <NatioFlag idnatio={String(idnatio)} />
-              <span>)</span>
-            </>
+            </span>
           )}
         </Box>
       );

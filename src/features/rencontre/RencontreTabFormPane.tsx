@@ -3,6 +3,8 @@ import ClearRoundedIcon from '@mui/icons-material/ClearRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import FindReplaceRoundedIcon from '@mui/icons-material/FindReplaceRounded';
 import SwapHorizRoundedIcon from '@mui/icons-material/SwapHorizRounded';
+import SportsIcon from '@mui/icons-material/Sports';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import {
   Box,
   Button,
@@ -1508,8 +1510,18 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
         maxWidth="xl"
         slotProps={{ paper: { sx: { height: '80vh' } } }}
       >
-        <DialogTitle>Sélectionner l'arbitre</DialogTitle>
-        <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
+        <DialogTitle sx={{ pr: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+              <SportsIcon sx={{ fontSize: 18 }} />
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>Selectionner un Arbitre</Typography>
+            </Box>
+            <IconButton aria-label="Fermer la liste des arbitres" onClick={() => setArbitrePickerOpen(false)}>
+              <CloseRoundedIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 2, display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}>
           <ArbitrePage
             variant="modalPicker"
             onOpenInTab={({ rowId, label }) => {

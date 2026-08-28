@@ -398,6 +398,8 @@ export function CalendrierPage({ readOnly = false }: { readOnly?: boolean }) {
   const savedIconTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const classementCacheRef = useRef<Map<number, TourClassementRow[]>>(new Map());
   const classementQualifCacheRef = useRef<Map<number, TourQualifRow[]>>(new Map());
+  const [tourClassementByTour, setTourClassementByTour] = useState<Map<number, TourClassementRow[]>>(new Map());
+  const tourClassementLoadingRef = useRef<Set<number>>(new Set());
   const classementRequestTokenRef = useRef(0);
   const scoreInitialDraftRef = useRef<ScoreDraft | null>(null);
   const heureInitialDraftRef = useRef<string>('');
@@ -484,12 +486,17 @@ export function CalendrierPage({ readOnly = false }: { readOnly?: boolean }) {
   }, [location.pathname, navigate, readOnly]);
 
   const isEliminatoryMatchWinner = useCallback((row: CalendrierRow, side: 'domicile' | 'exterieur'): boolean => {
-    if (Number(row.TYPE_TOUR ?? 0) !== 2 || Number(row.TUCLEUNIK) !== Number(classementTourId ?? 0)) {
+    if (Number(row.TYPE_TOUR ?? 0) !== 2) {
       return false;
     }
 
-    const group = resolveMatchGroup(classementRows, row);
-    const candidates = classementRows.filter((candidate) => (
+    const tourRows = tourClassementByTour.get(Number(row.TUCLEUNIK)) ?? [];
+    if (tourRows.length === 0) {
+      return false;
+    }
+
+    const group = resolveMatchGroup(tourRows, row);
+    const candidates = tourRows.filter((candidate) => (
       !group || normalizeGroupName(candidate.GROUPE) === group
     ));
     const winners = candidates.filter((candidate) => Number(candidate.PAClassement ?? 0) === 1);
@@ -500,7 +507,7 @@ export function CalendrierPage({ readOnly = false }: { readOnly?: boolean }) {
     const clubId = side === 'domicile' ? row.DOMICILE : row.EXTERIEUR;
     return String(clubId ?? '').trim() !== ''
       && String(winners[0]?.IDCLUB ?? '').trim() === String(clubId).trim();
-  }, [classementRows, classementTourId]);
+  }, [tourClassementByTour]);
   const competitionId = Number(selectedRow?.COCLEUNIK ?? 0);
   const competitionWebUrl = String(selectedRow?.CO_WEB ?? '').trim();
   const canOpenCompetitionWeb = useMemo(() => {
@@ -604,6 +611,53 @@ export function CalendrierPage({ readOnly = false }: { readOnly?: boolean }) {
       }
     }
   }, [readOnly]);
+
+  useEffect(() => {
+    const eliminatoireTourIds = Array.from(new Set(
+      rows
+        .filter((row) => Number(row.TYPE_TOUR ?? 0) === 2)
+        .map((row) => Number(row.TUCLEUNIK))
+        .filter((tourId) => Number.isInteger(tourId) && tourId > 0),
+    ));
+
+    const missing = eliminatoireTourIds.filter((tourId) => (
+      !classementCacheRef.current.has(tourId) && !tourClassementLoadingRef.current.has(tourId)
+    ));
+
+    const applyFromCache = () => {
+      setTourClassementByTour((prev) => {
+        let changed = eliminatoireTourIds.length !== prev.size;
+        const next = new Map<number, TourClassementRow[]>();
+        for (const tourId of eliminatoireTourIds) {
+          const cached = classementCacheRef.current.get(tourId) ?? [];
+          next.set(tourId, cached);
+          if (prev.get(tourId) !== cached) {
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    };
+
+    if (missing.length === 0) {
+      applyFromCache();
+      return;
+    }
+
+    missing.forEach((tourId) => tourClassementLoadingRef.current.add(tourId));
+    void Promise.all(missing.map((tourId) => (
+      fetchTourClassement(tourId, readOnly)
+        .then((data) => {
+          classementCacheRef.current.set(tourId, data);
+        })
+        .catch(() => {
+          classementCacheRef.current.set(tourId, []);
+        })
+        .finally(() => {
+          tourClassementLoadingRef.current.delete(tourId);
+        })
+    ))).then(applyFromCache);
+  }, [rows, readOnly]);
 
   useEffect(() => {
     if (rows.length === 0) {
