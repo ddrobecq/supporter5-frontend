@@ -36,6 +36,7 @@ import { formatHeureDisplay } from '../../components/heureUtils';
 import { entityPath, entityPathForPublicMode } from '../../lib/entityNavigation';
 import type { HomePageOutletContext, RecentEntityKind, RecentOpenedRecord } from './types';
 import { SeasonStatsOverview } from './SeasonStatsOverview';
+import { ActualitesOverview } from './ActualitesOverview';
 
 function resolveEntityIcon(kind: RecentEntityKind): ReactNode {
   switch (kind) {
@@ -541,6 +542,11 @@ export function HomePage({ publicMode = false }: { publicMode?: boolean }) {
         <Box sx={{ minWidth: 0, order: 1 }}>
           <SupportedClubCalendar clubId={supportedClubId} publicMode={publicMode} />
         </Box>
+        {publicMode ? (
+          <Box sx={{ minWidth: 0, order: 2 }}>
+            <ActualitesOverview />
+          </Box>
+        ) : null}
         <Box sx={{ minWidth: 0, order: 3 }}>
           <SeasonStatsOverview publicMode={publicMode} />
         </Box>

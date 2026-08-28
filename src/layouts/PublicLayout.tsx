@@ -12,6 +12,7 @@ import { supportedClubStore } from '../features/system/supportedClubStore';
 import { PublicSearchDialog } from '../features/public/PublicSearchDialog';
 import { useState } from 'react';
 import { adminPathFromPublicPath, publicPathFromAdminPath } from '../lib/entityNavigation';
+import { useSeoMeta } from '../lib/useSeoMeta';
 
 export function PublicLayout() {
   const navigate = useNavigate();
@@ -24,6 +25,15 @@ export function PublicLayout() {
   const clubName = supportedClubStore((state) => state.clubName);
   const loadSupportedClub = supportedClubStore((state) => state.load);
   const { src: clubLogo } = useEntityImage('club', clubId);
+
+  const pageTitle = isCalendar ? 'Calendrier | Supporter' : isStatistics ? 'Statistiques | Supporter' : isSettings ? 'Paramètres | Supporter' : 'Supporter | Football';
+  const pageDescription = isCalendar
+    ? 'Calendrier et résultats des rencontres de football.'
+    : isStatistics
+      ? 'Statistiques et performances des clubs et joueurs de football.'
+      : 'Résultats, calendriers, statistiques, clubs et joueurs de football.';
+
+  useSeoMeta(pageTitle, pageDescription);
 
   useEffect(() => {
     void loadSupportedClub();

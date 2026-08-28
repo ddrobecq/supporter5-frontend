@@ -11,7 +11,9 @@ import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { NatioFlag } from '../../components/NatioFlag';
 import { PublicLoadingState, PublicNotFoundState } from '../../components/PublicPageState';
+import { StructuredData } from '../../components/StructuredData';
 import { useEntityImage } from '../../lib/useEntityImage';
+import { useSeoMeta } from '../../lib/useSeoMeta';
 import { fetchNatio } from '../natio/natioApi';
 import { resolveNatioId, resolveNatioLabel } from '../natio/natioUi';
 import { fetchVilleById } from '../ville/villeApi';
@@ -97,6 +99,12 @@ export function JoueurPublicPage() {
     return () => controller.abort();
   }, [joueurId]);
 
+  const seoName = profile ? resolvePlayerName(profile).title : 'Joueur';
+  useSeoMeta(
+    profile ? `${seoName} - Statistiques et fiche joueur | Supporter` : 'Fiche joueur | Supporter',
+    profile ? `Découvrez la fiche, les statistiques et l'historique de ${seoName}.` : 'Fiche publique d’un joueur de football.',
+  );
+
   if (loading) return <PublicLoadingState />;
   if (!profile) return <PublicNotFoundState entity="Joueur" />;
 
@@ -108,9 +116,23 @@ export function JoueurPublicPage() {
   const deathDate = normalizeText(profile.DECES);
   const birthCountryId = birthCityCountry || normalizeText(profile.IDNATIO);
   const historyLoading = false;
+  const structuredData = useMemo<Record<string, unknown>>(() => ({
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name: name.title,
+    url: `${window.location.origin}/joueurs/${encodeURIComponent(joueurId)}`,
+    ...(name.subtitle ? { alternateName: name.subtitle } : {}),
+    ...(birthDate ? { birthDate } : {}),
+    ...(birthCity ? { birthPlace: { '@type': 'Place', name: birthCity } } : {}),
+    ...(countryName ? { nationality: countryName } : {}),
+    ...(poste ? { jobTitle: normalizeText(poste.POS_NOM) } : {}),
+    ...(portrait.src ? { image: portrait.src } : {}),
+    ...(contracts[0]?.CLUB_NOM ? { affiliation: { '@type': 'SportsTeam', name: contracts[0].CLUB_NOM } } : {}),
+  }), [birthCity, birthDate, contracts, countryName, joueurId, name.subtitle, name.title, portrait.src, poste]);
 
   return (
     <Stack spacing={2}>
+      <StructuredData data={structuredData} />
       <Card>
         <CardContent>
           <Stack spacing={1.5} sx={{ alignItems: 'center' }}>

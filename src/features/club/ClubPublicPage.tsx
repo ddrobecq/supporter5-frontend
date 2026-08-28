@@ -11,8 +11,10 @@ import { ClubSelectField } from '../../components/ClubSelectField';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { NatioFlag } from '../../components/NatioFlag';
 import { PublicLoadingState, PublicNotFoundState } from '../../components/PublicPageState';
+import { StructuredData } from '../../components/StructuredData';
 import { entityPathForPublicMode } from '../../lib/entityNavigation';
 import { useEntityImage } from '../../lib/useEntityImage';
+import { useSeoMeta } from '../../lib/useSeoMeta';
 import { fetchSupportedClubContext } from '../system/systemApi';
 import { fetchNatio } from '../natio/natioApi';
 import type { NatioRow } from '../natio/types';
@@ -79,18 +81,31 @@ export function ClubPublicPage() {
   const country = countries.find((item) => String(resolveNatioId(item) ?? '').trim() === String(profile?.IDNATIO ?? '').trim());
   const clubName = String(profile?.CLUB_ABREGE ?? '').trim();
   const countryName = country ? resolveNatioLabel(country) : '';
+  useSeoMeta(
+    profile ? `${clubName} - Résultats, calendrier et palmarès | Supporter` : 'Fiche club | Supporter',
+    profile ? `Découvrez les résultats, le calendrier, l'histoire et le palmarès de ${clubName}.` : 'Fiche publique d’un club de football.',
+  );
   const matchColumns = useMemo<GridColDef<ClubMatchRow>[]>(() => buildMatchGridColumns<ClubMatchRow>({
     date: { enabled: true, width: 110, sortable: true, renderCell: (row) => row.DATE },
     circ: { enabled: true, width: 260, sortable: true, field: 'CIRC_COMPLET', headerName: 'Compétition' },
     score: { mode: 'readonly', sortable: false }, domicileHeaderName: 'Domicile', exterieurHeaderName: 'Extérieur',
     onClubClick: (id) => navigate(entityPathForPublicMode('club', id)),
   }), [navigate]);
+  const structuredData = useMemo<Record<string, unknown> | null>(() => profile ? ({
+    '@context': 'https://schema.org',
+    '@type': 'SportsTeam',
+    name: clubName,
+    url: `${window.location.origin}/clubs/${encodeURIComponent(clubId)}`,
+    ...(clubImage.src ? { logo: clubImage.src } : {}),
+    ...(profile.VILLE_NOM ? { location: { '@type': 'Place', name: profile.VILLE_NOM } } : {}),
+  }) : null, [clubId, clubImage.src, clubName, profile]);
 
   if (loading) return <PublicLoadingState />;
   if (!profile) return <PublicNotFoundState entity="Club" />;
 
   return (
     <Stack spacing={2}>
+      <StructuredData data={structuredData} />
       <Card><CardContent><Stack spacing={1.5} sx={{ alignItems: 'center' }}>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '150px minmax(220px, auto) 132px' }, gridTemplateRows: { xs: '150px auto', sm: '150px' }, columnGap: { xs: 1, sm: 3 }, rowGap: 1, alignItems: 'center', justifyContent: 'center', width: '100%' }}>
           <Box sx={{ width: 150, height: 150, display: 'grid', placeItems: 'center', justifySelf: 'center', gridArea: { xs: '1 / 1', sm: '1 / 1' } }}>{clubImage.src ? <Box component="img" src={clubImage.src} alt={`Écusson ${clubName}`} sx={{ maxWidth: '100%', maxHeight: '150px', objectFit: 'contain' }} /> : <ShieldRoundedIcon sx={{ fontSize: 96, color: 'text.disabled' }} />}</Box>

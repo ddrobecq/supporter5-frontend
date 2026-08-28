@@ -14,7 +14,9 @@ import { MatchDataGrid } from '../../components/MatchDataGrid';
 import { buildMatchGridColumns } from '../../components/matchGridColumns';
 import { PitchField, PitchPlayerAvatar, PitchPlayerMarker, PitchSlotShell, PITCH_SLOTS } from '../../components/PitchField';
 import { PublicLoadingState } from '../../components/PublicPageState';
+import { StructuredData } from '../../components/StructuredData';
 import { useEntityImage } from '../../lib/useEntityImage';
+import { useSeoMeta } from '../../lib/useSeoMeta';
 import { formatInteger } from '../../lib/formatNumber';
 import { http } from '../../lib/http';
 import { env } from '../../config/env';
@@ -165,6 +167,13 @@ export function RencontrePublicPage() {
     }).catch(() => setDetail(null)).finally(() => setLoading(false));
   }, [rencontreId]);
 
+  const seoHomeName = detail?.DOMICILE_NOM_EFFECTIF || detail?.DOMICILE_ABREGE || 'Équipe à domicile';
+  const seoAwayName = detail?.EXTERIEUR_NOM_EFFECTIF || detail?.EXTERIEUR_ABREGE || 'équipe à l’extérieur';
+  useSeoMeta(
+    detail ? `${seoHomeName} - ${seoAwayName} | Supporter` : 'Fiche rencontre | Supporter',
+    detail ? `Score, date et informations de la rencontre ${seoHomeName} contre ${seoAwayName}.` : 'Fiche publique d’une rencontre de football.',
+  );
+
   const matchColumns = useMemo<GridColDef<TourMatchWithNamesRow>[]>(() => buildMatchGridColumns<TourMatchWithNamesRow>({
     date: { enabled: true, width: 110, sortable: true, renderCell: (row) => formatDateShort(row.DATE) },
     score: { mode: 'readonly' },
@@ -183,8 +192,24 @@ export function RencontrePublicPage() {
   const dateDisplay = ['Auj.', 'Hier', 'Demain'].includes(dateLabel) ? dateLabel : `le ${dateLabel}`;
   const spectatorsCount = Number(detail.NBSPECT ?? -1);
   const competitionLabel = formatCompetitionLabel(detail);
+  const structuredData = useMemo<Record<string, unknown>>(() => ({
+    '@context': 'https://schema.org',
+    '@type': 'SportsEvent',
+    name: `${homeName} contre ${awayName}`,
+    url: `${window.location.origin}/rencontres/${encodeURIComponent(rencontreId)}`,
+    ...(detail.DATE ? { startDate: detail.DATE } : {}),
+    ...(detail.TERRAIN_DISPLAY ? { location: { '@type': 'Place', name: detail.TERRAIN_DISPLAY } } : {}),
+    homeTeam: { '@type': 'SportsTeam', name: homeName },
+    awayTeam: { '@type': 'SportsTeam', name: awayName },
+    ...(competitionLabel ? { description: competitionLabel } : {}),
+    ...(Number(detail.ETAT) !== 1 && Number(detail.ETAT) !== 4 && Number(detail.ETAT) !== 5 ? {
+      homeTeamScore: detail.BUTDOM,
+      awayTeamScore: detail.BUTEXT,
+    } : {}),
+  }), [awayName, competitionLabel, detail, homeName, rencontreId]);
 
   return <Stack spacing={2}>
+    <StructuredData data={structuredData} />
     <Card><CardContent><Stack spacing={2}>
       <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}><ClubHeader id={detail.DOMICILE} name={homeName} align="right" onClick={() => navigate(entityPathForPublicMode('club', detail.DOMICILE))} /><Stack spacing={0.5} sx={{ alignItems: 'center', minWidth: 120 }}><Typography variant="h3" sx={{ fontWeight: 900, whiteSpace: 'nowrap' }}>{formatScore(detail)}</Typography><Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>{competitionLogo.src ? <Box component="img" src={competitionLogo.src} alt="" sx={{ width: 24, height: 24, objectFit: 'contain' }} /> : <EmojiEventsRoundedIcon sx={{ fontSize: 20 }} />}<Typography variant="caption" color="text.secondary">{competitionLabel}</Typography></Stack></Stack><ClubHeader id={detail.EXTERIEUR} name={awayName} align="left" onClick={() => navigate(entityPathForPublicMode('club', detail.EXTERIEUR))} /></Stack>
       <Tabs value={tab} onChange={(_event, value: 'info' | 'highlights' | 'composition' | 'resume' | 'programme') => setTab(value)} variant="scrollable" scrollButtons="auto"><Tab value="info" label="Information" /><Tab value="highlights" label="Faits Marquants" /><Tab value="composition" label="Composition" /><Tab value="resume" label="Résumé" /><Tab value="programme" label="Programme" /></Tabs>

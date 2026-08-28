@@ -83,3 +83,20 @@ Configurer une regle de rewrite dans Amplify pour eviter les 404 sur refresh:
 - Target address: `/index.html`
 - Type: `200 (Rewrite)`
 
+### Sitemap dynamique
+
+Le sitemap n'est pas servi par le frontend. La route dynamique est exposee par le backend:
+
+`https://supporter5-backend.onrender.com/sitemap.xml`
+
+Dans les redirects/rewrites de l'application Amplify, ajouter une regle avant le fallback SPA:
+
+```text
+/sitemap.xml  https://supporter5-backend.onrender.com/sitemap.xml  200
+```
+
+Le fallback `/<*> -> /index.html` doit rester apres cette regle. Ainsi,
+`https://www.asmonaco.app/sitemap.xml` est proxifie vers le backend et beneficie
+du cache serveur de 24 heures. Le fichier `robots.txt` reste servi par Amplify
+et reference l'URL publique `https://www.asmonaco.app/sitemap.xml`.
+

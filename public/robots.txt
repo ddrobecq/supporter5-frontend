@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Allow: /calendrier
+Allow: /statistiques
+Allow: /clubs/
+Allow: /joueurs/
+Allow: /rencontres/
+
+# Bloquer l'indexation de l'espace d'administration et de la page de connexion
+Disallow: /admin/
+Disallow: /login
+Disallow: /parametres
+
+# Emplacement du sitemap
+Sitemap: https://www.asmonaco.app/sitemap.xml

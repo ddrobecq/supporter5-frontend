@@ -1,6 +1,7 @@
 import { lazy, Suspense, type ComponentType, type LazyExoticComponent } from 'react';
 import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { useSeoRobots } from './lib/useSeoRobots';
 
 const LoginPage = lazy(() => import('./features/auth/LoginPage').then((module) => ({ default: module.LoginPage })));
 const HomePage = lazy(() => import('./features/home/HomePage').then((module) => ({ default: module.HomePage })));
@@ -70,6 +71,8 @@ const ENTITY_ROUTES: EntityRouteDefinition[] = [
 ];
 
 function App() {
+  useSeoRobots();
+
   return (
     <Suspense fallback={null}>
       <Routes>
