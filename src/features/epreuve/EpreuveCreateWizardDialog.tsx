@@ -75,7 +75,7 @@ export function EpreuveCreateWizardDialog({ open, onClose, onCreated, onError }:
       const created = await createEpreuveWithWizard({ name: name.trim() });
       const createdId = created?.IDEPREUVE;
       if (createdId === undefined || createdId === null || String(createdId).trim() === '') {
-        onError('Creation reussie mais identifiant introuvable.');
+        onError('Création reussie mais identifiant introuvable.');
         return;
       }
       const label = String(created?.EPREUVE ?? '').trim() || name.trim();

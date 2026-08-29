@@ -27,5 +27,7 @@ export const env = {
   tourDefAdminResource: import.meta.env.VITE_TOURDEF_ADMIN_RESOURCE ?? '/api/admin/tourdefs',
   competitionPublicResource: import.meta.env.VITE_COMPETITION_PUBLIC_RESOURCE ?? '/api/competitions',
   competitionAdminResource: import.meta.env.VITE_COMPETITION_ADMIN_RESOURCE ?? '/api/admin/competitions',
+  rssPublicResource: import.meta.env.VITE_RSS_PUBLIC_RESOURCE ?? '/api/rss',
+  rssAdminResource: import.meta.env.VITE_RSS_ADMIN_RESOURCE ?? '/api/admin/rss',
   statsPublicResource: import.meta.env.VITE_STATS_PUBLIC_RESOURCE ?? '/api/stats',
 };

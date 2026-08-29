@@ -55,6 +55,67 @@ function resolvePaletteMode(mode: ClassicAppearanceMode, systemMode: PaletteMode
   return mode === 'dark' || mode === 'system' && systemMode === 'dark' ? 'dark' : 'light';
 }
 
+function normalizeHex(color: string): string {
+  const hex = color.trim();
+  if (/^#[0-9a-fA-F]{3}$/.test(hex)) {
+    return `#${hex.slice(1).split('').map((char) => char + char).join('')}`;
+  }
+  return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : '#244a73';
+}
+
+function hexToRgb(hex: string) {
+  const normalized = normalizeHex(hex);
+  return {
+    r: Number.parseInt(normalized.slice(1, 3), 16),
+    g: Number.parseInt(normalized.slice(3, 5), 16),
+    b: Number.parseInt(normalized.slice(5, 7), 16),
+  };
+}
+
+function rgbToHex({ r, g, b }: { r: number; g: number; b: number }): string {
+  const toHex = (channel: number) => channel.toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function mixHex(base: string, overlay: string, amount: number): string {
+  const baseRgb = hexToRgb(base);
+  const overlayRgb = hexToRgb(overlay);
+  const mixChannel = (baseChannel: number, overlayChannel: number) => Math.round(baseChannel + (overlayChannel - baseChannel) * amount);
+  return rgbToHex({
+    r: mixChannel(baseRgb.r, overlayRgb.r),
+    g: mixChannel(baseRgb.g, overlayRgb.g),
+    b: mixChannel(baseRgb.b, overlayRgb.b),
+  });
+}
+
+function buildTeamThemeSurface(baseBackground: string, baseText: string) {
+  const white = '#ffffff';
+  const black = '#000000';
+  const page = mixHex(baseBackground, black, 0.085);
+  const paper = mixHex(baseBackground, white, 0.12);
+  const box = mixHex(baseBackground, white, 0.22);
+  const elevated = mixHex(baseBackground, white, 0.32);
+  const border = mixHex(baseText, baseBackground, 0.72);
+  const textSecondary = mixHex(baseText, baseBackground, 0.28);
+  const textDisabled = mixHex(baseText, baseBackground, 0.52);
+  const primary = baseText;
+  const primaryLight = mixHex(baseText, white, 0.18);
+  const primaryDark = mixHex(baseText, black, 0.12);
+
+  return {
+    page,
+    paper,
+    box,
+    elevated,
+    border,
+    textSecondary,
+    textDisabled,
+    primary,
+    primaryLight,
+    primaryDark,
+  };
+}
+
 export function AppearanceProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<AppearanceMode>(() => readStoredMode());
   const [teamThemes, setTeamThemes] = useState(DEFAULT_TEAM_THEMES);
@@ -82,23 +143,58 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
   const classicMode = mode as ClassicAppearanceMode;
   const isTeamMode = mode === 'home' || mode === 'away' || mode === 'third';
   const teamTheme = isTeamMode ? teamThemes[mode] : null;
+  const teamTone = teamTheme ? buildTeamThemeSurface(teamTheme.background, teamTheme.text) : null;
   const paletteMode = isTeamMode ? 'light' : resolvePaletteMode(classicMode, systemMode);
   const theme = useMemo(() => createTheme({
     palette: {
       mode: paletteMode,
       primary: {
-        main: paletteMode === 'dark' ? '#8bb8e8' : '#244a73',
+        main: teamTone?.primary ?? (paletteMode === 'dark' ? '#8bb8e8' : '#244a73'),
+        light: teamTone?.primaryLight ?? (paletteMode === 'dark' ? '#a8c8f0' : '#4b7aa9'),
+        dark: teamTone?.primaryDark ?? (paletteMode === 'dark' ? '#6ea6dd' : '#1b3655'),
       },
       background: {
-        default: teamTheme?.background ?? (paletteMode === 'dark' ? '#121a23' : '#eef2f6'),
-        ...(teamTheme ? { paper: teamTheme.background } : {}),
+        default: teamTone?.page ?? (paletteMode === 'dark' ? '#121a23' : '#eef2f6'),
+        paper: teamTone?.paper ?? (paletteMode === 'dark' ? '#1d2a35' : '#ffffff'),
       },
-      ...(teamTheme ? { text: { primary: teamTheme.text, secondary: teamTheme.text } } : {}),
+      ...(teamTheme ? {
+        text: {
+          primary: teamTheme.text,
+          secondary: teamTone?.textSecondary ?? teamTheme.text,
+          disabled: teamTone?.textDisabled ?? teamTheme.text,
+        },
+        divider: teamTone?.border ?? 'rgba(36, 74, 115, 0.16)',
+      } : {}),
     },
     shape: {
       borderRadius: 10,
     },
     components: {
+      MuiCard: {
+        styleOverrides: {
+          root: teamTone ? {
+            backgroundColor: teamTone.box,
+            border: `1px solid ${teamTone.border}`,
+            boxShadow: 'none',
+          } : undefined,
+        },
+      },
+      MuiPaper: {
+        styleOverrides: {
+          root: teamTone ? {
+            backgroundColor: teamTone.paper,
+            backgroundImage: 'none',
+          } : undefined,
+        },
+      },
+      MuiDialog: {
+        styleOverrides: {
+          paper: teamTone ? {
+            backgroundColor: teamTone.paper,
+            backgroundImage: 'none',
+          } : undefined,
+        },
+      },
       MuiDataGrid: {
         styleOverrides: {
           columnHeaders: {
@@ -125,7 +221,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
         },
       },
     },
-  }), [paletteMode, teamTheme]);
+  }), [paletteMode, teamTheme, teamTone]);
 
   return (
     <AppearanceContext.Provider value={{ mode, setMode, teamThemes, setTeamTheme: (teamMode, colors) => setTeamThemes((previous) => ({ ...previous, [teamMode]: colors })) }}>

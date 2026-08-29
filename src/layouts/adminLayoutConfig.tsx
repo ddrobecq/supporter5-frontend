@@ -19,6 +19,7 @@ import SportsIcon from '@mui/icons-material/Sports';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
 import StadiumRoundedIcon from '@mui/icons-material/StadiumRounded';
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded';
+import RssFeedRoundedIcon from '@mui/icons-material/RssFeedRounded';
 import type { GridRowId } from '@mui/x-data-grid';
 import { lazy, type ReactNode } from 'react';
 
@@ -42,6 +43,8 @@ const CompetitionPage = lazy(() => import('../features/competition/CompetitionPa
 const CompetitionTabFormPane = lazy(() => import('../features/competition/CompetitionTabFormPane').then((module) => ({ default: module.CompetitionTabFormPane })));
 const TourDefPage = lazy(() => import('../features/tourdef/TourDefPage').then((module) => ({ default: module.TourDefPage })));
 const TourDefTabFormPane = lazy(() => import('../features/tourdef/TourDefTabFormPane').then((module) => ({ default: module.TourDefTabFormPane })));
+const RssPage = lazy(() => import('../features/rss/RssPage').then((module) => ({ default: module.RssPage })));
+const RssTabFormPane = lazy(() => import('../features/rss/RssTabFormPane').then((module) => ({ default: module.RssTabFormPane })));
 const JoueurPage = lazy(() => import('../features/joueur/JoueurPage').then((module) => ({ default: module.JoueurPage })));
 const JoueurTabFormPane = lazy(() => import('../features/joueur/JoueurTabFormPane').then((module) => ({ default: module.JoueurTabFormPane })));
 
@@ -57,7 +60,7 @@ export interface TabMeta {
   icon: ReactNode;
 }
 
-export type PickerEntityKey = 'joueur' | 'arbitre' | 'epreuve' | 'competition' | 'tourdef' | 'club' | 'natio' | 'ville' | 'terrain' | 'devise' | 'circ';
+export type PickerEntityKey = 'joueur' | 'arbitre' | 'epreuve' | 'competition' | 'tourdef' | 'rss' | 'club' | 'natio' | 'ville' | 'terrain' | 'devise' | 'circ';
 
 export type ToolbarButton =
   | {
@@ -120,8 +123,8 @@ export const TOOLBAR_BUTTONS: ToolbarButton[] = [
   { label: 'Clubs', ariaLabel: 'Clubs', icon: <ShieldRoundedIcon />, activeKey: 'club', action: 'picker', entity: 'club' },
   { label: 'Competitions', ariaLabel: 'Competitions', icon: <EmojiEventsIcon />, activeKey: 'competition', action: 'picker', entity: 'competition' },
   { label: 'Arbitres', ariaLabel: 'Arbitres', icon: <SportsIcon />, secondaryCategory: 'Organisation', activeKey: 'arbitre', action: 'picker', entity: 'arbitre' },
-  { label: 'Statistiques', ariaLabel: 'Statistiques', icon: <BarChartRoundedIcon />, activeKey: 'statistiques', action: 'navigate', path: '/admin/statistiques' },
   { label: 'Matchs', ariaLabel: 'Matchs', icon: <SportsSoccerRoundedIcon />, secondaryCategory: 'Organisation', action: 'wizard', wizard: 'rencontre' },
+  { label: 'Statistiques', ariaLabel: 'Statistiques', icon: <BarChartRoundedIcon />, activeKey: 'statistiques', action: 'navigate', path: '/admin/statistiques' },
   { label: 'Pays', ariaLabel: 'Pays', icon: <FlagRoundedIcon />, secondaryCategory: 'Référentiels', activeKey: 'natio', action: 'picker', entity: 'natio' },
   { label: 'Villes', ariaLabel: 'Villes', icon: <LocationCityRoundedIcon />, secondaryCategory: 'Référentiels', activeKey: 'ville', action: 'picker', entity: 'ville' },
   { label: 'Stades', ariaLabel: 'Stades', icon: <StadiumRoundedIcon />, secondaryCategory: 'Référentiels', activeKey: 'terrain', action: 'picker', entity: 'terrain' },
@@ -129,17 +132,19 @@ export const TOOLBAR_BUTTONS: ToolbarButton[] = [
   { label: 'Circonstances', ariaLabel: 'Circonstances', icon: <EventNoteRoundedIcon />, secondaryCategory: 'Référentiels', activeKey: 'circ', action: 'picker', entity: 'circ' },
   { label: 'Épreuves', ariaLabel: 'Épreuves', icon: <MilitaryTechIcon />, secondaryCategory: 'Référentiels', activeKey: 'epreuve', action: 'picker', entity: 'epreuve' },
   { label: 'Defs Tour', ariaLabel: 'Definitions de Tour', icon: <RuleRoundedIcon />, secondaryCategory: 'Référentiels', activeKey: 'tourdef', action: 'picker', entity: 'tourdef' },
+  { label: 'Flux RSS', ariaLabel: 'Flux RSS', icon: <RssFeedRoundedIcon />, secondaryCategory: 'Référentiels', activeKey: 'rss', action: 'picker', entity: 'rss' },
 ];
 
 export const TOOLBAR_SECONDARY_CATEGORIES: Array<NonNullable<ToolbarButton['secondaryCategory']>> = [
-  'Référentiels',
   'Organisation',
+  'Référentiels',
 ];
 
 export type ToolsMenuAction =
   | 'club-merge'
   | 'stats-recompute'
   | 'rencontres-import'
+  | 'rss-feed'
   | 'incomplets-joueurs'
   | 'incomplets-clubs'
   | 'incomplets-rencontres';
@@ -183,6 +188,7 @@ export const TAB_META: Record<string, TabMeta> = {
   '/admin/circ': { label: 'Circonstances', icon: <EventNoteRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/epreuve': { label: 'Épreuves', icon: <MilitaryTechIcon sx={{ fontSize: 14 }} /> },
   '/admin/tourdefs': { label: 'Defs Tour', icon: <RuleRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/rss': { label: 'Flux RSS', icon: <RssFeedRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/statistiques': { label: 'Statistiques', icon: <BarChartRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/joueurs-incomplets': { label: 'Joueurs incomplets', icon: <PersonSearchRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/clubs-incomplets': { label: 'Clubs incomplets', icon: <ShieldRoundedIcon sx={{ fontSize: 14 }} /> },
@@ -241,6 +247,16 @@ export const PICKER_ENTITY_DEFINITIONS: PickerEntityDefinition[] = [
     titleIcon: <RuleRoundedIcon sx={{ fontSize: 18 }} />,
     renderPage: (onOpenInTab) => <TourDefPage variant="modalPicker" onOpenInTab={onOpenInTab} />,
     renderTabPane: ({ tab, decodedId, active }) => <TourDefTabFormPane key={tab.key} tabPath={tab.path} tourDefId={decodedId} active={active} />,
+  },
+  {
+    key: 'rss',
+    basePath: '/admin/rss',
+    shortPath: '/rss',
+    modalTitle: 'Sélectionner un flux RSS',
+    closeAriaLabel: 'Fermer la liste des flux RSS',
+    titleIcon: <RssFeedRoundedIcon sx={{ fontSize: 18 }} />,
+    renderPage: (onOpenInTab) => <RssPage variant="modalPicker" onOpenInTab={onOpenInTab} />,
+    renderTabPane: ({ tab, decodedId, active }) => <RssTabFormPane key={tab.key} tabPath={tab.path} rssId={decodedId} active={active} />,
   },
   {
     key: 'club',

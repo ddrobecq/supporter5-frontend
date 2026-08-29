@@ -17,7 +17,6 @@ export interface TourDefRow {
   DUREE_TPS_PROLONG?: string | number;
   CLASS_GAD?: string | number;
   TDTYPETOUR?: string | number;
-  VALEUR_BE?: string | number | boolean;
   FIN_PROLONG?: string | number;
   FIN_TPS_REG?: string | number;
   TDCLEFTRI?: string | number;

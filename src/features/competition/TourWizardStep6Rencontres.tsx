@@ -584,8 +584,7 @@ export function TourWizardStep6Rencontres({
       SAISON: String(competitionSeason ?? '').trim(),
       READMIN: 0,
       COMMENT: '',
-      VID_ID: null,
-      IDCIRC: selectedCircId || '',
+      IDCIRC: selectedCircId || null,
       PADOMSource: pending.domicileSource,
       PAEXTSource: paSource,
     };
@@ -695,7 +694,6 @@ export function TourWizardStep6Rencontres({
         SAISON: String(competitionSeason ?? '').trim(),
         READMIN: 0,
         COMMENT: '',
-        VID_ID: null,
         IDCIRC: 'E02',
         PADOMSource: nextDomSource,
         PAEXTSource: nextExtSource,
@@ -960,7 +958,7 @@ export function TourWizardStep6Rencontres({
         <DialogTitle>Generer les matches retour</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Confirmez-vous la creation automatique des matches retour a partir des matches aller deja saisis ?
+            Confirmez-vous la création automatique des matches retour a partir des matches aller deja saisis ?
           </DialogContentText>
         </DialogContent>
         <DialogActions>

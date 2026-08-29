@@ -57,7 +57,6 @@ interface TourDefDraft {
   VALEUR_DE: number | '';
   TDCalculDiffBut: number | '';
   CLASS_GAD: number | '';
-  VALEUR_BE: boolean;
   BONUS_TYPE: number | '';
   BONUS_NB_BUT: number | '';
   VALEUR_BONUS_V: number | '';
@@ -189,7 +188,6 @@ function createEmptyDraft(): TourDefDraft {
     VALEUR_DE: 0,
     TDCalculDiffBut: '',
     CLASS_GAD: '',
-    VALEUR_BE: false,
     BONUS_TYPE: '',
     BONUS_NB_BUT: '',
     VALEUR_BONUS_V: '',
@@ -217,7 +215,6 @@ function createDraftFromRow(row?: TourDefRow): TourDefDraft {
     VALEUR_DE: row.VALEUR_DE != null ? Number(row.VALEUR_DE) : 0,
     TDCalculDiffBut: Number(row.TDCalculDiffBut ?? 0) || '',
     CLASS_GAD: Number(row.CLASS_GAD ?? 0) || '',
-    VALEUR_BE: Number(row.VALEUR_BE ?? 0) === 1,
     BONUS_TYPE: Number(row.BONUS_TYPE ?? 0) || '',
     BONUS_NB_BUT: Number(row.BONUS_NB_BUT ?? 0) || '',
     VALEUR_BONUS_V: Number(row.VALEUR_BONUS_V ?? 0) || '',
@@ -247,7 +244,6 @@ function mapDraftToPayload(
     VALEUR_DE: toNumberOrDefault(draft.VALEUR_DE, 0),
     TDCalculDiffBut: toNumberOrDefault(draft.TDCalculDiffBut, 1),
     CLASS_GAD: toNumberOrDefault(draft.CLASS_GAD, 1),
-    VALEUR_BE: draft.VALEUR_BE ? 1 : 0,
     BONUS_TYPE: toNumberOrDefault(draft.BONUS_TYPE, 1),
     BONUS_NB_BUT: toNumberOrDefault(draft.BONUS_NB_BUT, 0),
     VALEUR_BONUS_V: toNumberOrDefault(draft.VALEUR_BONUS_V, 0),
@@ -513,11 +509,6 @@ export function TourDefFormDialog({
           </Select>
         </FormControl>
       </Stack>
-
-      <FormControlLabel
-        control={<Switch checked={values.VALEUR_BE} onChange={(event) => setValues((prev) => ({ ...prev, VALEUR_BE: event.target.checked }))} />}
-        label="Prise en compte des buts a l'exterieur"
-      />
 
       <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Bonus</Typography>
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25}>

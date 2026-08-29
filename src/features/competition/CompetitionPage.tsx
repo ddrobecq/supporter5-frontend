@@ -230,7 +230,7 @@ export function CompetitionPage({ variant = 'page', onOpenInTab }: CompetitionPa
               const created = await createCompetitionWithWizard(payload);
               const createdId = created?.COCLEUNIK;
               if (createdId === undefined || createdId === null || String(createdId).trim() === '') {
-                throw new Error('Creation reussie mais identifiant introuvable.');
+                throw new Error('Création reussie mais identifiant introuvable.');
               }
               const label = resolveCompetitionLabel(created ?? { NOM: payload.name, SAISON: payload.saison }, payload.name);
               await handleCreated(createdId, label);

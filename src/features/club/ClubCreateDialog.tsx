@@ -24,6 +24,7 @@ import axios from 'axios';
 import { useEffect, useRef, useState } from 'react';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { fetchClubSuggestions } from './clubApi';
+import { DateInputField, fromInputDateToDisplay, toInputDateFromDisplay } from '../../components/DateInputField';
 import { NatioAutocomplete } from '../../components/NatioAutocomplete';
 import { VillePicker } from '../../components/VillePicker';
 import { fetchNatio } from '../natio/natioApi';
@@ -49,6 +50,7 @@ export function ClubCreateDialog({
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
   const [natioId, setNatioId] = useState('');
+  const [creationDate, setCreationDate] = useState(() => fromInputDateToDisplay(new Date().toISOString().slice(0, 10)));
   const [isSelection, setIsSelection] = useState(false);
   const [villeId, setVilleId] = useState('');
   const [villeName, setVilleName] = useState('');
@@ -75,6 +77,7 @@ export function ClubCreateDialog({
       setSaving(false);
       setName('');
       setNatioId('');
+      setCreationDate(fromInputDateToDisplay(new Date().toISOString().slice(0, 10)));
       setIsSelection(false);
       setVilleId('');
       setVilleName('');
@@ -153,7 +156,10 @@ export function ClubCreateDialog({
   }, [open, step]);
 
   const canGoNext = name.trim().length > 0;
-  const canCreate = name.trim().length > 0 && natioId.trim().length > 0 && (isSelection || villeId.trim().length > 0);
+  const canCreate = name.trim().length > 0
+    && natioId.trim().length > 0
+    && creationDate.trim().length > 0
+    && (isSelection || villeId.trim().length > 0);
 
   const handleNext = () => {
     if (!canGoNext) {
@@ -168,6 +174,10 @@ export function ClubCreateDialog({
       onError('Le pays est requis.');
       return;
     }
+    if (!creationDate.trim() || !toInputDateFromDisplay(creationDate)) {
+      onError('La date de création est requise.');
+      return;
+    }
     if (!isSelection && !villeId.trim()) {
       onError('La ville est requise si le club nest pas une selection nationale.');
       return;
@@ -179,6 +189,7 @@ export function ClubCreateDialog({
         name: name.trim(),
         natioId: natioId.trim().toUpperCase(),
         isSelection,
+        creationDate: toInputDateFromDisplay(creationDate),
         villeId: villeId.trim() || undefined,
       });
       onClose();
@@ -401,19 +412,31 @@ export function ClubCreateDialog({
       </Paper>
       ) : (
         <>
-          <NatioAutocomplete
-            natioDatas={natioRows}
-            value={natioId}
-            onChange={setNatioId}
-            label="Pays"
-            disabled={loadingNatio}
+          <DateInputField
+            label="Date de création"
+            value={creationDate}
+            onChange={setCreationDate}
+            fullWidth
+            calendarAriaLabel="Calendrier date de création"
           />
 
-          <FormControlLabel
-            label="Selection nationale"
-            control={<Switch checked={isSelection} onChange={(_, checked) => setIsSelection(checked)} />}
-            sx={{ ml: 0 }}
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <NatioAutocomplete
+                natioDatas={natioRows}
+                value={natioId}
+                onChange={setNatioId}
+                label="Pays"
+                disabled={loadingNatio}
+              />
+            </Box>
+
+            <FormControlLabel
+              label="Selection nationale"
+              control={<Switch checked={isSelection} onChange={(_, checked) => setIsSelection(checked)} />}
+              sx={{ ml: 0, mr: 0, mb: 0, whiteSpace: 'nowrap' }}
+            />
+          </Box>
 
           {!isSelection ? (
             <VillePicker

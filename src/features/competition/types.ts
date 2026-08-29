@@ -106,7 +106,6 @@ export interface TourMatchRow {
   SAISON: string;
   READMIN: number;
   COMMENT?: string | null;
-  VID_ID?: number | null;
   BUTDOM: number;
   BUTEXT: number;
   TABDOM: number;
@@ -145,7 +144,6 @@ export interface TourDefRow {
   DUREE_TPS_PROLONG: number;
   CLASS_GAD: number;
   TDTYPETOUR: number;
-  VALEUR_BE: number;
   FIN_PROLONG: number;
   FIN_TPS_REG: number;
   TDCLEFTRI: string;

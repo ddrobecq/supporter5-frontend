@@ -592,7 +592,6 @@ export function TourWizardDialog({
         SAISON: normalizeText(row.SAISON) || normalizeText(competitionSeason),
         READMIN: Number(row['READMIN'] ?? 0) || 0,
         COMMENT: normalizeText(row.COMMENT),
-        VID_ID: Number.isInteger(Number(row.VID_ID)) ? Number(row.VID_ID) : null,
         IDCIRC: mappedCirc,
         PADOMSource: mappedDomSource,
         PAEXTSource: mappedExtSource,

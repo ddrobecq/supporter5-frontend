@@ -67,6 +67,7 @@ interface MatchDataGridProps<R extends GridValidRowModel> extends DataGridProps<
   getMatchId?: (row: R) => string | number | null | undefined;
   rowSaveStatusMap?: Record<string, RowSaveStatus>;
   saveStatusAnchorField?: string;
+  initialScrollRight?: boolean;
 }
 
 export function MatchDataGrid<R extends GridValidRowModel>(props: MatchDataGridProps<R>) {
@@ -81,6 +82,7 @@ export function MatchDataGrid<R extends GridValidRowModel>(props: MatchDataGridP
     saveStatusAnchorField = 'ETAT',
     onRowDoubleClick,
     getRowClassName,
+    initialScrollRight = false,
     ...rest
   } = props;
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -200,6 +202,28 @@ export function MatchDataGrid<R extends GridValidRowModel>(props: MatchDataGridP
       observer.disconnect();
     };
   }, [rowSaveStatusMap, updateStatusAnchors]);
+
+  useEffect(() => {
+    if (!initialScrollRight) return;
+
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+
+    const applyInitialScroll = () => {
+      const virtualScroller = wrapper.querySelector<HTMLElement>('.MuiDataGrid-virtualScroller');
+      if (!virtualScroller) return;
+      const maxScrollLeft = Math.max(0, virtualScroller.scrollWidth - virtualScroller.clientWidth);
+      virtualScroller.scrollLeft = maxScrollLeft;
+    };
+
+    const frameId = window.requestAnimationFrame(applyInitialScroll);
+    const timeoutId = window.setTimeout(applyInitialScroll, 100);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.clearTimeout(timeoutId);
+    };
+  }, [initialScrollRight, rest.rows, rest.columns]);
 
   return (
     <Box ref={wrapperRef} sx={{ width: '100%', height: '100%', position: 'relative' }}>

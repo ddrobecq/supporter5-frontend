@@ -26,6 +26,8 @@ export function normalizeRoutePath(path: string): string {
       return '/admin/competitions';
     case '/tourdefs':
       return '/admin/tourdefs';
+    case '/rss':
+      return '/admin/rss';
     case '/calendrier':
       return '/admin/calendrier';
     case '/statistiques':

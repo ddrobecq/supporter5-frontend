@@ -129,6 +129,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
   const [tourMatchesLoading, setTourMatchesLoading] = useState(false);
   const [selectedMatchId, setSelectedMatchId] = useState<string | number | null>(null);
   const [tourParticipants, setTourParticipants] = useState<import('./types').TourParticipantRow[]>([]);
+  const [infoDirty, setInfoDirty] = useState(false);
   const [editingStatusRowId, setEditingStatusRowId] = useState<string | number | null>(null);
   const [statusDraft, setStatusDraft] = useState<number>(5);
   const [editingDateRowId, setEditingDateRowId] = useState<string | number | null>(null);
@@ -921,6 +922,18 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
     openTourEditModal(clicked);
   };
 
+  const handleGlobalSave = () => {
+    window.dispatchEvent(new CustomEvent('supporter:tab-save-request', {
+      detail: { path: tabPath },
+    }));
+  };
+
+  const handleGlobalCancel = () => {
+    setInfoDirty(false);
+    setDirty(false);
+    void reloadRow();
+  };
+
   return (
     <Box sx={{ display: active ? 'block' : 'none' }}>
       {loading ? (
@@ -957,13 +970,17 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
                   const label = resolveCompetitionLabel(refreshed, String(competitionId));
                   setLabel(label);
                   setDirty(false);
+                  setInfoDirty(false);
                   setSnackbar({ severity: 'success', message: 'Competition mise a jour.' });
                   notifySaveDone();
                 } catch (error) {
                   setSnackbar({ severity: 'error', message: toErrorMessage(error) });
                 }
               }}
-              onDirtyChange={(dirty) => setDirty(dirty)}
+              onDirtyChange={(dirty) => {
+                setDirty(dirty);
+                setInfoDirty(dirty);
+              }}
               saveCount={saveRequestCount}
             />
           ) : (
@@ -971,7 +988,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
               <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
                 <Stack spacing={0.75}>
                   <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>Tours de la competition</Typography>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>Tours de la compétition</Typography>
                     {tourActions}
                   </Stack>
 
@@ -993,7 +1010,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
               <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
                 <Stack spacing={0.75}>
                   <Typography variant="subtitle1" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
-                    Rencontres du tour selectionne
+                    Rencontres du tour sélectionné
                   </Typography>
 
                   <Box sx={{ height: 380 }}>
@@ -1022,6 +1039,13 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
               </Box>
             </Stack>
           )}
+
+          {infoDirty ? (
+            <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+              <Button color="inherit" onClick={handleGlobalCancel}>Annuler</Button>
+              <Button variant="contained" onClick={handleGlobalSave}>Enregistrer</Button>
+            </Stack>
+          ) : null}
         </Stack>
       ) : null}
 
@@ -1049,7 +1073,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
         <DialogTitle>Supprimer un tour</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Voulez-vous vraiment supprimer le tour selectionne ?
+            Voulez-vous vraiment supprimer le tour sélectionné ?
           </DialogContentText>
         </DialogContent>
         <DialogActions>

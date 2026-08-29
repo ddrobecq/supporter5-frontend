@@ -1,7 +1,6 @@
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import {
   Box,
-  Button,
   FormControlLabel,
   MenuItem,
   Stack,
@@ -310,12 +309,6 @@ export function CompetitionFormDialog({
       <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
         <Stack spacing={2}>
           {content}
-          <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
-            <Button onClick={onClose} color="inherit">Annuler</Button>
-            <Button onClick={() => void handleSave()} variant="contained" disabled={saving}>
-              {saving ? 'Enregistrement...' : 'Enregistrer'}
-            </Button>
-          </Stack>
         </Stack>
       </Box>
     );

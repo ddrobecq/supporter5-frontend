@@ -474,15 +474,14 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
         SAISON: season.trim(),
         READMIN: 0,
         COMMENT: '',
-        VID_ID: null,
-        IDCIRC: matchKind === 'officiel' ? (circId || '') : '',
+        IDCIRC: matchKind === 'officiel' ? (circId || null) : null,
         PADOMSource: '',
         PAEXTSource: '',
       });
 
       const createdId = created?.RECLEUNIK;
       if (createdId === undefined || createdId === null || !String(createdId).trim()) {
-        setErrorMessage('Creation reussie mais identifiant de rencontre introuvable.');
+        setErrorMessage('Création reussie mais identifiant de rencontre introuvable.');
         return;
       }
 

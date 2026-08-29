@@ -15,7 +15,6 @@ export interface RencontreDetailRow {
   SAISON: string;
   READMIN: number | null;
   COMMENT: string | null;
-  VID_ID: number | null;
   PADOMSource: string | null;
   PAEXTSource: string | null;
   COCLEUNIK: number;

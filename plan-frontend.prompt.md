@@ -18,7 +18,7 @@
 ## Objectif de la premiere iteration (simple)
 Construire un module Admin NATIO reutilisable comme modele:
 1. Vue Table (liste + recherche + actions).
-2. Vue Fiche en modale (creation/edition).
+2. Vue Fiche en modale (création/edition).
 3. Suppression avec confirmation et gestion integrite.
 
 ## UX/UI cible (Option B - moderne sobre)
@@ -53,7 +53,7 @@ Construire un module Admin NATIO reutilisable comme modele:
 ## API attendue pour NATIO
 - Lecture liste paginee + recherche.
 - Lecture detail par identifiant.
-- Creation d'un pays.
+- création d'un pays.
 - Modification d'un pays.
 - Suppression d'un pays.
 
@@ -66,7 +66,7 @@ Construire un module Admin NATIO reutilisable comme modele:
 ## Definition of Done - V1 NATIO
 - Auth admin operationnelle avec token en sessionStorage.
 - Ecran liste Pays fonctionnel.
-- Fiche modale creation/edition fonctionnelle.
+- Fiche modale création/edition fonctionnelle.
 - Suppression avec confirmation et gestion propre des erreurs d'integrite.
 - Messages utilisateur clairs (succes/erreur).
 - Base technique reusable pour entites suivantes.

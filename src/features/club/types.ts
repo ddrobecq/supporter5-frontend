@@ -74,6 +74,7 @@ export interface ClubCreateWizardPayload {
   name: string;
   natioId: string;
   isSelection: boolean;
+  creationDate?: string;
   villeId?: string;
 }
 

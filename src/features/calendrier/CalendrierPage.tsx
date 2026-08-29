@@ -1358,6 +1358,7 @@ export function CalendrierPage({ readOnly = false }: { readOnly?: boolean }) {
               density="compact"
               pageSizeOptions={[25, 50, 100]}
               isDefaultHeureSort={isDefaultHeureSort}
+              initialScrollRight={readOnly}
             />
           </Box>
         </CardContent>

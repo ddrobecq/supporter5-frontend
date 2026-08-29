@@ -60,7 +60,7 @@ export async function createAndOpenInTab<Row extends Record<string, unknown>>({
     const createdRow = (created ?? payload) as Row;
     const createdId = resolveId(createdRow);
     if (createdId === undefined || createdId === null || String(createdId).trim() === '') {
-      setSnackbar({ severity: 'error', message: 'Creation reussie mais identifiant introuvable.' });
+      setSnackbar({ severity: 'error', message: 'Création reussie mais identifiant introuvable.' });
       return;
     }
 
@@ -155,7 +155,7 @@ export function useEntityPage<Row extends Record<string, unknown>>(
     try {
       if (dialogMode === 'create') {
         if (!api.create) {
-          setSnackbar({ severity: 'error', message: 'Creation non disponible.' });
+          setSnackbar({ severity: 'error', message: 'Création non disponible.' });
           return;
         }
         await api.create(payload);

@@ -269,7 +269,7 @@ export function JoueurPage({ variant = 'page', onOpenInTab, filterPosteType, ini
     const created = await createJoueurWithWizard(payload);
     const rawCreatedId = created?.IDJOUEUR;
     if (rawCreatedId === undefined || rawCreatedId === null || String(rawCreatedId).trim() === '') {
-      throw new Error('Creation reussie mais identifiant introuvable.');
+      throw new Error('Création reussie mais identifiant introuvable.');
     }
     const createdId = String(rawCreatedId).trim();
 

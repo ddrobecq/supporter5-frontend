@@ -179,7 +179,7 @@ export function SeasonStatsOverview({ publicMode = false }: { publicMode?: boole
             />
           </Stack>
 
-          <Stack spacing={0.5} sx={{ width: 390, flexShrink: 0 }}>
+          <Stack spacing={0.5} sx={{ width: { xs: '100%', sm: 390 }, maxWidth: 390, flexShrink: 0, minWidth: 0 }}>
             <Stack
               direction="row"
               spacing={0.75}
@@ -191,7 +191,7 @@ export function SeasonStatsOverview({ publicMode = false }: { publicMode?: boole
                 <Chip size="small" color="primary" label={equipeType.FORMATION} sx={{ height: 20, fontSize: 11, fontWeight: 700 }} />
               ) : null}
             </Stack>
-            <Box onClick={() => openStatTab('d=saison&t=performance&s=equipe-type', publicMode)} sx={{ cursor: 'pointer' }}>
+            <Box onClick={() => openStatTab('d=saison&t=performance&s=equipe-type', publicMode)} sx={{ width: '100%', maxWidth: 390, cursor: 'pointer' }}>
               <PitchField>
                 {PITCH_SLOTS.filter((slot) => joueurParPoste.has(slot.code)).map((slot) => {
                   const joueur = joueurParPoste.get(slot.code)!;

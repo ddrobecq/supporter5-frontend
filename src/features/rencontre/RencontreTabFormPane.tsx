@@ -710,7 +710,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
         HEURE: String(draft.heure ?? '').trim() || null,
         SAISON: String(draft.saison ?? '').trim(),
         TUCLEUNIK: Number(draft.tourId) || detail.TUCLEUNIK,
-        IDCIRC: String(draft.circId ?? '').trim(),
+        IDCIRC: String(draft.circId ?? '').trim() || null,
         READMIN: readminValue,
         COMMENT: String(draft.comment ?? ''),
         ...(nextDomicile !== String(detail.DOMICILE ?? '').trim() ? { DOMICILE: nextDomicile } : {}),

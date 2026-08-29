@@ -600,7 +600,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
         const action = Number(row.CN_ACTION ?? 0);
         if (action === 3) return 'Dissolution';
         if (action === 2) return 'Modification';
-        return 'Creation';
+        return 'Création';
       },
     },
     {
@@ -1140,7 +1140,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
           size="small"
           onClick={() => void handlePickScreenColor('fond')}
           aria-label="Pipette : choisir la couleur du FOND"
-          sx={{ color: currentFondColor }}
+          sx={{ color: 'action.active' }}
         >
           <FormatColorFillRoundedIcon fontSize="small" />
         </IconButton>
@@ -1150,7 +1150,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
           size="small"
           onClick={() => void handlePickScreenColor('texte')}
           aria-label="Pipette : choisir la couleur du TEXTE"
-          sx={{ color: currentTexteColor }}
+          sx={{ color: 'action.active' }}
         >
           <FormatColorTextRoundedIcon fontSize="small" />
         </IconButton>
@@ -1451,14 +1451,14 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
 
             <TextField
               select
-              label="Evenement (TYPE)"
+              label="Evénement"
               value={nameDialogDraft.eventType}
               onChange={(event) => setNameDialogDraft((prev) => ({ ...prev, eventType: event.target.value as '1' | '2' | '3' }))}
               size="small"
               fullWidth
               slotProps={{ inputLabel: { shrink: true }, select: { native: true } }}
             >
-              <option value="1">Creation</option>
+              <option value="1">Création</option>
               <option value="2">Modification</option>
               <option value="3">Dissolution</option>
             </TextField>

@@ -142,6 +142,8 @@ export function AdminLayout() {
       setStatsRecomputeOpen(true);
     } else if (action === 'rencontres-import') {
       setRencontreImportOpen(true);
+    } else if (action === 'rss-feed') {
+      openTab('/admin/rss', 'Flux RSS', { unique: true, uniqueByPath: true });
     } else if (action === 'incomplets-joueurs') {
       openTab('/admin/joueurs-incomplets', 'Joueurs incomplets', { unique: true, uniqueByPath: true });
     } else if (action === 'incomplets-clubs') {

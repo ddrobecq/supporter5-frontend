@@ -133,7 +133,7 @@ export function CompetitionCreateWizardDialog({
                     onChange={(event) => setSameAsLastEdition(event.target.checked)}
                   />
                 )}
-                label="Meme format que la derniere edition"
+                label="Même format que la dernière édition"
               />
             </>
           )}

@@ -2,7 +2,7 @@ import { Stack, TextField, Typography } from '@mui/material';
 import { useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 
-type DatePart = 'year' | 'month' | 'day';
+export type DatePart = 'year' | 'month' | 'day';
 
 interface DateGridEditorProps {
   value: string;
@@ -12,15 +12,15 @@ interface DateGridEditorProps {
   onTabOut?: (direction: 'next' | 'prev') => void;
 }
 
-interface DateParts {
+export interface DateParts {
   day: string;
   month: string;
   year: string;
 }
 
-const PART_ORDER: DatePart[] = ['day', 'month', 'year'];
+export const PART_ORDER: DatePart[] = ['day', 'month', 'year'];
 
-function splitDisplayDate(value: string): DateParts {
+export function splitDisplayDate(value: string): DateParts {
   const text = String(value ?? '').trim();
 
   const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -58,7 +58,7 @@ function splitDisplayDate(value: string): DateParts {
   };
 }
 
-function composeDisplayDate(parts: DateParts): string {
+export function composeDisplayDate(parts: DateParts): string {
   if (!parts.day && !parts.month && !parts.year) {
     return '';
   }
@@ -74,15 +74,15 @@ function composeDisplayDate(parts: DateParts): string {
   return text;
 }
 
-function sanitizePartDigits(value: string, maxLength: number): string {
+export function sanitizePartDigits(value: string, maxLength: number): string {
   return value.replace(/\D+/g, '').slice(0, maxLength);
 }
 
-function clampNumber(value: number, min: number, max: number): number {
+export function clampNumber(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function normalizeDatePartValue(part: DatePart, value: string): string {
+export function normalizeDatePartValue(part: DatePart, value: string): string {
   const maxLength = part === 'year' ? 4 : 2;
   const digits = sanitizePartDigits(value, maxLength);
 
@@ -109,14 +109,14 @@ function normalizeDatePartValue(part: DatePart, value: string): string {
   return String(clampNumber(numeric, 1, 31)).padStart(2, '0');
 }
 
-function isValidCalendarDate(year: number, month: number, day: number): boolean {
+export function isValidCalendarDate(year: number, month: number, day: number): boolean {
   const date = new Date(Date.UTC(year, month - 1, day));
   return date.getUTCFullYear() === year
     && date.getUTCMonth() === month - 1
     && date.getUTCDate() === day;
 }
 
-function nextFieldIndex(currentIndex: number, shift: boolean): number | null {
+export function nextFieldIndex(currentIndex: number, shift: boolean): number | null {
   if (shift) {
     return currentIndex > 0 ? currentIndex - 1 : null;
   }

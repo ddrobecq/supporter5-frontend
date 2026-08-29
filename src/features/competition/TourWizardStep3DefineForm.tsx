@@ -41,7 +41,6 @@ interface TourDefFormState {
   valeurDE: number;
   tdCalculDiffBut: number;
   classGadScope: number;
-  valeurBe: boolean;
   bonusType: number;
   bonusNbBut: number;
   valeurBonusV: number;
@@ -77,7 +76,6 @@ interface TourDefCreateDraft {
   DUREE_TPS_REG: number | '';
   DUREE_TPS_PROLONG: number | '';
   CLASS_GAD: number | '';
-  VALEUR_BE: boolean;
   FIN_PROLONG: number | '';
   FIN_TPS_REG: number | '';
   TDCLEFTRI: string;
@@ -154,7 +152,6 @@ function createDefaultFormState(): TourDefFormState {
     valeurDE: 0,
     tdCalculDiffBut: 1,
     classGadScope: 1,
-    valeurBe: false,
     bonusType: 1,
     bonusNbBut: 0,
     valeurBonusV: 0,
@@ -183,7 +180,6 @@ function createFormStateFromTourDef(tourDef: TourDefRow): TourDefFormState {
     valeurDE: Number(tourDef.VALEUR_DE ?? 0) || 0,
     tdCalculDiffBut: Number(tourDef.TDCalculDiffBut ?? 1) || 1,
     classGadScope: Number(tourDef.CLASS_GAD ?? 1) === 2 ? 2 : 1,
-    valeurBe: Number(tourDef.VALEUR_BE ?? 0) === 1,
     bonusType: Number(tourDef.BONUS_TYPE ?? 1) || 1,
     bonusNbBut: Number(tourDef.BONUS_NB_BUT ?? 0) || 0,
     valeurBonusV: Number(tourDef.VALEUR_BONUS_V ?? 0) || 0,
@@ -270,7 +266,6 @@ function createTourDefCreateDraft(): TourDefCreateDraft {
     DUREE_TPS_REG: '',
     DUREE_TPS_PROLONG: '',
     CLASS_GAD: '',
-    VALEUR_BE: false,
     FIN_PROLONG: '',
     FIN_TPS_REG: '',
     TDCLEFTRI: '',
@@ -312,7 +307,6 @@ function mapCreateDraftToPayload(draft: TourDefCreateDraft, typeId: number): Cre
     DUREE_TPS_PROLONG: toNumberOrDefault(draft.DUREE_TPS_PROLONG, 30),
     CLASS_GAD: toNumberOrDefault(draft.CLASS_GAD, 1),
     TDTYPETOUR: typeId,
-    VALEUR_BE: draft.VALEUR_BE ? 1 : 0,
     FIN_PROLONG: toNumberOrDefault(draft.FIN_PROLONG, 1),
     FIN_TPS_REG: toNumberOrDefault(draft.FIN_TPS_REG, 1),
     TDCLEFTRI: String(draft.TDCLEFTRI ?? '').trim() || createDefaultSortKey(),
@@ -419,7 +413,7 @@ export function TourWizardStep3DefineForm({
       `Durée: ${form.dureeRegTime} min de temps réglementaire${form.finTpsReg === 2 ? `, puis ${form.dureeProlongTime} min de prolongation` : ''}.`,
       `Si égalité à la fin du temps réglementaire : ${finTpsRegLabel}${form.finTpsReg === 2 ? `, et à la fin de la prolongation ${finProlongLabel}` : ''}.`,
       `Points: V domicile ${form.valeurVD}, V extérieur ${form.valeurVE}, N domicile ${form.valeurND}, N extérieur ${form.valeurNE}, D domicile ${form.valeurDD}, D extérieur ${form.valeurDE}.`,
-      `Goalaverage par ${modeCalculLabel}, scope ${scopeLabel}${form.valeurBe ? ', avec prise en compte des buts à l\'extérieur' : ''}.`,
+      `Goalaverage par ${modeCalculLabel}, scope ${scopeLabel}.`,
       form.allerRetour ? 'Format aller/retour activé.' : 'Format aller simple.',
     ];
 
@@ -732,16 +726,6 @@ export function TourWizardStep3DefineForm({
                 </Select>
               </FormControl>
             </Stack>
-
-            <FormControlLabel
-              control={(
-                <Switch
-                  checked={createDraft.VALEUR_BE}
-                  onChange={(event) => setCreateDraft((prev) => ({ ...prev, VALEUR_BE: event.target.checked }))}
-                />
-              )}
-              label="Prise en compte des buts à l'extérieur"
-            />
 
             <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Bonus</Typography>
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25}>

@@ -3,7 +3,7 @@ import ContentPasteRoundedIcon from '@mui/icons-material/ContentPasteRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import { Box, CircularProgress, IconButton, Stack, Tooltip } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
 
 interface EntityImageFrameProps {
@@ -36,6 +36,159 @@ function readFileAsDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(new Error('Erreur lors du chargement de l image.'));
     reader.readAsDataURL(file);
   });
+}
+
+function extractSvgMarkup(value: string): string {
+  const text = value.trim();
+  if (!text) return '';
+
+  const lower = text.toLowerCase();
+  const svgStart = lower.indexOf('<svg');
+  if (svgStart < 0) return '';
+  return text.slice(svgStart).trim();
+}
+
+function normalizeImageSource(src: string | null | undefined): string | null {
+  if (!src) return null;
+
+  const trimmed = src.trim();
+  if (!trimmed) return null;
+  if (trimmed.toLowerCase().startsWith('data:')) return trimmed;
+
+  const svgText = extractSvgMarkup(trimmed);
+  if (!svgText) return src;
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svgText)}`;
+}
+
+function resolveHtmlImageCandidates(html: string, baseUrl: string): string[] {
+  const candidates = new Set<string>();
+  const patterns = [
+    /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["'][^>]*>/gi,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["'][^>]*>/gi,
+    /<img[^>]+src=["']([^"']+)["'][^>]*>/gi,
+    /<link[^>]+href=["']([^"']+)["'][^>]*rel=["'](?:icon|image_src|preload)["'][^>]*>/gi,
+    /(?:src|href)=["']([^"']+\.(?:svg|png|jpe?g|gif|bmp|webp))(?:\?[^"']*)?["']/gi,
+  ];
+
+  for (const pattern of patterns) {
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(html)) !== null) {
+      const candidate = match[1]?.trim();
+      if (!candidate) continue;
+      try {
+        candidates.add(new URL(candidate, baseUrl).toString());
+      } catch {
+        candidates.add(candidate);
+      }
+    }
+  }
+
+  return Array.from(candidates);
+}
+
+async function resolveRemoteImageSource(input: string): Promise<string | null> {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  if (trimmed.toLowerCase().startsWith('data:')) return trimmed;
+  if (!/^(https?:)?\/\//i.test(trimmed)) return null;
+
+  try {
+    const response = await fetch(trimmed, { cache: 'no-store' });
+    const contentType = response.headers.get('content-type') ?? '';
+    const rawText = await response.text();
+
+    if (contentType.includes('svg') || /<svg\b/i.test(rawText)) {
+      const svgText = extractSvgMarkup(rawText);
+      if (svgText) {
+        return `data:image/svg+xml;utf8,${encodeURIComponent(svgText)}`;
+      }
+    }
+
+    if (contentType.startsWith('image/')) {
+      const blob = await response.blob();
+      const file = new File([blob], 'remote-image', { type: contentType || 'image/png' });
+      return readFileAsDataUrl(file);
+    }
+
+    if (contentType.includes('text/html') || /<html\b/i.test(rawText)) {
+      const candidates = resolveHtmlImageCandidates(rawText, trimmed);
+      for (const candidate of candidates) {
+        const resolved = await resolveRemoteImageSource(candidate);
+        if (resolved) {
+          return resolved;
+        }
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+async function resolveClipboardTextPayload(text: string): Promise<string | null> {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const candidate = trimmed.replace(/^\s+|\s+$/g, '');
+  if (/^https?:\/\//i.test(candidate)) {
+    return resolveRemoteImageSource(candidate);
+  }
+
+  const svgText = extractSvgMarkup(trimmed);
+  if (svgText) {
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svgText)}`;
+  }
+
+  if (trimmed.includes('<html') || trimmed.includes('<!doctype') || trimmed.includes('<img')) {
+    const htmlCandidates = resolveHtmlImageCandidates(trimmed, 'https://example.invalid');
+    for (const htmlCandidate of htmlCandidates) {
+      const resolved = await resolveRemoteImageSource(htmlCandidate);
+      if (resolved) {
+        return resolved;
+      }
+    }
+  }
+
+  return null;
+}
+
+async function resolveClipboardImagePayload(item: ClipboardItem): Promise<string | null> {
+  const types = item.types ?? [];
+
+  for (const type of types) {
+    if (type === 'image/svg+xml' || type.includes('svg')) {
+      const blob = await item.getType(type);
+      const text = await blob.text();
+      const svgText = extractSvgMarkup(text);
+      if (svgText) {
+        return `data:image/svg+xml;utf8,${encodeURIComponent(svgText)}`;
+      }
+    }
+  }
+
+  for (const type of types) {
+    if (type.includes('html') || type.includes('plain')) {
+      const blob = await item.getType(type);
+      const text = await blob.text();
+      const payload = await resolveClipboardTextPayload(text);
+      if (payload) {
+        return payload;
+      }
+    }
+  }
+
+  const imageType = types.find((type) => type.startsWith('image/'));
+  if (!imageType) {
+    return null;
+  }
+
+  const blob = await item.getType(imageType);
+  const file = new File([blob], 'clipboard-image', { type: imageType });
+  return readFileAsDataUrl(file);
 }
 
 export function EntityImageFrame({
@@ -88,11 +241,10 @@ export function EntityImageFrame({
     try {
       const clipboardItems = await navigator.clipboard.read();
       for (const item of clipboardItems) {
-        const imageType = item.types.find((type) => type.startsWith('image/'));
-        if (!imageType) continue;
-        const blob = await item.getType(imageType);
-        const file = new File([blob], 'clipboard-image', { type: imageType });
-        const dataUrl = await readFileAsDataUrl(file);
+        const dataUrl = await resolveClipboardImagePayload(item);
+        if (!dataUrl) {
+          continue;
+        }
         onChangeImage?.(dataUrl);
         return;
       }
@@ -106,6 +258,46 @@ export function EntityImageFrame({
     onChangeImage?.(null);
   };
 
+  const [resolvedRemoteSrc, setResolvedRemoteSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!src) {
+      setResolvedRemoteSrc(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const trimmed = src.trim();
+    if (!trimmed) {
+      setResolvedRemoteSrc(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const shouldResolveRemote = /^https?:\/\//i.test(trimmed);
+    if (!shouldResolveRemote) {
+      setResolvedRemoteSrc(normalizeImageSource(trimmed));
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void resolveRemoteImageSource(trimmed).then((resolved) => {
+      if (!cancelled) {
+        setResolvedRemoteSrc(resolved ?? trimmed);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [src]);
+
+  const displaySrc = resolvedRemoteSrc ?? normalizeImageSource(src ?? null);
   const showActions = editable && typeof onChangeImage === 'function';
 
   return (
@@ -132,10 +324,10 @@ export function EntityImageFrame({
     >
       {loading ? <CircularProgress size={40} /> : null}
 
-      {!loading && src ? (
+      {!loading && displaySrc ? (
         <Box
           component="img"
-          src={src}
+          src={displaySrc}
           alt={alt}
           sx={{
             width: '100%',
@@ -147,7 +339,7 @@ export function EntityImageFrame({
         />
       ) : null}
 
-      {!loading && !src ? fallback ?? null : null}
+      {!loading && !displaySrc ? fallback ?? null : null}
 
       {showActions ? (
         <Box

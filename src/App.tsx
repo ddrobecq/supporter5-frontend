@@ -26,6 +26,7 @@ const RencontreImportPage = lazy(() => import('./features/import/RencontreImport
 const ClubPage = lazy(() => import('./features/club/ClubPage').then((module) => ({ default: module.ClubPage })));
 const ClubPublicPage = lazy(() => import('./features/club/ClubPublicPage').then((module) => ({ default: module.ClubPublicPage })));
 const TourDefPage = lazy(() => import('./features/tourdef/TourDefPage').then((module) => ({ default: module.TourDefPage })));
+const RssPage = lazy(() => import('./features/rss/RssPage').then((module) => ({ default: module.RssPage })));
 const ConfigurationPage = lazy(() => import('./features/configuration/ConfigurationPage').then((module) => ({ default: module.ConfigurationPage })));
 const AdminLayout = lazy(() => import('./layouts/AdminLayout').then((module) => ({ default: module.AdminLayout })));
 const PublicLayout = lazy(() => import('./layouts/PublicLayout').then((module) => ({ default: module.PublicLayout })));
@@ -68,6 +69,7 @@ const ENTITY_ROUTES: EntityRouteDefinition[] = [
   { shortPath: 'epreuve', adminPath: 'admin/epreuve', paramName: 'epreuveId', PageComponent: EpreuvePage },
   { shortPath: 'competitions', adminPath: 'admin/competitions', paramName: 'competitionId', PageComponent: CompetitionPage },
   { shortPath: 'tourdefs', adminPath: 'admin/tourdefs', paramName: 'tourDefId', PageComponent: TourDefPage },
+  { shortPath: 'rss', adminPath: 'admin/rss', paramName: 'rssId', PageComponent: RssPage },
 ];
 
 function App() {

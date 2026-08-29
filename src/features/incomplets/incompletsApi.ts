@@ -62,7 +62,7 @@ export const CLUB_INCOMPLET_CATEGORIES: Array<{
   { key: 'pays', label: 'Pays inconnu', flag: 'SANS_PAYS' },
   { key: 'ville', label: 'Ville inconnue', flag: 'SANS_VILLE' },
   { key: 'stade', label: 'Stade inconnu', flag: 'SANS_STADE' },
-  { key: 'creation', label: 'Date de création inconnue', flag: 'SANS_DATE_CREATION' },
+  { key: 'création', label: 'Date de création inconnue', flag: 'SANS_DATE_CREATION' },
   { key: 'logo', label: 'Logo manquant', flag: 'SANS_LOGO' },
 ];
 
