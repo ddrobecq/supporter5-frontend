@@ -44,6 +44,7 @@ import {
   buildParticipantMapByClubId,
   buildParticipantMapBySource,
   buildRencontreGridRows,
+  PENDING_RENCONTRE_ROW_ID,
   type PendingRencontreModel,
   type RencontresGridModelRow,
 } from './tourWizardRencontresModel';
@@ -112,7 +113,7 @@ function isEditableRencontreRow(row: RencontresGridModelRow): boolean {
     return false;
   }
 
-  const isPendingRow = id === -1
+  const isPendingRow = id === PENDING_RENCONTRE_ROW_ID
     && !String(row.EXTERIEUR ?? '').trim()
     && !String(row.PAEXTSource ?? '').trim();
   return !isPendingRow;
@@ -482,7 +483,7 @@ export function TourWizardStep6Rencontres({
     [],
   );
 
-  const getNextLocalRencontreId = (): number => Math.min(0, ...rencontres.map((row) => Number(row.RECLEUNIK) || 0)) - 1;
+  const getNextLocalRencontreId = (): number => Math.min(PENDING_RENCONTRE_ROW_ID, ...rencontres.map((row) => Number(row.RECLEUNIK) || 0)) - 1;
 
   const persistRencontreRowUpdate = (
     newRow: RencontresGridModelRow,
@@ -614,24 +615,27 @@ export function TourWizardStep6Rencontres({
   };
 
   const removeSelectedRencontre = () => {
-    const selectedIds = selectedRencontre.map((value) => Number(value));
-    const persistedIds = selectedIds.filter((id) => Number.isInteger(id) && id > 0);
+    const selectedIds = selectedRencontre
+      .map((value) => Number(value))
+      .filter((id) => Number.isInteger(id) && id !== 0);
 
-    if (persistedIds.length === 0) {
-      // If the selected row is the in-progress draft line, just cancel it locally.
-      if (selectedIds.includes(-1)) {
-        setPending(null);
-        setSelectedRencontre([]);
-        return;
-      }
+    // Les rencontres ajoutees dans l'assistant ont un RECLEUNIK local negatif : on ne peut pas
+    // filtrer sur id > 0, seule la presence dans les rencontres permet de distinguer une vraie
+    // ligne de la ligne brouillon (PENDING_RENCONTRE_ROW_ID) affichee pendant la saisie.
+    const existingIds = new Set(rencontres.map((row) => Number(row.RECLEUNIK)));
+    const removedIds = new Set(selectedIds.filter((id) => existingIds.has(id)));
+    const hasPendingRow = Boolean(pending) && selectedIds.some((id) => !existingIds.has(id));
 
+    if (removedIds.size === 0 && !hasPendingRow) {
       onError?.('Sélectionnez au moins une rencontre à supprimer.');
       return;
     }
 
-    const removedIds = new Set(persistedIds);
-    // Immediate local update so both clubs become selectable again without waiting.
-    onRencontresChange((prev) => prev.filter((row) => !removedIds.has(Number(row.RECLEUNIK))));
+    if (removedIds.size > 0) {
+      // Immediate local update so both clubs become selectable again without waiting.
+      onRencontresChange((prev) => prev.filter((row) => !removedIds.has(Number(row.RECLEUNIK))));
+    }
+
     setPending(null);
     setSelectedParticipantId('');
     setParticipantSelection([]);
@@ -927,10 +931,6 @@ export function TourWizardStep6Rencontres({
             </Tooltip>
           </Stack>
 
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-            Sélection multiple : Maj+Clic pour un bloc de lignes, Ctrl+Clic pour ajouter une ligne, Maj+Flèche haut/bas pour étendre la sélection.
-          </Typography>
-
           <Box sx={{ height: 286, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
             <MatchDataGrid<RencontresGridModelRow>
               rows={gridRows}
@@ -958,6 +958,7 @@ export function TourWizardStep6Rencontres({
                 params.api.startCellEditMode({ id: params.id, field: params.field });
               }}
               checkboxSelection
+              disableRowSelectionExcludeModel
               sx={{
                 '& .MuiDataGrid-columnHeaderCheckbox': { display: 'none' },
                 '& .MuiDataGrid-cellCheckbox': { display: 'none' },

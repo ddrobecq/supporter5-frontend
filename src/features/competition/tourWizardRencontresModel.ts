@@ -107,6 +107,9 @@ export function buildFilteredRencontreRows(
   return rencontreRows.filter((row) => normalizeCircId(row.IDCIRC) === selectedCirc);
 }
 
+/** Identifiant de la ligne brouillon affichee pendant la saisie d'une rencontre (jamais persiste). */
+export const PENDING_RENCONTRE_ROW_ID = -1;
+
 export function buildRencontreGridRows(
   filteredRencontreRows: TourMatchRow[],
   pending: PendingRencontreModel | null,
@@ -146,7 +149,7 @@ export function buildRencontreGridRows(
 
   if (pending) {
     rows.push({
-      RECLEUNIK: -1,
+      RECLEUNIK: PENDING_RENCONTRE_ROW_ID,
       DATE: pending.date,
       HEURE: pending.heure ?? '',
       DOMICILE: pending.domicile,

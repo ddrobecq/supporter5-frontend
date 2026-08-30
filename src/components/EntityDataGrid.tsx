@@ -70,6 +70,8 @@ export function EntityDataGrid<RowModel extends GridValidRowModel>({
       loading={loading}
       getRowId={getRowId}
       rowSelectionModel={{ type: 'include', ids: new Set(selection) }}
+      // Ctrl+A doit renvoyer la liste explicite des lignes et non un modele « tout sauf ».
+      disableRowSelectionExcludeModel
       onRowSelectionModelChange={(model) => {
         const ids = Array.from(model.ids);
         if (ids.length === 0) {
