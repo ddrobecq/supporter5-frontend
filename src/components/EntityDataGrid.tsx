@@ -109,6 +109,11 @@ export function EntityDataGrid<RowModel extends GridValidRowModel>({
         }
 
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          // Maj/Ctrl + flèche : on laisse le DataGrid étendre la sélection multiple.
+          if (multiSelection && (event.shiftKey || event.ctrlKey || event.metaKey)) {
+            return;
+          }
+
           window.requestAnimationFrame(() => {
             const activeElement = document.activeElement as HTMLElement | null;
             const focusedRowElement = activeElement?.closest<HTMLElement>('.MuiDataGrid-row[data-id]');

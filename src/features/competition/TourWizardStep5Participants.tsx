@@ -274,6 +274,10 @@ export function TourWizardStep5Participants({ competitionId, currentTourOrder, c
         </Tooltip>
       </Stack>
 
+      <Typography variant="caption" color="text.secondary">
+        Sélection multiple : Maj+Clic pour un bloc de lignes, Ctrl+Clic pour ajouter une ligne, Maj+Flèche haut/bas pour étendre la sélection.
+      </Typography>
+
       <Box sx={{ flex: 1, minHeight: 0, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
         <TourParticipantGrid
           rows={visibleRows}
@@ -282,14 +286,6 @@ export function TourWizardStep5Participants({ competitionId, currentTourOrder, c
           onSelectionChange={setSelection}
           getLabel={getLabel}
           headerLabel={participantsHeaderLabel}
-          onRowClick={(rowId) => {
-            const key = String(rowId);
-            setSelection((prev) => {
-              const exists = prev.some((id) => String(id) === key);
-              return exists ? prev.filter((id) => String(id) !== key) : [...prev, rowId];
-            });
-          }}
-          disableRowSelectionOnClick
           multiSelection
           checkboxSelection
           hideCheckboxSelectionColumn

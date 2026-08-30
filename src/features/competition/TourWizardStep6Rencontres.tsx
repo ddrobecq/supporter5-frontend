@@ -614,22 +614,24 @@ export function TourWizardStep6Rencontres({
   };
 
   const removeSelectedRencontre = () => {
-    const id = Number(selectedRencontre[0] ?? 0);
+    const selectedIds = selectedRencontre.map((value) => Number(value));
+    const persistedIds = selectedIds.filter((id) => Number.isInteger(id) && id > 0);
 
-    // If the selected row is the in-progress draft line, just cancel it locally.
-    if (id === -1) {
-      setPending(null);
-      setSelectedRencontre([]);
+    if (persistedIds.length === 0) {
+      // If the selected row is the in-progress draft line, just cancel it locally.
+      if (selectedIds.includes(-1)) {
+        setPending(null);
+        setSelectedRencontre([]);
+        return;
+      }
+
+      onError?.('Sélectionnez au moins une rencontre à supprimer.');
       return;
     }
 
-    if (!Number.isInteger(id) || id <= 0) {
-      onError?.('Sélectionnez une rencontre à supprimer.');
-      return;
-    }
-
+    const removedIds = new Set(persistedIds);
     // Immediate local update so both clubs become selectable again without waiting.
-    onRencontresChange((prev) => prev.filter((row) => Number(row.RECLEUNIK) !== id));
+    onRencontresChange((prev) => prev.filter((row) => !removedIds.has(Number(row.RECLEUNIK))));
     setPending(null);
     setSelectedParticipantId('');
     setParticipantSelection([]);
@@ -925,6 +927,10 @@ export function TourWizardStep6Rencontres({
             </Tooltip>
           </Stack>
 
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+            Sélection multiple : Maj+Clic pour un bloc de lignes, Ctrl+Clic pour ajouter une ligne, Maj+Flèche haut/bas pour étendre la sélection.
+          </Typography>
+
           <Box sx={{ height: 286, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
             <MatchDataGrid<RencontresGridModelRow>
               rows={gridRows}
@@ -933,11 +939,7 @@ export function TourWizardStep6Rencontres({
               getRowId={(row) => row.RECLEUNIK}
               rowSelectionModel={{ type: 'include', ids: new Set(selectedRencontre) }}
               onRowSelectionModelChange={(model) => {
-                const ids = Array.from(model.ids);
-                setSelectedRencontre(ids.length > 0 ? [ids[0]] : []);
-              }}
-              onRowClick={(params) => {
-                setSelectedRencontre([params.id]);
+                setSelectedRencontre(Array.from(model.ids));
               }}
               onCellClick={(params) => {
                 const field = String(params.field ?? '');
@@ -955,7 +957,11 @@ export function TourWizardStep6Rencontres({
 
                 params.api.startCellEditMode({ id: params.id, field: params.field });
               }}
-              disableRowSelectionOnClick
+              checkboxSelection
+              sx={{
+                '& .MuiDataGrid-columnHeaderCheckbox': { display: 'none' },
+                '& .MuiDataGrid-cellCheckbox': { display: 'none' },
+              }}
               density="compact"
               editMode="cell"
               processRowUpdate={persistRencontreRowUpdate}
