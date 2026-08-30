@@ -20,7 +20,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { type GridColDef, type GridRenderEditCellParams, type GridRowId } from '@mui/x-data-grid';
+import { useGridApiRef, type GridColDef, type GridRenderEditCellParams, type GridRowId } from '@mui/x-data-grid';
 import { type Dispatch, type KeyboardEvent, type SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
 import { ClubCell } from '../../components/ClubCell';
 import { DateGridEditor } from '../../components/DateGridEditor';
@@ -154,6 +154,8 @@ export function TourWizardStep6Rencontres({
     onError,
   );
   const [selectedRencontre, setSelectedRencontre] = useState<GridRowId[]>([]);
+  const rencontresApiRef = useGridApiRef();
+  const lastAddedRencontreIdRef = useRef<number | null>(null);
   const [pending, setPending] = useState<PendingRencontreModel | null>(null);
   const [loading, setLoading] = useState(false);
   const [retourConfirmOpen, setRetourConfirmOpen] = useState(false);
@@ -407,6 +409,33 @@ export function TourWizardStep6Rencontres({
     );
   }, [filteredRencontreRows, pending, participantById, participantBySource, resolveProgrammedParticipantName]);
 
+  // Les rencontres sont triees par date/heure : la derniere ajoutee n'est pas forcement la
+  // derniere ligne, on la ramene donc dans le viewport apres chaque ajout.
+  useEffect(() => {
+    const addedId = lastAddedRencontreIdRef.current;
+    if (addedId === null) {
+      return;
+    }
+
+    lastAddedRencontreIdRef.current = null;
+
+    const api = rencontresApiRef.current;
+    if (!api) {
+      return;
+    }
+
+    const rowIndex = api.getSortedRowIds().findIndex((rowId) => Number(rowId) === addedId);
+    if (rowIndex < 0) {
+      return;
+    }
+
+    const pageSize = api.state.pagination.paginationModel.pageSize;
+    if (pageSize > 0) {
+      api.setPage(Math.floor(rowIndex / pageSize));
+    }
+    api.scrollToIndexes({ rowIndex });
+  }, [gridRows, rencontresApiRef]);
+
   const columns = useMemo<GridColDef<RencontresGridModelRow>[]>(
     () => [
       {
@@ -613,6 +642,8 @@ export function TourWizardStep6Rencontres({
     setPending(null);
     setSelectedParticipantId('');
     setParticipantSelection([]);
+    lastAddedRencontreIdRef.current = nextMatch.RECLEUNIK;
+    setSelectedRencontre([nextMatch.RECLEUNIK]);
   };
 
   const removeSelectedRencontre = () => {
@@ -730,10 +761,22 @@ export function TourWizardStep6Rencontres({
       return;
     }
 
+    const lastCreated = payloads[payloads.length - 1];
+    // Les matches retour portent la circonstance E02 : ils ne sont mis en vue que si la grille
+    // affiche deja cette circonstance.
+    const isLastCreatedVisible = normalizeCircId(lastCreated.IDCIRC) === normalizeCircId(selectedCircId);
+
     onRencontresChange((prev) => [...prev, ...payloads]);
     setPending(null);
     setSelectedParticipantId('');
     setParticipantSelection([]);
+
+    if (isLastCreatedVisible) {
+      lastAddedRencontreIdRef.current = lastCreated.RECLEUNIK;
+      setSelectedRencontre([lastCreated.RECLEUNIK]);
+      return;
+    }
+
     setSelectedRencontre([]);
   };
 
@@ -958,6 +1001,7 @@ export function TourWizardStep6Rencontres({
 
                 params.api.startCellEditMode({ id: params.id, field: params.field });
               }}
+              apiRef={rencontresApiRef}
               checkboxSelection
               disableRowSelectionExcludeModel
               sx={{
