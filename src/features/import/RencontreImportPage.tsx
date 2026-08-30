@@ -1,9 +1,11 @@
 import LinkOffRoundedIcon from '@mui/icons-material/LinkOffRounded';
+import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
 import {
   Alert,
   Box,
   Button,
   Chip,
+  IconButton,
   Stack,
   Tooltip,
   Typography,
@@ -138,12 +140,25 @@ export function RencontreImportPage() {
             {label || '—'}
           </Typography>
           {association ? (
-            <ClubIdentityInline
-              clubId={association.clubId}
-              clubName={association.clubName}
-              size={20}
-              sx={{ pointerEvents: 'none' }}
-            />
+            <>
+              <ClubIdentityInline
+                clubId={association.clubId}
+                clubName={association.clubName}
+                size={20}
+                sx={{ pointerEvents: 'none' }}
+              />
+              <Tooltip title={`Modifier l'association (actuellement ${association.clubName})`}>
+                <IconButton
+                  size="small"
+                  color="primary"
+                  aria-label={`Modifier l'association de ${label}`}
+                  onClick={() => setPending({ label })}
+                  sx={{ flexShrink: 0, p: 0.25 }}
+                >
+                  <LinkRoundedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </>
           ) : (
             <Tooltip title="Associer ce nom à un club de la base">
               <Chip
@@ -219,10 +234,14 @@ export function RencontreImportPage() {
           loading={loading}
           getRowId={(row) => row.id}
           disableRowSelectionOnClick
+          density="compact"
           initialState={{ pagination: { paginationModel: { pageSize: 50, page: 0 } } }}
           pageSizeOptions={[25, 50, 100]}
           getRowClassName={(params) => (isRowReady(params.row, resolveClubId) ? '' : 'import-row-incomplete')}
-          sx={{ '& .import-row-incomplete': { bgcolor: 'warning.light', opacity: 0.85 } }}
+          sx={{
+            '& .import-row-incomplete': { bgcolor: 'warning.light', opacity: 0.85 },
+            '& .MuiDataGrid-cell': { display: 'flex', alignItems: 'center' },
+          }}
         />
       </Box>
 

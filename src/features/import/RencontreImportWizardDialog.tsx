@@ -253,10 +253,10 @@ export function RencontreImportWizardDialog({ open, onClose, onReady }: Rencontr
               startIcon={<UploadFileRoundedIcon />}
               sx={{ alignSelf: 'flex-start' }}
             >
-              Choisir un fichier .csv
+              Choisir un fichier .csv ou .txt
               <input
                 type="file"
-                accept=".csv,text/csv"
+                accept=".csv,.txt,text/csv,text/plain"
                 hidden
                 onChange={(event) => void handleFileChange(event.target.files?.[0])}
               />
