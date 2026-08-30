@@ -852,35 +852,39 @@ export function TourWizardDialog({
           ) : null}
 
           {!loading && draft.type === 'ligue' && stepIndex === STEP_GROUPES ? (
-            <TourWizardStep4Groupes
-              tourType={draft.type}
-              tourDefId={draft.tourDefKey}
-              initialGroupNames={existingGroupNames}
-              nbParticipants={draft.participants}
-              nbEquipe={draft.nbEquipe}
-              nbGroupe={draft.nbGroupe}
-              nbMatch={draft.nbMatch}
-              onNbEquipeChange={(value) => {
-                setDraft((prev) => ({ ...prev, nbEquipe: value }));
-              }}
-              onNbGroupeChange={(value) => {
-                setDraft((prev) => ({ ...prev, nbGroupe: value }));
-              }}
-              onNbMatchChange={(value) => {
-                setDraft((prev) => ({ ...prev, nbMatch: value }));
-              }}
-              onGroupNamesChange={setGroupNames}
-              onError={onError}
-            />
+            <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+              <TourWizardStep4Groupes
+                tourType={draft.type}
+                tourDefId={draft.tourDefKey}
+                initialGroupNames={existingGroupNames}
+                nbParticipants={draft.participants}
+                nbEquipe={draft.nbEquipe}
+                nbGroupe={draft.nbGroupe}
+                nbMatch={draft.nbMatch}
+                onNbEquipeChange={(value) => {
+                  setDraft((prev) => ({ ...prev, nbEquipe: value }));
+                }}
+                onNbGroupeChange={(value) => {
+                  setDraft((prev) => ({ ...prev, nbGroupe: value }));
+                }}
+                onNbMatchChange={(value) => {
+                  setDraft((prev) => ({ ...prev, nbMatch: value }));
+                }}
+                onGroupNamesChange={setGroupNames}
+                onError={onError}
+              />
+            </Box>
           ) : null}
 
           {!loading && draft.type === 'ligue' && stepIndex === STEP_CLASSEMENT ? (
-            <TourWizardStep4Classement
-              tourId={activeTourId}
-              rows={qualifDraftRows}
-              onRowsChange={setQualifDraftRows}
-              onError={onError}
-            />
+            <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+              <TourWizardStep4Classement
+                tourId={activeTourId}
+                rows={qualifDraftRows}
+                onRowsChange={setQualifDraftRows}
+                onError={onError}
+              />
+            </Box>
           ) : null}
 
           {!loading && stepIndex === STEP_PARTICIPANTS ? (
@@ -899,23 +903,25 @@ export function TourWizardDialog({
           ) : null}
 
           {!loading && stepIndex === STEP_RENCONTRES ? (
-            <TourWizardStep6Rencontres
-              tourId={activeTourId}
-              competitionId={Number(competitionId) || 0}
-              tourType={draft.type}
-              isAllerRetour={isAllerRetour}
-              competitionSeason={String(competitionSeason ?? '').trim()}
-              tourStartDate={toApiDate(draft.dateDebut) ?? ''}
-              tourEndDate={toApiDate(draft.dateFin) ?? ''}
-              tourDefaultHeure={String(draft.heureMatches ?? '').trim()}
-              nbMatch={draft.nbMatch}
-              nbGroupe={draft.nbGroupe}
-              groupNames={groupNames}
-              participants={participantDraftRows}
-              rencontres={rencontreDraftRows}
-              onRencontresChange={setRencontreDraftRows}
-              onError={onError}
-            />
+            <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+              <TourWizardStep6Rencontres
+                tourId={activeTourId}
+                competitionId={Number(competitionId) || 0}
+                tourType={draft.type}
+                isAllerRetour={isAllerRetour}
+                competitionSeason={String(competitionSeason ?? '').trim()}
+                tourStartDate={toApiDate(draft.dateDebut) ?? ''}
+                tourEndDate={toApiDate(draft.dateFin) ?? ''}
+                tourDefaultHeure={String(draft.heureMatches ?? '').trim()}
+                nbMatch={draft.nbMatch}
+                nbGroupe={draft.nbGroupe}
+                groupNames={groupNames}
+                participants={participantDraftRows}
+                rencontres={rencontreDraftRows}
+                onRencontresChange={setRencontreDraftRows}
+                onError={onError}
+              />
+            </Box>
           ) : null}
         </Stack>
       </DialogContent>

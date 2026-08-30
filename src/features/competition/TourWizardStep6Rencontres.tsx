@@ -48,6 +48,7 @@ import {
   type PendingRencontreModel,
   type RencontresGridModelRow,
 } from './tourWizardRencontresModel';
+import { wizardGridBoxSx, wizardGridFillSx } from './tourWizardLayout';
 import {
   compareDateHeure,
   formatDateDisplay,
@@ -757,7 +758,7 @@ export function TourWizardStep6Rencontres({
   };
 
   return (
-    <Stack spacing={1.5}>
+    <Stack spacing={1.5} sx={wizardGridFillSx}>
       <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Rencontres</Typography>
 
       <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1.25}>
@@ -871,14 +872,14 @@ export function TourWizardStep6Rencontres({
         </Stack>
       </Stack>
 
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25} sx={{ minHeight: 0 }}>
-        <Box sx={{ width: { xs: '100%', md: 300 }, minWidth: 0 }}>
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25} sx={{ flex: 1, minHeight: 0 }}>
+        <Box sx={{ width: { xs: '100%', md: 300 }, minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <Typography variant="body2" sx={{ mb: 0.75, fontWeight: 600 }}>
             Participants
           </Typography>
           <Box
             ref={participantsGridRef}
-            sx={{ height: 286, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
+            sx={wizardGridBoxSx}
             onKeyDownCapture={onClubGridKeyDown}
           >
             <TourParticipantGrid
@@ -902,7 +903,7 @@ export function TourWizardStep6Rencontres({
           </Box>
         </Box>
 
-        <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <Stack direction="row" spacing={0.75} sx={{ mb: 0.75 }}>
             <Tooltip title="Ajouter">
               <Button
@@ -931,7 +932,7 @@ export function TourWizardStep6Rencontres({
             </Tooltip>
           </Stack>
 
-          <Box sx={{ height: 286, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+          <Box sx={wizardGridBoxSx}>
             <MatchDataGrid<RencontresGridModelRow>
               rows={gridRows}
               columns={columns}

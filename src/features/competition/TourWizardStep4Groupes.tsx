@@ -6,6 +6,7 @@ import { NumberField } from '../../components/NumberField';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { fetchTourDefById } from './competitionApi';
 import { detectGroupNaming, makeAutoLabel, type GroupNameBase, type GroupNumbering } from './tourWizardGroupNaming';
+import { wizardGridBoxSx, wizardGridFillSx } from './tourWizardLayout';
 import type { TourDefRow } from './types';
 
 interface TourWizardStep4GroupesProps {
@@ -219,7 +220,7 @@ export function TourWizardStep4Groupes({
   );
 
   return (
-    <Stack spacing={1.5}>
+    <Stack spacing={1.5} sx={wizardGridFillSx}>
       <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
         Groupes
       </Typography>
@@ -293,11 +294,11 @@ export function TourWizardStep4Groupes({
       />
 
       {normalizedNbGroupe > 1 ? (
-        <Stack spacing={0.75}>
+        <Stack spacing={0.75} sx={wizardGridFillSx}>
           <Typography variant="body2" sx={{ fontWeight: 600 }}>
             Liste des Groupes
           </Typography>
-          <Box sx={{ height: 280, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+          <Box sx={wizardGridBoxSx}>
             <EntityDataGrid<GroupRow>
               rows={rows}
               columns={columns}

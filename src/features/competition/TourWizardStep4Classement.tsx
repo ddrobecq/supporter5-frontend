@@ -15,6 +15,7 @@ import { type Dispatch, type SetStateAction, useMemo, useState } from 'react';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { NumberField } from '../../components/NumberField';
+import { wizardGridBoxSx, wizardGridFillSx } from './tourWizardLayout';
 import type { QualifRow } from './types';
 
 interface TourWizardStep4ClassementProps {
@@ -230,7 +231,7 @@ export function TourWizardStep4Classement({ tourId, rows, onRowsChange, onError 
   };
 
   return (
-    <Stack spacing={1.5}>
+    <Stack spacing={1.5} sx={wizardGridFillSx}>
       <Stack direction="row" spacing={0.75} sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="subtitle2">Classement</Typography>
         <Stack direction="row" spacing={0.75}>
@@ -274,7 +275,7 @@ export function TourWizardStep4Classement({ tourId, rows, onRowsChange, onError 
         </Stack>
       </Stack>
 
-      <Box sx={{ height: 286, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+      <Box sx={wizardGridBoxSx}>
         <EntityDataGrid<QualifRow>
           rows={rows}
           columns={columns}
