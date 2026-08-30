@@ -101,6 +101,10 @@ function buildTeamThemeSurface(baseBackground: string, baseText: string) {
   const primary = baseText;
   const primaryLight = mixHex(baseText, white, 0.18);
   const primaryDark = mixHex(baseText, black, 0.12);
+  // Les surfaces (paper, box, elevated) s'eclaircissent : l'entete de grid s'assombrit
+  // pour rester distinct du corps de la grille quelle que soit la couleur de fond.
+  const gridHeader = mixHex(baseBackground, black, 0.12);
+  const gridHeaderBorder = mixHex(baseBackground, black, 0.24);
 
   return {
     page,
@@ -108,6 +112,8 @@ function buildTeamThemeSurface(baseBackground: string, baseText: string) {
     box,
     elevated,
     border,
+    gridHeader,
+    gridHeaderBorder,
     textSecondary,
     textDisabled,
     primary,
@@ -143,7 +149,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
   const classicMode = mode as ClassicAppearanceMode;
   const isTeamMode = mode === 'home' || mode === 'away' || mode === 'third';
   const teamTheme = isTeamMode ? teamThemes[mode] : null;
-  const teamTone = teamTheme ? buildTeamThemeSurface(teamTheme.background, teamTheme.text) : null;
+  const teamTone = useMemo(() => (teamTheme ? buildTeamThemeSurface(teamTheme.background, teamTheme.text) : null), [teamTheme]);
   const paletteMode = isTeamMode ? 'light' : resolvePaletteMode(classicMode, systemMode);
   const theme = useMemo(() => createTheme({
     palette: {
@@ -198,13 +204,14 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
       MuiDataGrid: {
         styleOverrides: {
           columnHeaders: {
-            backgroundColor: paletteMode === 'dark' ? '#263442' : '#e0e0e0',
+            backgroundColor: teamTone?.gridHeader ?? (paletteMode === 'dark' ? '#263442' : '#e0e0e0'),
+            ...(teamTone ? { borderBottom: `1px solid ${teamTone.gridHeaderBorder}` } : {}),
           },
           columnHeader: {
-            backgroundColor: paletteMode === 'dark' ? '#263442' : '#e0e0e0',
+            backgroundColor: teamTone?.gridHeader ?? (paletteMode === 'dark' ? '#263442' : '#e0e0e0'),
           },
           filler: {
-            backgroundColor: paletteMode === 'dark' ? '#263442' : '#e0e0e0',
+            backgroundColor: teamTone?.gridHeader ?? (paletteMode === 'dark' ? '#263442' : '#e0e0e0'),
           },
           columnHeaderTitle: {
             fontWeight: 700,
