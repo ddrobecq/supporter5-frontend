@@ -5,15 +5,18 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import './index.css';
 import './admin.css';
+import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { AppearanceProvider } from './theme/AppearanceProvider';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AppearanceProvider>
       <CssBaseline />
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+      <AppErrorBoundary>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </AppErrorBoundary>
     </AppearanceProvider>
   </StrictMode>,
 );

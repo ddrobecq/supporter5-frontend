@@ -57,6 +57,9 @@ function parseEliminatoireGroupPair(groupName: string): { leftParticipantId: num
 
 type SourceTourMeta = CompetitionTourRow & { SAISON?: string; COCLEUNIK?: number; NOM?: string };
 
+/** Reference stable pour les appelants sans sources supplementaires (evite d'invalider les memos a chaque rendu). */
+const NO_EXTRA_SOURCES: unknown[] = [];
+
 const tourMetaCache = new Map<number, SourceTourMeta>();
 const competitionCache = new Map<number, CompetitionRow>();
 const participantsCache = new Map<number, TourParticipantRow[]>();
@@ -99,7 +102,7 @@ export function useProgrammedParticipantLabels(
   extraSourcesOrOnError?: unknown[] | ((message: string) => void),
   onError?: (message: string) => void,
 ): (row: TourParticipantRow) => string {
-  const extraSources = Array.isArray(extraSourcesOrOnError) ? extraSourcesOrOnError : [];
+  const extraSources = Array.isArray(extraSourcesOrOnError) ? extraSourcesOrOnError : NO_EXTRA_SOURCES;
   const effectiveOnError = typeof extraSourcesOrOnError === 'function' ? extraSourcesOrOnError : onError;
   const resolveProgrammedParticipantName = useProgrammedParticipantResolver(
     participants,
@@ -142,20 +145,26 @@ export function useProgrammedParticipantResolver(
   const [sourceCompetitionById, setSourceCompetitionById] = useState<Record<string, CompetitionRow>>(() => buildInitialFromCache(sourceTourIds).competitions);
   const [sourceTourParticipantsById, setSourceTourParticipantsById] = useState<Record<string, TourParticipantRow[]>>(() => buildInitialFromCache(sourceTourIds).participants);
 
+  // Cle par valeur: l'effet ne doit dependre que du contenu des ids, pas de l'identite du tableau,
+  // sinon un appelant qui ne memoise pas ses arguments declenche une boucle de rendu infinie.
+  const sourceTourIdsKey = sourceTourIds.join(',');
+
   useEffect(() => {
-    if (sourceTourIds.length === 0) {
-      setSourceTourDetailsById({});
-      setSourceCompetitionById({});
-      setSourceTourParticipantsById({});
+    const tourIds = sourceTourIdsKey ? sourceTourIdsKey.split(',').map(Number) : [];
+
+    if (tourIds.length === 0) {
+      setSourceTourDetailsById((current) => (Object.keys(current).length === 0 ? current : {}));
+      setSourceCompetitionById((current) => (Object.keys(current).length === 0 ? current : {}));
+      setSourceTourParticipantsById((current) => (Object.keys(current).length === 0 ? current : {}));
       return;
     }
 
-    const fromCache = buildInitialFromCache(sourceTourIds);
+    const fromCache = buildInitialFromCache(tourIds);
     setSourceTourDetailsById(fromCache.details);
     setSourceCompetitionById(fromCache.competitions);
     setSourceTourParticipantsById(fromCache.participants);
 
-    const missingTourIds = sourceTourIds.filter((id) => !tourMetaCache.has(id) || !participantsCache.has(id));
+    const missingTourIds = tourIds.filter((id) => !tourMetaCache.has(id) || !participantsCache.has(id));
     if (missingTourIds.length === 0) {
       return;
     }
@@ -167,7 +176,7 @@ export function useProgrammedParticipantResolver(
       const nextTourParticipants: Record<string, TourParticipantRow[]> = { ...fromCache.participants };
       const competitionIds = new Set<number>();
       const visitedTourIds = new Set<number>();
-      const pendingTourIds = [...sourceTourIds];
+      const pendingTourIds = [...tourIds];
 
       while (pendingTourIds.length > 0) {
         const sourceTourId = Number(pendingTourIds.shift());
@@ -249,7 +258,7 @@ export function useProgrammedParticipantResolver(
     return () => {
       cancelled = true;
     };
-  }, [sourceTourIds]);
+  }, [sourceTourIdsKey]);
 
   const resolveDynamicNamesFromSource = useCallback((sourceValue: string, visited: Set<string>): string[] => {
     const normalizedSource = String(sourceValue ?? '').trim();
