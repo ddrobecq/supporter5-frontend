@@ -80,6 +80,8 @@ interface RencontreDraft {
   circId: string;
   comment: string;
   readmin: number;
+  extratime: boolean;
+  penalty: boolean;
   arbitreId: string;
   arbitreLabel: string;
   terrainId: string;
@@ -203,6 +205,8 @@ function buildDraftFromDetail(detail: RencontreDetailRow): RencontreDraft {
     circId: String(detail.IDCIRC ?? '').trim(),
     comment: String(detail.COMMENT ?? ''),
     readmin: readmin >= 1 && readmin <= 4 ? readmin : 1,
+    extratime: Number(detail.EXTRATIME ?? 0) === 1,
+    penalty: Number(detail.PENALTY ?? 0) === 1,
     arbitreId: String(detail.IDARBITRE ?? '').trim(),
     arbitreLabel,
     terrainId: String(detail.TECLEUNIK ?? '').trim(),
@@ -226,8 +230,8 @@ function getDraftSignature(draft: RencontreDraft, adminDecisionEnabled: boolean)
   return JSON.stringify({
     butDom: toNonNegativeIntegerString(draft.butDom),
     butExt: toNonNegativeIntegerString(draft.butExt),
-    tabDom: toNonNegativeIntegerString(draft.tabDom),
-    tabExt: toNonNegativeIntegerString(draft.tabExt),
+    tabDom: draft.penalty ? toNonNegativeIntegerString(draft.tabDom) : '0',
+    tabExt: draft.penalty ? toNonNegativeIntegerString(draft.tabExt) : '0',
     etat: Number(draft.etat) || 1,
     date: toApiDate(draft.date),
     heure: String(draft.heure ?? '').trim() || null,
@@ -237,6 +241,8 @@ function getDraftSignature(draft: RencontreDraft, adminDecisionEnabled: boolean)
     circId: String(draft.circId ?? '').trim(),
     comment: String(draft.comment ?? ''),
     readmin: adminDecisionEnabled ? Number(draft.readmin) || 1 : 0,
+    extratime: Boolean(draft.extratime),
+    penalty: Boolean(draft.penalty),
     arbitreId: String(draft.arbitreId ?? '').trim(),
     terrainId: String(draft.terrainId ?? '').trim(),
     nbSpect: Number(toNonNegativeIntegerString(draft.nbSpect)),
@@ -693,6 +699,10 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       const readminValue = adminDecisionEnabled
         ? Math.max(1, Math.min(4, Number(draft.readmin) || 1))
         : 0;
+      const isSupportedClubMatch = Number(detail.IS_SUPPORTED_CLUB_MATCH ?? 0) === 1;
+      const penaltyVisible = !isSupportedClubMatch || draft.penalty;
+      const tabDomValue = penaltyVisible ? Number(toNonNegativeIntegerString(draft.tabDom)) : 0;
+      const tabExtValue = penaltyVisible ? Number(toNonNegativeIntegerString(draft.tabExt)) : 0;
       const nextDomicile = String(draft.domicileId ?? '').trim();
       const nextExterieur = String(draft.exterieurId ?? '').trim();
       if (nextDomicile && nextDomicile === nextExterieur) {
@@ -703,8 +713,8 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       await updateRencontreDetail(detail.RECLEUNIK, {
         BUTDOM: Number(toNonNegativeIntegerString(draft.butDom)),
         BUTEXT: Number(toNonNegativeIntegerString(draft.butExt)),
-        TABDOM: Number(toNonNegativeIntegerString(draft.tabDom)),
-        TABEXT: Number(toNonNegativeIntegerString(draft.tabExt)),
+        TABDOM: tabDomValue,
+        TABEXT: tabExtValue,
         ETAT: Number(draft.etat) || 1,
         DATE: nextDate ?? undefined,
         HEURE: String(draft.heure ?? '').trim() || null,
@@ -717,11 +727,13 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
         ...(nextExterieur !== String(detail.EXTERIEUR ?? '').trim() ? { EXTERIEUR: nextExterieur } : {}),
       });
 
-      if (Number(detail.IS_SUPPORTED_CLUB_MATCH ?? 0) === 1) {
+      if (isSupportedClubMatch) {
         await upsertRencontreMatchMeta(detail.RECLEUNIK, {
           IDARBITRE: String(draft.arbitreId ?? '').trim() || null,
           TECLEUNIK: String(draft.terrainId ?? '').trim() || null,
           NBSPECT: draft.houseClosed ? -1 : Number(toNonNegativeIntegerString(draft.nbSpect)),
+          EXTRATIME: draft.extratime ? 1 : 0,
+          PENALTY: draft.penalty ? 1 : 0,
         });
       }
 
@@ -940,6 +952,9 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
   }
 
   const isSupportedClubMatch = Number(detail.IS_SUPPORTED_CLUB_MATCH ?? 0) === 1;
+  const canExtratime = Number(detail.FIN_TPS_REG ?? 0) === 2;
+  const canPenalty = Number(detail.FIN_PROLONG ?? 0) === 3;
+  const showTabFields = !isSupportedClubMatch || draft.penalty;
 
   const programmeColumns: GridColDef<TourMatchWithNamesRow>[] = [
     {
@@ -1065,14 +1080,16 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       </Box>
 
       <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
-        <NumberField
-          label="Tab dom"
-          value={draft.tabDom}
-          onChange={(nextValue) => setDraft((prev) => (prev ? { ...prev, tabDom: nextValue } : prev))}
-          maxLength={2}
-          align="center"
-          sx={{ width: 82 }}
-        />
+        {showTabFields ? (
+          <NumberField
+            label="Tab dom"
+            value={draft.tabDom}
+            onChange={(nextValue) => setDraft((prev) => (prev ? { ...prev, tabDom: nextValue } : prev))}
+            maxLength={2}
+            align="center"
+            sx={{ width: 82 }}
+          />
+        ) : null}
         <NumberField
           label="But dom"
           value={draft.butDom}
@@ -1089,14 +1106,16 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
           align="center"
           sx={{ width: 82 }}
         />
-        <NumberField
-          label="Tab ext"
-          value={draft.tabExt}
-          onChange={(nextValue) => setDraft((prev) => (prev ? { ...prev, tabExt: nextValue } : prev))}
-          maxLength={2}
-          align="center"
-          sx={{ width: 82 }}
-        />
+        {showTabFields ? (
+          <NumberField
+            label="Tab ext"
+            value={draft.tabExt}
+            onChange={(nextValue) => setDraft((prev) => (prev ? { ...prev, tabExt: nextValue } : prev))}
+            maxLength={2}
+            align="center"
+            sx={{ width: 82 }}
+          />
+        ) : null}
       </Stack>
 
       {showTabs ? (
@@ -1240,6 +1259,35 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
               </FormControl>
             ) : null}
           </Box>
+
+          {isSupportedClubMatch && (canExtratime || canPenalty) ? (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.25, alignItems: 'center' }}>
+              {canExtratime ? (
+                <FormControlLabel
+                  control={(
+                    <Switch
+                      checked={draft.extratime}
+                      onChange={(_event, checked) => setDraft((prev) => (prev ? { ...prev, extratime: checked } : prev))}
+                    />
+                  )}
+                  label="Prolongation"
+                  sx={{ flexShrink: 0 }}
+                />
+              ) : null}
+              {canPenalty ? (
+                <FormControlLabel
+                  control={(
+                    <Switch
+                      checked={draft.penalty}
+                      onChange={(_event, checked) => setDraft((prev) => (prev ? { ...prev, penalty: checked } : prev))}
+                    />
+                  )}
+                  label="Tirs au but"
+                  sx={{ flexShrink: 0 }}
+                />
+              ) : null}
+            </Box>
+          ) : null}
 
           {isSupportedClubMatch ? (
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.25, rowGap: 2, alignItems: 'flex-start', justifyContent: 'flex-start' }}>

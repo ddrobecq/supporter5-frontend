@@ -68,6 +68,8 @@ export interface RencontreMatchMetaPayload {
   TECLEUNIK?: string | null;
   NBSPECT?: number;
   LIEU?: string | null;
+  EXTRATIME?: number;
+  PENALTY?: number;
 }
 
 export async function upsertRencontreMatchMeta(rencontreId: string | number, payload: RencontreMatchMetaPayload): Promise<void> {

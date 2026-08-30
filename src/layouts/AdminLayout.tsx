@@ -150,6 +150,8 @@ export function AdminLayout() {
       openTab('/admin/clubs-incomplets', 'Clubs incomplets', { unique: true, uniqueByPath: true });
     } else if (action === 'incomplets-rencontres') {
       openTab('/admin/rencontres-incompletes', 'Rencontres incomplètes', { unique: true, uniqueByPath: true });
+    } else if (action === 'maintenance') {
+      openTab('/admin/maintenance', 'Maintenance', { unique: true, uniqueByPath: true });
     }
   };
 

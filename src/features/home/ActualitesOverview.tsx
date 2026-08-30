@@ -12,14 +12,25 @@ const CATEGORY_COLORS: Record<ActualiteCategorie, 'default' | 'primary' | 'error
   Club: 'default',
 };
 
+function parisDateKey(date: Date): string {
+  return date.toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' });
+}
+
 function formatPublicationDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   const now = new Date();
-  const sameDay = date.toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' }) === now.toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' });
-  return sameDay
-    ? date.toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' })
-    : 'Hier';
+  const dateKey = parisDateKey(date);
+  if (dateKey === parisDateKey(now)) {
+    return date.toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' });
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (dateKey === parisDateKey(yesterday)) return 'Hier';
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+  if (dateKey === parisDateKey(tomorrow)) return 'Demain';
+  return date.toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: 'short' }).replace('.', '');
 }
 
 function ActualiteRow({ actualite }: { actualite: Actualite }) {

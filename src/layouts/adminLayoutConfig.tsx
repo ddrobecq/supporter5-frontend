@@ -15,6 +15,7 @@ import PersonSearchRoundedIcon from '@mui/icons-material/PersonSearchRounded';
 import RuleRoundedIcon from '@mui/icons-material/RuleRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded';
+import StorageRoundedIcon from '@mui/icons-material/StorageRounded';
 import SportsIcon from '@mui/icons-material/Sports';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
 import StadiumRoundedIcon from '@mui/icons-material/StadiumRounded';
@@ -147,7 +148,8 @@ export type ToolsMenuAction =
   | 'rss-feed'
   | 'incomplets-joueurs'
   | 'incomplets-clubs'
-  | 'incomplets-rencontres';
+  | 'incomplets-rencontres'
+  | 'maintenance';
 
 export interface ToolsMenuGroup {
   label: string;
@@ -161,6 +163,7 @@ export const TOOLBAR_TOOLS_GROUPS: ToolsMenuGroup[] = [
       { label: 'Fusionner...', icon: <MergeRoundedIcon />, action: 'club-merge' },
       { label: 'Importer...', icon: <UploadFileRoundedIcon />, action: 'rencontres-import' },
       { label: 'Calculer statistiques...', icon: <CalculateRoundedIcon />, action: 'stats-recompute' },
+      { label: 'Maintenance...', icon: <StorageRoundedIcon />, action: 'maintenance' },
     ],
   },
   {
@@ -194,6 +197,7 @@ export const TAB_META: Record<string, TabMeta> = {
   '/admin/clubs-incomplets': { label: 'Clubs incomplets', icon: <ShieldRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/rencontres-incompletes': { label: 'Rencontres incomplètes', icon: <SportsSoccerRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/import-rencontres': { label: 'Import de rencontres', icon: <UploadFileRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/maintenance': { label: 'Maintenance', icon: <StorageRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/rencontres': { label: 'Rencontres', icon: <SportsSoccerRoundedIcon sx={{ fontSize: 14 }} /> },
 };
 

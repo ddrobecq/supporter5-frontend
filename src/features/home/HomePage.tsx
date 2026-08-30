@@ -199,9 +199,21 @@ function parseCompactDate(value: string): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
 function formatMatchDate(value: string): string {
   const date = parseCompactDate(value);
   if (!date) return value;
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+  if (isSameDay(date, now)) return 'Auj.';
+  if (isSameDay(date, yesterday)) return 'Hier';
+  if (isSameDay(date, tomorrow)) return 'Demain';
   return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).replace('.', '');
 }
 

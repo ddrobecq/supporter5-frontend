@@ -1,8 +1,10 @@
+import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded';
 import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import LocationOnRoundedIcon from '@mui/icons-material/LocationOnRounded';
 import SportsIcon from '@mui/icons-material/Sports';
+import SportsScoreRoundedIcon from '@mui/icons-material/SportsScoreRounded';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
 import { Alert, Box, Card, CardContent, Stack, Tab, Tabs, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import type { GridColDef } from '@mui/x-data-grid';
@@ -38,7 +40,7 @@ function formatTime(value: string | null): string {
 function formatScore(detail: RencontreDetailRow): string {
   if ([1, 5].includes(Number(detail.ETAT))) return '-vs-';
   if (Number(detail.ETAT) === 4) return 'Non jouée';
-  const penalties = Number(detail.TABDOM ?? 0) > 0 || Number(detail.TABEXT ?? 0) > 0;
+  const penalties = Number(detail.PENALTY ?? 0) === 1;
   return penalties ? `${detail.TABDOM} ${detail.BUTDOM} - ${detail.BUTEXT} ${detail.TABEXT}` : `${detail.BUTDOM} - ${detail.BUTEXT}`;
 }
 
@@ -180,33 +182,39 @@ export function RencontrePublicPage() {
     onClubClick: (id) => navigate(entityPathForPublicMode('club', id)),
   }), [navigate]);
 
+  const homeName = detail?.DOMICILE_NOM_EFFECTIF || detail?.DOMICILE_ABREGE || '';
+  const awayName = detail?.EXTERIEUR_NOM_EFFECTIF || detail?.EXTERIEUR_ABREGE || '';
+  const competitionLabel = detail ? formatCompetitionLabel(detail) : '';
+  const structuredData = useMemo<Record<string, unknown>>(() => {
+    if (!detail) return {};
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'SportsEvent',
+      name: `${homeName} contre ${awayName}`,
+      url: `${window.location.origin}/rencontres/${encodeURIComponent(rencontreId)}`,
+      ...(detail.DATE ? { startDate: detail.DATE } : {}),
+      ...(detail.TERRAIN_DISPLAY ? { location: { '@type': 'Place', name: detail.TERRAIN_DISPLAY } } : {}),
+      homeTeam: { '@type': 'SportsTeam', name: homeName },
+      awayTeam: { '@type': 'SportsTeam', name: awayName },
+      ...(competitionLabel ? { description: competitionLabel } : {}),
+      ...(Number(detail.ETAT) !== 1 && Number(detail.ETAT) !== 4 && Number(detail.ETAT) !== 5 ? {
+        homeTeamScore: detail.BUTDOM,
+        awayTeamScore: detail.BUTEXT,
+      } : {}),
+    };
+  }, [awayName, competitionLabel, detail, homeName, rencontreId]);
+
   if (loading) return <PublicLoadingState />;
   if (!detail || Number(detail.IS_SUPPORTED_CLUB_MATCH ?? 0) !== 1) return <Alert severity="info">Cette rencontre n'est pas disponible dans la partie publique.</Alert>;
 
-  const homeName = detail.DOMICILE_NOM_EFFECTIF || detail.DOMICILE_ABREGE;
-  const awayName = detail.EXTERIEUR_NOM_EFFECTIF || detail.EXTERIEUR_ABREGE;
   const competitionIcon = competitionLogo.src
     ? <Box component="img" src={competitionLogo.src} alt="" sx={{ width: 24, height: 24, objectFit: 'contain' }} />
     : <EmojiEventsRoundedIcon color="primary" />;
   const dateLabel = formatDateShort(detail.DATE);
   const dateDisplay = ['Auj.', 'Hier', 'Demain'].includes(dateLabel) ? dateLabel : `le ${dateLabel}`;
   const spectatorsCount = Number(detail.NBSPECT ?? -1);
-  const competitionLabel = formatCompetitionLabel(detail);
-  const structuredData = useMemo<Record<string, unknown>>(() => ({
-    '@context': 'https://schema.org',
-    '@type': 'SportsEvent',
-    name: `${homeName} contre ${awayName}`,
-    url: `${window.location.origin}/rencontres/${encodeURIComponent(rencontreId)}`,
-    ...(detail.DATE ? { startDate: detail.DATE } : {}),
-    ...(detail.TERRAIN_DISPLAY ? { location: { '@type': 'Place', name: detail.TERRAIN_DISPLAY } } : {}),
-    homeTeam: { '@type': 'SportsTeam', name: homeName },
-    awayTeam: { '@type': 'SportsTeam', name: awayName },
-    ...(competitionLabel ? { description: competitionLabel } : {}),
-    ...(Number(detail.ETAT) !== 1 && Number(detail.ETAT) !== 4 && Number(detail.ETAT) !== 5 ? {
-      homeTeamScore: detail.BUTDOM,
-      awayTeamScore: detail.BUTEXT,
-    } : {}),
-  }), [awayName, competitionLabel, detail, homeName, rencontreId]);
+  const hadExtratime = Number(detail.EXTRATIME ?? 0) === 1;
+  const hadPenalty = Number(detail.PENALTY ?? 0) === 1;
 
   return <Stack spacing={2}>
     <StructuredData data={structuredData} />
@@ -221,6 +229,8 @@ export function RencontrePublicPage() {
       {detail.TERRAIN_DISPLAY ? <Typography sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><LocationOnRoundedIcon color="primary" />au <strong>{detail.TERRAIN_DISPLAY}</strong></Typography> : null}
       {Number.isFinite(spectatorsCount) && spectatorsCount > 0 ? <Typography sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><GroupsRoundedIcon color="primary" />devant <strong>{formatInteger(detail.NBSPECT)}</strong> spectateurs</Typography> : null}
       {detail.IDARBITRE ? <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}><SportsIcon color="primary" /><Typography>arbitré par</Typography><ArbitreIdentityDisplay arbitreId={detail.IDARBITRE} inField /></Stack> : null}
+      {hadExtratime ? <Typography sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><AccessTimeRoundedIcon color="primary" />Prolongation</Typography> : null}
+      {hadPenalty ? <Typography sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><SportsScoreRoundedIcon color="primary" />Tirs au but</Typography> : null}
     </Stack></CardContent></Card> : null}
 
     {tab === 'highlights' ? <Card><CardContent><RencontreHighlightsTimeline events={highlights?.EVENTS ?? []} /></CardContent></Card> : null}

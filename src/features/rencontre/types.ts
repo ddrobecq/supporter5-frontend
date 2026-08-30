@@ -39,6 +39,10 @@ export interface RencontreDetailRow {
   TERRAIN_VILLE: string;
   TERRAIN_DISPLAY: string;
   NBSPECT: number;
+  EXTRATIME: number;
+  PENALTY: number;
+  FIN_TPS_REG: number;
+  FIN_PROLONG: number;
   SUPPORTED_CLUB_ID: string;
   IS_SUPPORTED_CLUB_MATCH: number;
   SUPPORTED_CLUB_SIDE: 'home' | 'away' | 'none';
