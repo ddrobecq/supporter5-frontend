@@ -91,14 +91,18 @@ export function TourWizardStep5Participants({ competitionId, currentTourOrder, c
   );
 
   const visibleRows = useMemo(() => {
-    if (!hasMultipleGroups) {
-      return rows;
-    }
-    if (!selectedGroupId) {
-      return [];
-    }
-    return rows.filter((row) => String(row.GROUPE ?? '').trim() === selectedGroupId);
-  }, [rows, hasMultipleGroups, selectedGroupId]);
+    const filteredRows = !hasMultipleGroups
+      ? rows
+      : selectedGroupId
+        ? rows.filter((row) => String(row.GROUPE ?? '').trim() === selectedGroupId)
+        : [];
+
+    return [...filteredRows].sort((left, right) => getLabel(left).localeCompare(
+      getLabel(right),
+      'fr',
+      { sensitivity: 'base' },
+    ));
+  }, [rows, hasMultipleGroups, selectedGroupId, getLabel]);
 
   const getNextLocalId = (): number => Math.min(0, ...rows.map((row) => Number(row.PACLEUNIK) || 0)) - 1;
 

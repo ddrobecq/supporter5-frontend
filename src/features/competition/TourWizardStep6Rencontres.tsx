@@ -106,6 +106,18 @@ function TourWizardHeureEditCell({ params }: { params: GridRenderEditCellParams<
   );
 }
 
+function isEditableRencontreRow(row: RencontresGridModelRow): boolean {
+  const id = Number(row.RECLEUNIK ?? 0);
+  if (!Number.isInteger(id) || id === 0) {
+    return false;
+  }
+
+  const isPendingRow = id === -1
+    && !String(row.EXTERIEUR ?? '').trim()
+    && !String(row.PAEXTSource ?? '').trim();
+  return !isPendingRow;
+}
+
 export function TourWizardStep6Rencontres({
   tourId,
   competitionId,
@@ -301,7 +313,7 @@ export function TourWizardStep6Rencontres({
   }, [rencontres, selectedCircId]);
 
   const availableClubRows = useMemo(() => {
-    return buildAvailableClubRows(
+    const rows = buildAvailableClubRows(
       participants,
       lockedParticipantKeys,
       hasMultipleGroups,
@@ -309,6 +321,12 @@ export function TourWizardStep6Rencontres({
       pending?.domicileParticipantId ?? null,
       getParticipantIdentityKey,
     );
+
+    return [...rows].sort((left, right) => String(left.CLUB ?? '').trim().localeCompare(
+      String(right.CLUB ?? '').trim(),
+      'fr',
+      { sensitivity: 'base' },
+    ));
   }, [participants, lockedParticipantKeys, pending, hasMultipleGroups, selectedGroup]);
 
   useEffect(() => {
@@ -471,7 +489,7 @@ export function TourWizardStep6Rencontres({
     oldRow: RencontresGridModelRow,
   ): RencontresGridModelRow => {
     const id = Number(newRow.RECLEUNIK ?? 0);
-    if (!Number.isInteger(id) || id <= 0) {
+    if (!Number.isInteger(id) || id === 0) {
       return oldRow;
     }
 
@@ -927,8 +945,7 @@ export function TourWizardStep6Rencontres({
                   return;
                 }
 
-                const rowId = Number(params.row.RECLEUNIK ?? 0);
-                if (!Number.isInteger(rowId) || rowId <= 0) {
+                if (!isEditableRencontreRow(params.row)) {
                   return;
                 }
 
@@ -943,7 +960,8 @@ export function TourWizardStep6Rencontres({
               editMode="cell"
               processRowUpdate={persistRencontreRowUpdate}
               onProcessRowUpdateError={onRencontreRowUpdateError}
-              isCellEditable={(params) => Number(params.row.RECLEUNIK) > 0 && (params.field === 'DATE' || params.field === 'HEURE')}
+              isCellEditable={(params) => isEditableRencontreRow(params.row)
+                && (params.field === 'DATE' || params.field === 'HEURE')}
             />
           </Box>
         </Box>
