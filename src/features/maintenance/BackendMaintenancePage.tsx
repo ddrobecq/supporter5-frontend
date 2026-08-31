@@ -10,11 +10,14 @@ import {
   Card,
   CardContent,
   FormControlLabel,
+  IconButton,
+  InputAdornment,
   Stack,
   Switch,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
@@ -44,8 +47,8 @@ function isAllowedSqliteFile(file: File): boolean {
 }
 
 const FREQUENCY_OPTIONS: Array<{ value: BackupFrequency; label: string }> = [
-  { value: 'daily', label: 'Quotidien' },
-  { value: 'weekly', label: 'Hebdo' },
+  { value: 'daily', label: 'Quotidienne' },
+  { value: 'weekly', label: 'Hebdomadaire' },
 ];
 
 export function BackendMaintenancePage() {
@@ -104,7 +107,7 @@ export function BackendMaintenancePage() {
     updateBackupSettings({ frequency: value });
   };
 
-  const handleKeepCountChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleKeepCountChange = (event: ChangeEvent<HTMLInputElement>) => {
     const parsed = Number.parseInt(event.target.value, 10);
     updateBackupSettings({ keepCount: Number.isFinite(parsed) && parsed > 0 ? parsed : 1 });
   };
@@ -247,46 +250,56 @@ export function BackendMaintenancePage() {
 
             {fsSupported && backupSettings.enabled ? (
               <Stack spacing={2}>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { sm: 'center' } }}>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: { md: 'flex-end' } }}>
                   <TextField
-                    label="Repertoire de sauvegarde"
+                    label="Répertoire de sauvegarde"
                     value={backupDirHandle?.name ?? backupSettings.directoryName ?? 'Aucun dossier selectionne'}
-                    slotProps={{ input: { readOnly: true } }}
                     fullWidth
+                    slotProps={{
+                      input: {
+                        readOnly: true,
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <Tooltip title={backupDirHandle ? 'Changer de dossier' : 'Choisir un dossier'}>
+                              <IconButton
+                                size="small"
+                                onClick={() => void handleChangeBackupDirectory()}
+                                aria-label={backupDirHandle ? 'Changer de dossier' : 'Choisir un dossier'}
+                              >
+                                <FolderRoundedIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </InputAdornment>
+                        ),
+                      },
+                    }}
+                    sx={{ flex: 2, minWidth: 0 }}
                   />
-                  <Button
-                    variant="outlined"
-                    startIcon={<FolderRoundedIcon />}
-                    onClick={() => void handleChangeBackupDirectory()}
-                    sx={{ whiteSpace: 'nowrap' }}
-                  >
-                    {backupDirHandle ? 'Changer...' : 'Choisir...'}
-                  </Button>
-                </Stack>
 
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { sm: 'center' } }}>
-                  <Typography variant="body2" sx={{ minWidth: 90 }}>Frequence</Typography>
-                  <ToggleButtonGroup
-                    exclusive
-                    color="primary"
-                    value={backupSettings.frequency}
-                    onChange={handleFrequencyChange}
-                    size="small"
-                  >
-                    {FREQUENCY_OPTIONS.map((option) => (
-                      <ToggleButton key={option.value} value={option.value}>{option.label}</ToggleButton>
-                    ))}
-                  </ToggleButtonGroup>
-                </Stack>
+                  <Stack spacing={0.5} sx={{ minWidth: { md: 220 } }}>
+                    <Typography variant="body2" color="text.secondary">Fréquence</Typography>
+                    <ToggleButtonGroup
+                      exclusive
+                      color="primary"
+                      value={backupSettings.frequency}
+                      onChange={handleFrequencyChange}
+                      size="small"
+                    >
+                      {FREQUENCY_OPTIONS.map((option) => (
+                        <ToggleButton key={option.value} value={option.value}>{option.label}</ToggleButton>
+                      ))}
+                    </ToggleButtonGroup>
+                  </Stack>
 
-                <TextField
-                  label="Profondeur de l'historique (nombre de sauvegardes conservees)"
-                  type="number"
-                  value={backupSettings.keepCount}
-                  onChange={handleKeepCountChange}
-                  slotProps={{ htmlInput: { min: 1 } }}
-                  sx={{ maxWidth: { sm: 360 } }}
-                />
+                  <TextField
+                    label="Profondeur de l'historique"
+                    type="number"
+                    value={backupSettings.keepCount}
+                    onChange={handleKeepCountChange}
+                    slotProps={{ htmlInput: { min: 1 } }}
+                    sx={{ width: { xs: '100%', md: 180 } }}
+                  />
+                </Stack>
 
                 <Typography variant="body2" color="text.secondary">
                   Derniere sauvegarde : {backupSettings.lastBackupAt ? formatDateTimeFr(backupSettings.lastBackupAt) : 'jamais'}
