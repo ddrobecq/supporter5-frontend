@@ -50,8 +50,10 @@ import {
 import type { CircOptionRow, CompetitionTourRow, TourParticipantRow } from '../competition/types';
 import { parsePaSourceForLabel, useProgrammedParticipantResolver } from '../competition/useProgrammedParticipantLabels';
 import { fetchRencontreDetailById, fetchRencontreHighlightsById, fetchRencontreTourMatches, updateRencontreDetail, deleteRencontreEvent, upsertRencontreMatchMeta } from './rencontreApi';
-import type { RencontreDetailRow, RencontreHighlightsRow, TourMatchWithNamesRow } from './types';
-import { RencontreCompositionTab, type CompositionTabActions } from './RencontreCompositionTab';
+import type { CompositionMap, RencontreDetailRow, RencontreHighlightsRow, TourMatchWithNamesRow } from './types';
+import { preloadRencontreComposition, RencontreCompositionTab, type CompositionTabActions } from './RencontreCompositionTab';
+import { getRencontreCompleteness } from './rencontreCompleteness';
+import { CompletenessChip } from '../../components/CompletenessChip';
 import { RencontreHighlightsTimeline, sortHighlightEvents } from './RencontreHighlightsTimeline';
 import { EventFormDialog, type EventFormDialogActions } from './EventFormDialog';
 import { ArbitrePage } from '../arbitre/ArbitrePage';
@@ -491,6 +493,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
   const eventDialogActionsRef = useRef<EventFormDialogActions | null>(null);
   const [highlights, setHighlights] = useState<RencontreHighlightsRow | null>(null);
   const [highlightsLoading, setHighlightsLoading] = useState(false);
+  const [composition, setComposition] = useState<CompositionMap | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
   const [clubReplaceSide, setClubReplaceSide] = useState<'home' | 'away' | null>(null);
@@ -582,6 +585,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     const isSupportedClubMatch = Number(detail.IS_SUPPORTED_CLUB_MATCH ?? 0) === 1;
     if (!isSupportedClubMatch) {
       setHighlights(null);
+      setComposition(null);
       setActiveTab('info');
       return;
     }
@@ -591,6 +595,11 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       .then((data) => setHighlights(data))
       .catch((error) => setSnackbar({ severity: 'error', message: toErrorMessage(error) }))
       .finally(() => setHighlightsLoading(false));
+
+    // Precharge la composition (independamment de l'onglet actif) pour l'indicateur de completude.
+    void preloadRencontreComposition(String(detail.RECLEUNIK))
+      .then(({ composition: compoData }) => setComposition(compoData))
+      .catch(() => {});
 
     const tourId = Number(detail.TUCLEUNIK ?? 0);
     if (!Number.isInteger(tourId) || tourId <= 0) {
@@ -854,6 +863,10 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     finally {
       if (saveCompo) setIsCompositionSaving(false);
       if (saveEvent) setIsEventDialogSaving(false);
+      if (saveCompo && detail) {
+        // La sauvegarde de la composition met a jour le cache partage : on le relit pour l'indicateur de completude.
+        void preloadRencontreComposition(String(detail.RECLEUNIK)).then(({ composition: compoData }) => setComposition(compoData));
+      }
     }
   };
 
@@ -923,6 +936,23 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     setLabel(tabLabel);
     setLabelStyle(isDomicileProgrammed || isExterieurProgrammed);
   }, [displayDomicileName, displayExterieurName, isDomicileProgrammed, isExterieurProgrammed, setLabel, setLabelStyle]);
+
+  const missingItems = useMemo(() => {
+    if (!detail || !draft || Number(detail.IS_SUPPORTED_CLUB_MATCH ?? 0) !== 1) return [];
+    return getRencontreCompleteness({
+      etat: Number(draft.etat) || 0,
+      dateIso: toApiDate(draft.date),
+      arbitreId: draft.arbitreId,
+      terrainId: draft.terrainId,
+      nbSpect: Number(toNonNegativeIntegerString(draft.nbSpect)),
+      houseClosed: draft.houseClosed,
+      butDom: Number(toNonNegativeIntegerString(draft.butDom)),
+      butExt: Number(toNonNegativeIntegerString(draft.butExt)),
+      supportedClubSide: detail.SUPPORTED_CLUB_SIDE,
+      composition,
+      events: highlights?.EVENTS ?? null,
+    });
+  }, [detail, draft, composition, highlights]);
 
   if (!active) {
     return <Box sx={{ display: 'none' }} />;
@@ -1119,17 +1149,22 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       </Stack>
 
       {showTabs ? (
-        <Tabs
-          value={activeTab}
-          onChange={(_event, value: RencontreTabKey) => setActiveTab(value)}
-          sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36 } }}
-        >
-          <Tab value="info" label="Informations" />
-          <Tab value="highlights" label="Faits marquants" />
-          <Tab value="composition" label="Composition" />
-          <Tab value="resume" label="Résumé" />
-          <Tab value="programme" label="Programme" />
-        </Tabs>
+        <Box sx={{ position: 'relative' }}>
+          <Box sx={{ position: 'absolute', top: -8, right: 0, zIndex: 1 }}>
+            <CompletenessChip missing={missingItems} />
+          </Box>
+          <Tabs
+            value={activeTab}
+            onChange={(_event, value: RencontreTabKey) => setActiveTab(value)}
+            sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36 } }}
+          >
+            <Tab value="info" label="Informations" />
+            <Tab value="highlights" label="Faits marquants" />
+            <Tab value="composition" label="Composition" />
+            <Tab value="resume" label="Résumé" />
+            <Tab value="programme" label="Programme" />
+          </Tabs>
+        </Box>
       ) : null}
 
       {showInfoContent ? (

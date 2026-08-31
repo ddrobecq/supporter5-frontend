@@ -35,6 +35,7 @@ import jerseySvgSource from '../../../img/jersey.svg?raw';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { ClubSelectField } from '../../components/ClubSelectField';
+import { CompletenessChip } from '../../components/CompletenessChip';
 import { DateInputField, formatDateShort, toInputDateFromDisplay } from '../../components/DateInputField';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { NatioAutocomplete } from '../../components/NatioAutocomplete';
@@ -66,6 +67,7 @@ import {
 import type { ClubMatchRow, ClubNameHistoryRow, ClubPalmareRow, ClubProfileRow, ClubTerrainHistoryRow } from './types';
 import { TerrainPickerDialog } from '../terrain/TerrainPickerDialog';
 import { supportedClubStore } from '../system/supportedClubStore';
+import { getClubCompleteness } from './clubCompleteness';
 
 interface ClubTabFormPaneProps {
   tabPath: string;
@@ -502,6 +504,15 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
   const isTerrainDialogDirty = terrainDialogOpen
     && getClubTerrainDialogSignature(terrainDialogDraft) !== terrainDialogSignatureRef.current;
   const isAnyDirty = isProfileDirty || isNameDialogDirty || isTerrainDialogDirty;
+
+  const hasLogo = clubImageDraft === undefined ? Boolean(clubImage.src) : clubImageDraft !== null;
+  const missingItems = useMemo(() => getClubCompleteness({
+    natioId: profileDraft.natioId,
+    villeId: profileDraft.villeId,
+    hasStade: terrainHistoryRows.length > 0,
+    hasCreationDate: nameHistoryRows.some((row) => Number(row.CN_ACTION) === 1 && Boolean(String(row.DATE ?? '').trim())),
+    hasLogo,
+  }), [profileDraft.natioId, profileDraft.villeId, terrainHistoryRows, nameHistoryRows, hasLogo]);
 
   const handlePickScreenColor = async (target: 'fond' | 'texte') => {
     try {
@@ -1173,15 +1184,20 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       ) : row ? (
         <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
           <Stack spacing={2.25}>
-            <Tabs
-              value={activeTab}
-              onChange={(_event, value: ClubTabKey) => setActiveTab(value)}
-              sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36 } }}
-            >
-              <Tab value="info" label="INFORMATIONS" />
-              <Tab value="matches" label="MATCHES" />
-              <Tab value="palmares" label="PALMARÈS" />
-            </Tabs>
+            <Box sx={{ position: 'relative' }}>
+              <Box sx={{ position: 'absolute', top: -8, right: 0, zIndex: 1 }}>
+                <CompletenessChip missing={missingItems} />
+              </Box>
+              <Tabs
+                value={activeTab}
+                onChange={(_event, value: ClubTabKey) => setActiveTab(value)}
+                sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36 } }}
+              >
+                <Tab value="info" label="INFORMATIONS" />
+                <Tab value="matches" label="MATCHES" />
+                <Tab value="palmares" label="PALMARÈS" />
+              </Tabs>
+            </Box>
 
             {activeTab === 'palmares' ? (
               <Box>

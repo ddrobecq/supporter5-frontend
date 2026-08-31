@@ -10,6 +10,21 @@ export function formatDateFr(value: unknown): string {
   return `${raw.substring(6, 8)}/${raw.substring(4, 6)}/${raw.substring(0, 4)}`;
 }
 
+/** Formate un timestamp ISO en "JJ/MM/AAAA HH:mm" (heure locale). */
+export function formatDateTimeFr(value: string | null | undefined): string {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${day}/${month}/${date.getFullYear()} ${hours}:${minutes}`;
+}
+
 const MONTHS_FR = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
 /** Formate une date base en "JJ mmm AAAA"; l'annee est omise si c'est l'annee courante. */

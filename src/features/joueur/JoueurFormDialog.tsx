@@ -26,12 +26,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { DateInputField, fromInputDateToDisplay, toInputDateFromDisplay } from '../../components/DateInputField';
 import { NumberField } from '../../components/NumberField';
 import { ClubSelectField } from '../../components/ClubSelectField';
+import { CompletenessChip } from '../../components/CompletenessChip';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { VillePicker } from '../../components/VillePicker';
+import { getJoueurCompleteness } from './joueurCompleteness';
 import type { NatioRow } from '../natio/types';
 import { fetchVilleById } from '../ville/villeApi';
 import {
@@ -305,6 +307,8 @@ export function JoueurFormDialog({
 
   const birthDateDisplay = normalizeNullableText(values.NAISSANCE);
   const deathDateDisplay = normalizeNullableText(values.DECES);
+  const hasPortrait = photoDraft === undefined ? Boolean(existingPhoto.src) : photoDraft !== null;
+  const missingItems = useMemo(() => getJoueurCompleteness(values, hasPortrait), [values, hasPortrait]);
 
   useEffect(() => {
     if (!open) return;
@@ -1088,18 +1092,25 @@ export function JoueurFormDialog({
 
   const content = (
     <Stack spacing={2}>
-      <Tabs
-        value={activeTab}
-        onChange={(_event, newValue: JoueurFormTabKey) => setActiveTab(newValue)}
-        variant="scrollable"
-        scrollButtons="auto"
-        sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36 } }}
-      >
-        <Tab value="identite" label="Identité" />
-        <Tab value="historique" label="Historique dans le Club" />
-        <Tab value="contrats" label="Contrats" />
-        <Tab value="matches" label="Matches" />
-      </Tabs>
+      <Box sx={{ position: 'relative' }}>
+        {mode === 'edit' ? (
+          <Box sx={{ position: 'absolute', top: -8, right: 0, zIndex: 1 }}>
+            <CompletenessChip missing={missingItems} />
+          </Box>
+        ) : null}
+        <Tabs
+          value={activeTab}
+          onChange={(_event, newValue: JoueurFormTabKey) => setActiveTab(newValue)}
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36 } }}
+        >
+          <Tab value="identite" label="Identité" />
+          <Tab value="historique" label="Historique dans le Club" />
+          <Tab value="contrats" label="Contrats" />
+          <Tab value="matches" label="Matches" />
+        </Tabs>
+      </Box>
       <Box sx={{ display: activeTab === 'identite' ? 'block' : 'none' }}>{identityTab}</Box>
       <Box sx={{ display: activeTab === 'historique' ? 'block' : 'none' }}>{historyTab}</Box>
       <Box sx={{ display: activeTab === 'contrats' ? 'block' : 'none' }}>{contractsTab}</Box>

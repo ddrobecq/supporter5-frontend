@@ -189,6 +189,40 @@ interface RencontreCompositionTabProps {
 const _compositionCache = new Map<string, CompositionMap>();
 const _squadCache = new Map<string, SquadPlayerRow[]>();
 const _initialCompositionCache = new Map<string, CompositionMap>();
+const _pendingCompositionLoads = new Map<string, Promise<{ squad: SquadPlayerRow[]; composition: CompositionMap }>>();
+
+/**
+ * Charge (ou renvoie depuis le cache) la composition et l'effectif d'un match.
+ * Partagé avec RencontreTabFormPane, qui precharge ces donnees des l'ouverture de la fiche
+ * (pour le calcul de completude) sans attendre que l'onglet Composition soit ouvert.
+ */
+export function preloadRencontreComposition(
+  rencontreId: string,
+): Promise<{ squad: SquadPlayerRow[]; composition: CompositionMap }> {
+  const cachedComposition = _compositionCache.get(rencontreId);
+  const cachedSquad = _squadCache.get(rencontreId);
+  if (cachedComposition && cachedSquad) {
+    return Promise.resolve({ squad: cachedSquad, composition: cachedComposition });
+  }
+
+  const pending = _pendingCompositionLoads.get(rencontreId);
+  if (pending) return pending;
+
+  const promise = Promise.all([
+    fetchRencontreSquad(rencontreId),
+    fetchRencontreComposition(rencontreId),
+  ]).then(([squadData, compoData]) => {
+    _squadCache.set(rencontreId, squadData);
+    _compositionCache.set(rencontreId, compoData);
+    _initialCompositionCache.set(rencontreId, compoData);
+    return { squad: squadData, composition: compoData };
+  }).finally(() => {
+    _pendingCompositionLoads.delete(rencontreId);
+  });
+
+  _pendingCompositionLoads.set(rencontreId, promise);
+  return promise;
+}
 
 export function RencontreCompositionTab({
   rencontreId,
@@ -225,17 +259,13 @@ export function RencontreCompositionTab({
     hasLoadedRef.current = true;
     setLoading(true);
     setError(null);
-    void Promise.all([
-      fetchRencontreSquad(rencontreId),
-      fetchRencontreComposition(rencontreId),
-    ]).then(([squadData, compoData]) => {
-      _squadCache.set(rencontreId, squadData);
-      _compositionCache.set(rencontreId, compoData);
-      _initialCompositionCache.set(rencontreId, compoData);
-      setSquad(squadData);
-      setComposition(compoData);
-      initialCompositionRef.current = compoData;
-    }).catch((err) => setError(toErrorMessage(err)))
+    void preloadRencontreComposition(rencontreId)
+      .then(({ squad: squadData, composition: compoData }) => {
+        setSquad(squadData);
+        setComposition(compoData);
+        initialCompositionRef.current = compoData;
+      })
+      .catch((err) => setError(toErrorMessage(err)))
       .finally(() => setLoading(false));
   }, [active, rencontreId]);
 

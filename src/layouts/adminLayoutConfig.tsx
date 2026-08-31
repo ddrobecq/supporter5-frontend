@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import BarChartRoundedIcon from '@mui/icons-material/BarChartRounded';
+import BuildRoundedIcon from '@mui/icons-material/BuildRounded';
 import CalculateRoundedIcon from '@mui/icons-material/CalculateRounded';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import EventNoteRoundedIcon from '@mui/icons-material/EventNoteRounded';
@@ -149,7 +150,8 @@ export type ToolsMenuAction =
   | 'incomplets-joueurs'
   | 'incomplets-clubs'
   | 'incomplets-rencontres'
-  | 'maintenance';
+  | 'maintenance'
+  | 'maintenance-backend';
 
 export interface ToolsMenuGroup {
   label: string;
@@ -163,7 +165,8 @@ export const TOOLBAR_TOOLS_GROUPS: ToolsMenuGroup[] = [
       { label: 'Fusionner...', icon: <MergeRoundedIcon />, action: 'club-merge' },
       { label: 'Importer...', icon: <UploadFileRoundedIcon />, action: 'rencontres-import' },
       { label: 'Calculer statistiques...', icon: <CalculateRoundedIcon />, action: 'stats-recompute' },
-      { label: 'Maintenance...', icon: <StorageRoundedIcon />, action: 'maintenance' },
+      { label: 'Requêter la BdD...', icon: <StorageRoundedIcon />, action: 'maintenance' },
+      { label: 'Maintenance...', icon: <BuildRoundedIcon />, action: 'maintenance-backend' },
     ],
   },
   {
@@ -197,7 +200,8 @@ export const TAB_META: Record<string, TabMeta> = {
   '/admin/clubs-incomplets': { label: 'Clubs incomplets', icon: <ShieldRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/rencontres-incompletes': { label: 'Rencontres incomplètes', icon: <SportsSoccerRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/import-rencontres': { label: 'Import de rencontres', icon: <UploadFileRoundedIcon sx={{ fontSize: 14 }} /> },
-  '/admin/maintenance': { label: 'Maintenance', icon: <StorageRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/maintenance': { label: 'Requête', icon: <StorageRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/maintenance-backend': { label: 'Maintenance', icon: <BuildRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/rencontres': { label: 'Rencontres', icon: <SportsSoccerRoundedIcon sx={{ fontSize: 14 }} /> },
 };
 

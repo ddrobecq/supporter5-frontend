@@ -115,7 +115,7 @@ export function MaintenancePage() {
       }}
     >
       <Stack direction="row" spacing={2} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-        <Typography variant="h6" sx={{ fontSize: 16, fontWeight: 700 }}>Maintenance</Typography>
+        <Typography variant="h6" sx={{ fontSize: 16, fontWeight: 700 }}>Requêter la BdD</Typography>
         <Typography variant="body2" color="text.secondary">
           Requête SQL exécutée directement sur la base. Ctrl+Entrée pour exécuter.
         </Typography>

@@ -26,8 +26,10 @@ import {
 } from '@mui/material';
 import { Fragment, lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { AppFeedbackSnackbar, type FeedbackMessage } from '../components/AppFeedbackSnackbar';
 import { authStore } from '../features/auth/authStore';
 import type { HomePageOutletContext, RecentOpenedRecord } from '../features/home/types';
+import { BACKUP_RESULT_EVENT, maybeRunAutomaticBackup, type BackupResultEventDetail } from '../features/maintenance/backupRunner';
 import { emitTabSaveRequest } from '../lib/useTabMetaEvents';
 import { useEntityImage } from '../lib/useEntityImage';
 import { supportedClubStore } from '../features/system/supportedClubStore';
@@ -96,6 +98,7 @@ export function AdminLayout() {
   const [closeConfirmTabKey, setCloseConfirmTabKey] = useState<string | null>(null);
   const [savingBeforeClose, setSavingBeforeClose] = useState(false);
   const [recentOpenedRecords, setRecentOpenedRecords] = useState<RecentOpenedRecord[]>(() => readRecentOpenedRecordsFromStorage());
+  const [backupFeedback, setBackupFeedback] = useState<FeedbackMessage | null>(null);
   const tabCounterRef = useRef(0);
   // Retient la derniere URL complete (avec query string) visitee par onglet, pour la restaurer au retour sur l'onglet.
   const tabLocationByKeyRef = useRef<Record<string, string>>({});
@@ -151,7 +154,9 @@ export function AdminLayout() {
     } else if (action === 'incomplets-rencontres') {
       openTab('/admin/rencontres-incompletes', 'Rencontres incomplètes', { unique: true, uniqueByPath: true });
     } else if (action === 'maintenance') {
-      openTab('/admin/maintenance', 'Maintenance', { unique: true, uniqueByPath: true });
+      openTab('/admin/maintenance', 'Requête', { unique: true, uniqueByPath: true });
+    } else if (action === 'maintenance-backend') {
+      openTab('/admin/maintenance-backend', 'Maintenance', { unique: true, uniqueByPath: true });
     }
   };
 
@@ -180,6 +185,22 @@ export function AdminLayout() {
   useEffect(() => {
     void loadSupportedClub();
   }, [loadSupportedClub]);
+
+  useEffect(() => {
+    void maybeRunAutomaticBackup();
+  }, []);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<BackupResultEventDetail>;
+      const { success, message } = customEvent.detail ?? {};
+      if (!message) return;
+      setBackupFeedback({ severity: success ? 'success' : 'error', message });
+    };
+
+    window.addEventListener(BACKUP_RESULT_EVENT, handler);
+    return () => window.removeEventListener(BACKUP_RESULT_EVENT, handler);
+  }, []);
 
   useEffect(() => {
     window.localStorage.setItem(RECENT_OPENED_STORAGE_KEY, JSON.stringify(recentOpenedRecords));
@@ -906,6 +927,8 @@ export function AdminLayout() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <AppFeedbackSnackbar value={backupFeedback} onClose={() => setBackupFeedback(null)} />
     </Box>
   );
 }
