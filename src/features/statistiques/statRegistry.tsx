@@ -43,10 +43,15 @@ const ButeursGrid = lazyStat(() => import('./joueur/buts/ButeursGrid').then((mod
 const ButeursParSaisonGrid = lazyStat(() => import('./joueur/buts/ButeursGrid').then((module) => ({ default: module.ButeursParSaisonGrid })));
 const EfficaciteButeursGrid = lazyStat(() => import('./joueur/buts/ButeursGrid').then((module) => ({ default: module.EfficaciteButeursGrid })));
 const ButeursMatchGrid = lazyStat(() => import('./joueur/buts/ButeursMatchGrid').then((module) => ({ default: module.ButeursMatchGrid })));
+const DoublesGrid = lazyStat(() => import('./joueur/buts/ButsMultiplesGrid').then((module) => ({ default: () => <module.ButsMultiplesGrid variant="doubles" /> })));
+const TriplesGrid = lazyStat(() => import('./joueur/buts/ButsMultiplesGrid').then((module) => ({ default: () => <module.ButsMultiplesGrid variant="triples" /> })));
+const QuadruplesGrid = lazyStat(() => import('./joueur/buts/ButsMultiplesGrid').then((module) => ({ default: () => <module.ButsMultiplesGrid variant="quadruples" /> })));
 const SeriesGrid = lazyStat(() => import('./joueur/buts/SeriesGrid').then((module) => ({ default: module.SeriesGrid })));
 const PasseursGrid = lazyStat(() => import('./joueur/buts/ButeursGrid').then((module) => ({ default: () => <module.ButeursGrid metric="passes" /> })));
 const PasseursParSaisonGrid = lazyStat(() => import('./joueur/buts/ButeursGrid').then((module) => ({ default: () => <module.ButeursParSaisonGrid metric="passes" /> })));
 const PasseursMatchGrid = lazyStat(() => import('./joueur/buts/ButeursMatchGrid').then((module) => ({ default: () => <module.ButeursMatchGrid metric="passes" /> })));
+const PasseursDoublesGrid = lazyStat(() => import('./joueur/buts/ButsMultiplesGrid').then((module) => ({ default: () => <module.ButsMultiplesGrid metric="passes" variant="doubles" /> })));
+const PasseursTriplesGrid = lazyStat(() => import('./joueur/buts/ButsMultiplesGrid').then((module) => ({ default: () => <module.ButsMultiplesGrid metric="passes" variant="triples" /> })));
 const EfficacitePasseursGrid = lazyStat(() => import('./joueur/buts/ButeursGrid').then((module) => ({ default: () => <module.EfficaciteButeursGrid metric="passes" /> })));
 const SeriesPasseursGrid = lazyStat(() => import('./joueur/buts/SeriesGrid').then((module) => ({ default: () => <module.SeriesGrid metric="passes" /> })));
 
@@ -121,11 +126,16 @@ export const STAT_COMPONENTS: Record<string, StatComponent> = {
   'joueur/buts/general': ButeursGrid,
   'joueur/buts/saison': ButeursParSaisonGrid,
   'joueur/buts/match': ButeursMatchGrid,
+  'joueur/buts/doubles': DoublesGrid,
+  'joueur/buts/triples': TriplesGrid,
+  'joueur/buts/quadruples': QuadruplesGrid,
   'joueur/buts/moyenne': EfficaciteButeursGrid,
   'joueur/buts/serie': SeriesGrid,
   'joueur/passes/general': PasseursGrid,
   'joueur/passes/saison': PasseursParSaisonGrid,
   'joueur/passes/match': PasseursMatchGrid,
+  'joueur/passes/doubles': PasseursDoublesGrid,
+  'joueur/passes/triples': PasseursTriplesGrid,
   'joueur/passes/moyenne': EfficacitePasseursGrid,
   'joueur/passes/serie': SeriesPasseursGrid,
   'joueur/sanctions/avertissements-general': SanctionsAvertissementsGrid,
