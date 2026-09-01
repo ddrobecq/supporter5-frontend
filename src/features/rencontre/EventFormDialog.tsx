@@ -6,6 +6,7 @@ import ReportRoundedIcon from '@mui/icons-material/ReportRounded';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
 import SquareRoundedIcon from '@mui/icons-material/SquareRounded';
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
+import TimerRoundedIcon from '@mui/icons-material/TimerRounded';
 import {
   Autocomplete,
   Box,
@@ -49,12 +50,15 @@ const TYPE_EVENT_OPTIONS: { value: number; label: string; icon: ReactElement; co
   { value: 7, label: 'Penalty marqué',              icon: <TaskAltRoundedIcon fontSize="small" />,      color: '#16a34a' },
   { value: 8, label: 'Penalty manqué',              icon: <CancelRoundedIcon fontSize="small" />,       color: '#b91c1c' },
   { value: 9, label: 'Blessure',                    icon: <HealingRoundedIcon fontSize="small" />,      color: '#be185d' },
+  { value: 10, label: 'Temps additionnel',          icon: <TimerRoundedIcon fontSize="small" />,        color: '#475569' },
 ];
 
-function getAutoPeriode(min: number): number {
-  if (min <= 45) return 1;
-  if (min <= 90) return 2;
-  if (min <= 105) return 3;
+/** Seuils de période dérivés du TourDef du match (mi-temps, fin de temps réglementaire, mi-temps de prolongation). */
+function getAutoPeriode(min: number, dureeReg: number, dureeProlong: number): number {
+  const half = dureeReg / 2;
+  if (min <= half) return 1;
+  if (min <= dureeReg) return 2;
+  if (min <= dureeReg + dureeProlong / 2) return 3;
   return 4;
 }
 
@@ -71,6 +75,10 @@ function joueur2Label(typeEvent: number): string {
 
 function showJoueur2(typeEvent: number): boolean {
   return typeEvent === 1 || typeEvent === 2;
+}
+
+function showPlayers(typeEvent: number): boolean {
+  return typeEvent !== 10;
 }
 
 function getEventDraftSignature(values: {
@@ -107,9 +115,26 @@ interface Props {
   event?: RencontreHighlightEventRow | null;
   onDirtyChange?: (dirty: boolean) => void;
   actionsRef?: React.MutableRefObject<EventFormDialogActions | null>;
+  /** Le match a-t-il une prolongation ? Restreint les périodes disponibles pour un temps additionnel. */
+  matchHasExtraTime?: boolean;
+  /** Durée du temps réglementaire (TourDef.DUREE_TPS_REG), pour déduire la période depuis la minute saisie. */
+  matchDureeReg?: number;
+  /** Durée de la prolongation (TourDef.DUREE_TPS_PROLONG), pour déduire la période depuis la minute saisie. */
+  matchDureeProlong?: number;
 }
 
-export function EventFormDialog({ open, onClose, onSaved, rencontreId, event, onDirtyChange, actionsRef }: Props) {
+export function EventFormDialog({
+  open,
+  onClose,
+  onSaved,
+  rencontreId,
+  event,
+  onDirtyChange,
+  actionsRef,
+  matchHasExtraTime = false,
+  matchDureeReg = 90,
+  matchDureeProlong = 30,
+}: Props) {
   const isEdit = event != null;
 
   const [adversaire, setAdversaire] = useState(false);
@@ -198,6 +223,24 @@ export function EventFormDialog({ open, onClose, onSaved, rencontreId, event, on
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
 
+  // Le temps additionnel ne concerne ni joueur ni équipe : on nettoie ces champs à la sélection.
+  useEffect(() => {
+    if (typeEvent !== 10) return;
+    setAdversaire(false);
+    setJoueur1(null);
+    setJoueur2(null);
+  }, [typeEvent]);
+
+  const periodeOptions = typeEvent === 10
+    ? PERIODE_OPTIONS.filter((o) => o.value === 1 || o.value === 2 || (matchHasExtraTime && (o.value === 3 || o.value === 4)))
+    : PERIODE_OPTIONS;
+
+  // Si la période sélectionnée devient indisponible (ex: passage au type 10 sans prolongation), on recadre.
+  useEffect(() => {
+    if (periodeOptions.some((o) => o.value === periode)) return;
+    setPeriode(periodeOptions[0]?.value ?? 1);
+  }, [periodeOptions, periode]);
+
   const playerLabel = (p: SquadPlayerRow) =>
     p.SURNOM?.trim() || `${p.NOM} ${p.PRENOM}`.trim();
 
@@ -207,13 +250,21 @@ export function EventFormDialog({ open, onClose, onSaved, rencontreId, event, on
       setError('La minute doit être un nombre positif.');
       return false;
     }
+    const isAdditionalTime = typeEvent === 10;
+    if (isAdditionalTime) {
+      const addedMinutes = parseInt(comment, 10);
+      if (!Number.isFinite(addedMinutes) || addedMinutes < 1) {
+        setError('Le temps additionnel doit être un nombre entier de minutes supérieur à 0.');
+        return false;
+      }
+    }
     const payload: EventPayload = {
-      adversaire: adversaire ? 1 : 0,
+      adversaire: isAdditionalTime ? 0 : (adversaire ? 1 : 0),
       minute: min,
       periode,
       typeEvent,
-      joueur1: adversaire ? null : (joueur1?.IDJOUEUR ?? null),
-      joueur2: adversaire ? null : (joueur2?.IDJOUEUR ?? null),
+      joueur1: isAdditionalTime || adversaire ? null : (joueur1?.IDJOUEUR ?? null),
+      joueur2: isAdditionalTime || adversaire ? null : (joueur2?.IDJOUEUR ?? null),
       comment: comment.trim() || null,
     };
     setSaving(true);
@@ -289,10 +340,12 @@ export function EventFormDialog({ open, onClose, onSaved, rencontreId, event, on
         <Stack spacing={2} sx={{ mt: 1 }}>
           {error ? <Typography color="error" variant="body2">{error}</Typography> : null}
 
-          <FormControlLabel
-            control={<Checkbox checked={adversaire} onChange={(e) => setAdversaire(e.target.checked)} slotProps={{ input: { ref: adversaireRef } }} />}
-            label="Action concernant l'adversaire"
-          />
+          {typeEvent !== 10 ? (
+            <FormControlLabel
+              control={<Checkbox checked={adversaire} onChange={(e) => setAdversaire(e.target.checked)} slotProps={{ input: { ref: adversaireRef } }} />}
+              label="Action concernant l'adversaire"
+            />
+          ) : null}
 
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
             <NumberField
@@ -301,14 +354,14 @@ export function EventFormDialog({ open, onClose, onSaved, rencontreId, event, on
               onChange={(v) => {
                 setMinute(v);
                 const num = parseInt(v, 10);
-                if (v && Number.isFinite(num) && num > 0) setPeriode(getAutoPeriode(num));
+                if (v && Number.isFinite(num) && num > 0) setPeriode(getAutoPeriode(num, matchDureeReg, matchDureeProlong));
               }}
               maxLength={3}
             />
             <FormControl fullWidth>
               <InputLabel>Comptant pour</InputLabel>
               <Select value={periode} label="Comptant pour" onChange={(e) => setPeriode(Number(e.target.value))}>
-                {PERIODE_OPTIONS.map((o) => (
+                {periodeOptions.map((o) => (
                   <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
                 ))}
               </Select>
@@ -329,7 +382,7 @@ export function EventFormDialog({ open, onClose, onSaved, rencontreId, event, on
             </Select>
           </FormControl>
 
-          {!adversaire ? (
+          {!adversaire && showPlayers(typeEvent) ? (
             <>
               <Autocomplete
                 options={squad}
@@ -358,15 +411,27 @@ export function EventFormDialog({ open, onClose, onSaved, rencontreId, event, on
             </>
           ) : null}
 
-          <TextField
-            label="Commentaires"
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            multiline
-            minRows={2}
-            maxRows={5}
-            slotProps={{ htmlInput: { lang: 'fr', spellCheck: true } }}
-          />
+          {typeEvent === 10 ? (
+            <NumberField
+              label="Minutes de temps additionnel"
+              value={comment}
+              onChange={setComment}
+              maxLength={2}
+              min={1}
+              max={30}
+              suffix="min"
+            />
+          ) : (
+            <TextField
+              label="Commentaires"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              multiline
+              minRows={2}
+              maxRows={5}
+              slotProps={{ htmlInput: { lang: 'fr', spellCheck: true } }}
+            />
+          )}
         </Stack>
       </DialogContent>
       <DialogActions>

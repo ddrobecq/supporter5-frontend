@@ -1509,6 +1509,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
                 setEventDialogMode('edit');
                 setEventDialogOpen(true);
               }}
+              matchHasExtraTime={Boolean(draft?.extratime)}
             />
           ) : null}
         </Stack>
@@ -1583,6 +1584,9 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
           event={eventDialogMode === 'edit' ? (orderedEvents.find((e) => e.EVCLEUNIK === selectedEventId) ?? null) : null}
           onDirtyChange={setIsEventDialogDirty}
           actionsRef={eventDialogActionsRef}
+          matchHasExtraTime={Boolean(draft?.extratime)}
+          matchDureeReg={detail?.DUREE_TPS_REG ?? 90}
+          matchDureeProlong={detail?.DUREE_TPS_PROLONG ?? 30}
         />
       ) : null}
 

@@ -233,7 +233,7 @@ export function RencontrePublicPage() {
       {hadPenalty ? <Typography sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><SportsScoreRoundedIcon color="primary" />Tirs au but</Typography> : null}
     </Stack></CardContent></Card> : null}
 
-    {tab === 'highlights' ? <Card><CardContent><RencontreHighlightsTimeline events={highlights?.EVENTS ?? []} /></CardContent></Card> : null}
+    {tab === 'highlights' ? <Card><CardContent><RencontreHighlightsTimeline events={highlights?.EVENTS ?? []} matchHasExtraTime={hadExtratime} /></CardContent></Card> : null}
 
     {tab === 'composition' ? <Card><CardContent><ReadonlyComposition composition={composition} squad={squad} homeName={homeName} awayName={awayName} supportedSide={detail.SUPPORTED_CLUB_SIDE} /></CardContent></Card> : null}
 
