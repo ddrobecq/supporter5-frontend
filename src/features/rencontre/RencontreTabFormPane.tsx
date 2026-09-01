@@ -49,7 +49,7 @@ import {
 } from '../competition/competitionApi';
 import type { CircOptionRow, CompetitionTourRow, TourParticipantRow } from '../competition/types';
 import { parsePaSourceForLabel, useProgrammedParticipantResolver } from '../competition/useProgrammedParticipantLabels';
-import { fetchRencontreDetailById, fetchRencontreHighlightsById, fetchRencontreTourMatches, updateRencontreDetail, deleteRencontreEvent, upsertRencontreMatchMeta } from './rencontreApi';
+import { fetchRencontreDetailById, fetchRencontreHighlightsById, fetchRencontreTourMatches, updateRencontreDetail, deleteRencontreEvent, upsertRencontreMatchMeta, recomputeRencontreStats } from './rencontreApi';
 import type { CompositionMap, RencontreDetailRow, RencontreHighlightsRow, TourMatchWithNamesRow } from './types';
 import { preloadRencontreComposition, RencontreCompositionTab, type CompositionTabActions } from './RencontreCompositionTab';
 import { getRencontreCompleteness } from './rencontreCompleteness';
@@ -491,6 +491,10 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
   const [isEventDialogDirty, setIsEventDialogDirty] = useState(false);
   const [isEventDialogSaving, setIsEventDialogSaving] = useState(false);
   const eventDialogActionsRef = useRef<EventFormDialogActions | null>(null);
+  // Un ajout/suppression/modification d'event est persiste immediatement cote serveur, mais le recalcul des
+  // stats saison n'est declenche qu'au clic sur Enregistrer (cf. handleGlobalSave) pour eviter de recalculer
+  // toute la saison a chaque event. Ce flag pilote l'affichage du bandeau Enregistrer/Annuler.
+  const [isEventsChanged, setIsEventsChanged] = useState(false);
   const [highlights, setHighlights] = useState<RencontreHighlightsRow | null>(null);
   const [highlightsLoading, setHighlightsLoading] = useState(false);
   const [composition, setComposition] = useState<CompositionMap | null>(null);
@@ -541,6 +545,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       const signature = getDraftSignature(nextDraft, initialAdminEnabled);
       initialSignatureRef.current = signature;
       setDirty(false);
+      setIsEventsChanged(false);
       const domLabel = String(loadedDetail.DOMICILE_ABREGE ?? '').trim() || String(loadedDetail.DOMICILE_NOM_EFFECTIF ?? '').trim();
       const extLabel = String(loadedDetail.EXTERIEUR_ABREGE ?? '').trim() || String(loadedDetail.EXTERIEUR_NOM_EFFECTIF ?? '').trim();
       setLabel(`${domLabel} - ${extLabel}`);
@@ -634,8 +639,8 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
   }, [draft, adminDecisionEnabled]);
 
   useEffect(() => {
-    setDirty(isDirty || isCompositionDirty || isEventDialogDirty);
-  }, [isDirty, isCompositionDirty, isEventDialogDirty, setDirty]);
+    setDirty(isDirty || isCompositionDirty || isEventDialogDirty || isEventsChanged);
+  }, [isDirty, isCompositionDirty, isEventDialogDirty, isEventsChanged, setDirty]);
 
   const handleSeasonChange = async (nextSeason: string) => {
     if (!draft) return;
@@ -697,6 +702,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     setAdminDecisionEnabled(nextAdminEnabled);
     initialSignatureRef.current = getDraftSignature(nextDraft, nextAdminEnabled);
     setDirty(false);
+    setIsEventsChanged(false);
   };
 
   const handleSave = async () => {
@@ -789,7 +795,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       : prev));
   };
 
-  const anyDirty = isDirty || isCompositionDirty || isEventDialogDirty;
+  const anyDirty = isDirty || isCompositionDirty || isEventDialogDirty || isEventsChanged;
   const anySaving = saving || isCompositionSaving || isEventDialogSaving;
   const handleProgrammedResolveError = useCallback((message: string) => {
     setSnackbar({ severity: 'error', message });
@@ -844,6 +850,11 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
   const handleGlobalSave = async () => {
     const saveCompo = isCompositionDirty && compositionActionsRef.current;
     const saveEvent = isEventDialogDirty && eventDialogActionsRef.current;
+    // Les events (ajout/modif/suppression) sont deja persistes en base, mais ne recalculent plus les stats
+    // immediatement : ca n'arrive qu'ici, au clic sur Enregistrer. Si handleSave() tourne deja pour cette
+    // rencontre (isDirty) ou si la composition est sauvegardee, un recalcul de saison est deja declenche
+    // par ces chemins-la, inutile de le refaire en double.
+    const shouldRecomputeForEvents = isEventsChanged && !isDirty && !saveCompo;
 
     if (saveCompo) {
       setIsCompositionSaving(true);
@@ -858,6 +869,11 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
         isDirty ? handleSave() : Promise.resolve(),
         saveCompo ? compositionActionsRef.current!.save() : Promise.resolve(),
         saveEvent ? eventDialogActionsRef.current!.save() : Promise.resolve(),
+        shouldRecomputeForEvents && detail
+          ? recomputeRencontreStats(detail.RECLEUNIK).catch((err) => {
+            setSnackbar({ severity: 'error', message: toErrorMessage(err) });
+          })
+          : Promise.resolve(),
       ]);
     } catch { /* errors shown inline by each section */ }
     finally {
@@ -867,6 +883,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
         // La sauvegarde de la composition met a jour le cache partage : on le relit pour l'indicateur de completude.
         void preloadRencontreComposition(String(detail.RECLEUNIK)).then(({ composition: compoData }) => setComposition(compoData));
       }
+      setIsEventsChanged(false);
     }
   };
 
@@ -878,6 +895,13 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       eventDialogActionsRef.current.reset();
     }
     setEventDialogOpen(false);
+    // Les events ne sont pas annulables (deja persistes en base) : on recalcule quand meme les stats pour
+    // ne pas les laisser desynchronisees si l'utilisateur ferme le bandeau via Annuler plutot qu'Enregistrer.
+    if (isEventsChanged && detail) {
+      void recomputeRencontreStats(detail.RECLEUNIK).catch((err) => {
+        setSnackbar({ severity: 'error', message: toErrorMessage(err) });
+      });
+    }
     resetDraft();
   };
 
@@ -1489,7 +1513,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
                 onClick={() => {
                   if (selectedEventId == null || !detail) return;
                   void deleteRencontreEvent(detail.RECLEUNIK, selectedEventId)
-                    .then((data) => { setHighlights(data); setSelectedEventId(null); })
+                    .then((data) => { setHighlights(data); setSelectedEventId(null); setIsEventsChanged(true); })
                     .catch((err) => setSnackbar({ severity: 'error', message: toErrorMessage(err) }));
                 }}
               >Supprimer</Button>
@@ -1579,7 +1603,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
         <EventFormDialog
           open={eventDialogOpen}
           onClose={() => setEventDialogOpen(false)}
-          onSaved={(data) => { setHighlights(data); setSelectedEventId(null); setEventDialogOpen(false); }}
+          onSaved={(data) => { setHighlights(data); setSelectedEventId(null); setEventDialogOpen(false); setIsEventsChanged(true); }}
           rencontreId={rencontreId}
           event={eventDialogMode === 'edit' ? (orderedEvents.find((e) => e.EVCLEUNIK === selectedEventId) ?? null) : null}
           onDirtyChange={setIsEventDialogDirty}

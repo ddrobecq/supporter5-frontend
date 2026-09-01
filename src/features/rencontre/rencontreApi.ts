@@ -100,3 +100,7 @@ export async function deleteRencontreEvent(rencontreId: string | number, evcleun
   const { data } = await http.delete<RencontreHighlightsRow>(`/api/rencontres/${encodeURIComponent(String(rencontreId))}/events/${evcleunik}`);
   return data;
 }
+
+export async function recomputeRencontreStats(rencontreId: string | number): Promise<void> {
+  await http.post(`/api/rencontres/${encodeURIComponent(String(rencontreId))}/recompute-stats`);
+}
