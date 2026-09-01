@@ -1307,13 +1307,8 @@ export function CalendrierPage({ readOnly = false }: { readOnly?: boolean }) {
 
   return (
     <Stack spacing={2}>
-      <Stack
-        direction="row"
-        spacing={1}
-        sx={{ alignItems: 'center', width: '100%', flexWrap: 'nowrap' }}
-      >
-        <Typography variant="h5" sx={{ fontWeight: 700, flexShrink: 0, whiteSpace: 'nowrap' }}>Calendrier</Typography>
-
+      <Card>
+        <CardContent>
         <Box
           sx={{
             ml: 'auto',
@@ -1326,10 +1321,7 @@ export function CalendrierPage({ readOnly = false }: { readOnly?: boolean }) {
         >
           <CalendarDateNavigator date={date} onDateChange={setDate} />
         </Box>
-      </Stack>
 
-      <Card>
-        <CardContent>
           {error ? <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert> : null}
 
             <Box sx={{ mt: 2, height: compactMatchListHeight, minHeight: 150 }}>
