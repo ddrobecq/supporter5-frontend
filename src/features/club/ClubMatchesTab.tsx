@@ -4,7 +4,7 @@ import { useCallback, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { formatDateShort } from '../../components/DateInputField';
 import { MatchDataGrid } from '../../components/MatchDataGrid';
-import { buildMatchGridColumns } from '../../components/matchGridColumns';
+import { buildMatchGridColumns, type MatchGridBaseRow } from '../../components/matchGridColumns';
 import { ClubSelectField } from '../../components/ClubSelectField';
 import { entityPath } from '../../lib/entityNavigation';
 import { ClubMatchStatsPanel } from './ClubMatchStats';
@@ -23,7 +23,7 @@ interface ClubMatchesTabProps {
   onNavigateToClub?: (clubId: string) => void;
 }
 
-function formatMatchScore(row: ClubMatchRow): string {
+function formatMatchScore(row: MatchGridBaseRow): string {
   const etat = Number(row.ETAT ?? 0);
   if (etat === 1 || etat === 5) return '-vs-';
   if (etat === 4) return '';
