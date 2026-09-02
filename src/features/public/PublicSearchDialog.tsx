@@ -2,7 +2,6 @@ import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import { CircularProgress, Dialog, DialogContent, DialogTitle, List, ListItemButton, ListItemText, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import { fetchClubSuggestions } from '../club/clubApi';
-import { fetchCompetition } from '../competition/competitionApi';
 import { fetchJoueurSuggestions } from '../joueur/joueurApi';
 
 interface PublicSearchDialogProps {
@@ -11,7 +10,7 @@ interface PublicSearchDialogProps {
   onNavigate: (path: string) => void;
 }
 
-type SearchKind = 'joueur' | 'club' | 'compet';
+type SearchKind = 'joueur' | 'club';
 
 export function PublicSearchDialog({ open, onClose, onNavigate }: PublicSearchDialogProps) {
   const [kind, setKind] = useState<SearchKind>('joueur');
@@ -36,15 +35,13 @@ export function PublicSearchDialog({ open, onClose, onNavigate }: PublicSearchDi
     const search = query.trim();
     const request = kind === 'joueur'
       ? fetchJoueurSuggestions(search, controller.signal).then((response) => response.data.map((row) => ({ id: row.IDJOUEUR, label: `${row.NOM} ${row.PRENOM}`.trim() })))
-      : kind === 'club'
-        ? fetchClubSuggestions(search, controller.signal).then((response) => response.data.map((row) => ({ id: row.IDCLUB, label: row.CLUB_NOM_COMPLET, detail: row.CLUB_ABREGE })))
-        : fetchCompetition(search, undefined, controller.signal).then((response) => response.data.map((row) => ({ id: String(row.COCLEUNIK ?? ''), label: String(row.NOM ?? ''), detail: String(row.SAISON ?? '') })));
+      : fetchClubSuggestions(search, controller.signal).then((response) => response.data.map((row) => ({ id: row.IDCLUB, label: row.CLUB_NOM_COMPLET, detail: row.CLUB_ABREGE })));
     void request.then(setResults).catch(() => setResults([])).finally(() => setLoading(false));
     return () => controller.abort();
   }, [kind, open, query]);
 
   const choose = (result: { id: string }) => {
-    const prefix = kind === 'club' ? '/clubs' : kind === 'joueur' ? '/joueurs' : '/competitions';
+    const prefix = kind === 'club' ? '/clubs' : '/joueurs';
     onNavigate(`${prefix}/${encodeURIComponent(result.id)}`);
     onClose();
   };
@@ -70,7 +67,6 @@ export function PublicSearchDialog({ open, onClose, onNavigate }: PublicSearchDi
           <ToggleButtonGroup exclusive value={kind} onChange={(_event, value: SearchKind | null) => { if (value) setKind(value); }} fullWidth size="small">
             <ToggleButton value="joueur">Joueur</ToggleButton>
             <ToggleButton value="club">Club</ToggleButton>
-            <ToggleButton value="compet">Compet</ToggleButton>
           </ToggleButtonGroup>
           <TextField inputRef={searchInputRef} autoFocus fullWidth label="Recherche" placeholder="Deux caractères minimum" value={query} onChange={(event) => setQuery(event.target.value)} slotProps={{ input: { startAdornment: <SearchRoundedIcon sx={{ mr: 1, color: 'text.secondary' }} /> } }} />
           {loading ? <Stack sx={{ alignItems: 'center', py: 2 }}><CircularProgress size={24} /></Stack> : null}

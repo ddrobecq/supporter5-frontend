@@ -1,5 +1,13 @@
 export type PublicEntity = 'club' | 'joueur' | 'competition' | 'rencontre';
 
+export function decodeRouteSegment(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 export function isPublicPath(pathname: string): boolean {
   return !pathname.startsWith('/admin') && pathname !== '/login';
 }

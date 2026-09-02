@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { env } from '../config/env';
 
 export interface EntityImageState {
@@ -6,6 +6,36 @@ export interface EntityImageState {
   src: string | null;
   loading: boolean;
   error: boolean;
+}
+
+interface ImageLoadResult {
+  src: string | null;
+  error: boolean;
+}
+
+// Cache partagé (par URL exacte) entre toutes les instances du hook : evite de refaire
+// un fetch reseau par cellule/ligne quand la meme entite (ex: un ecusson de club) apparait
+// plusieurs fois sur une meme page (grille de matchs, classements...).
+const imageRequestCache = new Map<string, Promise<ImageLoadResult>>();
+
+function loadEntityImage(url: string): Promise<ImageLoadResult> {
+  const cached = imageRequestCache.get(url);
+  if (cached) return cached;
+
+  const promise = fetch(url)
+    .then((res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.blob();
+    })
+    .then((blob) => ({ src: URL.createObjectURL(blob), error: false }))
+    .catch((error: unknown) => {
+      imageRequestCache.delete(url);
+      throw error;
+    })
+    .catch(() => ({ src: null, error: true }));
+
+  imageRequestCache.set(url, promise);
+  return promise;
 }
 
 /**
@@ -18,8 +48,12 @@ export interface EntityImageState {
  *   useEntityImage('club', clubId)
  *   useEntityImage('joueurrg', joueurId)
  *
+ * Les requêtes sont mises en cache par URL exacte (partagé entre toutes les instances du
+ * hook) : plusieurs cellules affichant le même club/joueur ne déclenchent qu'un seul fetch.
+ *
  * @param entityType - Clé de IMAGE_CONFIGS côté backend ('arbitre', 'club'…)
  * @param id         - Clé primaire de l'enregistrement (undefined = pas de chargement)
+ * @param refreshToken - Change pour forcer un rechargement (ex: apres upload d'une nouvelle image)
  */
 export function useEntityImage(
   entityType: string,
@@ -31,9 +65,6 @@ export function useEntityImage(
     loading: false,
     error: false,
   });
-
-  // Conserver l'Object URL pour le révoquer à la désinstallation
-  const objectUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     const hasId = id !== null && id !== undefined && String(id).trim() !== '';
@@ -51,40 +82,14 @@ export function useEntityImage(
       ? `${baseUrl}?v=${encodeURIComponent(String(refreshToken))}`
       : baseUrl;
 
-    fetch(url, { cache: 'no-store' })
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.blob();
-      })
-      .then((blob) => {
-        if (cancelled) return;
-        // Révoquer l'ancienne URL objet pour libérer la mémoire
-        if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-        const objUrl = URL.createObjectURL(blob);
-        objectUrlRef.current = objUrl;
-        setState({ src: objUrl, loading: false, error: false });
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setState({ src: null, loading: false, error: true });
-        }
-      });
+    void loadEntityImage(url).then((result) => {
+      if (!cancelled) setState({ ...result, loading: false });
+    });
 
     return () => {
       cancelled = true;
     };
   }, [entityType, id, refreshToken]);
-
-  // Nettoyage final à la désinstallation du composant
-  useEffect(
-    () => () => {
-      if (objectUrlRef.current) {
-        URL.revokeObjectURL(objectUrlRef.current);
-        objectUrlRef.current = null;
-      }
-    },
-    [],
-  );
 
   return state;
 }

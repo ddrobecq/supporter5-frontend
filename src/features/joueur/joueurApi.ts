@@ -83,8 +83,8 @@ export async function fetchSaisons(signal?: AbortSignal): Promise<SaisonRow[]> {
   ];
 }
 
-export async function fetchJoueurById(id: string | number): Promise<JoueurRow> {
-  const { data } = await http.get<JoueurRow>(`${env.joueurPublicResource}/${id}`);
+export async function fetchJoueurById(id: string | number, signal?: AbortSignal): Promise<JoueurRow> {
+  const { data } = await http.get<JoueurRow>(`${env.joueurPublicResource}/${id}`, { signal });
   return data;
 }
 
@@ -97,13 +97,13 @@ export async function fetchJoueurSuggestions(search: string, signal?: AbortSigna
   return data;
 }
 
-export async function fetchJoueurHistory(id: string | number): Promise<JoueurHistoryRow[]> {
-  const { data } = await http.get<GridResponse<JoueurHistoryRow>>(`${env.joueurPublicResource}/${id}/history`);
+export async function fetchJoueurHistory(id: string | number, signal?: AbortSignal): Promise<JoueurHistoryRow[]> {
+  const { data } = await http.get<GridResponse<JoueurHistoryRow>>(`${env.joueurPublicResource}/${id}/history`, { signal });
   return data.data ?? [];
 }
 
-export async function fetchJoueurTransactions(id: string | number): Promise<JoueurTransactionRow[]> {
-  const { data } = await http.get<GridResponse<JoueurTransactionRow>>(`${env.joueurPublicResource}/${id}/transactions`);
+export async function fetchJoueurTransactions(id: string | number, signal?: AbortSignal): Promise<JoueurTransactionRow[]> {
+  const { data } = await http.get<GridResponse<JoueurTransactionRow>>(`${env.joueurPublicResource}/${id}/transactions`, { signal });
   return data.data ?? [];
 }
 

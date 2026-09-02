@@ -9,8 +9,8 @@ export async function createRencontre(payload: CreateRencontrePayload): Promise<
   return data;
 }
 
-export async function fetchRencontreDetailById(rencontreId: string | number): Promise<RencontreDetailRow> {
-  const { data } = await http.get<RencontreDetailRow>(`/api/rencontres/${encodeURIComponent(String(rencontreId))}/detail`);
+export async function fetchRencontreDetailById(rencontreId: string | number, signal?: AbortSignal): Promise<RencontreDetailRow> {
+  const { data } = await http.get<RencontreDetailRow>(`/api/rencontres/${encodeURIComponent(String(rencontreId))}/detail`, { signal });
   return data;
 }
 
@@ -22,18 +22,18 @@ export async function updateRencontreDetail(
   return data;
 }
 
-export async function fetchRencontreHighlightsById(rencontreId: string | number): Promise<RencontreHighlightsRow> {
-  const { data } = await http.get<RencontreHighlightsRow>(`/api/rencontres/${encodeURIComponent(String(rencontreId))}/highlights`);
+export async function fetchRencontreHighlightsById(rencontreId: string | number, signal?: AbortSignal): Promise<RencontreHighlightsRow> {
+  const { data } = await http.get<RencontreHighlightsRow>(`/api/rencontres/${encodeURIComponent(String(rencontreId))}/highlights`, { signal });
   return data;
 }
 
-export async function fetchRencontreTourMatches(rencontreId: string | number): Promise<TourMatchWithNamesRow[]> {
-  const { data } = await http.get<{ data: TourMatchWithNamesRow[] }>(`/api/rencontres/${encodeURIComponent(String(rencontreId))}/tour-matches`);
+export async function fetchRencontreTourMatches(rencontreId: string | number, signal?: AbortSignal): Promise<TourMatchWithNamesRow[]> {
+  const { data } = await http.get<{ data: TourMatchWithNamesRow[] }>(`/api/rencontres/${encodeURIComponent(String(rencontreId))}/tour-matches`, { signal });
   return data.data;
 }
 
-export async function fetchRencontreComposition(rencontreId: string | number): Promise<CompositionMap> {
-  const { data } = await http.get<CompositionMap>(`/api/rencontres/${encodeURIComponent(String(rencontreId))}/composition`);
+export async function fetchRencontreComposition(rencontreId: string | number, signal?: AbortSignal): Promise<CompositionMap> {
+  const { data } = await http.get<CompositionMap>(`/api/rencontres/${encodeURIComponent(String(rencontreId))}/composition`, { signal });
   return data ?? {};
 }
 
@@ -41,8 +41,8 @@ export async function saveRencontreComposition(rencontreId: string | number, pay
   await http.put(`/api/rencontres/${encodeURIComponent(String(rencontreId))}/composition`, payload);
 }
 
-export async function fetchRencontreSquad(rencontreId: string | number): Promise<SquadPlayerRow[]> {
-  const { data } = await http.get<{ data: SquadPlayerRow[] }>(`/api/rencontres/${encodeURIComponent(String(rencontreId))}/squad`);
+export async function fetchRencontreSquad(rencontreId: string | number, signal?: AbortSignal): Promise<SquadPlayerRow[]> {
+  const { data } = await http.get<{ data: SquadPlayerRow[] }>(`/api/rencontres/${encodeURIComponent(String(rencontreId))}/squad`, { signal });
   return data.data;
 }
 

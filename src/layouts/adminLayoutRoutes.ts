@@ -1,5 +1,7 @@
 import { PICKER_ENTITY_DEFINITIONS } from './adminLayoutConfig';
 
+export { decodeRouteSegment } from '../lib/entityNavigation';
+
 export function normalizeRoutePath(path: string): string {
   const trimmedPath = path.trim();
   const normalized = trimmedPath.toLowerCase();
@@ -62,12 +64,4 @@ export function resolveTabMetaPath(path: string): string {
     }
   }
   return normalized;
-}
-
-export function decodeRouteSegment(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
 }

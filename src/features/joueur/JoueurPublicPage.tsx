@@ -14,6 +14,7 @@ import { PublicLoadingState, PublicNotFoundState } from '../../components/Public
 import { StructuredData } from '../../components/StructuredData';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { useSeoMeta } from '../../lib/useSeoMeta';
+import { useRecentRecordVisit } from '../home/useRecentRecordVisit';
 import { fetchNatio } from '../natio/natioApi';
 import { resolveNatioId, resolveNatioLabel } from '../natio/natioUi';
 import { fetchVilleById } from '../ville/villeApi';
@@ -77,9 +78,9 @@ export function JoueurPublicPage() {
     const controller = new AbortController();
     setLoading(true);
     void Promise.all([
-      fetchJoueurById(joueurId),
-      fetchJoueurHistory(joueurId),
-      fetchJoueurTransactions(joueurId),
+      fetchJoueurById(joueurId, controller.signal),
+      fetchJoueurHistory(joueurId, controller.signal),
+      fetchJoueurTransactions(joueurId, controller.signal),
       fetchNatio('', controller.signal),
       fetchJoueurPostes(controller.signal),
     ]).then(([nextProfile, nextHistory, nextContracts, nextCountries, nextPostes]) => {
@@ -104,17 +105,15 @@ export function JoueurPublicPage() {
     profile ? `${seoName} - Statistiques et fiche joueur | Supporter` : 'Fiche joueur | Supporter',
     profile ? `Découvrez la fiche, les statistiques et l'historique de ${seoName}.` : 'Fiche publique d’un joueur de football.',
   );
+  useRecentRecordVisit('joueur', joueurId, seoName, Boolean(profile));
 
-  if (loading) return <PublicLoadingState />;
-  if (!profile) return <PublicNotFoundState entity="Joueur" />;
-
-  const name = resolvePlayerName(profile);
-  const country = countries.find((row) => String(resolveNatioId(row) ?? '').trim() === normalizeText(profile.IDNATIO));
+  const name = profile ? resolvePlayerName(profile) : { title: '', subtitle: '' };
+  const country = profile ? countries.find((row) => String(resolveNatioId(row) ?? '').trim() === normalizeText(profile.IDNATIO)) : undefined;
   const countryName = country ? resolveNatioLabel(country) : '';
-  const poste = postes.find((row) => Number(row.POS_ID) === Number(profile.POSTE));
-  const birthDate = normalizeText(profile.NAISSANCE);
-  const deathDate = normalizeText(profile.DECES);
-  const birthCountryId = birthCityCountry || normalizeText(profile.IDNATIO);
+  const poste = profile ? postes.find((row) => Number(row.POS_ID) === Number(profile.POSTE)) : undefined;
+  const birthDate = profile ? normalizeText(profile.NAISSANCE) : '';
+  const deathDate = profile ? normalizeText(profile.DECES) : '';
+  const birthCountryId = birthCityCountry || (profile ? normalizeText(profile.IDNATIO) : '');
   const historyLoading = false;
   const structuredData = useMemo<Record<string, unknown>>(() => ({
     '@context': 'https://schema.org',
@@ -129,6 +128,9 @@ export function JoueurPublicPage() {
     ...(portrait.src ? { image: portrait.src } : {}),
     ...(contracts[0]?.CLUB_NOM ? { affiliation: { '@type': 'SportsTeam', name: contracts[0].CLUB_NOM } } : {}),
   }), [birthCity, birthDate, contracts, countryName, joueurId, name.subtitle, name.title, portrait.src, poste]);
+
+  if (loading) return <PublicLoadingState />;
+  if (!profile) return <PublicNotFoundState entity="Joueur" />;
 
   return (
     <Stack spacing={2}>

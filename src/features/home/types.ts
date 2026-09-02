@@ -22,5 +22,4 @@ export interface RecentOpenedRecord {
 
 export interface HomePageOutletContext {
   recentOpenedRecords: RecentOpenedRecord[];
-  reopenRecentRecord: (record: RecentOpenedRecord) => void;
 }

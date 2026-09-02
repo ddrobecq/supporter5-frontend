@@ -222,7 +222,7 @@ export async function deleteClubTerrainHistory(
   await http.delete(`${env.clubAdminResource}/${encodeURIComponent(id)}/terrains/${encodeURIComponent(String(terrainHistoryId))}`);
 }
 
-export async function fetchClubPalmares(id: string): Promise<ClubPalmareRow[]> {
-  const { data } = await http.get<{ data: ClubPalmareRow[] }>(`${env.clubPublicResource}/grid/${encodeURIComponent(id)}/palmares`);
+export async function fetchClubPalmares(id: string, signal?: AbortSignal): Promise<ClubPalmareRow[]> {
+  const { data } = await http.get<{ data: ClubPalmareRow[] }>(`${env.clubPublicResource}/grid/${encodeURIComponent(id)}/palmares`, { signal });
   return data.data ?? [];
 }

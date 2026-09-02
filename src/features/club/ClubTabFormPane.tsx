@@ -31,17 +31,13 @@ import {
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import jerseySvgSource from '../../../img/jersey.svg?raw';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
-import { ClubSelectField } from '../../components/ClubSelectField';
 import { CompletenessChip } from '../../components/CompletenessChip';
 import { DateInputField, formatDateShort, toInputDateFromDisplay } from '../../components/DateInputField';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { NatioAutocomplete } from '../../components/NatioAutocomplete';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
-import { MatchDataGrid } from '../../components/MatchDataGrid';
-import { buildMatchGridColumns } from '../../components/matchGridColumns';
 import { updateEntityImage } from '../../lib/entityImageApi';
 import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
@@ -50,6 +46,8 @@ import { pickScreenColor } from '../../lib/screenColorPicker';
 import { fetchNatio } from '../natio/natioApi';
 import type { NatioRow } from '../natio/types';
 import { VillePicker } from '../../components/VillePicker';
+import { ClubJerseyVisual, normalizeColorCode } from './ClubJerseyVisual';
+import { ClubMatchesTab } from './ClubMatchesTab';
 import {
   createClubTerrainHistory,
   fetchClubMatches,
@@ -97,44 +95,6 @@ interface ClubTerrainDialogDraft {
   date: string;
   terrainId: string;
   terrainName: string;
-}
-
-function normalizeColorCode(raw: unknown, fallback: string): string {
-  const value = String(raw ?? '').trim();
-  if (!value) return fallback;
-
-  const numeric = Number(value);
-  if (Number.isFinite(numeric) && Number.isInteger(numeric)) {
-    const colorInt = Number(numeric);
-    if (colorInt === -1) {
-      return fallback;
-    }
-    if (colorInt >= 0 && colorInt <= 255) {
-      const channel = colorInt.toString(16).padStart(2, '0');
-      return `#${channel}${channel}${channel}`;
-    }
-    if (colorInt >= 0 && colorInt <= 0xFFFFFF) {
-      // WinDev/OLE style integer: low byte = red, middle = green, high = blue.
-      const r = colorInt & 0xFF;
-      const g = (colorInt >> 8) & 0xFF;
-      const b = (colorInt >> 16) & 0xFF;
-      const rr = r.toString(16).padStart(2, '0');
-      const gg = g.toString(16).padStart(2, '0');
-      const bb = b.toString(16).padStart(2, '0');
-      return `#${rr}${gg}${bb}`;
-    }
-  }
-
-  const hexCandidate = value.startsWith('#') ? value : `#${value}`;
-  if (/^#[0-9a-fA-F]{3}$/.test(hexCandidate) || /^#[0-9a-fA-F]{6}$/.test(hexCandidate)) {
-    return hexCandidate;
-  }
-
-  if (typeof CSS !== 'undefined' && CSS.supports('color', value)) {
-    return value;
-  }
-
-  return fallback;
 }
 
 function cssColorToDbColor(cssColor: string): number {
@@ -189,125 +149,6 @@ function getClubTerrainDialogSignature(draft: ClubTerrainDialogDraft): string {
     terrainId: String(draft.terrainId ?? '').trim(),
     terrainName: String(draft.terrainName ?? '').trim(),
   });
-}
-
-function replaceSvgStyleColor(svg: string, target: string, replacement: string): string {
-  const escapedTarget = target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return svg
-    .replace(new RegExp(`fill:${escapedTarget};`, 'g'), `fill:${replacement};`)
-    .replace(new RegExp(`stroke:${escapedTarget};`, 'g'), `stroke:${replacement};`)
-    .replace(new RegExp(`fill="${escapedTarget}"`, 'g'), `fill="${replacement}"`)
-    .replace(new RegExp(`stroke="${escapedTarget}"`, 'g'), `stroke="${replacement}"`);
-}
-
-function escapeSvgText(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
-
-function wrapClubNameLines(rawName: string): string[] {
-  const text = rawName.replace(/\s+/g, ' ').trim();
-  if (!text) return [];
-
-  const words = text.split(' ');
-  const maxLines = 3;
-  const maxCharsPerLine = 11;
-
-  // If the label has multiple words, prefer one word per line for clearer jersey rendering.
-  if (words.length > 1) {
-    const rawLines = words.slice(0, maxLines - 1);
-    const remaining = words.slice(maxLines - 1).join(' ');
-    if (remaining) {
-      rawLines.push(remaining);
-    }
-
-    const normalizedLines = rawLines
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .slice(0, maxLines)
-      .map((line, index, array) => {
-        if (line.length <= maxCharsPerLine) return line;
-        if (index < array.length - 1) return `${line.slice(0, maxCharsPerLine - 1)}…`;
-        return `${line.slice(0, maxCharsPerLine - 1)}…`;
-      });
-
-    return normalizedLines;
-  }
-
-  const lines: string[] = [];
-  let current = '';
-
-  for (let index = 0; index < words.length; index += 1) {
-    const word = words[index] ?? '';
-    const candidate = current ? `${current} ${word}` : word;
-    if (candidate.length <= maxCharsPerLine) {
-      current = candidate;
-      continue;
-    }
-
-    if (current) {
-      lines.push(current);
-      current = '';
-      if (lines.length === maxLines - 1) {
-        const remaining = [word, ...words.slice(index + 1)].join(' ');
-        lines.push(remaining);
-        break;
-      }
-    }
-
-    if (word.length > maxCharsPerLine) {
-      const chunk = word.slice(0, maxCharsPerLine - 1);
-      const rest = word.slice(maxCharsPerLine - 1);
-      lines.push(chunk);
-      if (lines.length === maxLines) break;
-      current = rest;
-    } else {
-      current = word;
-    }
-  }
-
-  if (current && lines.length < maxLines) {
-    lines.push(current);
-  }
-
-  if (lines.length > maxLines) {
-    return lines.slice(0, maxLines);
-  }
-
-  if (lines.length === maxLines && lines[maxLines - 1].length > maxCharsPerLine) {
-    lines[maxLines - 1] = `${lines[maxLines - 1].slice(0, maxCharsPerLine - 1)}…`;
-  }
-
-  return lines;
-}
-
-export function createJerseyVisualDataUri(fondColor: string, texteColor: string, clubName: string): string {
-  let svg = jerseySvgSource;
-  svg = replaceSvgStyleColor(svg, '#32BEA6', 'transparent');
-  svg = replaceSvgStyleColor(svg, '#000000', fondColor);
-  svg = replaceSvgStyleColor(svg, '#EFCE0F', fondColor);
-  svg = replaceSvgStyleColor(svg, '#F2B906', fondColor);
-  svg = replaceSvgStyleColor(svg, '#578408', fondColor);
-  svg = replaceSvgStyleColor(svg, '#C49F05', texteColor);
-  svg = replaceSvgStyleColor(svg, '#487206', texteColor);
-  svg = replaceSvgStyleColor(svg, '#8c9183', texteColor);
-
-  const wrappedLines = wrapClubNameLines(clubName);
-  if (wrappedLines.length > 0) {
-    const lineHeight = 38;
-    const startY = 245 - ((wrappedLines.length - 1) * lineHeight) / 2;
-    const tspans = wrappedLines
-      .map((line, index) => `<tspan x="248" y="${startY + index * lineHeight}">${escapeSvgText(line)}</tspan>`)
-      .join('');
-    const textLayer = `<text text-anchor="middle" font-family="Arial, sans-serif" font-size="36" font-weight="700" letter-spacing="0.5" fill="${texteColor}">${tspans}</text>`;
-    svg = svg.replace('</svg>', `${textLayer}</svg>`);
-  }
-
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
 function rgbToHex(red: number, green: number, blue: number): string {
@@ -470,6 +311,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
   const [nameHistorySelection, setNameHistorySelection] = useState<GridRowId[]>([]);
   const [terrainHistorySelection, setTerrainHistorySelection] = useState<GridRowId[]>([]);
   const [activeTab, setActiveTab] = useState<ClubTabKey>('info');
+  const [hasOpenedMatchesTab, setHasOpenedMatchesTab] = useState(false);
 
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
   const [nameDialogOpen, setNameDialogOpen] = useState(false);
@@ -495,7 +337,6 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
   const clubImage = useEntityImage('club', clubId, clubImageRefreshToken);
   const currentFondColor = profileDraft.fond;
   const currentTexteColor = profileDraft.texte;
-  const kitVisualSrc = createJerseyVisualDataUri(currentFondColor, currentTexteColor, profileDraft.name);
 
   const isProfileDirty =
     getClubProfileSignature(profileDraft) !== profileSignatureRef.current || clubImageDraft !== undefined;
@@ -640,69 +481,6 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     },
   ];
 
-  const filteredMatchRows = useMemo(() => {
-    if (!matchFilterClubId) return matchRows;
-    return matchRows.filter(
-      (m) => m.DOMICILE === matchFilterClubId || m.EXTERIEUR === matchFilterClubId,
-    );
-  }, [matchRows, matchFilterClubId]);
-
-  const matchStats = useMemo(() => {
-    const completed = filteredMatchRows.filter((m) => m.ETAT === 2 || m.ETAT === 3);
-    let wins = 0;
-    let draws = 0;
-    let losses = 0;
-    let goalsFor = 0;
-    let goalsAgainst = 0;
-    for (const m of completed) {
-      const isHome = m.DOMICILE === clubId;
-      const gf = isHome ? (m.BUTDOM ?? 0) : (m.BUTEXT ?? 0);
-      const gc = isHome ? (m.BUTEXT ?? 0) : (m.BUTDOM ?? 0);
-      goalsFor += gf;
-      goalsAgainst += gc;
-      if (gf > gc) wins += 1;
-      else if (gf === gc) draws += 1;
-      else losses += 1;
-    }
-    return { played: completed.length, wins, draws, losses, goalsFor, goalsAgainst, diff: goalsFor - goalsAgainst };
-  }, [filteredMatchRows, clubId]);
-
-  const matchColumns = useMemo<GridColDef<ClubMatchRow>[]>(() => buildMatchGridColumns<ClubMatchRow>({
-    date: {
-      enabled: true,
-      width: 110,
-      sortable: true,
-      renderCell: (matchRow) => formatClubDate(matchRow.DATE),
-    },
-    circ: {
-      enabled: true,
-      width: 260,
-      sortable: true,
-      field: 'CIRC_COMPLET',
-      headerName: 'Circonstance complete',
-    },
-    score: {
-      mode: 'readonly',
-      sortable: false,
-      valueGetter: (matchRow) => {
-        const etat = Number(matchRow.ETAT ?? 0);
-        if (etat === 1 || etat === 5) {
-          return '-vs-';
-        }
-        if (etat === 4) {
-          return '';
-        }
-        const hasPenalties = Number(matchRow.TABDOM ?? 0) > 0 || Number(matchRow.TABEXT ?? 0) > 0;
-        if (hasPenalties) {
-          return `${Number(matchRow.TABDOM ?? 0)} ${Number(matchRow.BUTDOM ?? 0)}-${Number(matchRow.BUTEXT ?? 0)} ${Number(matchRow.TABEXT ?? 0)}`;
-        }
-        return `${Number(matchRow.BUTDOM ?? 0)}-${Number(matchRow.BUTEXT ?? 0)}`;
-      },
-    },
-    domicileHeaderName: 'Dom',
-    exterieurHeaderName: 'Ext',
-  }), []);
-
   const reloadRow = useCallback(async () => {
     setLoading(true);
     try {
@@ -789,6 +567,12 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     if (activeTab !== 'palmares') return;
     void reloadPalmares();
   }, [activeTab, reloadPalmares]);
+
+  // Une fois monte, l'onglet Matches reste dans le DOM (juste masque) pour eviter
+  // de reconstruire la grille (~4000 lignes) a chaque changement d'onglet.
+  useEffect(() => {
+    if (activeTab === 'matches') setHasOpenedMatchesTab(true);
+  }, [activeTab]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -1218,74 +1002,17 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
               </Box>
             ) : null}
 
-            {activeTab === 'matches' ? (
-              <Stack spacing={1.5}>
-                <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
-                  <Stack direction="row" spacing={1.5} sx={{ alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                    <Box
-                      sx={{
-                        flex: '1 1 240px',
-                        maxWidth: 320,
-                        '& .MuiInputAdornment-positionStart .MuiTypography-root': { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-                      }}
-                    >
-                      <ClubSelectField
-                        label="Filtrer par adversaire"
-                        clubId={matchFilterClubId}
-                        clubName={matchFilterClubName}
-                        onChange={handleMatchFilterChange}
-                        clearLabel="Effacer"
-                      />
-                    </Box>
-                  </Stack>
-                </Box>
-
-                <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block', mb: 1 }}>STATISTIQUES</Typography>
-                  <Stack direction="row" spacing={0} sx={{ flexWrap: 'wrap', gap: 1 }}>
-                    {([
-                      { label: 'Matchs', value: matchStats.played },
-                      { label: 'V', value: matchStats.wins },
-                      { label: 'N', value: matchStats.draws },
-                      { label: 'D', value: matchStats.losses },
-                      { label: 'BP', value: matchStats.goalsFor },
-                      { label: 'BC', value: matchStats.goalsAgainst },
-                      { label: 'Diff', value: matchStats.diff > 0 ? `+${matchStats.diff}` : String(matchStats.diff) },
-                    ] as { label: string; value: number | string }[]).map((stat) => (
-                      <Box
-                        key={stat.label}
-                        sx={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          minWidth: 48,
-                          px: 1,
-                          py: 0.5,
-                          bgcolor: 'action.hover',
-                          borderRadius: 1,
-                        }}
-                      >
-                        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>{stat.label}</Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{stat.value}</Typography>
-                      </Box>
-                    ))}
-                  </Stack>
-                </Box>
-
-                <Box sx={{ height: 400 }}>
-                  <MatchDataGrid
-                    rows={filteredMatchRows}
-                    columns={matchColumns}
-                    loading={matchesLoading}
-                    getRowId={(matchRow) => matchRow.RECLEUNIK}
-                    openMatchOnDoubleClick
-                    disableRowSelectionOnClick
-                    disableColumnMenu
-                    density="compact"
-                    pageSizeOptions={[25, 50, 100]}
-                  />
-                </Box>
-              </Stack>
+            {hasOpenedMatchesTab ? (
+              <Box sx={{ display: activeTab === 'matches' ? 'block' : 'none' }}>
+                <ClubMatchesTab
+                  clubId={clubId}
+                  matches={matchRows}
+                  matchesLoading={matchesLoading}
+                  filterClubId={matchFilterClubId}
+                  filterClubName={matchFilterClubName}
+                  onFilterChange={handleMatchFilterChange}
+                />
+              </Box>
             ) : null}
 
             {activeTab === 'info' ? (
@@ -1313,21 +1040,10 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
                 />
 
                 <Stack spacing={0.5} sx={{ width: 132, flexShrink: 0 }}>
-                  <EntityImageFrame
-                    width={132}
-                    height={150}
-                    src={kitVisualSrc}
-                    alt="Maillot du club"
-                    objectFit="contain"
-                    objectPosition="center top"
-                    imageSx={{ transform: 'translateY(-10px) scale(1.56)', transformOrigin: 'center 24%' }}
-                    sx={{
-                      bgcolor: 'background.paper',
-                      '&:hover .club-kit-actions, &:focus-within .club-kit-actions': {
-                        opacity: 1,
-                        pointerEvents: 'auto',
-                      },
-                    }}
+                  <ClubJerseyVisual
+                    fond={currentFondColor}
+                    texte={currentTexteColor}
+                    clubName={profileDraft.name}
                     overlay={(
                       <Box
                         className="club-kit-actions"

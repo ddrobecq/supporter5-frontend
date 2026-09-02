@@ -35,6 +35,7 @@ import { useEntityImage } from '../../lib/useEntityImage';
 import { formatHeureDisplay } from '../../components/heureUtils';
 import { entityPath, entityPathForPublicMode } from '../../lib/entityNavigation';
 import type { HomePageOutletContext, RecentEntityKind, RecentOpenedRecord } from './types';
+import { publicRecentRecordsStore } from './publicRecentRecordsStore';
 import { SeasonStatsOverview } from './SeasonStatsOverview';
 import { ActualitesOverview } from './ActualitesOverview';
 
@@ -253,7 +254,7 @@ function openMatch(row: ClubMatchRow, publicMode: boolean, navigate: (path: stri
   }));
 }
 
-function ClubCalendarMatchCard({ row, isNext, publicMode }: { row: ClubMatchRow; isNext: boolean; publicMode: boolean }) {
+function ClubCalendarMatchCard({ row, isClosest, publicMode }: { row: ClubMatchRow; isClosest: boolean; publicMode: boolean }) {
   const navigate = useNavigate();
   const { src: domicileLogo } = useEntityImage('club', row.DOMICILE);
   const { src: exterieurLogo } = useEntityImage('club', row.EXTERIEUR);
@@ -273,11 +274,11 @@ function ClubCalendarMatchCard({ row, isNext, publicMode }: { row: ClubMatchRow;
         minWidth: 250,
         textAlign: 'left',
         color: 'text.primary',
-        border: isNext ? '2px solid' : '1px solid',
-        borderColor: isNext ? 'primary.main' : 'divider',
+        border: isClosest ? '2px solid' : '1px solid',
+        borderColor: isClosest ? 'primary.main' : 'divider',
         borderRadius: 1.25,
         bgcolor: 'background.paper',
-        boxShadow: isNext ? '0 2px 8px rgba(37, 99, 235, 0.14)' : '0 1px 3px rgba(15, 23, 42, 0.08)',
+        boxShadow: isClosest ? '0 2px 8px rgba(37, 99, 235, 0.14)' : '0 1px 3px rgba(15, 23, 42, 0.08)',
         p: 1.25,
         '&:hover': { bgcolor: 'action.hover' },
       }}
@@ -324,7 +325,7 @@ function ClubCalendarMatchCard({ row, isNext, publicMode }: { row: ClubMatchRow;
 
 function SupportedClubCalendar({ clubId, publicMode }: { clubId: string; publicMode: boolean }) {
   const [matches, setMatches] = useState<ClubMatchRow[]>([]);
-  const nextMatchRef = useRef<HTMLDivElement | null>(null);
+  const closestMatchRef = useRef<HTMLDivElement | null>(null);
   const calendarScrollerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -353,20 +354,26 @@ function SupportedClubCalendar({ clubId, publicMode }: { clubId: string; publicM
   });
   const currentSeasonKey = currentSeason?.[0] ?? '';
   const seasonRows = currentSeason?.[1] ?? ordered;
-  const nextIndex = seasonRows.findIndex((row) => !isPlayedMatch(row, now));
+  const nowTime = now.getTime();
+  const closestIndex = seasonRows.reduce((bestIndex, row, index) => {
+    if (bestIndex < 0) return index;
+    const bestDiff = Math.abs(matchTimeValue(seasonRows[bestIndex]) - nowTime);
+    const currentDiff = Math.abs(matchTimeValue(row) - nowTime);
+    return currentDiff < bestDiff ? index : bestIndex;
+  }, -1);
   useEffect(() => {
-    if (currentSeasonKey && nextIndex >= 0) {
-      window.requestAnimationFrame(() => nextMatchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }));
+    if (currentSeasonKey && closestIndex >= 0) {
+      window.requestAnimationFrame(() => closestMatchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }));
       return;
     }
-  }, [currentSeasonKey, nextIndex, seasonRows.length]);
+  }, [currentSeasonKey, closestIndex, seasonRows.length]);
 
   const scrollMatches = (direction: -1 | 1) => {
     calendarScrollerRef.current?.scrollBy({ left: direction * 270, behavior: 'smooth' });
   };
 
-  const scrollToNextMatch = () => {
-    nextMatchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  const scrollToClosestMatch = () => {
+    closestMatchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   };
 
   return (
@@ -393,8 +400,8 @@ function SupportedClubCalendar({ clubId, publicMode }: { clubId: string; publicM
                 <ChevronLeftRoundedIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Revenir au prochain match">
-              <IconButton size="small" aria-label="Revenir au prochain match" onClick={scrollToNextMatch}>
+            <Tooltip title="Revenir au match du jour">
+              <IconButton size="small" aria-label="Revenir au match du jour" onClick={scrollToClosestMatch}>
                 <EventAvailableRoundedIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -418,8 +425,8 @@ function SupportedClubCalendar({ clubId, publicMode }: { clubId: string; publicM
             sx={{ display: 'flex', gap: 0.75, overflowX: 'auto', overflowY: 'hidden', pb: 0.75, px: 0.25, '&::-webkit-scrollbar': { height: 8 } }}
           >
             {seasonRows.map((row) => (
-              <Box key={row.RECLEUNIK} ref={row.RECLEUNIK === seasonRows[nextIndex]?.RECLEUNIK ? nextMatchRef : undefined} sx={{ display: 'flex', flex: '0 0 250px' }}>
-                <ClubCalendarMatchCard row={row} isNext={Boolean(currentSeason && nextIndex >= 0 && row.RECLEUNIK === seasonRows[nextIndex]?.RECLEUNIK)} publicMode={publicMode} />
+              <Box key={row.RECLEUNIK} ref={row.RECLEUNIK === seasonRows[closestIndex]?.RECLEUNIK ? closestMatchRef : undefined} sx={{ display: 'flex', flex: '0 0 250px' }}>
+                <ClubCalendarMatchCard row={row} isClosest={Boolean(currentSeason && closestIndex >= 0 && row.RECLEUNIK === seasonRows[closestIndex]?.RECLEUNIK)} publicMode={publicMode} />
               </Box>
             ))}
           </Box>
@@ -430,9 +437,10 @@ function SupportedClubCalendar({ clubId, publicMode }: { clubId: string; publicM
 }
 
 export function HomePage({ publicMode = false }: { publicMode?: boolean }) {
+  const navigate = useNavigate();
   const outletContext = useOutletContext<HomePageOutletContext | null>();
-  const recentOpenedRecords = outletContext?.recentOpenedRecords ?? [];
-  const reopenRecentRecord = outletContext?.reopenRecentRecord;
+  const publicRecentRecords = publicRecentRecordsStore((state) => state.records);
+  const recentOpenedRecords = publicMode ? publicRecentRecords : (outletContext?.recentOpenedRecords ?? []);
   const supportedClubId = supportedClubStore((state) => state.clubId);
   const loadSupportedClub = supportedClubStore((state) => state.load);
 
@@ -440,12 +448,23 @@ export function HomePage({ publicMode = false }: { publicMode?: boolean }) {
     void loadSupportedClub();
   }, [loadSupportedClub]);
 
+  const reopenRecentRecord = (record: RecentOpenedRecord) => {
+    if (publicMode) {
+      navigate(record.path);
+      return;
+    }
+
+    window.dispatchEvent(new CustomEvent('supporter:tab-open', {
+      detail: { path: record.path, label: record.label, unique: true, uniqueByPath: true },
+    }));
+  };
+
   return (
     <Box
       sx={{
         minHeight: '55vh',
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr', lg: publicMode ? '1fr' : 'minmax(0, 1fr) 360px' },
+        gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 360px' },
         alignItems: 'start',
         gap: 2,
       }}
@@ -456,7 +475,6 @@ export function HomePage({ publicMode = false }: { publicMode?: boolean }) {
         <SeasonStatsOverview publicMode={publicMode} />
       </Box>
 
-      {!publicMode ? (
       <Paper
         elevation={0}
         sx={{
@@ -500,7 +518,7 @@ export function HomePage({ publicMode = false }: { publicMode?: boolean }) {
                 <Link
                   component="button"
                   underline="none"
-                  onClick={() => reopenRecentRecord?.(record)}
+                  onClick={() => reopenRecentRecord(record)}
                   aria-label={`Rouvrir ${resolveDisplayLabel(record)}`}
                   sx={{
                     display: 'inline-flex',
@@ -521,7 +539,7 @@ export function HomePage({ publicMode = false }: { publicMode?: boolean }) {
                   <Link
                     component="button"
                     underline="hover"
-                    onClick={() => reopenRecentRecord?.(record)}
+                    onClick={() => reopenRecentRecord(record)}
                     sx={{
                       display: 'block',
                       width: '100%',
@@ -543,7 +561,6 @@ export function HomePage({ publicMode = false }: { publicMode?: boolean }) {
           </Stack>
         )}
       </Paper>
-      ) : null}
     </Box>
   );
 }

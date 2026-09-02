@@ -442,12 +442,7 @@ export function AdminLayout() {
   };
 
   const activePickerEntity = pickerModal ? pickerDefinitionByKey.get(pickerModal) ?? null : null;
-  const homeOutletContext: HomePageOutletContext = {
-    recentOpenedRecords,
-    reopenRecentRecord: (record) => {
-      openTab(record.path, record.label, { unique: true, uniqueByPath: true });
-    },
-  };
+  const homeOutletContext: HomePageOutletContext = { recentOpenedRecords };
 
   useEffect(() => {
     const toolbar = topToolbarRef.current;

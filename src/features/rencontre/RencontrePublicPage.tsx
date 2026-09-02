@@ -19,6 +19,7 @@ import { PublicLoadingState } from '../../components/PublicPageState';
 import { StructuredData } from '../../components/StructuredData';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { useSeoMeta } from '../../lib/useSeoMeta';
+import { useRecentRecordVisit } from '../home/useRecentRecordVisit';
 import { formatInteger } from '../../lib/formatNumber';
 import { http } from '../../lib/http';
 import { env } from '../../config/env';
@@ -151,22 +152,25 @@ export function RencontrePublicPage() {
   const competitionLogo = useEntityImage('competition', detail?.COCLEUNIK ?? null);
 
   useEffect(() => {
+    const controller = new AbortController();
     void Promise.all([
-      fetchRencontreDetailById(rencontreId),
-      fetchRencontreHighlightsById(rencontreId),
-      fetchRencontreComposition(rencontreId),
-      fetchRencontreSquad(rencontreId),
-      fetchRencontreTourMatches(rencontreId),
+      fetchRencontreDetailById(rencontreId, controller.signal),
+      fetchRencontreHighlightsById(rencontreId, controller.signal),
+      fetchRencontreComposition(rencontreId, controller.signal),
+      fetchRencontreSquad(rencontreId, controller.signal),
+      fetchRencontreTourMatches(rencontreId, controller.signal),
     ]).then(async ([nextDetail, nextHighlights, nextComposition, nextSquad, nextProgramme]) => {
       setDetail(nextDetail); setHighlights(nextHighlights); setComposition(nextComposition); setSquad(nextSquad); setProgramme(nextProgramme);
       const tourId = Number(nextDetail.TUCLEUNIK ?? 0);
       if (tourId > 0) {
         const { data: payload } = await http.get<{ data?: TourParticipantRow[] }>(
           `${env.tourPublicResource}/${encodeURIComponent(String(tourId))}/participants`,
+          { signal: controller.signal },
         );
         setParticipants(payload.data ?? []);
       }
     }).catch(() => setDetail(null)).finally(() => setLoading(false));
+    return () => controller.abort();
   }, [rencontreId]);
 
   const seoHomeName = detail?.DOMICILE_NOM_EFFECTIF || detail?.DOMICILE_ABREGE || 'Équipe à domicile';
@@ -174,6 +178,12 @@ export function RencontrePublicPage() {
   useSeoMeta(
     detail ? `${seoHomeName} - ${seoAwayName} | Supporter` : 'Fiche rencontre | Supporter',
     detail ? `Score, date et informations de la rencontre ${seoHomeName} contre ${seoAwayName}.` : 'Fiche publique d’une rencontre de football.',
+  );
+  useRecentRecordVisit(
+    'rencontre',
+    rencontreId,
+    `${seoHomeName} - ${seoAwayName}`,
+    Boolean(detail) && Number(detail?.IS_SUPPORTED_CLUB_MATCH ?? 0) === 1,
   );
 
   const matchColumns = useMemo<GridColDef<TourMatchWithNamesRow>[]>(() => buildMatchGridColumns<TourMatchWithNamesRow>({
