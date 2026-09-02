@@ -43,6 +43,10 @@ function isContractTransaction(row: JoueurTransactionRow): boolean {
   return label.includes('contrat');
 }
 
+function isLoanTransaction(row: JoueurTransactionRow): boolean {
+  return Number(row.TYPE) === 3;
+}
+
 function getStatusPhrase(row: JoueurTransactionRow): string {
   const status = Number(row.STATUT);
   return status === 1
@@ -107,6 +111,18 @@ function buildSummaryWithEcheance(row: JoueurTransactionRow): string {
   return `${base} jusqu'au ${echeance}`;
 }
 
+const TRAILING_PREPOSITIONS = ['en provenance de', 'à', 'au', 'par', 'vers'];
+
+function splitTrailingPreposition(phrase: string): { base: string; preposition: string } {
+  const trimmed = phrase.trim();
+  for (const preposition of TRAILING_PREPOSITIONS) {
+    if (trimmed.toLowerCase().endsWith(` ${preposition}`)) {
+      return { base: trimmed.slice(0, trimmed.length - preposition.length).trim(), preposition };
+    }
+  }
+  return { base: trimmed, preposition: '' };
+}
+
 export function JoueurContractsTimeline({
   rows,
   loading = false,
@@ -161,6 +177,22 @@ export function JoueurContractsTimeline({
             && transferPhrase
             && transferIndemnites,
           );
+          const showLoanAmountAfterClub = Boolean(
+            isLoanTransaction(row)
+            && transferPhrase
+            && transferIndemnites,
+          );
+          const isLoan = isLoanTransaction(row);
+          const { base: loanBase, preposition: loanPreposition } = isLoan
+            ? splitTrailingPreposition(transferPhrase)
+            : { base: '', preposition: '' };
+          const loanEcheance = formatDate(String(row.TN_ECHEANCE ?? '').trim());
+          const loanPhraseBeforeClub = loanEcheance ? `${loanBase} jusqu'au ${loanEcheance}` : loanBase;
+          const phraseBeforeClub = isLoan
+            ? loanPhraseBeforeClub
+            : showTransferAmountAfterClub
+              ? transferPhrase
+              : buildSummaryWithEcheance(row);
           const contractPhrase = getStatusPhrase(row);
           const contractSalary = formatMoneyForSummary(row.SALAIRE, row.DEVISE_SYMBOLE);
           const showContractAmount = Boolean(
@@ -226,19 +258,24 @@ export function JoueurContractsTimeline({
                 {hasClub ? (
                   <Stack direction="row" spacing={0.8} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
                     <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                      {showTransferAmountAfterClub ? transferPhrase : buildSummaryWithEcheance(row)}
+                      {phraseBeforeClub}
                     </Typography>
+                    {isLoan && loanPreposition ? (
+                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                        {loanPreposition}
+                      </Typography>
+                    ) : null}
                     <ClubIdentityInline
                       clubId={row.IDCLUB}
                       clubName={row.CLUB_NOM}
                       size={22}
                     />
-                    {showTransferAmountAfterClub ? (
+                    {showTransferAmountAfterClub || showLoanAmountAfterClub ? (
                       <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                         {`pour ${transferIndemnites}`}
                       </Typography>
                     ) : null}
-                    {!showTransferAmountAfterClub && showContractAmount ? (
+                    {!showTransferAmountAfterClub && !showLoanAmountAfterClub && showContractAmount ? (
                       <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                         {`pour ${contractSalary} de salaire mensuel`}
                       </Typography>
@@ -248,9 +285,13 @@ export function JoueurContractsTimeline({
                   <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                     {showTransferAmountAfterClub
                       ? `${transferPhrase} pour ${transferIndemnites}`
-                      : showContractAmount
-                        ? `${buildSummaryWithEcheance(row)} pour ${contractSalary} de salaire mensuel`
-                        : buildSummaryWithEcheance(row)}
+                      : showLoanAmountAfterClub
+                        ? `${loanPhraseBeforeClub} pour ${transferIndemnites}`
+                        : showContractAmount
+                          ? `${buildSummaryWithEcheance(row)} pour ${contractSalary} de salaire mensuel`
+                          : isLoan
+                            ? loanPhraseBeforeClub
+                            : buildSummaryWithEcheance(row)}
                   </Typography>
                 )}
               </Stack>

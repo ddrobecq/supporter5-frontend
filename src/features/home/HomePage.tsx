@@ -314,7 +314,7 @@ function ClubCalendarMatchCard({ row, isNext, publicMode }: { row: ClubMatchRow;
         </Stack>
         <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
           {played
-            ? (circumstanceLabel || row.CIRC_COMPLET)
+            ? (row.TERRAIN_NOM || 'Stade non défini')
             : `${formatHeureDisplay(row.HEURE) + ' · ' || ''}${row.TERRAIN_NOM || 'Stade non défini'}`}
         </Typography>
       </Stack>
@@ -377,7 +377,7 @@ function SupportedClubCalendar({ clubId, publicMode }: { clubId: string; publicM
         borderColor: 'divider',
         borderRadius: 2,
         p: { xs: 1.5, md: 2 },
-        maxWidth: 820,
+        width: '100%',
         bgcolor: 'background.paper',
       }}
     >
@@ -442,20 +442,20 @@ export function HomePage({ publicMode = false }: { publicMode?: boolean }) {
 
   return (
     <Box
-      sx={publicMode
-        ? { minHeight: '55vh', display: 'flex', flexDirection: 'column', gap: 2 }
-        : {
-          minHeight: '55vh',
-          display: 'grid',
-          gridTemplateColumns: {
-            xs: '1fr',
-            md: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))',
-            lg: 'minmax(0, 1fr) 360px minmax(0, 1fr)',
-          },
-          alignItems: 'start',
-          gap: 2,
-        }}
+      sx={{
+        minHeight: '55vh',
+        display: 'grid',
+        gridTemplateColumns: { xs: '1fr', lg: publicMode ? '1fr' : 'minmax(0, 1fr) 360px' },
+        alignItems: 'start',
+        gap: 2,
+      }}
     >
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+        <SupportedClubCalendar clubId={supportedClubId} publicMode={publicMode} />
+        <ActualitesOverview />
+        <SeasonStatsOverview publicMode={publicMode} />
+      </Box>
+
       {!publicMode ? (
       <Paper
         elevation={0}
@@ -464,10 +464,10 @@ export function HomePage({ publicMode = false }: { publicMode?: boolean }) {
           borderColor: 'divider',
           borderRadius: 2,
           p: { xs: 1.5, md: 2 },
-          maxWidth: 360,
           width: '100%',
           bgcolor: 'background.paper',
-          order: 2,
+          position: { lg: 'sticky' },
+          top: { lg: 16 },
         }}
       >
         <Stack spacing={0.5}>
@@ -544,25 +544,6 @@ export function HomePage({ publicMode = false }: { publicMode?: boolean }) {
         )}
       </Paper>
       ) : null}
-      <Box
-        sx={publicMode
-          ? { display: 'flex', flexDirection: 'column', gap: 2 }
-          : {
-            display: 'contents',
-          }}
-      >
-        <Box sx={{ minWidth: 0, order: 1 }}>
-          <SupportedClubCalendar clubId={supportedClubId} publicMode={publicMode} />
-        </Box>
-        {publicMode ? (
-          <Box sx={{ minWidth: 0, order: 2 }}>
-            <ActualitesOverview />
-          </Box>
-        ) : null}
-        <Box sx={{ minWidth: 0, order: 3 }}>
-          <SeasonStatsOverview publicMode={publicMode} />
-        </Box>
-      </Box>
     </Box>
   );
 }

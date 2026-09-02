@@ -75,6 +75,19 @@ interface JoueurFormDialogProps {
 
 type JoueurFormTabKey = 'identite' | 'historique' | 'contrats' | 'matches';
 
+function formatMoneyWithThousands(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return raw;
+  const sign = trimmed.startsWith('-') ? '-' : '';
+  const unsigned = sign ? trimmed.slice(1) : trimmed;
+  const separatorIndex = unsigned.search(/[.,]/);
+  const intPart = separatorIndex >= 0 ? unsigned.slice(0, separatorIndex) : unsigned;
+  const decimalPart = separatorIndex >= 0 ? unsigned.slice(separatorIndex) : '';
+  const digitsOnly = intPart.replace(/\D/g, '');
+  if (!digitsOnly) return raw;
+  return sign + Number(digitsOnly).toLocaleString() + decimalPart;
+}
+
 interface JoueurHistoryDialogDraft {
   saison: string;
   poste: string;
@@ -238,6 +251,7 @@ export function JoueurFormDialog({
   });
   const [contractsDeleteConfirmOpen, setContractsDeleteConfirmOpen] = useState(false);
   const [contractsDeleteSaving, setContractsDeleteSaving] = useState(false);
+  const [indemnitesFieldFocused, setIndemnitesFieldFocused] = useState(false);
   const [saisonOptions, setSaisonOptions] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<JoueurFormTabKey>('identite');
   const [isIdentityDirty, setIsIdentityDirty] = useState(false);
@@ -271,6 +285,7 @@ export function JoueurFormDialog({
     && getHistoryDialogSignature(historyDialogDraft) !== historyDialogInitialSignatureRef.current;
   const isContractsDialogDirty = contractsDialogOpen
     && getContractsDialogSignature(contractsDialogDraft) !== contractsDialogInitialSignatureRef.current;
+  const isAnyDirty = isIdentityDirty || isHistoryDialogDirty || isContractsDialogDirty;
 
   const historyColumns = useMemo<GridColDef<JoueurHistoryRow>[]>(() => [
     { field: 'SAISON', headerName: 'Saison', minWidth: 110, flex: 0.65 },
@@ -337,8 +352,8 @@ export function JoueurFormDialog({
   }, [birthVilleName, deathVilleName, photoDraft, syncDirty, values]);
 
   useEffect(() => {
-    onDirtyChange?.(isIdentityDirty || isHistoryDialogDirty || isContractsDialogDirty);
-  }, [isContractsDialogDirty, isHistoryDialogDirty, isIdentityDirty, onDirtyChange]);
+    onDirtyChange?.(isAnyDirty);
+  }, [isAnyDirty, onDirtyChange]);
 
   useEffect(() => {
     if (!open) return;
@@ -1126,10 +1141,12 @@ export function JoueurFormDialog({
         <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
           <Stack spacing={2}>
             {content}
-            <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
-              <Button onClick={handleGlobalCancel} color="inherit">Annuler</Button>
-              <Button onClick={() => void handleGlobalSave()} variant="contained" disabled={saving}>{saving ? 'Enregistrement...' : 'Enregistrer'}</Button>
-            </Stack>
+            {isAnyDirty ? (
+              <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+                <Button onClick={handleGlobalCancel} color="inherit" disabled={saving || historyDialogSaving || contractsDialogSaving}>Annuler</Button>
+                <Button onClick={() => void handleGlobalSave()} variant="contained" disabled={saving || historyDialogSaving || contractsDialogSaving}>{saving ? 'Enregistrement...' : 'Enregistrer'}</Button>
+              </Stack>
+            ) : null}
           </Stack>
         </Box>
       ) : (
@@ -1255,8 +1272,10 @@ export function JoueurFormDialog({
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} sx={{ alignItems: { sm: 'flex-start' } }}>
                   <TextField
                     label="Indemnites"
-                    value={contractsDialogDraft.indemnites}
+                    value={indemnitesFieldFocused ? contractsDialogDraft.indemnites : formatMoneyWithThousands(contractsDialogDraft.indemnites)}
                     onChange={(event) => setContractsDialogDraft((prev) => ({ ...prev, indemnites: event.target.value }))}
+                    onFocus={() => setIndemnitesFieldFocused(true)}
+                    onBlur={() => setIndemnitesFieldFocused(false)}
                     size="small"
                     fullWidth
                     slotProps={{ htmlInput: { inputMode: 'decimal' } }}
