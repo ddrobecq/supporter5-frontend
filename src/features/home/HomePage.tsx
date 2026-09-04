@@ -38,6 +38,7 @@ import type { HomePageOutletContext, RecentEntityKind, RecentOpenedRecord } from
 import { publicRecentRecordsStore } from './publicRecentRecordsStore';
 import { SeasonStatsOverview } from './SeasonStatsOverview';
 import { ActualitesOverview } from './ActualitesOverview';
+import { OnThisDayOverview } from './OnThisDayOverview';
 
 function resolveEntityIcon(kind: RecentEntityKind): ReactNode {
   switch (kind) {
@@ -471,6 +472,7 @@ export function HomePage({ publicMode = false }: { publicMode?: boolean }) {
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
         <SupportedClubCalendar clubId={supportedClubId} publicMode={publicMode} />
+        <OnThisDayOverview publicMode={publicMode} />
         <ActualitesOverview />
         <SeasonStatsOverview publicMode={publicMode} />
       </Box>

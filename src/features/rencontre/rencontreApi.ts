@@ -1,6 +1,11 @@
 import { http } from '../../lib/http';
 import type { TourMatchRow } from '../competition/types';
-import type { CompositionMap, RencontreDetailRow, RencontreHighlightsRow, SquadPlayerRow, TourMatchWithNamesRow } from './types';
+import type { CompositionMap, OnThisDayMatchRow, RencontreDetailRow, RencontreHighlightsRow, SquadPlayerRow, TourMatchWithNamesRow } from './types';
+
+export async function fetchOnThisDayMatch(signal?: AbortSignal): Promise<OnThisDayMatchRow | null> {
+  const { data } = await http.get<OnThisDayMatchRow | null>('/api/rencontres/on-this-day', { signal });
+  return data ?? null;
+}
 
 export type CreateRencontrePayload = Omit<TourMatchRow, 'RECLEUNIK'>;
 

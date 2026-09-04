@@ -90,6 +90,30 @@ export interface TourMatchWithNamesRow {
   IDCIRC: string | null;
 }
 
+export interface OnThisDayMatchRow {
+  RECLEUNIK: number;
+  DATE: string;
+  HEURE: string;
+  ETAT: number;
+  DOMICILE: string;
+  EXTERIEUR: string;
+  DOMICILE_NOM: string;
+  EXTERIEUR_NOM: string;
+  BUTDOM: number;
+  BUTEXT: number;
+  TABDOM: number;
+  TABEXT: number;
+  TERRAIN_NOM: string;
+  CIRC_COMPLET: string;
+  SAISON: string;
+  SUPPORTED_CLUB_ID: string;
+  SUPPORTED_CLUB_SIDE: 'home' | 'away';
+  RESUME: string;
+  RESUME_SOURCE: 'comment' | 'events' | 'none';
+  YEARS_AGO: number;
+  DAYS_OFFSET: number;
+}
+
 export interface SquadPlayerRow {
   IDJOUEUR: string;
   NOM: string;
