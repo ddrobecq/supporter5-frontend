@@ -59,6 +59,7 @@ const TerrainPickerDialog = lazy(() => import('../features/terrain/TerrainPicker
 const ClubMergeDialog = lazy(() => import('../features/club/ClubMergeDialog').then((module) => ({ default: module.ClubMergeDialog })));
 const StatsRecomputeDialog = lazy(() => import('../features/statistiques/StatsRecomputeDialog').then((module) => ({ default: module.StatsRecomputeDialog })));
 const RencontreImportWizardDialog = lazy(() => import('../features/import/RencontreImportWizardDialog').then((module) => ({ default: module.RencontreImportWizardDialog })));
+const SaisonCreateWizardDialog = lazy(() => import('../features/saison/SaisonCreateWizardDialog').then((module) => ({ default: module.SaisonCreateWizardDialog })));
 
 interface OpenTabOptions {
   unique?: boolean;
@@ -91,6 +92,7 @@ export function AdminLayout() {
   const [clubMergeOpen, setClubMergeOpen] = useState(false);
   const [statsRecomputeOpen, setStatsRecomputeOpen] = useState(false);
   const [rencontreImportOpen, setRencontreImportOpen] = useState(false);
+  const [saisonWizardOpen, setSaisonWizardOpen] = useState(false);
   const [pickerModal, setPickerModal] = useState<PickerEntityKey | null>(null);
   const [rencontreWizardOpen, setRencontreWizardOpen] = useState(false);
   const [dirtyTabsByPath, setDirtyTabsByPath] = useState<Record<string, boolean>>({});
@@ -98,7 +100,7 @@ export function AdminLayout() {
   const [closeConfirmTabKey, setCloseConfirmTabKey] = useState<string | null>(null);
   const [savingBeforeClose, setSavingBeforeClose] = useState(false);
   const [recentOpenedRecords, setRecentOpenedRecords] = useState<RecentOpenedRecord[]>(() => readRecentOpenedRecordsFromStorage());
-  const [backupFeedback, setBackupFeedback] = useState<FeedbackMessage | null>(null);
+  const [toolsFeedback, setToolsFeedback] = useState<FeedbackMessage | null>(null);
   const tabCounterRef = useRef(0);
   // Retient la derniere URL complete (avec query string) visitee par onglet, pour la restaurer au retour sur l'onglet.
   const tabLocationByKeyRef = useRef<Record<string, string>>({});
@@ -171,6 +173,8 @@ export function AdminLayout() {
       case 'wizard':
         if (button.wizard === 'rencontre') {
           setRencontreWizardOpen(true);
+        } else if (button.wizard === 'saison') {
+          setSaisonWizardOpen(true);
         }
         return;
       case 'noop':
@@ -195,7 +199,7 @@ export function AdminLayout() {
       const customEvent = event as CustomEvent<BackupResultEventDetail>;
       const { success, message } = customEvent.detail ?? {};
       if (!message) return;
-      setBackupFeedback({ severity: success ? 'success' : 'error', message });
+      setToolsFeedback({ severity: success ? 'success' : 'error', message });
     };
 
     window.addEventListener(BACKUP_RESULT_EVENT, handler);
@@ -879,6 +883,22 @@ export function AdminLayout() {
         </Suspense>
       ) : null}
 
+      {saisonWizardOpen ? (
+        <Suspense fallback={null}>
+          <SaisonCreateWizardDialog
+            open
+            onClose={() => setSaisonWizardOpen(false)}
+            onCreated={(result) => {
+              setToolsFeedback({
+                severity: 'success',
+                message: `Saison ${result.SAISON} creee (${result.joueursCount} joueur(s), ${result.competitionsCount} competition(s)).`,
+              });
+            }}
+            onError={(message) => setToolsFeedback({ severity: 'error', message })}
+          />
+        </Suspense>
+      ) : null}
+
       <Dialog
         open={Boolean(closeConfirmTabKey)}
         onClose={() => { if (!savingBeforeClose) setCloseConfirmTabKey(null); }}
@@ -923,7 +943,7 @@ export function AdminLayout() {
         </DialogActions>
       </Dialog>
 
-      <AppFeedbackSnackbar value={backupFeedback} onClose={() => setBackupFeedback(null)} />
+      <AppFeedbackSnackbar value={toolsFeedback} onClose={() => setToolsFeedback(null)} />
     </Box>
   );
 }

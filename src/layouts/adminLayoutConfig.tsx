@@ -4,6 +4,7 @@ import BuildRoundedIcon from '@mui/icons-material/BuildRounded';
 import CalculateRoundedIcon from '@mui/icons-material/CalculateRounded';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import EventNoteRoundedIcon from '@mui/icons-material/EventNoteRounded';
+import EventRepeatRoundedIcon from '@mui/icons-material/EventRepeatRounded';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import EuroRoundedIcon from '@mui/icons-material/EuroRounded';
 import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
@@ -91,7 +92,7 @@ export type ToolbarButton =
       secondaryCategory?: 'Référentiels' | 'Compétitions' | 'Organisation';
       activeKey?: 'home' | 'calendrier' | 'statistiques' | PickerEntityKey;
       action: 'wizard';
-      wizard: 'rencontre';
+      wizard: 'rencontre' | 'saison';
     }
   | {
       label: string;
@@ -125,7 +126,8 @@ export const TOOLBAR_BUTTONS: ToolbarButton[] = [
   { label: 'Clubs', ariaLabel: 'Clubs', icon: <ShieldRoundedIcon />, activeKey: 'club', action: 'picker', entity: 'club' },
   { label: 'Competitions', ariaLabel: 'Competitions', icon: <EmojiEventsIcon />, activeKey: 'competition', action: 'picker', entity: 'competition' },
   { label: 'Arbitres', ariaLabel: 'Arbitres', icon: <SportsIcon />, secondaryCategory: 'Organisation', activeKey: 'arbitre', action: 'picker', entity: 'arbitre' },
-  { label: 'Matchs', ariaLabel: 'Matchs', icon: <SportsSoccerRoundedIcon />, secondaryCategory: 'Organisation', action: 'wizard', wizard: 'rencontre' },
+  { label: 'Nouveau Match...', ariaLabel: 'Nouveau Match', icon: <SportsSoccerRoundedIcon />, secondaryCategory: 'Organisation', action: 'wizard', wizard: 'rencontre' },
+  { label: 'Nouvelle Saison...', ariaLabel: 'Nouvelle Saison', icon: <EventRepeatRoundedIcon />, secondaryCategory: 'Organisation', action: 'wizard', wizard: 'saison' },
   { label: 'Statistiques', ariaLabel: 'Statistiques', icon: <BarChartRoundedIcon />, activeKey: 'statistiques', action: 'navigate', path: '/admin/statistiques' },
   { label: 'Pays', ariaLabel: 'Pays', icon: <FlagRoundedIcon />, secondaryCategory: 'Référentiels', activeKey: 'natio', action: 'picker', entity: 'natio' },
   { label: 'Villes', ariaLabel: 'Villes', icon: <LocationCityRoundedIcon />, secondaryCategory: 'Référentiels', activeKey: 'ville', action: 'picker', entity: 'ville' },
