@@ -130,7 +130,7 @@ export function TourWizardStep5Participants({ competitionId, currentTourOrder, c
       TUCLEUNIK: 0,
       IDCLUB: normalizedClubId,
       CLUB: clubLabel,
-      GROUPE: hasMultipleGroups ? selectedGroupId : '',
+      GROUPE: hasMultipleGroups ? selectedGroupId : (existingGroupNames[0] ?? ''),
       PASource: '',
       PAClassement: 0,
     };
@@ -198,7 +198,7 @@ export function TourWizardStep5Participants({ competitionId, currentTourOrder, c
         TUCLEUNIK: 0,
         IDCLUB: '',
         CLUB: '',
-        GROUPE: hasMultipleGroups ? selectedGroupId : '',
+        GROUPE: hasMultipleGroups ? selectedGroupId : (existingGroupNames[0] ?? ''),
         PASource: paSource,
         PAClassement: Number(paSource.split(',')[2] ?? 0) || 0,
       });
