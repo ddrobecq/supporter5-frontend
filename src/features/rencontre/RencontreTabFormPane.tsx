@@ -50,6 +50,7 @@ import {
 import type { CircOptionRow, CompetitionTourRow, TourParticipantRow } from '../competition/types';
 import { parsePaSourceForLabel, useProgrammedParticipantResolver } from '../competition/useProgrammedParticipantLabels';
 import { fetchRencontreDetailById, fetchRencontreHighlightsById, fetchRencontreTourMatches, updateRencontreDetail, deleteRencontreEvent, upsertRencontreMatchMeta, recomputeRencontreStats } from './rencontreApi';
+import { TourClassementCard, type TourClassementCardHandle } from '../calendrier/TourClassementCard';
 import type { CompositionMap, RencontreDetailRow, RencontreHighlightsRow, TourMatchWithNamesRow } from './types';
 import { preloadRencontreComposition, RencontreCompositionTab, type CompositionTabActions } from './RencontreCompositionTab';
 import { getRencontreCompleteness } from './rencontreCompleteness';
@@ -115,7 +116,7 @@ const STATUS_OPTIONS = [
   { value: 4, label: 'Non jouee' },
 ] as const;
 
-type RencontreTabKey = 'info' | 'highlights' | 'composition' | 'resume' | 'programme';
+type RencontreTabKey = 'info' | 'highlights' | 'composition' | 'resume' | 'programme' | 'classement';
 
 function toNonNegativeIntegerString(value: unknown): string {
   const numeric = Number(value);
@@ -507,6 +508,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
   const [tourMatches, setTourMatches] = useState<TourMatchWithNamesRow[]>([]);
   const [tourParticipants, setTourParticipants] = useState<TourParticipantRow[]>([]);
   const [tourMatchesLoading, setTourMatchesLoading] = useState(false);
+  const classementCardRef = useRef<TourClassementCardHandle | null>(null);
 
   const loadCompetitionsForSeason = useCallback(async (season: string): Promise<CompetitionOption[]> => {
     const data = await fetchCompetition('', season);
@@ -591,7 +593,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     if (!isSupportedClubMatch) {
       setHighlights(null);
       setComposition(null);
-      setActiveTab('info');
+      setActiveTab((current) => (current === 'classement' ? current : 'info'));
       return;
     }
 
@@ -628,7 +630,13 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
   }, [active, detail]);
 
   useEffect(() => {
-    if (Number(detail?.IS_SUPPORTED_CLUB_MATCH ?? 0) !== 1 && activeTab !== 'info') {
+    if (!detail) return;
+    const isSupportedClubMatch = Number(detail.IS_SUPPORTED_CLUB_MATCH ?? 0) === 1;
+    const isLigueTour = Number(detail.TUCLEUNIK ?? 0) > 0 && Number(detail.TYPE_TOUR ?? 1) !== 2;
+    const allowedTabs: RencontreTabKey[] = ['info'];
+    if (isSupportedClubMatch) allowedTabs.push('highlights', 'composition', 'resume', 'programme');
+    if (isLigueTour) allowedTabs.push('classement');
+    if (!allowedTabs.includes(activeTab)) {
       setActiveTab('info');
     }
   }, [activeTab, detail]);
@@ -753,6 +761,9 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       }
 
       await reloadAll();
+      if (Number(detail.TYPE_TOUR ?? 1) !== 2) {
+        classementCardRef.current?.refresh();
+      }
       setSnackbar({ severity: 'success', message: 'Rencontre enregistree.' });
       notifySaveDone();
     } catch (error) {
@@ -1072,11 +1083,13 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
   ];
 
   const orderedEvents = sortHighlightEvents(highlights?.EVENTS ?? []);
-  const showTabs = isSupportedClubMatch;
+  const isLigueTour = Number(detail.TUCLEUNIK ?? 0) > 0 && Number(detail.TYPE_TOUR ?? 1) !== 2;
+  const showTabs = isSupportedClubMatch || isLigueTour;
   const showInfoContent = !showTabs || activeTab === 'info';
-  const showResumeContent = showTabs && activeTab === 'resume';
-  const showCompositionContent = showTabs && activeTab === 'composition';
-  const showProgrammeContent = showTabs && activeTab === 'programme';
+  const showResumeContent = isSupportedClubMatch && activeTab === 'resume';
+  const showCompositionContent = isSupportedClubMatch && activeTab === 'composition';
+  const showProgrammeContent = isSupportedClubMatch && activeTab === 'programme';
+  const showClassementContent = isLigueTour && activeTab === 'classement';
   const supportedClubName = detail.SUPPORTED_CLUB_SIDE === 'home'
     ? displayDomicileName
     : detail.SUPPORTED_CLUB_SIDE === 'away'
@@ -1183,10 +1196,11 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
             sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36 } }}
           >
             <Tab value="info" label="Informations" />
-            <Tab value="highlights" label="Faits marquants" />
-            <Tab value="composition" label="Composition" />
-            <Tab value="resume" label="Résumé" />
-            <Tab value="programme" label="Programme" />
+            {isSupportedClubMatch ? <Tab value="highlights" label="Faits marquants" /> : null}
+            {isSupportedClubMatch ? <Tab value="composition" label="Composition" /> : null}
+            {isSupportedClubMatch ? <Tab value="resume" label="Résumé" /> : null}
+            {isSupportedClubMatch ? <Tab value="programme" label="Programme" /> : null}
+            {isLigueTour ? <Tab value="classement" label="Classement" /> : null}
           </Tabs>
         </Box>
       ) : null}
@@ -1577,6 +1591,16 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
             ) : null}
           </Stack>
         </Box>
+      ) : null}
+
+      {showClassementContent ? (
+        <TourClassementCard
+          ref={classementCardRef}
+          tourId={detail.TUCLEUNIK}
+          matchForGroup={{ DOMICILE: detail.DOMICILE, EXTERIEUR: detail.EXTERIEUR }}
+          title={[detail.CIRC, detail.TOUR_NOM].filter((part) => String(part ?? '').trim()).join(' de ') || 'Classement du tour'}
+          onOpenClub={(clubId) => navigate(`/admin/clubs/${encodeURIComponent(clubId)}`)}
+        />
       ) : null}
 
       {anyDirty ? (

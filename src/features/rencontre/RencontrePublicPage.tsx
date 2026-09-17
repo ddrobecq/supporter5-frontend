@@ -29,6 +29,7 @@ import { BENCH_SLOT_SX, BenchPlayerLabel, CoachInlineDisplay } from './Rencontre
 import { RencontreHighlightsTimeline } from './RencontreHighlightsTimeline';
 import { fetchRencontreComposition, fetchRencontreDetailById, fetchRencontreHighlightsById, fetchRencontreSquad, fetchRencontreTourMatches } from './rencontreApi';
 import type { CompositionMap, RencontreDetailRow, RencontreHighlightsRow, SquadPlayerRow, TourMatchWithNamesRow } from './types';
+import { TourClassementCard } from '../calendrier/TourClassementCard';
 
 const REMP_CODES = ['REMP1', 'REMP2', 'REMP3', 'REMP4', 'REMP5', 'REMP6', 'REMP7', 'REMP8', 'REMP9', 'REMP10', 'REMP11'] as const;
 
@@ -147,7 +148,7 @@ export function RencontrePublicPage() {
   const [squad, setSquad] = useState<SquadPlayerRow[]>([]);
   const [programme, setProgramme] = useState<TourMatchWithNamesRow[]>([]);
   const [participants, setParticipants] = useState<TourParticipantRow[]>([]);
-  const [tab, setTab] = useState<'info' | 'highlights' | 'composition' | 'resume' | 'programme'>('info');
+  const [tab, setTab] = useState<'info' | 'highlights' | 'composition' | 'resume' | 'programme' | 'classement'>('info');
   const [loading, setLoading] = useState(true);
   const competitionLogo = useEntityImage('competition', detail?.COCLEUNIK ?? null);
 
@@ -225,12 +226,13 @@ export function RencontrePublicPage() {
   const spectatorsCount = Number(detail.NBSPECT ?? -1);
   const hadExtratime = Number(detail.EXTRATIME ?? 0) === 1;
   const hadPenalty = Number(detail.PENALTY ?? 0) === 1;
+  const isLigueTour = Number(detail.TUCLEUNIK ?? 0) > 0 && Number(detail.TYPE_TOUR ?? 1) !== 2;
 
   return <Stack spacing={2}>
     <StructuredData data={structuredData} />
     <Card><CardContent><Stack spacing={2}>
       <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}><ClubHeader id={detail.DOMICILE} name={homeName} align="right" onClick={() => navigate(entityPathForPublicMode('club', detail.DOMICILE))} /><Stack spacing={0.5} sx={{ alignItems: 'center', minWidth: 120 }}><Typography variant="h3" sx={{ fontWeight: 900, whiteSpace: 'nowrap' }}>{formatScore(detail)}</Typography><Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>{competitionLogo.src ? <Box component="img" src={competitionLogo.src} alt="" sx={{ width: 24, height: 24, objectFit: 'contain' }} /> : <EmojiEventsRoundedIcon sx={{ fontSize: 20 }} />}<Typography variant="caption" color="text.secondary">{competitionLabel}</Typography></Stack></Stack><ClubHeader id={detail.EXTERIEUR} name={awayName} align="left" onClick={() => navigate(entityPathForPublicMode('club', detail.EXTERIEUR))} /></Stack>
-      <Tabs value={tab} onChange={(_event, value: 'info' | 'highlights' | 'composition' | 'resume' | 'programme') => setTab(value)} variant="scrollable" scrollButtons="auto"><Tab value="info" label="Information" /><Tab value="highlights" label="Faits Marquants" /><Tab value="composition" label="Composition" /><Tab value="resume" label="Résumé" /><Tab value="programme" label="Programme" /></Tabs>
+      <Tabs value={tab} onChange={(_event, value: 'info' | 'highlights' | 'composition' | 'resume' | 'programme' | 'classement') => setTab(value)} variant="scrollable" scrollButtons="auto"><Tab value="info" label="Information" /><Tab value="highlights" label="Faits Marquants" /><Tab value="composition" label="Composition" /><Tab value="resume" label="Résumé" /><Tab value="programme" label="Programme" />{isLigueTour ? <Tab value="classement" label="Classement" /> : null}</Tabs>
     </Stack></CardContent></Card>
 
     {tab === 'info' ? <Card><CardContent><Stack spacing={1.25}>
@@ -250,5 +252,15 @@ export function RencontrePublicPage() {
     {tab === 'resume' ? <Card><CardContent><Typography sx={{ whiteSpace: 'pre-wrap' }} color={detail.COMMENT ? 'text.primary' : 'text.secondary'}>{detail.COMMENT || 'Aucun résumé pour cette rencontre.'}</Typography></CardContent></Card> : null}
 
     {tab === 'programme' ? <Card><CardContent><Box sx={{ height: 420 }}><MatchDataGrid rows={programme} columns={matchColumns} getRowId={(row) => row.RECLEUNIK} disableRowSelectionOnClick disableColumnMenu density="compact" pageSizeOptions={[10, 25, 50]} /></Box>{participants.length ? <Typography variant="caption" color="text.secondary">{participants.length} participants au tour</Typography> : null}</CardContent></Card> : null}
+
+    {tab === 'classement' && isLigueTour ? (
+      <TourClassementCard
+        tourId={detail.TUCLEUNIK}
+        publicMode
+        matchForGroup={{ DOMICILE: detail.DOMICILE, EXTERIEUR: detail.EXTERIEUR }}
+        title={[detail.CIRC, detail.TOUR_NOM].filter((part) => String(part ?? '').trim()).join(' de ') || 'Classement du tour'}
+        onOpenClub={(clubId) => navigate(entityPathForPublicMode('club', clubId))}
+      />
+    ) : null}
   </Stack>;
 }
