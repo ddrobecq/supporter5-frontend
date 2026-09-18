@@ -1,5 +1,6 @@
-import { Box, Chip, MenuItem, Stack, TextField, Tooltip, Typography } from '@mui/material';
+import { Box, Chip, MenuItem, Stack, TextField, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
+import { NatioFlag } from '../../../../components/NatioFlag';
 import {
   PITCH_SLOTS,
   PitchField,
@@ -22,6 +23,32 @@ function openJoueurTab(joueur: EquipeTypeJoueur): void {
   }));
 }
 
+/** Nom complet (prenom + nom) pour l'affichage de l'entraineur. */
+function entraineurLabel(joueur: EquipeTypeJoueur): string {
+  return [joueur.PRENOM?.trim(), joueur.NOM?.trim()].filter(Boolean).join(' ') || joueurLabel(joueur);
+}
+
+function EntraineurCard({ joueur, sx }: { joueur: EquipeTypeJoueur; sx?: object }) {
+  return (
+    <Stack direction="row" spacing={1} sx={{ alignItems: 'center', ...sx }}>
+      <Tooltip title={`${joueur.TITULARISATIONS} matchs`}>
+        <Stack
+          direction="row"
+          spacing={1}
+          onClick={() => openJoueurTab(joueur)}
+          sx={{ alignItems: 'center', p: 1, border: '1.5px solid', borderColor: 'divider', borderRadius: 1.5, cursor: 'pointer', flex: 1, minWidth: 0 }}
+        >
+          <PitchPlayerAvatar playerId={joueur.IDJOUEUR} size={34} />
+          <Typography variant="body2" sx={{ fontWeight: 600, fontSize: 13, minWidth: 0, flex: 1 }}>
+            {entraineurLabel(joueur)}
+          </Typography>
+          {joueur.IDNATIO?.trim() ? <NatioFlag idnatio={joueur.IDNATIO} /> : null}
+        </Stack>
+      </Tooltip>
+    </Stack>
+  );
+}
+
 function PitchPlayer({ joueur, label, x, y }: { joueur: EquipeTypeJoueur; label: string; x: number; y: number }) {
   return (
     <Tooltip title={`${label} · ${joueur.TITULARISATIONS} titularisations`}>
@@ -34,6 +61,8 @@ function PitchPlayer({ joueur, label, x, y }: { joueur: EquipeTypeJoueur; label:
 
 /** Saison > Equipe type: formation la plus utilisee et joueur type de chaque poste. */
 export function EquipeTypeView({ historique = false }: { historique?: boolean } = {}) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [saisons, setSaisons] = useState<string[]>([]);
   const [saison, setSaison] = useState('');
   const [data, setData] = useState<EquipeTypeResult | null>(null);
@@ -109,8 +138,16 @@ export function EquipeTypeView({ historique = false }: { historique?: boolean } 
         </Typography>
       ) : null}
 
-      <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start', flex: 1, minHeight: 0, overflow: 'auto' }}>
-        <Box sx={{ maxWidth: 420, width: '100%' }}>
+      <Stack
+        direction="column"
+        spacing={2}
+        sx={{ alignItems: 'stretch', flex: 1, minHeight: 0, overflow: 'auto' }}
+      >
+        {data?.ENTRAINEUR ? (
+          <EntraineurCard joueur={data.ENTRAINEUR} sx={{ width: '100%', maxWidth: isMobile ? 'none' : 420 }} />
+        ) : null}
+
+        <Box sx={{ maxWidth: isMobile ? 'none' : 420, width: '100%' }}>
           <PitchField>
             {PITCH_SLOTS.filter((slot) => joueurParPoste.has(slot.code)).map((slot) => (
               <PitchPlayer
@@ -123,25 +160,6 @@ export function EquipeTypeView({ historique = false }: { historique?: boolean } 
             ))}
           </PitchField>
         </Box>
-
-        {data?.ENTRAINEUR ? (
-          <Box sx={{ minWidth: 160 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Entraîneur</Typography>
-            <Tooltip title={`${data.ENTRAINEUR.TITULARISATIONS} matchs`}>
-              <Stack
-                direction="row"
-                spacing={1}
-                onClick={() => openJoueurTab(data.ENTRAINEUR!)}
-                sx={{ alignItems: 'center', p: 1, border: '1.5px solid', borderColor: 'divider', borderRadius: 1.5, cursor: 'pointer' }}
-              >
-                <PitchPlayerAvatar playerId={data.ENTRAINEUR.IDJOUEUR} size={34} />
-                <Typography variant="body2" sx={{ fontWeight: 600, fontSize: 12, minWidth: 0 }}>
-                  {joueurLabel(data.ENTRAINEUR)}
-                </Typography>
-              </Stack>
-            </Tooltip>
-          </Box>
-        ) : null}
       </Stack>
     </Stack>
   );
