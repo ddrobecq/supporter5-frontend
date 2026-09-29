@@ -24,8 +24,8 @@ import axios from 'axios';
 import { useEffect, useRef, useState } from 'react';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { fetchClubSuggestions } from './clubApi';
-import { DateInputField, fromInputDateToDisplay, toInputDateFromDisplay } from '../../components/DateInputField';
-import { NatioAutocomplete } from '../../components/NatioAutocomplete';
+import { DateInputField, toInputDateFromDisplay } from '../../components/DateInputField';
+import { DEFAULT_NATIO_ID, NatioAutocomplete } from '../../components/NatioAutocomplete';
 import { VillePicker } from '../../components/VillePicker';
 import { fetchNatio } from '../natio/natioApi';
 import type { NatioRow } from '../natio/types';
@@ -49,8 +49,8 @@ export function ClubCreateDialog({
   const [step, setStep] = useState<1 | 2>(1);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
-  const [natioId, setNatioId] = useState('');
-  const [creationDate, setCreationDate] = useState(() => fromInputDateToDisplay(new Date().toISOString().slice(0, 10)));
+  const [natioId, setNatioId] = useState(DEFAULT_NATIO_ID);
+  const [creationDate, setCreationDate] = useState('');
   const [isSelection, setIsSelection] = useState(false);
   const [villeId, setVilleId] = useState('');
   const [villeName, setVilleName] = useState('');
@@ -76,8 +76,8 @@ export function ClubCreateDialog({
       setStep(1);
       setSaving(false);
       setName('');
-      setNatioId('');
-      setCreationDate(fromInputDateToDisplay(new Date().toISOString().slice(0, 10)));
+      setNatioId(DEFAULT_NATIO_ID);
+      setCreationDate('');
       setIsSelection(false);
       setVilleId('');
       setVilleName('');
@@ -157,9 +157,7 @@ export function ClubCreateDialog({
 
   const canGoNext = name.trim().length > 0;
   const canCreate = name.trim().length > 0
-    && natioId.trim().length > 0
-    && creationDate.trim().length > 0
-    && (isSelection || villeId.trim().length > 0);
+    && natioId.trim().length > 0;
 
   const handleNext = () => {
     if (!canGoNext) {
@@ -174,12 +172,8 @@ export function ClubCreateDialog({
       onError('Le pays est requis.');
       return;
     }
-    if (!creationDate.trim() || !toInputDateFromDisplay(creationDate)) {
-      onError('La date de création est requise.');
-      return;
-    }
-    if (!isSelection && !villeId.trim()) {
-      onError('La ville est requise si le club nest pas une selection nationale.');
+    if (creationDate.trim() && !toInputDateFromDisplay(creationDate)) {
+      onError('La date de création est invalide.');
       return;
     }
 
@@ -189,7 +183,7 @@ export function ClubCreateDialog({
         name: name.trim(),
         natioId: natioId.trim().toUpperCase(),
         isSelection,
-        creationDate: toInputDateFromDisplay(creationDate),
+        creationDate: toInputDateFromDisplay(creationDate) || undefined,
         villeId: villeId.trim() || undefined,
       });
       onClose();
@@ -219,9 +213,23 @@ export function ClubCreateDialog({
     }
 
     if (event.key === 'Enter') {
+      // Always consume Enter here: this dialog is a MUI Portal, so React's synthetic
+      // event would otherwise keep bubbling through the *component* tree into whatever
+      // dialog/picker sits behind it in the DOM (e.g. a "Sélection d'un club" modal),
+      // validating its own selection.
+      event.stopPropagation();
+
       const target = event.target as HTMLElement | null;
       const tag = target?.tagName?.toLowerCase();
       if (tag === 'textarea') return;
+
+      const comboBox = target?.closest('[role="combobox"]');
+      if (comboBox?.getAttribute('aria-expanded') === 'true') {
+        // An open dropdown (e.g. the nationality or city autocomplete) handles Enter
+        // itself to select its highlighted option; don't also advance the wizard step.
+        return;
+      }
+
       event.preventDefault();
       if (!saving) {
         handlePrimaryAction();
@@ -244,6 +252,7 @@ export function ClubCreateDialog({
         onChange={(event) => setName(event.target.value)}
         inputRef={nameInputRef}
         fullWidth
+        required
         size="small"
         autoFocus
       />
@@ -432,7 +441,7 @@ export function ClubCreateDialog({
             </Box>
 
             <FormControlLabel
-              label="Selection nationale"
+              label="Sélection nationale"
               control={<Switch checked={isSelection} onChange={(_, checked) => setIsSelection(checked)} />}
               sx={{ ml: 0, mr: 0, mb: 0, whiteSpace: 'nowrap' }}
             />

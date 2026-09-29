@@ -293,3 +293,8 @@ export async function updateTourRencontre(
 export async function deleteTourRencontre(rencontreId: string | number): Promise<void> {
   await http.delete(`/api/admin/rencontres/${encodeURIComponent(String(rencontreId))}`);
 }
+
+/** Recalcule stats et classements du tour, puis resout les participants programmes qui en dependent. */
+export async function recomputeTour(tourId: string | number): Promise<void> {
+  await http.post(`${env.tourAdminResource}/${tourId}/recompute`);
+}

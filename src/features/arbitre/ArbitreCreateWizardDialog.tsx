@@ -1,5 +1,5 @@
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material';
-import { NatioAutocomplete } from '../../components/NatioAutocomplete';
+import { DEFAULT_NATIO_ID, NatioAutocomplete } from '../../components/NatioAutocomplete';
 import axios from 'axios';
 import { useEffect, useRef, useState } from 'react';
 import { CreateWizardSuggestionPanel } from '../../components/CreateWizardSuggestionPanel';
@@ -22,7 +22,7 @@ export function ArbitreCreateWizardDialog({ open, onClose, onCreate, onError }: 
   const [saving, setSaving] = useState(false);
   const [nom, setNom] = useState('');
   const [prenom, setPrenom] = useState('');
-  const [natioId, setNatioId] = useState('');
+  const [natioId, setNatioId] = useState(DEFAULT_NATIO_ID);
   const [natioRows, setNatioRows] = useState<NatioRow[]>([]);
   const [suggestions, setSuggestions] = useState<ArbitreSuggestionRow[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
@@ -33,7 +33,7 @@ export function ArbitreCreateWizardDialog({ open, onClose, onCreate, onError }: 
       setSaving(false);
       setNom('');
       setPrenom('');
-      setNatioId('');
+      setNatioId(DEFAULT_NATIO_ID);
       setNatioRows([]);
       setSuggestions([]);
       setLoadingSuggestions(false);
@@ -123,8 +123,22 @@ export function ArbitreCreateWizardDialog({ open, onClose, onCreate, onError }: 
       return;
     }
     if (event.key === 'Enter') {
+      // Always consume Enter here: this dialog is a MUI Portal, so React's synthetic
+      // event would otherwise keep bubbling through the *component* tree into whatever
+      // dialog/picker sits behind it in the DOM (e.g. a "Sélection d'un arbitre" modal),
+      // validating its own selection.
+      event.stopPropagation();
+
       const target = event.target as HTMLElement | null;
       if (target?.tagName.toLowerCase() === 'textarea') return;
+
+      const comboBox = target?.closest('[role="combobox"]');
+      if (comboBox?.getAttribute('aria-expanded') === 'true') {
+        // An open dropdown (e.g. the nationality autocomplete) handles Enter itself
+        // to select its highlighted option; don't also advance the wizard step.
+        return;
+      }
+
       event.preventDefault();
       if (!saving) handlePrimary();
     }

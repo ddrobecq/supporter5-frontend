@@ -124,10 +124,29 @@ export function DateInputField({
   const yearRef = useRef<HTMLInputElement | null>(null);
   const [focused, setFocused] = useState(false);
   const [parts, setParts] = useState<DateParts>(() => splitDisplayDate(value));
+  const lastEmittedRef = useRef<string | null>(null);
+  const leavingViaTabRef = useRef(false);
+
+  const emitChange = (nextValue: string): void => {
+    lastEmittedRef.current = nextValue;
+    onChange(nextValue);
+  };
 
   useEffect(() => {
+    if (value === lastEmittedRef.current) return;
     setParts(splitDisplayDate(value));
   }, [value]);
+
+  // autoFocus must only take effect on initial mount: since the field switches between
+  // two different render trees (split day/month/year vs. collapsed) whenever `focused`
+  // toggles, passing `autoFocus` straight to the underlying inputs would re-trigger native
+  // autofocus on every remount, trapping focus in the field after each blur.
+  useEffect(() => {
+    if (autoFocus) {
+      setFocused(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!focused) return;
@@ -155,7 +174,7 @@ export function DateInputField({
 
     setParts((current) => {
       const next = { ...current, [part]: sanitized };
-      onChange(composeDisplayDate(next));
+      emitChange(composeDisplayDate(next));
       return next;
     });
   };
@@ -167,7 +186,7 @@ export function DateInputField({
         return current;
       }
       const next = { ...current, [part]: normalizedValue };
-      onChange(composeDisplayDate(next));
+      emitChange(composeDisplayDate(next));
       return next;
     });
   };
@@ -179,7 +198,8 @@ export function DateInputField({
     }
   };
 
-  const commitIfValid = (): void => {
+  const commitIfValid = (options?: { refocusOnInvalid?: boolean }): void => {
+    const refocusOnInvalid = options?.refocusOnInvalid ?? true;
     const normalized: DateParts = {
       year: normalizeDatePartValue('year', parts.year),
       month: normalizeDatePartValue('month', parts.month),
@@ -187,15 +207,15 @@ export function DateInputField({
     };
 
     if (normalized.day.length !== 2) {
-      focusPart('day');
+      if (refocusOnInvalid) focusPart('day');
       return;
     }
     if (normalized.month.length !== 2) {
-      focusPart('month');
+      if (refocusOnInvalid) focusPart('month');
       return;
     }
     if (normalized.year.length !== 4) {
-      focusPart('year');
+      if (refocusOnInvalid) focusPart('year');
       return;
     }
 
@@ -204,13 +224,13 @@ export function DateInputField({
     const day = Number(normalized.day);
 
     if (!isValidCalendarDate(year, month, day)) {
-      focusPart('day');
+      if (refocusOnInvalid) focusPart('day');
       return;
     }
 
     const normalizedDisplay = composeDisplayDate(normalized);
     setParts(normalized);
-    onChange(normalizedDisplay);
+    emitChange(normalizedDisplay);
   };
 
   const handlePartKeyDown = (index: number) => (event: KeyboardEvent<HTMLInputElement>): void => {
@@ -267,7 +287,13 @@ export function DateInputField({
         return;
       }
 
-      setFocused(false);
+      // Leaving the whole field (Tab past year, or Shift+Tab before day): don't touch
+      // the DOM here. Mutating it now (e.g. via setFocused(false), which unmounts the
+      // day/month/year inputs) would race with the browser's own native Tab focus
+      // resolution, which still needs the current inputs in place to find the
+      // next/previous focusable element. The natural blur that follows once focus has
+      // actually moved away is what closes the field (see the Stack's onBlur below).
+      leavingViaTabRef.current = true;
     }
   };
 
@@ -281,7 +307,9 @@ export function DateInputField({
         <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', ...sx }} onBlur={(event) => {
           const nextFocused = event.relatedTarget as Node | null;
           if (!event.currentTarget.contains(nextFocused)) {
-            commitIfValid();
+            const refocusOnInvalid = !leavingViaTabRef.current;
+            leavingViaTabRef.current = false;
+            commitIfValid({ refocusOnInvalid });
             setFocused(false);
           }
         }}>
@@ -292,7 +320,6 @@ export function DateInputField({
             onFocus={(event) => event.target.select()}
             onBlur={() => normalizePart('day')}
             onKeyDown={handlePartKeyDown(0)}
-            autoFocus={autoFocus}
             size={size}
             disabled={disabled}
             error={error}
@@ -353,7 +380,6 @@ export function DateInputField({
         <TextField
           label={label}
           value={displayValue}
-          autoFocus={autoFocus}
           onChange={(event) => {
             if (focused) onChange(normalizeDisplayDateInput(event.target.value));
           }}

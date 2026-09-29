@@ -3,6 +3,9 @@ import { useMemo } from 'react';
 import type { NatioRow } from '../features/natio/types';
 import { useEntityImage } from '../lib/useEntityImage';
 
+/** Nationalite proposee par defaut a la creation d'une fiche (joueur, arbitre, club...). */
+export const DEFAULT_NATIO_ID = 'FRA';
+
 interface NatioOption {
   id: string;
   label: string;

@@ -36,6 +36,7 @@ import {
   fetchTourParticipants,
   fetchTourQualifs,
   fetchTourRencontres,
+  recomputeTour,
   removeTourParticipants,
   updateTourQualif,
   updateTourRencontre,
@@ -58,6 +59,7 @@ import { TourWizardStep4Classement } from './TourWizardStep4Classement';
 import { TourWizardStep5Participants } from './TourWizardStep5Participants';
 import { TourWizardStep6Rencontres } from './TourWizardStep6Rencontres';
 import { getDistinctNonEmptyGroupNames } from './tourWizardGroups';
+import { assignEliminatoireMatchGroups } from './tourWizardEliminatoireGroups';
 import type { CompetitionTourUpsertPayload, QualifRow, TourMatchRow, TourParticipantRow } from './types';
 
 const WIZARD_STEPS = ['Description', 'Dates', 'Définition', 'Groupes', 'Classement', 'Participants', 'Rencontres'] as const;
@@ -471,11 +473,21 @@ export function TourWizardDialog({
       await Promise.all(qualifIdsToDelete.map((id) => deleteTourQualif(id)));
     }
 
+    // Eliminatoire : chaque paire de participants d'une rencontre partage un groupe "Match NN" (jamais modifie s'il existe).
+    let participantRowsToSave = participantDraftRows;
+    if (draft.type === 'eliminatoire') {
+      const assignment = assignEliminatoireMatchGroups(participantDraftRows, rencontreDraftRows);
+      if (assignment.conflicts.length > 0) {
+        throw new Error(`Enregistrement bloque: un participant est relie a plusieurs confrontations. ${assignment.conflicts.join(' | ')}`);
+      }
+      participantRowsToSave = assignment.participants;
+    }
+
     const existingParticipantById = new Map(
       existingParticipants.map((row) => [Number(row.PACLEUNIK), row] as const),
     );
     const draftParticipantIds = new Set(
-      participantDraftRows
+      participantRowsToSave
         .map((row) => Number(row.PACLEUNIK))
         .filter((id) => Number.isInteger(id) && id > 0),
     );
@@ -488,7 +500,7 @@ export function TourWizardDialog({
       await removeTourParticipants(tourId, [], participantIdsToRemove);
     }
 
-    for (const row of participantDraftRows) {
+    for (const row of participantRowsToSave) {
       const participantId = Number(row.PACLEUNIK);
       const clubId = normalizeText(row.IDCLUB);
       const groupe = normalizeText(row.GROUPE);
@@ -500,8 +512,15 @@ export function TourWizardDialog({
           || normalizeText(existing.GROUPE) !== groupe
           || normalizeText(existing.PASource) !== paSource;
         if (hasChange) {
-          await removeTourParticipants(tourId, [], [participantId]);
-          await addTourParticipant(tourId, clubId, groupe, paSource);
+          const onlyGroupChanged = normalizeText(existing.IDCLUB) === clubId
+            && normalizeText(existing.PASource) === paSource;
+          if (onlyGroupChanged) {
+            // Mise a jour en place cote serveur : conserve le PACLEUNIK.
+            await addTourParticipant(tourId, clubId, groupe, paSource);
+          } else {
+            await removeTourParticipants(tourId, [], [participantId]);
+            await addTourParticipant(tourId, clubId, groupe, paSource);
+          }
         }
         continue;
       }
@@ -632,6 +651,7 @@ export function TourWizardDialog({
       }
 
       await persistTourDependants(targetTourId);
+      await recomputeTour(targetTourId);
       await onSaved();
       onClose();
     } catch (error) {

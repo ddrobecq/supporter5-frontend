@@ -1,5 +1,5 @@
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material';
-import { NatioAutocomplete } from '../../components/NatioAutocomplete';
+import { DEFAULT_NATIO_ID, NatioAutocomplete } from '../../components/NatioAutocomplete';
 import axios from 'axios';
 import { useEffect, useRef, useState } from 'react';
 import { CreateWizardSuggestionPanel } from '../../components/CreateWizardSuggestionPanel';
@@ -24,7 +24,7 @@ export function JoueurCreateWizardDialog({ open, onClose, onCreate, onError }: J
   const [prenom, setPrenom] = useState('');
   const [alias, setAlias] = useState('');
   const [posteId, setPosteId] = useState('');
-  const [natioId, setNatioId] = useState('');
+  const [natioId, setNatioId] = useState(DEFAULT_NATIO_ID);
   const [natioRows, setNatioRows] = useState<NatioRow[]>([]);
   const [posteOptions, setPosteOptions] = useState<PosteOption[]>([]);
   const [suggestions, setSuggestions] = useState<JoueurSuggestionRow[]>([]);
@@ -38,7 +38,7 @@ export function JoueurCreateWizardDialog({ open, onClose, onCreate, onError }: J
       setPrenom('');
       setAlias('');
       setPosteId('');
-      setNatioId('');
+      setNatioId(DEFAULT_NATIO_ID);
       setNatioRows([]);
       setPosteOptions([]);
       setSuggestions([]);
@@ -146,8 +146,22 @@ export function JoueurCreateWizardDialog({ open, onClose, onCreate, onError }: J
       return;
     }
     if (event.key === 'Enter') {
+      // Always consume Enter here: this dialog is a MUI Portal, so React's synthetic
+      // event would otherwise keep bubbling through the *component* tree into whatever
+      // dialog/picker sits behind it in the DOM (e.g. a "Sélection d'un joueur" modal),
+      // validating its own selection.
+      event.stopPropagation();
+
       const target = event.target as HTMLElement | null;
       if (target?.tagName.toLowerCase() === 'textarea') return;
+
+      const comboBox = target?.closest('[role="combobox"]');
+      if (comboBox?.getAttribute('aria-expanded') === 'true') {
+        // An open dropdown (e.g. the nationality autocomplete) handles Enter itself
+        // to select its highlighted option; don't also advance the wizard step.
+        return;
+      }
+
       event.preventDefault();
       if (!saving) handlePrimary();
     }
@@ -164,6 +178,7 @@ export function JoueurCreateWizardDialog({ open, onClose, onCreate, onError }: J
             onChange={(event) => setNom(event.target.value.toUpperCase())}
             inputRef={nameInputRef}
             fullWidth
+            required
             size="small"
             autoFocus
           />
@@ -172,14 +187,14 @@ export function JoueurCreateWizardDialog({ open, onClose, onCreate, onError }: J
             <CreateWizardSuggestionPanel
               loading={loadingSuggestions}
               rows={suggestions}
-              emptyText="Aucun joueur approchant trouve."
+              emptyText="Aucun joueur approchant trouvé."
               getKey={(row) => row.IDJOUEUR}
               getPrimaryText={(row) => `${String(row.NOM ?? '').toUpperCase()} ${String(row.PRENOM ?? '')} (${String(row.IDNATIO ?? '')})`}
             />
           ) : (
             <>
               <TextField
-                label="Prenom"
+                label="Prénom"
                 value={prenom}
                 onChange={(event) => setPrenom(event.target.value)}
                 fullWidth
@@ -192,7 +207,6 @@ export function JoueurCreateWizardDialog({ open, onClose, onCreate, onError }: J
                 onChange={(event) => setAlias(event.target.value)}
                 fullWidth
                 size="small"
-                helperText="Non obligatoire. Si renseigne, le prenom peut rester vide."
               />
 
               <NatioAutocomplete
