@@ -8,6 +8,7 @@ import { toErrorMessage } from '../../components/useEntityPage';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { fetchNatio } from '../natio/natioApi';
 import type { NatioRow } from '../natio/types';
+import { readLastSelectedSeason, writeLastSelectedSeason } from '../saison/lastSelectedSeason';
 import {
   canDeleteJoueur,
   createJoueurWithWizard,
@@ -141,9 +142,13 @@ export function JoueurPage({ variant = 'page', onOpenInTab, filterPosteType, ini
       .then((data) => {
         setSeasons(data);
         if (!selectedSeason) {
-          const target = initialSeason && data.some((s) => String(s.SAISON) === initialSeason)
+          const isKnownSeason = (season: string) => data.some((s) => String(s.SAISON) === season);
+          const storedSeason = variant === 'modalPicker' ? readLastSelectedSeason() : '';
+          const target = initialSeason && isKnownSeason(initialSeason)
             ? initialSeason
-            : data.length > 0 ? String(data[0].SAISON ?? '') : '';
+            : storedSeason && isKnownSeason(storedSeason)
+              ? storedSeason
+              : data.length > 0 ? String(data[0].SAISON ?? '') : '';
           setSelectedSeason(target);
         }
       })
@@ -327,7 +332,13 @@ export function JoueurPage({ variant = 'page', onOpenInTab, filterPosteType, ini
         labelId="joueurs-saison-label"
         label="Saison"
         value={selectedSeason}
-        onChange={(event) => setSelectedSeason(String(event.target.value))}
+        onChange={(event) => {
+          const nextSeason = String(event.target.value);
+          setSelectedSeason(nextSeason);
+          if (variant === 'modalPicker') {
+            writeLastSelectedSeason(nextSeason);
+          }
+        }}
       >
         {seasons.map((season) => (
           <MenuItem key={season.SAISON} value={season.SAISON}>

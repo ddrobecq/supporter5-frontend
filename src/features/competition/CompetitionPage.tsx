@@ -17,6 +17,7 @@ import { CompetitionCreateWizardDialog } from './CompetitionCreateWizardDialog';
 import { createCompetitionColumns } from './competitionColumnsHelper';
 import { CompetitionFormDialog } from './CompetitionFormDialog';
 import type { CompetitionRow, EpreuveOption, SaisonOption } from './types';
+import { readLastSelectedSeason, writeLastSelectedSeason } from '../saison/lastSelectedSeason';
 
 interface CompetitionPageProps {
   variant?: 'page' | 'modalPicker';
@@ -39,8 +40,10 @@ export function CompetitionPage({ variant = 'page', onOpenInTab }: CompetitionPa
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [epreuveOptions, setEpreuveOptions] = useState<EpreuveOption[]>([]);
   const [saisonOptions, setSaisonOptions] = useState<SaisonOption[]>([]);
-  const [selectedSeason, setSelectedSeason] = useState('');
-  const selectedSeasonRef = useRef('');
+  // In picker mode, start from the last season chosen during the session so the first load is already filtered.
+  const [initialSeason] = useState(() => (variant === 'modalPicker' ? readLastSelectedSeason() : ''));
+  const [selectedSeason, setSelectedSeason] = useState(initialSeason);
+  const selectedSeasonRef = useRef(initialSeason);
 
   const resolveCompetitionLabel = (row: CompetitionRow, fallback: string): string => {
     const nom = String(row.NOM ?? '').trim();
@@ -77,7 +80,10 @@ export function CompetitionPage({ variant = 'page', onOpenInTab }: CompetitionPa
         .then((result) => {
           setEpreuveOptions(result.epreuves);
           setSaisonOptions(result.saisons);
-          if (!selectedSeason && result.saisons[0]?.SAISON) {
+          const currentSeason = selectedSeasonRef.current;
+          const isKnownSeason = currentSeason !== ''
+            && result.saisons.some((item) => String(item.SAISON ?? '') === currentSeason);
+          if (!isKnownSeason && result.saisons[0]?.SAISON) {
             const nextSeason = String(result.saisons[0].SAISON);
             selectedSeasonRef.current = nextSeason;
             setSelectedSeason(nextSeason);
@@ -126,6 +132,7 @@ export function CompetitionPage({ variant = 'page', onOpenInTab }: CompetitionPa
     setSelectedSeason(nextSeason);
     page.setSelection([]);
     if (variant === 'modalPicker') {
+      writeLastSelectedSeason(nextSeason);
       void page.reloadData();
     }
   };
@@ -182,7 +189,7 @@ export function CompetitionPage({ variant = 'page', onOpenInTab }: CompetitionPa
           select
           label="Saison"
           size="small"
-          value={selectedSeason}
+          value={seasonFilterOptions.includes(selectedSeason) ? selectedSeason : ''}
           onChange={(event) => handleSeasonChange(event.target.value)}
           sx={{ width: { xs: '100%', sm: 210 } }}
         >
