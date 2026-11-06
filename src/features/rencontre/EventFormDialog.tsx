@@ -25,7 +25,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import type { ReactElement } from 'react';
+import type { KeyboardEvent, ReactElement } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { NumberField } from '../../components/NumberField';
 import { toErrorMessage } from '../../components/useEntityPage';
@@ -326,6 +326,18 @@ export function EventFormDialog({
     };
   });
 
+  // Entrée valide le formulaire, sauf si une liste (Select/Autocomplete) l'a déjà traitée
+  // via preventDefault, si une liste d'Autocomplete est ouverte, ou dans un textarea / bouton.
+  const handleDialogKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Enter' || e.defaultPrevented || e.nativeEvent.isComposing || saving) return;
+    if (e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'TEXTAREA' || target.tagName === 'BUTTON') return;
+    if (target.getAttribute('aria-expanded') === 'true') return;
+    e.preventDefault();
+    void handleSave();
+  };
+
   // Focus adversaire checkbox on open
   useEffect(() => {
     if (open) {
@@ -334,7 +346,7 @@ export function EventFormDialog({
   }, [open]);
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} onKeyDown={handleDialogKeyDown} maxWidth="sm" fullWidth>
       <DialogTitle>{isEdit ? 'Modifier l\'événement' : 'Ajouter un événement'}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
