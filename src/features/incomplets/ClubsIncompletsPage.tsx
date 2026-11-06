@@ -67,6 +67,7 @@ export function ClubsIncompletsPage() {
 
   return (
     <IncompletsView<ClubIncompletRow>
+      stateKey="clubs"
       title="Clubs incomplets"
       rows={rows}
       loading={loading}

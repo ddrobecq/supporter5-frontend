@@ -28,6 +28,7 @@ import { Fragment, lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AppFeedbackSnackbar, type FeedbackMessage } from '../components/AppFeedbackSnackbar';
 import { authStore } from '../features/auth/authStore';
+import { INCOMPLETS_SCREEN_BY_PATH, incompletsViewStore } from '../features/incomplets/incompletsViewStore';
 import type { HomePageOutletContext, RecentOpenedRecord } from '../features/home/types';
 import { BACKUP_RESULT_EVENT, maybeRunAutomaticBackup, type BackupResultEventDetail } from '../features/maintenance/backupRunner';
 import { emitTabSaveRequest } from '../lib/useTabMetaEvents';
@@ -340,6 +341,8 @@ export function AdminLayout() {
     const fallbackTab = tabs[currentIndex - 1] ?? tabs[currentIndex + 1] ?? tabs.find((item) => item.key === HOME_TAB_KEY);
 
     setTabs((prev) => prev.filter((item) => item.key !== tabKey));
+    const incompletsScreen = INCOMPLETS_SCREEN_BY_PATH[tab.path];
+    if (incompletsScreen) incompletsViewStore.getState().clear(incompletsScreen);
     setDirtyTabsByPath((prev) => {
       const next = { ...prev };
       delete next[tab.path];

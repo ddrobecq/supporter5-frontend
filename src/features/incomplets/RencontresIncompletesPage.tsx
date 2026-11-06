@@ -82,6 +82,7 @@ export function RencontresIncompletesPage() {
 
   return (
     <IncompletsView<RencontreIncompleteRow>
+      stateKey="rencontres"
       title="Rencontres incomplètes"
       rows={rows}
       loading={loading}

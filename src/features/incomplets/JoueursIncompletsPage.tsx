@@ -52,6 +52,7 @@ export function JoueursIncompletsPage() {
 
   return (
     <IncompletsView<JoueurIncompletRow>
+      stateKey="joueurs"
       title="Joueurs incomplets"
       rows={rows}
       loading={loading}
