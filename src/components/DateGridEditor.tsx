@@ -1,130 +1,45 @@
 import { Stack, TextField, Typography } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material';
 import { useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
-
-export type DatePart = 'year' | 'month' | 'day';
+import {
+  INVALID_DATE_MESSAGE,
+  PART_ORDER,
+  findInvalidDatePart,
+  nextFieldIndex,
+  normalizeDateParts,
+  normalizeDatePartValue,
+  sanitizePartDigits,
+  serializeDateParts,
+  splitDisplayDate,
+} from './dateUtils';
+import type { DatePart, DateParts } from './dateUtils';
 
 interface DateGridEditorProps {
+  /** Initial value, in any format accepted by `toIsoDate`. */
   value: string;
+  /** Draft value while typing: ISO `YYYY-MM-DD` whenever the parts form a valid date, '' when all parts are empty. */
   onChange: (nextValue: string) => void;
+  /** Validated value (Enter or blur): ISO `YYYY-MM-DD`, or '' when the user cleared the date. */
   onCommit: (nextValue: string) => Promise<unknown> | void;
   onCancel: () => void;
   onTabOut?: (direction: 'next' | 'prev') => void;
 }
 
-export interface DateParts {
-  day: string;
-  month: string;
-  year: string;
-}
-
-export const PART_ORDER: DatePart[] = ['day', 'month', 'year'];
-
-export function splitDisplayDate(value: string): DateParts {
-  const text = String(value ?? '').trim();
-
-  const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) {
-    return {
-      day: iso[3],
-      month: iso[2],
-      year: iso[1],
-    };
-  }
-
-  const ymd = text.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
-  if (ymd) {
-    return {
-      day: ymd[3],
-      month: ymd[2],
-      year: ymd[1],
-    };
-  }
-
-  const dmy = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (dmy) {
-    return {
-      day: dmy[1],
-      month: dmy[2],
-      year: dmy[3],
-    };
-  }
-
-  const digits = text.replace(/\D+/g, '').slice(0, 8);
+function partSx(width: number, invalid: boolean): SxProps<Theme> {
+  const outline = invalid ? { border: 1, borderColor: 'error.main' } : { border: 0 };
   return {
-    day: digits.slice(0, 2),
-    month: digits.slice(2, 4),
-    year: digits.slice(4, 8),
+    width,
+    '& .MuiOutlinedInput-root': { height: 22, bgcolor: 'action.hover' },
+    '& .MuiOutlinedInput-notchedOutline': outline,
+    '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': outline,
+    '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': outline,
   };
-}
-
-export function composeDisplayDate(parts: DateParts): string {
-  if (!parts.day && !parts.month && !parts.year) {
-    return '';
-  }
-
-  let text = parts.day;
-  if (parts.month || parts.year) {
-    text += `/${parts.month}`;
-  }
-  if (parts.year) {
-    text += `/${parts.year}`;
-  }
-
-  return text;
-}
-
-export function sanitizePartDigits(value: string, maxLength: number): string {
-  return value.replace(/\D+/g, '').slice(0, maxLength);
-}
-
-export function clampNumber(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
-export function normalizeDatePartValue(part: DatePart, value: string): string {
-  const maxLength = part === 'year' ? 4 : 2;
-  const digits = sanitizePartDigits(value, maxLength);
-
-  if (part === 'year') {
-    if (digits.length === 2) {
-      return `20${digits}`;
-    }
-    return digits;
-  }
-
-  if (!digits) {
-    return '';
-  }
-
-  const numeric = Number(digits);
-  if (!Number.isFinite(numeric)) {
-    return '';
-  }
-
-  if (part === 'month') {
-    return String(clampNumber(numeric, 1, 12)).padStart(2, '0');
-  }
-
-  return String(clampNumber(numeric, 1, 31)).padStart(2, '0');
-}
-
-export function isValidCalendarDate(year: number, month: number, day: number): boolean {
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return date.getUTCFullYear() === year
-    && date.getUTCMonth() === month - 1
-    && date.getUTCDate() === day;
-}
-
-export function nextFieldIndex(currentIndex: number, shift: boolean): number | null {
-  if (shift) {
-    return currentIndex > 0 ? currentIndex - 1 : null;
-  }
-  return currentIndex < 2 ? currentIndex + 1 : null;
 }
 
 export function DateGridEditor({ value, onChange, onCommit, onCancel, onTabOut }: DateGridEditorProps) {
   const [parts, setParts] = useState<DateParts>(() => splitDisplayDate(value));
+  const [invalid, setInvalid] = useState(false);
 
   const yearRef = useRef<HTMLInputElement | null>(null);
   const monthRef = useRef<HTMLInputElement | null>(null);
@@ -140,25 +55,21 @@ export function DateGridEditor({ value, onChange, onCommit, onCancel, onTabOut }
 
   const updatePart = (part: DatePart, nextValue: string): void => {
     const maxLength = part === 'year' ? 4 : 2;
-    const sanitized = sanitizePartDigits(nextValue, maxLength);
+    const next = { ...parts, [part]: sanitizePartDigits(nextValue, maxLength) };
+    setParts(next);
 
-    setParts((current) => {
-      const next = { ...current, [part]: sanitized };
-      onChange(composeDisplayDate(next));
-      return next;
-    });
+    const draft = serializeDateParts(normalizeDateParts(next));
+    if (draft !== null) {
+      setInvalid(false);
+      onChange(draft);
+    }
   };
 
   const normalizePart = (part: DatePart): void => {
-    setParts((current) => {
-      const normalizedValue = normalizeDatePartValue(part, current[part]);
-      if (normalizedValue === current[part]) {
-        return current;
-      }
-      const next = { ...current, [part]: normalizedValue };
-      onChange(composeDisplayDate(next));
-      return next;
-    });
+    const normalizedValue = normalizeDatePartValue(part, parts[part]);
+    if (normalizedValue !== parts[part]) {
+      setParts({ ...parts, [part]: normalizedValue });
+    }
   };
 
   const focusPart = (part: DatePart): void => {
@@ -168,39 +79,25 @@ export function DateGridEditor({ value, onChange, onCommit, onCancel, onTabOut }
     }
   };
 
-  const commitIfValid = (): void => {
-    const normalized: DateParts = {
-      year: normalizeDatePartValue('year', parts.year),
-      month: normalizeDatePartValue('month', parts.month),
-      day: normalizeDatePartValue('day', parts.day),
-    };
-
-    if (normalized.day.length !== 2) {
-      focusPart('day');
-      return;
+  /** Normalizes the parts and returns the ISO value ('' when empty), or null after flagging the error. */
+  const validate = (): string | null => {
+    const normalized = normalizeDateParts(parts);
+    const iso = serializeDateParts(normalized);
+    if (iso === null) {
+      setInvalid(true);
+      focusPart(findInvalidDatePart(normalized) ?? 'day');
+      return null;
     }
-    if (normalized.month.length !== 2) {
-      focusPart('month');
-      return;
-    }
-    if (normalized.year.length !== 4) {
-      focusPart('year');
-      return;
-    }
-
-    const year = Number(normalized.year);
-    const month = Number(normalized.month);
-    const day = Number(normalized.day);
-
-    if (!isValidCalendarDate(year, month, day)) {
-      focusPart('day');
-      return;
-    }
-
-    const normalizedDisplay = composeDisplayDate(normalized);
     setParts(normalized);
-    onChange(normalizedDisplay);
-    void onCommit(normalizedDisplay);
+    setInvalid(false);
+    return iso;
+  };
+
+  const commitIfValid = (): void => {
+    const iso = validate();
+    if (iso === null) return;
+    onChange(iso);
+    void onCommit(iso);
   };
 
   const handlePartKeyDown = (index: number) => (event: KeyboardEvent<HTMLInputElement>): void => {
@@ -249,12 +146,21 @@ export function DateGridEditor({ value, onChange, onCommit, onCancel, onTabOut }
     if (event.key === 'Tab') {
       const nextIndex = nextFieldIndex(index, event.shiftKey);
       event.stopPropagation();
-      normalizePart(PART_ORDER[index]);
       if (nextIndex !== null) {
+        normalizePart(PART_ORDER[index]);
         event.preventDefault();
         focusPartAtIndex(nextIndex);
         return;
       }
+
+      // Leaving the editor: an incomplete or invalid date keeps the focus in the editor
+      // and is flagged, instead of being handed over to the caller.
+      const iso = validate();
+      if (iso === null) {
+        event.preventDefault();
+        return;
+      }
+      onChange(iso);
 
       if (onTabOut) {
         event.preventDefault();
@@ -267,6 +173,7 @@ export function DateGridEditor({ value, onChange, onCommit, onCancel, onTabOut }
     <Stack
       direction="row"
       spacing={0.35}
+      title={invalid ? INVALID_DATE_MESSAGE : undefined}
       sx={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}
       onBlur={(event) => {
         const nextFocused = event.relatedTarget as Node | null;
@@ -285,21 +192,17 @@ export function DateGridEditor({ value, onChange, onCommit, onCancel, onTabOut }
         autoFocus
         size="small"
         variant="outlined"
+        error={invalid}
         slotProps={{
           htmlInput: {
             inputMode: 'numeric',
             pattern: '[0-9]*',
             maxLength: 2,
+            'aria-label': 'Jour',
             style: { textAlign: 'center', padding: '2px 0', fontSize: '0.70rem' },
           },
         }}
-        sx={{
-          width: 22,
-          '& .MuiOutlinedInput-root': { height: 22, bgcolor: 'action.hover' },
-          '& .MuiOutlinedInput-notchedOutline': { border: 0 },
-          '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { border: 0 },
-          '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { border: 0 },
-        }}
+        sx={partSx(22, invalid)}
         onClick={(event) => event.stopPropagation()}
       />
 
@@ -314,21 +217,17 @@ export function DateGridEditor({ value, onChange, onCommit, onCancel, onTabOut }
         onKeyDown={handlePartKeyDown(1)}
         size="small"
         variant="outlined"
+        error={invalid}
         slotProps={{
           htmlInput: {
             inputMode: 'numeric',
             pattern: '[0-9]*',
             maxLength: 2,
+            'aria-label': 'Mois',
             style: { textAlign: 'center', padding: '2px 0', fontSize: '0.70rem' },
           },
         }}
-        sx={{
-          width: 22,
-          '& .MuiOutlinedInput-root': { height: 22, bgcolor: 'action.hover' },
-          '& .MuiOutlinedInput-notchedOutline': { border: 0 },
-          '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { border: 0 },
-          '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { border: 0 },
-        }}
+        sx={partSx(22, invalid)}
         onClick={(event) => event.stopPropagation()}
       />
 
@@ -343,21 +242,17 @@ export function DateGridEditor({ value, onChange, onCommit, onCancel, onTabOut }
         onKeyDown={handlePartKeyDown(2)}
         size="small"
         variant="outlined"
+        error={invalid}
         slotProps={{
           htmlInput: {
             inputMode: 'numeric',
             pattern: '[0-9]*',
             maxLength: 4,
+            'aria-label': 'Année',
             style: { textAlign: 'center', padding: '2px 0', fontSize: '0.70rem' },
           },
         }}
-        sx={{
-          width: 34,
-          '& .MuiOutlinedInput-root': { height: 22, bgcolor: 'action.hover' },
-          '& .MuiOutlinedInput-notchedOutline': { border: 0 },
-          '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { border: 0 },
-          '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { border: 0 },
-        }}
+        sx={partSx(34, invalid)}
         onClick={(event) => event.stopPropagation()}
       />
     </Stack>

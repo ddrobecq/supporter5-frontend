@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { DateInputField } from '../../components/DateInputField';
+import { useInvalidDateFields } from '../../components/useInvalidDateFields';
 import { NumberField } from '../../components/NumberField';
 import { TimeInputField } from '../../components/TimeInputField';
 import { toErrorMessage } from '../../components/useEntityPage';
@@ -201,6 +202,7 @@ export function TourWizardDialog({
   const [stepIndex, setStepIndex] = useState(0);
   const [draft, setDraft] = useState<TourDraft>(createDefaultDraft(proposedOrder));
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const { dateValidityHandler, isDateInvalid } = useInvalidDateFields();
   const [finalTouched, setFinalTouched] = useState(false);
   const [initialTourType, setInitialTourType] = useState<TourType>('ligue');
   const [isAllerRetour, setIsAllerRetour] = useState(false);
@@ -349,6 +351,10 @@ export function TourWizardDialog({
   };
 
   const validateStepTwo = (): boolean => {
+    // Invalid entries are already flagged "Date invalide" on their field.
+    if (isDateInvalid('dateDebut', 'dateFin')) return false;
+    if (draft.selectionMode === 'tirage' && isDateInvalid('dateTirage')) return false;
+
     const nextErrors: Record<string, string> = {};
 
     if (isDateRangeInvalid) {
@@ -801,6 +807,7 @@ export function TourWizardDialog({
                         setDraft((prev) => ({ ...prev, dateTirage: nextDate }));
                         setErrors((prev) => ({ ...prev, dateTirage: '' }));
                       }}
+                      onValidityChange={dateValidityHandler('dateTirage')}
                       fullWidth
                       disabled={draft.selectionMode !== 'tirage'}
                       error={Boolean(errors.dateTirage)}
@@ -834,6 +841,7 @@ export function TourWizardDialog({
                         setDraft((prev) => ({ ...prev, dateDebut: nextDate }));
                         setErrors((prev) => ({ ...prev, dateFin: '' }));
                       }}
+                      onValidityChange={dateValidityHandler('dateDebut')}
                       fullWidth
                     />
 
@@ -844,6 +852,7 @@ export function TourWizardDialog({
                         setDraft((prev) => ({ ...prev, dateFin: nextDate }));
                         setErrors((prev) => ({ ...prev, dateFin: '' }));
                       }}
+                      onValidityChange={dateValidityHandler('dateFin')}
                       fullWidth
                       error={Boolean(errors.dateFin)}
                       helperText={errors.dateFin}

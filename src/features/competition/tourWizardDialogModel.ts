@@ -1,4 +1,4 @@
-import { fromInputDateToDisplay, toInputDateFromDisplay } from '../../components/DateInputField';
+import { toIsoDate } from '../../components/dateUtils';
 import type { CompetitionTourDetailRow } from './types';
 
 export type TourType = 'ligue' | 'eliminatoire';
@@ -23,22 +23,8 @@ export interface TourDraft {
   nbMatch: number;
 }
 
-export function toDisplayDate(value: string | null | undefined): string {
-  const text = String(value ?? '').trim();
-  if (!text) return '';
-  const datePart = text.split(' ')[0]?.trim() ?? '';
-  const dashed = datePart.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (dashed) {
-    return fromInputDateToDisplay(datePart);
-  }
-  return '';
-}
-
 export function toApiDate(value: string): string | null {
-  const text = String(value ?? '').trim();
-  if (!text) return null;
-  const dashed = toInputDateFromDisplay(text);
-  return dashed || null;
+  return toIsoDate(value) || null;
 }
 
 export function toDisplayTime(value: string | null | undefined): string {
@@ -93,10 +79,10 @@ export function createDraftFromDetail(source: CompetitionTourDetailRow): TourDra
     participants,
     final: isFinal,
     selectionMode: hasTirageValues ? 'tirage' : 'programmation',
-    dateTirage: toDisplayDate(source.TU_DATETIRAGE as string | null | undefined),
+    dateTirage: toIsoDate(source.TU_DATETIRAGE),
     heureTirage: toDisplayTime(source.TU_HEURETIRAGE as string | null | undefined),
-    dateDebut: toDisplayDate(source.DATE_DEBUT as string | null | undefined),
-    dateFin: toDisplayDate(source.DATE_FIN as string | null | undefined),
+    dateDebut: toIsoDate(source.DATE_DEBUT),
+    dateFin: toIsoDate(source.DATE_FIN),
     heureMatches: toDisplayTime(source.TUHEURE as string | null | undefined),
     ordre: Number(source.TU_ORDRE ?? 1) || 1,
     nbEquipe: Number(source.NB_EQUIPE ?? 0) || 0,

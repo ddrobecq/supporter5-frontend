@@ -4,91 +4,38 @@ import type { SxProps, TextFieldProps, Theme } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import {
+  INVALID_DATE_MESSAGE,
   PART_ORDER,
-  composeDisplayDate,
-  isValidCalendarDate,
+  findInvalidDatePart,
+  formatDateShort,
   nextFieldIndex,
+  normalizeDateParts,
   normalizeDatePartValue,
   sanitizePartDigits,
+  serializeDateParts,
   splitDisplayDate,
-} from './DateGridEditor';
-import type { DatePart, DateParts } from './DateGridEditor';
-
-// Maps unshifted AZERTY number-row chars to their digit equivalents
-const AZERTY_DIGIT: Record<string, string> = {
-  '&': '1', 'é': '2', '"': '3', "'": '4', '(': '5',
-  '-': '6', 'è': '7', '_': '8', 'ç': '9', 'à': '0',
-};
-
-export function normalizeDisplayDateInput(input: string): string {
-  const mapped = Array.from(input).map((ch) => AZERTY_DIGIT[ch] ?? ch).join('');
-  const digits = mapped.replace(/\D+/g, '').slice(0, 8);
-  if (digits.length <= 4) return digits;
-  if (digits.length <= 6) return `${digits.slice(0, 4)}/${digits.slice(4)}`;
-  return `${digits.slice(0, 4)}/${digits.slice(4, 6)}/${digits.slice(6)}`;
-}
-
-export function toInputDateFromDisplay(value: string): string {
-  const text = String(value ?? '').trim();
-
-  const ymd = text.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
-  if (ymd) {
-    return `${ymd[1]}-${ymd[2]}-${ymd[3]}`;
-  }
-
-  // Backward compatibility: accept legacy DD/MM/YYYY values.
-  const dmy = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (dmy) {
-    return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
-  }
-
-  return '';
-}
-
-export function fromInputDateToDisplay(value: string): string {
-  const dashed = String(value ?? '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!dashed) return '';
-  return `${dashed[1]}/${dashed[2]}/${dashed[3]}`;
-}
-
-function isoFromAny(value: unknown): string {
-  const text = String(value ?? '').trim();
-  const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
-  const compact = text.match(/^(\d{4})(\d{2})(\d{2})$/);
-  if (compact) return `${compact[1]}-${compact[2]}-${compact[3]}`;
-  const ymd = text.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
-  if (ymd) return `${ymd[1]}-${ymd[2]}-${ymd[3]}`;
-  const french = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (french) return `${french[3]}-${french[2]}-${french[1]}`;
-  return '';
-}
-
-function todayOffset(delta: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + delta);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-export function formatDateShort(value: unknown): string {
-  const iso = isoFromAny(value);
-  if (!iso) return String(value ?? '').trim();
-  if (iso === todayOffset(0)) return 'Auj.';
-  if (iso === todayOffset(-1)) return 'Hier';
-  if (iso === todayOffset(1)) return 'Demain';
-  const date = new Date(`${iso}T00:00:00`);
-  if (isNaN(date.getTime())) return iso;
-  const dd = String(date.getDate()).padStart(2, '0');
-  const mmm = date.toLocaleString('fr-FR', { month: 'short' }).replace('.', '');
-  const yyyy = date.getFullYear();
-  if (yyyy === new Date().getFullYear()) return `${dd}-${mmm}`;
-  return `${dd}-${mmm}-${yyyy}`;
-}
+  toIsoDate,
+} from './dateUtils';
+import type { DatePart, DateParts } from './dateUtils';
 
 interface DateInputFieldProps {
   label: string;
+  /** Current value, in any format accepted by `toIsoDate` (ISO, YYYYMMDD, YYYY/MM/DD, DD/MM/YYYY). */
   value: string;
+  /**
+   * Called only with a validated value: ISO `YYYY-MM-DD`, or '' when the user cleared the field.
+   * Fired on Enter, when focus leaves the field and on native picker selection; never while typing.
+   * An incomplete or invalid entry leaves the value untouched and is flagged inside the field.
+   */
   onChange: (nextValue: string) => void;
+  /**
+   * Called when the validity of the entry changes, i.e. when the "Date invalide" error appears
+   * (an incomplete or invalid entry is left: blur, Tab, Enter) or disappears (the entry becomes a
+   * valid or empty date, or the value is changed from outside). Not called on mount, where the
+   * entry is assumed valid. Called with `true` on unmount if the entry was invalid, since the
+   * discarded entry no longer blocks anything: the value itself was never changed.
+   */
+  onValidityChange?: (valid: boolean) => void;
   autoFocus?: boolean;
   size?: TextFieldProps['size'];
   fullWidth?: boolean;
@@ -98,7 +45,6 @@ interface DateInputFieldProps {
   helperText?: TextFieldProps['helperText'];
   calendarAriaLabel?: string;
   placeholder?: string;
-  maxLength?: number;
   sx?: SxProps<Theme>;
 }
 
@@ -106,6 +52,7 @@ export function DateInputField({
   label,
   value,
   onChange,
+  onValidityChange,
   autoFocus = false,
   size = 'small',
   fullWidth = false,
@@ -114,8 +61,7 @@ export function DateInputField({
   error = false,
   helperText,
   calendarAriaLabel = `Calendrier ${label}`,
-  placeholder = 'AAAA/MM/JJ',
-  maxLength = 10,
+  placeholder = 'JJ/MM/AAAA',
   sx,
 }: DateInputFieldProps) {
   const pickerRef = useRef<HTMLInputElement | null>(null);
@@ -124,18 +70,36 @@ export function DateInputField({
   const yearRef = useRef<HTMLInputElement | null>(null);
   const [focused, setFocused] = useState(false);
   const [parts, setParts] = useState<DateParts>(() => splitDisplayDate(value));
-  const lastEmittedRef = useRef<string | null>(null);
-  const leavingViaTabRef = useRef(false);
+  const [invalid, setInvalid] = useState(false);
+  const [syncedValue, setSyncedValue] = useState(value);
 
-  const emitChange = (nextValue: string): void => {
-    lastEmittedRef.current = nextValue;
-    onChange(nextValue);
-  };
-
-  useEffect(() => {
-    if (value === lastEmittedRef.current) return;
+  // Resync the edited parts whenever the value changes from outside (or after our own emission).
+  if (value !== syncedValue) {
+    setSyncedValue(value);
     setParts(splitDisplayDate(value));
-  }, [value]);
+    setInvalid(false);
+  }
+
+  // Report validity changes to the parent once per transition. The latest callback is kept in a
+  // ref so that an inline callback does not re-trigger the report.
+  const onValidityChangeRef = useRef(onValidityChange);
+  const reportedValidRef = useRef(true);
+  useEffect(() => {
+    onValidityChangeRef.current = onValidityChange;
+  });
+  useEffect(() => {
+    const valid = !invalid;
+    if (valid !== reportedValidRef.current) {
+      reportedValidRef.current = valid;
+      onValidityChangeRef.current?.(valid);
+    }
+  }, [invalid]);
+  useEffect(() => () => {
+    if (!reportedValidRef.current) {
+      reportedValidRef.current = true;
+      onValidityChangeRef.current?.(true);
+    }
+  }, []);
 
   // autoFocus must only take effect on initial mount: since the field switches between
   // two different render trees (split day/month/year vs. collapsed) whenever `focused`
@@ -170,25 +134,18 @@ export function DateInputField({
 
   const updatePart = (part: DatePart, nextValue: string): void => {
     const maxLengthPart = part === 'year' ? 4 : 2;
-    const sanitized = sanitizePartDigits(nextValue, maxLengthPart);
-
-    setParts((current) => {
-      const next = { ...current, [part]: sanitized };
-      emitChange(composeDisplayDate(next));
-      return next;
-    });
+    const next = { ...parts, [part]: sanitizePartDigits(nextValue, maxLengthPart) };
+    setParts(next);
+    if (invalid && serializeDateParts(normalizeDateParts(next)) !== null) {
+      setInvalid(false);
+    }
   };
 
   const normalizePart = (part: DatePart): void => {
-    setParts((current) => {
-      const normalizedValue = normalizeDatePartValue(part, current[part]);
-      if (normalizedValue === current[part]) {
-        return current;
-      }
-      const next = { ...current, [part]: normalizedValue };
-      emitChange(composeDisplayDate(next));
-      return next;
-    });
+    const normalizedValue = normalizeDatePartValue(part, parts[part]);
+    if (normalizedValue !== parts[part]) {
+      setParts({ ...parts, [part]: normalizedValue });
+    }
   };
 
   const focusPart = (part: DatePart): void => {
@@ -198,39 +155,28 @@ export function DateInputField({
     }
   };
 
-  const commitIfValid = (options?: { refocusOnInvalid?: boolean }): void => {
-    const refocusOnInvalid = options?.refocusOnInvalid ?? true;
-    const normalized: DateParts = {
-      year: normalizeDatePartValue('year', parts.year),
-      month: normalizeDatePartValue('month', parts.month),
-      day: normalizeDatePartValue('day', parts.day),
-    };
-
-    if (normalized.day.length !== 2) {
-      if (refocusOnInvalid) focusPart('day');
-      return;
+  const emitIfChanged = (iso: string): void => {
+    if (iso !== value) {
+      onChange(iso);
     }
-    if (normalized.month.length !== 2) {
-      if (refocusOnInvalid) focusPart('month');
-      return;
-    }
-    if (normalized.year.length !== 4) {
-      if (refocusOnInvalid) focusPart('year');
-      return;
-    }
+  };
 
-    const year = Number(normalized.year);
-    const month = Number(normalized.month);
-    const day = Number(normalized.day);
-
-    if (!isValidCalendarDate(year, month, day)) {
-      if (refocusOnInvalid) focusPart('day');
-      return;
+  /**
+   * Validates the current entry. A valid (or cleared) entry is emitted as ISO and null is
+   * returned; otherwise the error is flagged, the value is left untouched and the first
+   * invalid part is returned.
+   */
+  const commit = (): DatePart | null => {
+    const normalized = normalizeDateParts(parts);
+    const iso = serializeDateParts(normalized);
+    if (iso === null) {
+      setInvalid(true);
+      return findInvalidDatePart(normalized) ?? 'day';
     }
-
-    const normalizedDisplay = composeDisplayDate(normalized);
     setParts(normalized);
-    emitChange(normalizedDisplay);
+    setInvalid(false);
+    emitIfChanged(iso);
+    return null;
   };
 
   const handlePartKeyDown = (index: number) => (event: KeyboardEvent<HTMLInputElement>): void => {
@@ -261,7 +207,11 @@ export function DateInputField({
     if (event.key === 'Enter') {
       event.preventDefault();
       event.stopPropagation();
-      commitIfValid();
+      const invalidPart = commit();
+      if (invalidPart) {
+        focusPart(invalidPart);
+        return;
+      }
       setFocused(false);
       return;
     }
@@ -284,7 +234,6 @@ export function DateInputField({
       if (nextIndex !== null) {
         event.preventDefault();
         focusPartAtIndex(nextIndex);
-        return;
       }
 
       // Leaving the whole field (Tab past year, or Shift+Tab before day): don't touch
@@ -292,14 +241,15 @@ export function DateInputField({
       // day/month/year inputs) would race with the browser's own native Tab focus
       // resolution, which still needs the current inputs in place to find the
       // next/previous focusable element. The natural blur that follows once focus has
-      // actually moved away is what closes the field (see the Stack's onBlur below).
-      leavingViaTabRef.current = true;
+      // actually moved away is what validates and closes the field (see the Stack's onBlur below).
     }
   };
 
-  const displayValue = focused
-    ? value
-    : (value ? (formatDateShort(toInputDateFromDisplay(value)) || value) : '');
+  const displayValue = value ? formatDateShort(value) : '';
+  const fieldError = error || invalid;
+  const fieldHelperText = invalid
+    ? (helperText ? <>{INVALID_DATE_MESSAGE} – {helperText}</> : INVALID_DATE_MESSAGE)
+    : helperText;
 
   return (
     <>
@@ -307,9 +257,7 @@ export function DateInputField({
         <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', ...sx }} onBlur={(event) => {
           const nextFocused = event.relatedTarget as Node | null;
           if (!event.currentTarget.contains(nextFocused)) {
-            const refocusOnInvalid = !leavingViaTabRef.current;
-            leavingViaTabRef.current = false;
-            commitIfValid({ refocusOnInvalid });
+            commit();
             setFocused(false);
           }
         }}>
@@ -322,12 +270,13 @@ export function DateInputField({
             onKeyDown={handlePartKeyDown(0)}
             size={size}
             disabled={disabled}
-            error={error}
+            error={fieldError}
             slotProps={{
               htmlInput: {
                 inputMode: 'numeric',
                 pattern: '[0-9]*',
                 maxLength: 2,
+                'aria-label': `${label} - jour`,
                 style: { textAlign: 'center', padding: '2px 6px', fontSize: '0.875rem' },
               },
             }}
@@ -343,12 +292,13 @@ export function DateInputField({
             onKeyDown={handlePartKeyDown(1)}
             size={size}
             disabled={disabled}
-            error={error}
+            error={fieldError}
             slotProps={{
               htmlInput: {
                 inputMode: 'numeric',
                 pattern: '[0-9]*',
                 maxLength: 2,
+                'aria-label': `${label} - mois`,
                 style: { textAlign: 'center', padding: '2px 6px', fontSize: '0.875rem' },
               },
             }}
@@ -364,12 +314,13 @@ export function DateInputField({
             onKeyDown={handlePartKeyDown(2)}
             size={size}
             disabled={disabled}
-            error={error}
+            error={fieldError}
             slotProps={{
               htmlInput: {
                 inputMode: 'numeric',
                 pattern: '[0-9]*',
                 maxLength: 4,
+                'aria-label': `${label} - année`,
                 style: { textAlign: 'center', padding: '2px 6px', fontSize: '0.875rem' },
               },
             }}
@@ -380,10 +331,11 @@ export function DateInputField({
         <TextField
           label={label}
           value={displayValue}
-          onChange={(event) => {
-            if (focused) onChange(normalizeDisplayDateInput(event.target.value));
-          }}
           onFocus={(event) => {
+            // Keep an invalid entry for correction; otherwise start from the current value.
+            if (!invalid) {
+              setParts(splitDisplayDate(value));
+            }
             setFocused(true);
             const input = event.currentTarget;
             window.requestAnimationFrame(() => {
@@ -395,14 +347,14 @@ export function DateInputField({
           fullWidth={fullWidth}
           disabled={disabled}
           required={required}
-          error={error}
-          helperText={helperText}
+          error={fieldError}
+          helperText={fieldHelperText}
           sx={sx}
           slotProps={{
             inputLabel: { shrink: true },
             htmlInput: {
-              maxLength: focused ? maxLength : undefined,
-              placeholder: focused ? placeholder : undefined,
+              readOnly: true,
+              placeholder,
             },
             input: {
               endAdornment: (
@@ -426,11 +378,13 @@ export function DateInputField({
       <input
         ref={pickerRef}
         type="date"
-        value={toInputDateFromDisplay(value)}
+        value={toIsoDate(value)}
         onChange={(event) => {
-          const next = fromInputDateToDisplay(event.target.value);
-          if (!next) return;
-          onChange(next);
+          const iso = toIsoDate(event.target.value);
+          if (!iso) return;
+          setParts(splitDisplayDate(iso));
+          setInvalid(false);
+          emitIfChanged(iso);
         }}
         style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
         tabIndex={-1}
@@ -439,4 +393,3 @@ export function DateInputField({
     </>
   );
 }
-

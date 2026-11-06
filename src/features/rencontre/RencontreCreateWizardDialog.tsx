@@ -14,7 +14,9 @@ import {
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { ClubSelectField } from '../../components/ClubSelectField';
-import { DateInputField, fromInputDateToDisplay, toInputDateFromDisplay } from '../../components/DateInputField';
+import { DateInputField } from '../../components/DateInputField';
+import { INVALID_DATE_MESSAGE, toIsoDate } from '../../components/dateUtils';
+import { useInvalidDateFields } from '../../components/useInvalidDateFields';
 import { TimeInputField } from '../../components/TimeInputField';
 import { toErrorMessage } from '../../components/useEntityPage';
 import {
@@ -55,18 +57,14 @@ function pad2(value: number): string {
   return String(value).padStart(2, '0');
 }
 
-function todayDisplayDate(): string {
+function todayIsoDate(): string {
   const now = new Date();
-  return fromInputDateToDisplay(`${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`);
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
 }
 
 function nowDisplayTime(): string {
   const now = new Date();
   return `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
-}
-
-function toIsoDate(displayDate: string): string {
-  return toInputDateFromDisplay(String(displayDate ?? '').trim());
 }
 
 function deriveSeasonFromIsoDate(isoDate: string): string {
@@ -144,6 +142,7 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
   const [saving, setSaving] = useState(false);
   const [optionsLoading, setOptionsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const { dateValidityHandler, isDateInvalid } = useInvalidDateFields();
 
   const [date, setDate] = useState('');
   const [heure, setHeure] = useState('');
@@ -191,7 +190,7 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
       return;
     }
 
-    const defaultDate = todayDisplayDate();
+    const defaultDate = todayIsoDate();
     const defaultHeure = nowDisplayTime();
     setDate(defaultDate);
     setHeure(defaultHeure);
@@ -358,14 +357,16 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
       });
   }, [matchKind, open, tourId]);
 
+  const dateInvalid = isDateInvalid('date');
   const canGoNext = useMemo(() => {
+    if (dateInvalid) return false;
     const isoDate = toIsoDate(date);
     if (!isoDate) return false;
     if (!season.trim()) return false;
     if (!domicile.clubId.trim() || !exterieur.clubId.trim()) return false;
     if (domicile.clubId.trim() === exterieur.clubId.trim()) return false;
     return true;
-  }, [date, season, domicile, exterieur]);
+  }, [date, dateInvalid, season, domicile, exterieur]);
 
   const canCreate = useMemo(() => {
     if (saving) return false;
@@ -383,6 +384,10 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
   }, [tourId, tourOptions]);
 
   const validateStepOne = (): boolean => {
+    if (dateInvalid) {
+      setErrorMessage(INVALID_DATE_MESSAGE);
+      return false;
+    }
     const isoDate = toIsoDate(date);
     if (!isoDate) {
       setErrorMessage('La date est requise.');
@@ -522,6 +527,7 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
                   label="Date"
                   value={date}
                   onChange={setDate}
+                  onValidityChange={dateValidityHandler('date')}
                   required
                   autoFocus
                 />

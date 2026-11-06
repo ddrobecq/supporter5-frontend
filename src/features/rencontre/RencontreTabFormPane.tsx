@@ -33,7 +33,9 @@ import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
-import { DateInputField, formatDateShort, fromInputDateToDisplay, toInputDateFromDisplay } from '../../components/DateInputField';
+import { DateInputField } from '../../components/DateInputField';
+import { formatDateShort, toIsoDate } from '../../components/dateUtils';
+import { useInvalidDateFields } from '../../components/useInvalidDateFields';
 import { TimeInputField } from '../../components/TimeInputField';
 import { NumberField } from '../../components/NumberField';
 import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
@@ -159,19 +161,8 @@ function normalizeColorCode(raw: unknown, fallback: string): string {
   return fallback;
 }
 
-function toDisplayDate(value: string | null | undefined): string {
-  const text = String(value ?? '').trim();
-  if (!text) return '';
-  const datePart = text.split(' ')[0]?.trim() ?? '';
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return '';
-  return fromInputDateToDisplay(datePart);
-}
-
 function toApiDate(value: string): string | null {
-  const text = String(value ?? '').trim();
-  if (!text) return null;
-  const dashed = toInputDateFromDisplay(text);
-  return dashed || null;
+  return toIsoDate(value) || null;
 }
 
 function toDisplayHeure(value: string | null | undefined): string {
@@ -200,7 +191,7 @@ function buildDraftFromDetail(detail: RencontreDetailRow): RencontreDraft {
     tabDom: toNonNegativeIntegerString(detail.TABDOM),
     tabExt: toNonNegativeIntegerString(detail.TABEXT),
     etat: Number(detail.ETAT ?? 1) || 1,
-    date: toDisplayDate(detail.DATE),
+    date: toIsoDate(detail.DATE),
     heure: toDisplayHeure(detail.HEURE),
     saison: String(detail.SAISON ?? '').trim(),
     competitionId: Number(detail.COCLEUNIK) > 0 ? String(detail.COCLEUNIK).trim() : '',
@@ -484,6 +475,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
   const [circOptions, setCircOptions] = useState<CircOptionRow[]>([]);
   const [optionsLoading, setOptionsLoading] = useState(false);
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
+  const { dateValidityHandler, isDateInvalid } = useInvalidDateFields();
   const [initialLoadError, setInitialLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<RencontreTabKey>('info');
   const [isCompositionDirty, setIsCompositionDirty] = useState(false);
@@ -859,6 +851,10 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
   }), [participantById, resolveProgrammedParticipantName, tourMatches]);
 
   const handleGlobalSave = async () => {
+    if (isDateInvalid('date')) {
+      setSnackbar({ severity: 'error', message: 'La date de la rencontre est invalide.' });
+      return;
+    }
     const saveCompo = isCompositionDirty && compositionActionsRef.current;
     const saveEvent = isEventDialogDirty && eventDialogActionsRef.current;
     // Les events (ajout/modif/suppression) sont deja persistes en base, mais ne recalculent plus les stats
@@ -1226,6 +1222,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
               label="Date"
               value={draft.date}
               onChange={(nextValue) => setDraft((prev) => (prev ? { ...prev, date: nextValue } : prev))}
+              onValidityChange={dateValidityHandler('date')}
               sx={{ width: 170, flex: '0 0 auto' }}
             />
 

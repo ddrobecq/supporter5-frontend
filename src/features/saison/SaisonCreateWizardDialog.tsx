@@ -13,7 +13,9 @@ import {
 } from '@mui/material';
 import type { GridRowId } from '@mui/x-data-grid';
 import { useEffect, useMemo, useState } from 'react';
-import { DateInputField, fromInputDateToDisplay, toInputDateFromDisplay } from '../../components/DateInputField';
+import { DateInputField } from '../../components/DateInputField';
+import { toIsoDate } from '../../components/dateUtils';
+import { useInvalidDateFields } from '../../components/useInvalidDateFields';
 import { toErrorMessage } from '../../components/useEntityPage';
 import {
   createSaisonWithWizard,
@@ -69,15 +71,12 @@ function startYearOfSaison(saison: string): number | null {
   return match ? Number(match[1]) : null;
 }
 
-function toIso(displayDate: string): string {
-  return toInputDateFromDisplay(String(displayDate ?? '').trim());
-}
-
 export function SaisonCreateWizardDialog({ open, onClose, onCreated, onError }: SaisonCreateWizardDialogProps) {
   const [step, setStep] = useState(STEP_DATES);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const { dateValidityHandler, isDateInvalid } = useInvalidDateFields();
 
   const [previousSaison, setPreviousSaison] = useState('');
   const [saisonName, setSaisonName] = useState('');
@@ -122,8 +121,8 @@ export function SaisonCreateWizardDialog({ open, onClose, onCreated, onError }: 
 
         setPreviousSaison(String(last?.SAISON ?? '').trim());
         setSaisonName(nextName);
-        setDateDebut(fromInputDateToDisplay(defaultDebut));
-        setDateFin(fromInputDateToDisplay(defaultFin));
+        setDateDebut(defaultDebut);
+        setDateFin(defaultFin);
 
         if (!last?.SAISON) {
           return;
@@ -152,8 +151,8 @@ export function SaisonCreateWizardDialog({ open, onClose, onCreated, onError }: 
     return () => controller.abort();
   }, [open]);
 
-  const isoDebut = useMemo(() => toIso(dateDebut), [dateDebut]);
-  const isoFin = useMemo(() => toIso(dateFin), [dateFin]);
+  const isoDebut = useMemo(() => toIsoDate(dateDebut), [dateDebut]);
+  const isoFin = useMemo(() => toIsoDate(dateFin), [dateFin]);
 
   // Tant que l'utilisateur n'a pas coche/decoche un joueur a la main, la selection par defaut
   // suit la date de debut saisie a l'etape precedente (regle metier: contrat au-dela de cette date).
@@ -170,6 +169,14 @@ export function SaisonCreateWizardDialog({ open, onClose, onCreated, onError }: 
   const validateStepDates = (): boolean => {
     if (!/^\d{4}-\d{4}$/.test(saisonName.trim())) {
       setErrorMessage('Le nom de la saison doit avoir le format aaaa-aaaa.');
+      return false;
+    }
+    if (isDateInvalid('dateDebut')) {
+      setErrorMessage('La date de debut est invalide.');
+      return false;
+    }
+    if (isDateInvalid('dateFin')) {
+      setErrorMessage('La date de fin est invalide.');
       return false;
     }
     if (!isoDebut) {
@@ -189,7 +196,7 @@ export function SaisonCreateWizardDialog({ open, onClose, onCreated, onError }: 
   };
 
   const validateStepDatesSilently = (): boolean => (
-    /^\d{4}-\d{4}$/.test(saisonName.trim()) && Boolean(isoDebut) && Boolean(isoFin) && isoFin >= isoDebut
+    /^\d{4}-\d{4}$/.test(saisonName.trim()) && !isDateInvalid() && Boolean(isoDebut) && Boolean(isoFin) && isoFin >= isoDebut
   );
 
   const canGoNext = step === STEP_DATES ? validateStepDatesSilently() : true;
@@ -309,6 +316,7 @@ export function SaisonCreateWizardDialog({ open, onClose, onCreated, onError }: 
                   label="Date de debut"
                   value={dateDebut}
                   onChange={setDateDebut}
+                  onValidityChange={dateValidityHandler('dateDebut')}
                   fullWidth
                   required
                 />
@@ -316,6 +324,7 @@ export function SaisonCreateWizardDialog({ open, onClose, onCreated, onError }: 
                   label="Date de fin"
                   value={dateFin}
                   onChange={setDateFin}
+                  onValidityChange={dateValidityHandler('dateFin')}
                   fullWidth
                   required
                 />

@@ -24,7 +24,9 @@ import axios from 'axios';
 import { useEffect, useRef, useState } from 'react';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { fetchClubSuggestions } from './clubApi';
-import { DateInputField, toInputDateFromDisplay } from '../../components/DateInputField';
+import { DateInputField } from '../../components/DateInputField';
+import { toIsoDate } from '../../components/dateUtils';
+import { useInvalidDateFields } from '../../components/useInvalidDateFields';
 import { DEFAULT_NATIO_ID, NatioAutocomplete } from '../../components/NatioAutocomplete';
 import { VillePicker } from '../../components/VillePicker';
 import { fetchNatio } from '../natio/natioApi';
@@ -155,6 +157,8 @@ export function ClubCreateDialog({
     return () => window.clearTimeout(timer);
   }, [open, step]);
 
+  const { dateValidityHandler, isDateInvalid } = useInvalidDateFields();
+
   const canGoNext = name.trim().length > 0;
   const canCreate = name.trim().length > 0
     && natioId.trim().length > 0;
@@ -172,7 +176,7 @@ export function ClubCreateDialog({
       onError('Le pays est requis.');
       return;
     }
-    if (creationDate.trim() && !toInputDateFromDisplay(creationDate)) {
+    if (isDateInvalid('creationDate')) {
       onError('La date de création est invalide.');
       return;
     }
@@ -183,7 +187,7 @@ export function ClubCreateDialog({
         name: name.trim(),
         natioId: natioId.trim().toUpperCase(),
         isSelection,
-        creationDate: toInputDateFromDisplay(creationDate) || undefined,
+        creationDate: toIsoDate(creationDate) || undefined,
         villeId: villeId.trim() || undefined,
       });
       onClose();
@@ -425,6 +429,7 @@ export function ClubCreateDialog({
             label="Date de création"
             value={creationDate}
             onChange={setCreationDate}
+            onValidityChange={dateValidityHandler('creationDate')}
             fullWidth
             calendarAriaLabel="Calendrier date de création"
           />

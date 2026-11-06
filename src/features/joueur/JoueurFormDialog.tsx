@@ -23,7 +23,9 @@ import {
 } from '@mui/material';
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { DateInputField, fromInputDateToDisplay, toInputDateFromDisplay } from '../../components/DateInputField';
+import { DateInputField } from '../../components/DateInputField';
+import { INVALID_DATE_MESSAGE, toIsoDate } from '../../components/dateUtils';
+import { useInvalidDateFields } from '../../components/useInvalidDateFields';
 import { NumberField } from '../../components/NumberField';
 import { ClubSelectField } from '../../components/ClubSelectField';
 import { CompletenessChip } from '../../components/CompletenessChip';
@@ -118,13 +120,6 @@ function todayIsoDate(): string {
   return `${year}-${month}-${day}`;
 }
 
-function toDisplayDate(value: unknown): string {
-  const text = String(value ?? '').trim();
-  if (!text) return '';
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(text)) return text;
-  return fromInputDateToDisplay(text);
-}
-
 function toSensValue(value: unknown): string {
   const numeric = Number(value);
   if (numeric === 1 || numeric === 2 || numeric === 3) return String(numeric);
@@ -140,15 +135,10 @@ function buildSensOptionsForType(type?: JoueurTransactionTypeOption): SensOption
   return options;
 }
 
-function normalizeDateDigits(input: string): string {
-  const digits = input.replace(/\D+/g, '').slice(0, 8);
-  if (digits.length === 8) {
-    const yyyy = digits.slice(0, 4);
-    const mm = digits.slice(4, 6);
-    const dd = digits.slice(6, 8);
-    return `${dd}/${mm}/${yyyy}`;
-  }
-  return input;
+// Legacy values (DD/MM/YYYY, YYYYMMDD...) are converted to ISO; unrecognized values are kept as is.
+function normalizeStoredDate(value: unknown): string {
+  const text = normalizeNullableText(value);
+  return toIsoDate(text) || text;
 }
 
 function normalizeNullableText(value: unknown): string {
@@ -212,6 +202,7 @@ export function JoueurFormDialog({
   const [values, setValues] = useState<JoueurRow>({});
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const { dateValidityHandler, isDateInvalid } = useInvalidDateFields();
   const [birthVilleName, setBirthVilleName] = useState('');
   const [birthVilleNatioId, setBirthVilleNatioId] = useState('');
   const [deathVilleName, setDeathVilleName] = useState('');
@@ -277,7 +268,7 @@ export function JoueurFormDialog({
   );
   const shouldShowSensSelector = selectedContractSensOptions.length >= 2;
   const transactionRequiresClub = Number(selectedContractType?.TYT_CLUB ?? 0) !== 0;
-  const transactionRequiresEcheance = Number(selectedContractType?.TYT_ECHEANCE ?? 0) !== 0;
+  const transactionUsesEcheance = Number(selectedContractType?.TYT_ECHEANCE ?? 0) !== 0;
   const transactionUsesSalaire = Number(selectedContractType?.TYT_SALAIRE ?? 0) !== 0;
   const transactionUsesIndemnites = Number(selectedContractType?.TYT_INDEMNITES ?? 0) !== 0;
   const transactionUsesMoney = transactionUsesSalaire || transactionUsesIndemnites;
@@ -329,8 +320,8 @@ export function JoueurFormDialog({
     if (!open) return;
     setActiveTab('identite');
     const nextValues: JoueurRow = { ...(initialData ?? {}) };
-    nextValues.NAISSANCE = normalizeDateDigits(normalizeNullableText(nextValues.NAISSANCE));
-    nextValues.DECES = normalizeDateDigits(normalizeNullableText(nextValues.DECES));
+    nextValues.NAISSANCE = normalizeStoredDate(nextValues.NAISSANCE);
+    nextValues.DECES = normalizeStoredDate(nextValues.DECES);
     nextValues.IDVILLE = normalizeNullableCityId(nextValues.IDVILLE);
     nextValues.VILLE_DECES = normalizeNullableCityId(nextValues.VILLE_DECES);
     setValues(nextValues);
@@ -463,9 +454,9 @@ export function JoueurFormDialog({
       clubName: transactionRequiresClub ? prev.clubName : '',
       salaire: transactionUsesSalaire ? prev.salaire : '',
       indemnites: transactionUsesIndemnites ? prev.indemnites : '',
-      echeance: transactionRequiresEcheance ? prev.echeance : '',
+      echeance: transactionUsesEcheance ? prev.echeance : '',
     }));
-  }, [contractsDialogOpen, selectedContractType, selectedContractSensOptions, transactionRequiresClub, transactionRequiresEcheance, transactionUsesIndemnites, transactionUsesSalaire]);
+  }, [contractsDialogOpen, selectedContractType, selectedContractSensOptions, transactionRequiresClub, transactionUsesEcheance, transactionUsesIndemnites, transactionUsesSalaire]);
 
   const reloadHistory = async () => {
     const idJoueur = normalizeNullableText(values.IDJOUEUR);
@@ -512,7 +503,7 @@ export function JoueurFormDialog({
     const defaultTypeRow = contractsTypes.find((option) => Number(option.TYT_CLEUNIK) === Number(defaultType));
     const defaultTypeSensOptions = buildSensOptionsForType(defaultTypeRow);
     const nextDraft = {
-      date: fromInputDateToDisplay(todayIsoDate()),
+      date: todayIsoDate(),
       type: defaultType != null ? String(defaultType) : '',
       sens: defaultTypeSensOptions.length === 1
         ? defaultTypeSensOptions[0].value
@@ -541,7 +532,7 @@ export function JoueurFormDialog({
     }
 
     const nextDraft = {
-      date: toDisplayDate(selectedRow.DATE),
+      date: toIsoDate(selectedRow.DATE),
       type: String(selectedRow.TYPE ?? ''),
       sens: Number(selectedRow.STATUT) === 1 ? '1' : Number(selectedRow.STATUT) === 2 ? '2' : '3',
       idClub: String(selectedRow.IDCLUB ?? '').trim(),
@@ -549,7 +540,7 @@ export function JoueurFormDialog({
       deviseId: String(selectedRow.DVCLEUNIK ?? contractsDefaultDeviseId ?? ''),
       salaire: selectedRow.SALAIRE == null ? '' : String(selectedRow.SALAIRE),
       indemnites: selectedRow.INDEMNITES == null ? '' : String(selectedRow.INDEMNITES),
-      echeance: toDisplayDate(selectedRow.TN_ECHEANCE),
+      echeance: toIsoDate(selectedRow.TN_ECHEANCE),
     };
     setContractsDialogMode('edit');
     setContractsDialogId(Number(selectedRow.TNCLEUNIK));
@@ -578,14 +569,18 @@ export function JoueurFormDialog({
       setErrors((prev) => ({ ...prev, contracts: 'Le type de transaction est requis.' }));
       return false;
     }
-    const dateIso = toInputDateFromDisplay(contractsDialogDraft.date);
+    if (isDateInvalid('contractDate', 'contractEcheance')) {
+      setErrors((prev) => ({ ...prev, contracts: 'Une date de la transaction est invalide.' }));
+      return false;
+    }
+    const dateIso = toIsoDate(contractsDialogDraft.date);
     if (!dateIso) {
       setErrors((prev) => ({ ...prev, contracts: 'La date de transaction est requise.' }));
       return false;
     }
 
     const fallbackDeviseId = Number(contractsDefaultDeviseId ?? contractsDevises[0]?.DVCLEUNIK ?? 0);
-    const deviseId = transactionUsesMoney
+    const deviseId = transactionUsesMoney && contractsDialogDraft.deviseId
       ? Number(contractsDialogDraft.deviseId)
       : fallbackDeviseId;
     if (!Number.isInteger(deviseId) || deviseId <= 0) {
@@ -613,11 +608,7 @@ export function JoueurFormDialog({
         ? Number(selectedContractSensOptions[0].value)
         : Number(selectedSens);
 
-    const echeanceIso = contractsDialogDraft.echeance ? toInputDateFromDisplay(contractsDialogDraft.echeance) : '';
-    if (transactionRequiresEcheance && !echeanceIso) {
-      setErrors((prev) => ({ ...prev, contracts: 'La date d echeance est requise pour ce type de transaction.' }));
-      return false;
-    }
+    const echeanceIso = toIsoDate(contractsDialogDraft.echeance);
 
     const salaireValue = transactionUsesSalaire
       ? (contractsDialogDraft.salaire.trim() ? Number(contractsDialogDraft.salaire.replace(',', '.')) : null)
@@ -645,7 +636,7 @@ export function JoueurFormDialog({
         salaire: salaireValue,
         indemnites: indemnitesValue,
         deviseId,
-        echeance: transactionRequiresEcheance ? echeanceIso : null,
+        echeance: transactionUsesEcheance && echeanceIso ? echeanceIso : null,
       };
 
       if (contractsDialogMode === 'create') {
@@ -823,6 +814,8 @@ export function JoueurFormDialog({
     if (!String(values.IDJOUEUR ?? '').trim()) nextErrors.IDJOUEUR = 'ID Joueur requis';
     if (!String(values.NOM ?? '').trim()) nextErrors.NOM = 'Nom requis';
     if (!String(values.PRENOM ?? '').trim()) nextErrors.PRENOM = 'Prénom requis';
+    if (isDateInvalid('NAISSANCE')) nextErrors.NAISSANCE = INVALID_DATE_MESSAGE;
+    if (isDateInvalid('DECES')) nextErrors.DECES = INVALID_DATE_MESSAGE;
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
       return false;
@@ -963,6 +956,7 @@ export function JoueurFormDialog({
             label="Né le"
             value={birthDateDisplay}
             onChange={(nextDate) => setValues((prev) => ({ ...prev, NAISSANCE: nextDate }))}
+            onValidityChange={dateValidityHandler('NAISSANCE')}
             sx={{ width: 152, flexShrink: 0 }}
             calendarAriaLabel="Calendrier naissance"
           />
@@ -986,6 +980,7 @@ export function JoueurFormDialog({
             label="Décédé le"
             value={deathDateDisplay}
             onChange={(nextDate) => setValues((prev) => ({ ...prev, DECES: nextDate }))}
+            onValidityChange={dateValidityHandler('DECES')}
             sx={{ width: 152, flexShrink: 0 }}
             calendarAriaLabel="Calendrier décès"
           />
@@ -1234,6 +1229,7 @@ export function JoueurFormDialog({
               label="Date"
               value={contractsDialogDraft.date}
               onChange={(nextDate) => setContractsDialogDraft((prev) => ({ ...prev, date: nextDate }))}
+              onValidityChange={dateValidityHandler('contractDate')}
               size="small"
               fullWidth
               calendarAriaLabel="Calendrier transaction"
@@ -1319,11 +1315,12 @@ export function JoueurFormDialog({
               </Stack>
             )}
 
-            {transactionRequiresEcheance ? (
+            {transactionUsesEcheance ? (
               <DateInputField
                 label="Echeance"
                 value={contractsDialogDraft.echeance}
                 onChange={(nextDate) => setContractsDialogDraft((prev) => ({ ...prev, echeance: nextDate }))}
+                onValidityChange={dateValidityHandler('contractEcheance')}
                 size="small"
                 fullWidth
                 calendarAriaLabel="Calendrier echeance"

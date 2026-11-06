@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { formatHeureDisplay } from '../../components/heureUtils';
-import { formatDateShort } from '../../components/DateInputField';
+import { formatDateShort } from '../../components/dateUtils';
 import { entityPath, entityPathForPublicMode } from '../../lib/entityNavigation';
 import { fetchClubMatches } from '../club/clubApi';
 import { ClubMatchStatsPanel } from '../club/ClubMatchStats';

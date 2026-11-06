@@ -34,7 +34,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { CompletenessChip } from '../../components/CompletenessChip';
-import { DateInputField, formatDateShort, toInputDateFromDisplay } from '../../components/DateInputField';
+import { DateInputField } from '../../components/DateInputField';
+import { formatDateShort, toIsoDate } from '../../components/dateUtils';
+import { useInvalidDateFields } from '../../components/useInvalidDateFields';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { NatioAutocomplete } from '../../components/NatioAutocomplete';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
@@ -222,40 +224,8 @@ function formatClubDate(value: unknown): string {
   return formatDateShort(value);
 }
 
-function formatDateForInput(value: unknown): string {
-  const text = String(value ?? '').trim();
-  const compact = text.match(/^(\d{4})(\d{2})(\d{2})$/);
-  if (compact) {
-    return `${compact[1]}/${compact[2]}/${compact[3]}`;
-  }
-  const dashed = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (dashed) {
-    return `${dashed[1]}/${dashed[2]}/${dashed[3]}`;
-  }
-  return '';
-}
-
 function formatDateForApi(value: string): string | null {
-  const text = String(value ?? '').trim();
-  if (!text) {
-    return null;
-  }
-
-  const genericDate = toInputDateFromDisplay(text);
-  if (genericDate) {
-    return genericDate;
-  }
-
-  const french = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (french) {
-    return `${french[3]}-${french[2]}-${french[1]}`;
-  }
-
-  const dashed = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (dashed) {
-    return `${dashed[1]}-${dashed[2]}-${dashed[3]}`;
-  }
-  return text || null;
+  return toIsoDate(value) || null;
 }
 
 function PalmareListItem({ row }: { row: ClubPalmareRow }) {
@@ -314,6 +284,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
   const [hasOpenedMatchesTab, setHasOpenedMatchesTab] = useState(false);
 
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
+  const { dateValidityHandler, isDateInvalid } = useInvalidDateFields();
   const [nameDialogOpen, setNameDialogOpen] = useState(false);
   const [nameDialogMode, setNameDialogMode] = useState<'create' | 'edit'>('create');
   const [nameDialogId, setNameDialogId] = useState<number | null>(null);
@@ -626,7 +597,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     }
     const eventType = Number(rowToEdit.CN_ACTION ?? 0);
     const nextDraft = {
-      date: formatDateForInput(rowToEdit.DATE),
+      date: toIsoDate(rowToEdit.DATE),
       eventType: eventType >= 1 && eventType <= 3 ? String(eventType) as '1' | '2' | '3' : '2',
       name: String(rowToEdit.CN_NOM ?? ''),
     };
@@ -650,6 +621,10 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     const name = String(nameDialogDraft.name ?? '').trim();
     const eventType = nameDialogDraft.eventType;
 
+    if (isDateInvalid('nameDate')) {
+      setSnackbar({ severity: 'error', message: 'La date est invalide.' });
+      return false;
+    }
     if (!name) {
       setSnackbar({ severity: 'error', message: 'Le nom est requis.' });
       return false;
@@ -715,7 +690,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     }
 
     const nextDraft = {
-      date: formatDateForInput(rowToEdit.DATE),
+      date: toIsoDate(rowToEdit.DATE),
       terrainId: String(rowToEdit.TECLEUNIK ?? ''),
       terrainName: String(rowToEdit.STADE ?? ''),
     };
@@ -738,6 +713,10 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     const date = formatDateForApi(terrainDialogDraft.date);
     const terrainId = String(terrainDialogDraft.terrainId ?? '').trim();
 
+    if (isDateInvalid('terrainDate')) {
+      setSnackbar({ severity: 'error', message: 'La date est invalide.' });
+      return false;
+    }
     if (!terrainId) {
       setSnackbar({ severity: 'error', message: 'Le stade est requis.' });
       return false;
@@ -1177,6 +1156,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
               label="Date"
               value={nameDialogDraft.date}
               onChange={(nextDate) => setNameDialogDraft((prev) => ({ ...prev, date: nextDate }))}
+              onValidityChange={dateValidityHandler('nameDate')}
               fullWidth
               calendarAriaLabel="Calendrier date"
             />
@@ -1231,6 +1211,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
               label="Date"
               value={terrainDialogDraft.date}
               onChange={(nextDate) => setTerrainDialogDraft((prev) => ({ ...prev, date: nextDate }))}
+              onValidityChange={dateValidityHandler('terrainDate')}
               fullWidth
               calendarAriaLabel="Calendrier date"
             />

@@ -28,7 +28,7 @@ import { DateGridEditor } from '../../components/DateGridEditor';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { MatchDataGrid } from '../../components/MatchDataGrid';
 import { buildMatchGridColumns } from '../../components/matchGridColumns';
-import { formatDateShort, fromInputDateToDisplay, toInputDateFromDisplay } from '../../components/DateInputField';
+import { formatDateShort, toIsoDate } from '../../components/dateUtils';
 import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { CompetitionFormDialog } from './CompetitionFormDialog';
@@ -453,7 +453,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
     setEditingHeureRowId(null);
     setEditingScoreRowId(null);
     setEditingDateRowId(item.RECLEUNIK);
-    setDateDraft(fromInputDateToDisplay(String(item.DATE ?? '')));
+    setDateDraft(toIsoDate(item.DATE));
   };
 
   const cancelDateEdit = () => {
@@ -461,15 +461,14 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
     setDateDraft('');
   };
 
-  const commitDateEdit = async (item: CalendrierRow, normalizedDisplayDate?: string): Promise<boolean> => {
+  const commitDateEdit = async (item: CalendrierRow, nextIsoDate?: string): Promise<boolean> => {
     const rowId = item.RECLEUNIK;
-    const displayDate = typeof normalizedDisplayDate === 'string' ? normalizedDisplayDate : dateDraft;
-    const isoDate = toInputDateFromDisplay(displayDate);
+    const isoDate = toIsoDate(typeof nextIsoDate === 'string' ? nextIsoDate : dateDraft);
     if (!isoDate) {
       setSnackbar({ severity: 'error', message: 'Date invalide.' });
       return false;
     }
-    if (isoDate === String(item.DATE ?? '')) {
+    if (isoDate === toIsoDate(item.DATE)) {
       setEditingDateRowId(null);
       return true;
     }
@@ -720,7 +719,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
             <DateGridEditor
               value={dateDraft}
               onChange={setDateDraft}
-              onCommit={(nextDisplayDate) => commitDateEdit(item, nextDisplayDate)}
+              onCommit={(nextIsoDate) => commitDateEdit(item, nextIsoDate)}
               onCancel={cancelDateEdit}
               onTabOut={(direction) => {
                 void handleDateTabOut(item, direction);

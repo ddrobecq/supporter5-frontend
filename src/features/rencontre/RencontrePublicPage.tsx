@@ -11,7 +11,7 @@ import type { GridColDef } from '@mui/x-data-grid';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArbitreIdentityDisplay } from '../../components/ArbitreIdentityDisplay';
-import { formatDateShort } from '../../components/DateInputField';
+import { formatDateShort } from '../../components/dateUtils';
 import { MatchDataGrid } from '../../components/MatchDataGrid';
 import { buildMatchGridColumns } from '../../components/matchGridColumns';
 import { PitchField, PitchPlayerAvatar, PitchPlayerMarker, PitchSlotShell, PITCH_SLOTS } from '../../components/PitchField';

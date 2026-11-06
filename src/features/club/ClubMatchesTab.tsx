@@ -2,7 +2,7 @@ import type { GridColDef } from '@mui/x-data-grid';
 import { Box, Stack } from '@mui/material';
 import { useCallback, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
-import { formatDateShort } from '../../components/DateInputField';
+import { formatDateShort } from '../../components/dateUtils';
 import { MatchDataGrid } from '../../components/MatchDataGrid';
 import { buildMatchGridColumns, type MatchGridBaseRow } from '../../components/matchGridColumns';
 import { ClubSelectField } from '../../components/ClubSelectField';

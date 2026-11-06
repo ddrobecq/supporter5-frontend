@@ -1,26 +1,5 @@
-import { formatDateShort } from '../../components/DateInputField';
+import { formatDateShort } from '../../components/dateUtils';
 import type { TourMatchRow, TourParticipantRow } from './types';
-
-export function normalizeDate(value: string): string {
-  const trimmed = String(value ?? '').trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    return trimmed;
-  }
-  return '';
-}
-
-export function parseDateInput(value: unknown): string {
-  const trimmed = String(value ?? '').trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    return trimmed;
-  }
-  const frenchMatch = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(trimmed);
-  if (frenchMatch) {
-    const [, dd, mm, yyyy] = frenchMatch;
-    return `${yyyy}-${mm}-${dd}`;
-  }
-  return '';
-}
 
 export function formatDateDisplay(value: unknown): string {
   return formatDateShort(value);

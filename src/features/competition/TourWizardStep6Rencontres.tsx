@@ -24,6 +24,7 @@ import { useGridApiRef, type GridColDef, type GridRenderEditCellParams, type Gri
 import { type Dispatch, type KeyboardEvent, type SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
 import { ClubCell } from '../../components/ClubCell';
 import { DateGridEditor } from '../../components/DateGridEditor';
+import { INVALID_DATE_MESSAGE, toIsoDate } from '../../components/dateUtils';
 import { HeureGridEditorCell } from '../../components/HeureGridEditorCell';
 import { MatchDataGrid } from '../../components/MatchDataGrid';
 import { toErrorMessage } from '../../components/useEntityPage';
@@ -55,9 +56,7 @@ import {
   formatHeureDisplay,
   getParticipantIdentityKey,
   normalizeCircId,
-  normalizeDate,
   normalizeHeure,
-  parseDateInput,
 } from './tourWizardRencontresUtils';
 import { buildAdjacentSelectionState, getAdjacentSelectionValue } from './tourWizardSelection';
 import { useProgrammedParticipantResolver } from './useProgrammedParticipantLabels';
@@ -524,18 +523,18 @@ export function TourWizardStep6Rencontres({
       return oldRow;
     }
 
-    const nextDate = normalizeDate(parseDateInput(newRow.DATE));
+    const nextDate = toIsoDate(newRow.DATE);
     const rawHeure = String(newRow.HEURE ?? '').trim();
     const nextHeure = rawHeure ? normalizeHeure(rawHeure) : null;
 
     if (!nextDate) {
-      throw new Error('Date invalide. Format attendu: DD/MM/YYYY.');
+      throw new Error(`${INVALID_DATE_MESSAGE}.`);
     }
     if (rawHeure && !nextHeure) {
       throw new Error('Heure invalide. Format attendu: HHhMM.');
     }
 
-    const prevDate = normalizeDate(parseDateInput(oldRow.DATE));
+    const prevDate = toIsoDate(oldRow.DATE);
     const prevHeure = normalizeHeure(oldRow.HEURE) || null;
     const updatedRow: RencontresGridModelRow = { ...newRow, DATE: nextDate, HEURE: nextHeure };
 
@@ -583,7 +582,7 @@ export function TourWizardStep6Rencontres({
       const lastMatch = filteredRencontreRows.length > 0
         ? filteredRencontreRows[filteredRencontreRows.length - 1]
         : undefined;
-      const startDate = normalizeDate(lastMatch?.DATE ?? '') || normalizeDate(tourStartDate) || new Date().toISOString().slice(0, 10);
+      const startDate = toIsoDate(lastMatch?.DATE) || toIsoDate(tourStartDate) || new Date().toISOString().slice(0, 10);
       const startHeure = normalizeHeure(lastMatch?.HEURE ?? '') || normalizeHeure(tourDefaultHeure) || null;
       setPending({
         date: startDate,
@@ -679,7 +678,7 @@ export function TourWizardStep6Rencontres({
       return;
     }
 
-    const endDate = normalizeDate(tourEndDate);
+    const endDate = toIsoDate(tourEndDate);
     if (!endDate) {
       onError?.('La date de fin du tour est requise pour creer les matches retour.');
       return;

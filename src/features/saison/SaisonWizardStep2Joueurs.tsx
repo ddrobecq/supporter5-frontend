@@ -2,7 +2,7 @@ import { Box, Stack, Typography } from '@mui/material';
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useMemo } from 'react';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
-import { formatDateShort } from '../../components/DateInputField';
+import { formatDateShort } from '../../components/dateUtils';
 import { JoueurIdentityDisplay } from '../../components/JoueurIdentityDisplay';
 import { wizardGridBoxSx, wizardGridFillSx } from '../competition/tourWizardLayout';
 import type { SaisonWizardJoueurRow } from './types';

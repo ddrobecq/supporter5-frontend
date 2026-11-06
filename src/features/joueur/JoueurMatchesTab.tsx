@@ -7,7 +7,7 @@ import SquareRoundedIcon from '@mui/icons-material/SquareRounded';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
 import { Autocomplete, Box, CircularProgress, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
-import { formatDateShort } from '../../components/DateInputField';
+import { formatDateShort } from '../../components/dateUtils';
 import { MatchDataGrid } from '../../components/MatchDataGrid';
 import { buildMatchGridColumns } from '../../components/matchGridColumns';
 import { useEntityImage } from '../../lib/useEntityImage';
