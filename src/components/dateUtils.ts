@@ -47,16 +47,19 @@ export function isValidCalendarDate(year: number, month: number, day: number): b
     && date.getUTCDate() === day;
 }
 
+/** Oldest accepted year, kept in sync with the API (back/src/lib/dates.ts). */
+export const MIN_DATE_YEAR = 1800;
+
 /** Returns the first part preventing the parts from forming a complete, real calendar date. */
 export function findInvalidDatePart(parts: DateParts): DatePart | null {
   if (parts.day.length !== 2) return 'day';
   if (parts.month.length !== 2) return 'month';
-  if (parts.year.length !== 4) return 'year';
+  if (parts.year.length !== 4 || Number(parts.year) < MIN_DATE_YEAR) return 'year';
   if (!isValidCalendarDate(Number(parts.year), Number(parts.month), Number(parts.day))) return 'day';
   return null;
 }
 
-/** ISO `YYYY-MM-DD` for a complete valid date, '' when all parts are empty, null otherwise. */
+/** ISO `YYYY-MM-DD` for a complete valid date (year >= MIN_DATE_YEAR), '' when all parts are empty, null otherwise. */
 export function serializeDateParts(parts: DateParts): string | null {
   if (isEmptyDateParts(parts)) return '';
   if (findInvalidDatePart(parts)) return null;
