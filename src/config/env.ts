@@ -31,4 +31,5 @@ export const env = {
   rssPublicResource: import.meta.env.VITE_RSS_PUBLIC_RESOURCE ?? '/api/rss',
   rssAdminResource: import.meta.env.VITE_RSS_ADMIN_RESOURCE ?? '/api/admin/rss',
   statsPublicResource: import.meta.env.VITE_STATS_PUBLIC_RESOURCE ?? '/api/stats',
+  rencontreAdminResource: import.meta.env.VITE_RENCONTRE_ADMIN_RESOURCE ?? '/api/admin/rencontres',
 };

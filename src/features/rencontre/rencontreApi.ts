@@ -1,3 +1,4 @@
+import { env } from '../../config/env';
 import { http } from '../../lib/http';
 import type { TourMatchRow } from '../competition/types';
 import type { CompositionMap, OnThisDayMatchRow, RencontreDetailRow, RencontreHighlightsRow, SquadPlayerRow, TourMatchWithNamesRow } from './types';
@@ -43,7 +44,7 @@ export async function fetchRencontreComposition(rencontreId: string | number, si
 }
 
 export async function saveRencontreComposition(rencontreId: string | number, payload: CompositionMap): Promise<void> {
-  await http.put(`/api/rencontres/${encodeURIComponent(String(rencontreId))}/composition`, payload);
+  await http.put(`${env.rencontreAdminResource}/${encodeURIComponent(String(rencontreId))}/composition`, payload);
 }
 
 export async function fetchRencontreSquad(rencontreId: string | number, signal?: AbortSignal): Promise<SquadPlayerRow[]> {
@@ -92,20 +93,20 @@ export interface EventPayload {
 }
 
 export async function createRencontreEvent(rencontreId: string | number, payload: EventPayload): Promise<RencontreHighlightsRow> {
-  const { data } = await http.post<RencontreHighlightsRow>(`/api/rencontres/${encodeURIComponent(String(rencontreId))}/events`, payload);
+  const { data } = await http.post<RencontreHighlightsRow>(`${env.rencontreAdminResource}/${encodeURIComponent(String(rencontreId))}/events`, payload);
   return data;
 }
 
 export async function updateRencontreEvent(rencontreId: string | number, evcleunik: number, payload: EventPayload): Promise<RencontreHighlightsRow> {
-  const { data } = await http.put<RencontreHighlightsRow>(`/api/rencontres/${encodeURIComponent(String(rencontreId))}/events/${evcleunik}`, payload);
+  const { data } = await http.put<RencontreHighlightsRow>(`${env.rencontreAdminResource}/${encodeURIComponent(String(rencontreId))}/events/${evcleunik}`, payload);
   return data;
 }
 
 export async function deleteRencontreEvent(rencontreId: string | number, evcleunik: number): Promise<RencontreHighlightsRow> {
-  const { data } = await http.delete<RencontreHighlightsRow>(`/api/rencontres/${encodeURIComponent(String(rencontreId))}/events/${evcleunik}`);
+  const { data } = await http.delete<RencontreHighlightsRow>(`${env.rencontreAdminResource}/${encodeURIComponent(String(rencontreId))}/events/${evcleunik}`);
   return data;
 }
 
 export async function recomputeRencontreStats(rencontreId: string | number): Promise<void> {
-  await http.post(`/api/rencontres/${encodeURIComponent(String(rencontreId))}/recompute-stats`);
+  await http.post(`${env.rencontreAdminResource}/${encodeURIComponent(String(rencontreId))}/recompute-stats`);
 }
