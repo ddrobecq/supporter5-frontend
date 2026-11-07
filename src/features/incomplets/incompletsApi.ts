@@ -95,6 +95,7 @@ export interface RencontreIncompleteRow {
   BUTEURS_CLUB_INCONNUS: number;
   MINUTES_BUTS_INCONNUES: number;
   REMPLACEMENTS_INCOMPLETS: number;
+  EVENEMENTS_INCOHERENTS: number;
   CLUBS_INCOHERENTS: number;
   DESYNCHRO: number;
 }
@@ -114,6 +115,7 @@ export const RENCONTRE_INCOMPLETE_CATEGORIES: Array<{
   { key: 'buteurs-club', label: 'Buteurs du club inconnus', flag: 'BUTEURS_CLUB_INCONNUS' },
   { key: 'minutes-buts', label: 'Minutes de buts inconnues', flag: 'MINUTES_BUTS_INCONNUES' },
   { key: 'remplacements', label: 'Remplacements incomplets', flag: 'REMPLACEMENTS_INCOMPLETS' },
+  { key: 'evenements', label: 'Événements incohérents', flag: 'EVENEMENTS_INCOHERENTS' },
   { key: 'clubs', label: 'Clubs incohérents', flag: 'CLUBS_INCOHERENTS' },
   { key: 'desynchro', label: 'Désynchronisation RENCO / MATCH', flag: 'DESYNCHRO' },
 ];

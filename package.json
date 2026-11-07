@@ -1,7 +1,7 @@
 {
   "name": "front",
   "private": true,
-  "version": "5.38.3",
+  "version": "5.39.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
