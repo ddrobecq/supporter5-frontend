@@ -81,8 +81,8 @@ const FIN_PROLONG_OPTIONS = [
 
 const BONUS_TYPE_OPTIONS = [
   { value: 1, label: 'Aucun' },
-  { value: 2, label: 'sur nombre de buts marques (bonus si superieur)' },
-  { value: 3, label: 'sur difference de buts (bonus si superieur)' },
+  { value: 2, label: 'sur nombre de buts marques (bonus si superieur ou egal)' },
+  { value: 3, label: 'sur difference de buts (bonus si superieur ou egal)' },
   { value: 4, label: 'sur nombre de buts marques (bonus par but)' },
 ];
 
