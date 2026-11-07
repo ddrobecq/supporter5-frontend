@@ -1,6 +1,7 @@
 import { env } from '../../config/env';
 import { normalizeImagePayload, updateEntityImageWithFallback } from '../../lib/entityImageApi';
 import { http } from '../../lib/http';
+import { encodePathSegment } from '../../lib/urlPath';
 import type { NatioRow, PaginatedResponse } from './types';
 
 export interface IntegrityConstraint {
@@ -63,13 +64,13 @@ export async function fetchNatio(search: string, signal?: AbortSignal): Promise<
 }
 
 export async function fetchNatioById(id: string | number): Promise<NatioRow> {
-  const { data } = await http.get<NatioRow>(`${env.natioPublicResource}/${id}`);
+  const { data } = await http.get<NatioRow>(`${env.natioPublicResource}/${encodePathSegment(id)}`);
   return data;
 }
 
 export async function canDeleteNatio(id: string | number): Promise<CanDeleteResponse> {
   const { data } = await http.get<CanDeleteResponse>(
-    `${env.natioAdminResource}/${id}/can-delete`,
+    `${env.natioAdminResource}/${encodePathSegment(id)}/can-delete`,
   );
   return data;
 }
@@ -83,7 +84,7 @@ export async function createNatio(payload: NatioRow): Promise<NatioRow | undefin
     const id = (data?.IDNATIO ?? entityPayload.IDNATIO) as string | number | undefined;
     if (id !== undefined && id !== null && String(id).trim() !== '') {
       await updateEntityImageWithFallback('natio', id, image, async () => {
-        await http.put(`${env.natioAdminResource}/${id}`, { NAT_DRAPEAU: image });
+        await http.put(`${env.natioAdminResource}/${encodePathSegment(id)}`, { NAT_DRAPEAU: image });
       });
     }
   }
@@ -94,11 +95,11 @@ export async function createNatio(payload: NatioRow): Promise<NatioRow | undefin
 export async function updateNatio(id: string | number, payload: NatioRow): Promise<NatioRow | undefined> {
   const image = normalizeImagePayload(payload.NAT_DRAPEAU);
   const { NAT_DRAPEAU: _flag, ...entityPayload } = payload;
-  const { data } = await http.put<NatioRow>(`${env.natioAdminResource}/${id}`, entityPayload);
+  const { data } = await http.put<NatioRow>(`${env.natioAdminResource}/${encodePathSegment(id)}`, entityPayload);
 
   if (image !== undefined) {
     await updateEntityImageWithFallback('natio', id, image, async () => {
-      await http.put(`${env.natioAdminResource}/${id}`, { NAT_DRAPEAU: image });
+      await http.put(`${env.natioAdminResource}/${encodePathSegment(id)}`, { NAT_DRAPEAU: image });
     });
   }
 
@@ -106,5 +107,5 @@ export async function updateNatio(id: string | number, payload: NatioRow): Promi
 }
 
 export async function deleteNatio(id: string | number): Promise<void> {
-  await http.delete(`${env.natioAdminResource}/${id}`);
+  await http.delete(`${env.natioAdminResource}/${encodePathSegment(id)}`);
 }

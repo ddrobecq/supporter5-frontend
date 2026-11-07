@@ -1,5 +1,6 @@
 import { env } from '../../config/env';
 import { http } from '../../lib/http';
+import { encodePathSegment } from '../../lib/urlPath';
 import type { DeviseRow, PaginatedResponse } from './types';
 
 export interface IntegrityConstraint {
@@ -22,12 +23,12 @@ export async function fetchDevise(search: string, signal?: AbortSignal): Promise
 }
 
 export async function fetchDeviseById(id: string | number): Promise<DeviseRow> {
-  const { data } = await http.get<DeviseRow>(`${env.devisePublicResource}/${id}`);
+  const { data } = await http.get<DeviseRow>(`${env.devisePublicResource}/${encodePathSegment(id)}`);
   return data;
 }
 
 export async function canDeleteDevise(id: string | number): Promise<CanDeleteResponse> {
-  const { data } = await http.get<CanDeleteResponse>(`${env.deviseAdminResource}/${id}/can-delete`);
+  const { data } = await http.get<CanDeleteResponse>(`${env.deviseAdminResource}/${encodePathSegment(id)}/can-delete`);
   return data;
 }
 
@@ -37,10 +38,10 @@ export async function createDevise(payload: DeviseRow): Promise<DeviseRow | unde
 }
 
 export async function updateDevise(id: string | number, payload: DeviseRow): Promise<DeviseRow | undefined> {
-  const { data } = await http.put<DeviseRow>(`${env.deviseAdminResource}/${id}`, payload);
+  const { data } = await http.put<DeviseRow>(`${env.deviseAdminResource}/${encodePathSegment(id)}`, payload);
   return data;
 }
 
 export async function deleteDevise(id: string | number): Promise<void> {
-  await http.delete(`${env.deviseAdminResource}/${id}`);
+  await http.delete(`${env.deviseAdminResource}/${encodePathSegment(id)}`);
 }

@@ -2,6 +2,7 @@ import ArticleRoundedIcon from '@mui/icons-material/ArticleRounded';
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded';
 import { Box, Chip, Link, Paper, Stack, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
+import { isHttpUrl } from '../../lib/safeUrl';
 import { fetchActualites, type Actualite, type ActualiteCategorie } from './actualitesApi';
 
 const CATEGORY_COLORS: Record<ActualiteCategorie, 'default' | 'primary' | 'error' | 'success' | 'warning'> = {
@@ -46,17 +47,23 @@ function ActualiteRow({ actualite }: { actualite: Actualite }) {
             {formatPublicationDate(actualite.publieLe)} · {actualite.source}
           </Typography>
         </Stack>
-        <Link
-          href={actualite.lien}
-          target="_blank"
-          rel="noreferrer"
-          underline="hover"
-          color="text.primary"
-          sx={{ display: 'inline-flex', alignItems: 'flex-start', gap: 0.5, fontWeight: 800, lineHeight: 1.3 }}
-        >
-          <span>{actualite.titre}</span>
-          <OpenInNewRoundedIcon sx={{ fontSize: 15, mt: 0.15, flexShrink: 0 }} />
-        </Link>
+        {isHttpUrl(actualite.lien) ? (
+          <Link
+            href={actualite.lien}
+            target="_blank"
+            rel="noreferrer"
+            underline="hover"
+            color="text.primary"
+            sx={{ display: 'inline-flex', alignItems: 'flex-start', gap: 0.5, fontWeight: 800, lineHeight: 1.3 }}
+          >
+            <span>{actualite.titre}</span>
+            <OpenInNewRoundedIcon sx={{ fontSize: 15, mt: 0.15, flexShrink: 0 }} />
+          </Link>
+        ) : (
+          <Typography color="text.primary" sx={{ fontWeight: 800, lineHeight: 1.3 }}>
+            {actualite.titre}
+          </Typography>
+        )}
         {actualite.extrait ? <Typography variant="body2" color="text.secondary" sx={{ mt: 0.45, lineHeight: 1.45 }}>{actualite.extrait}</Typography> : null}
       </Box>
     </Box>

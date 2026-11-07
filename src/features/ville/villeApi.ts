@@ -1,5 +1,6 @@
 import { env } from '../../config/env';
 import { http } from '../../lib/http';
+import { encodePathSegment } from '../../lib/urlPath';
 import type { VilleRow, PaginatedResponse } from './types';
 
 export interface IntegrityConstraint {
@@ -62,13 +63,13 @@ export async function fetchVille(search: string, signal?: AbortSignal): Promise<
 }
 
 export async function fetchVilleById(id: string | number): Promise<VilleRow> {
-  const { data } = await http.get<VilleRow>(`${env.villePublicResource}/${id}`);
+  const { data } = await http.get<VilleRow>(`${env.villePublicResource}/${encodePathSegment(id)}`);
   return data;
 }
 
 export async function canDeleteVille(id: string | number): Promise<CanDeleteResponse> {
   const { data } = await http.get<CanDeleteResponse>(
-    `${env.villeAdminResource}/${id}/can-delete`,
+    `${env.villeAdminResource}/${encodePathSegment(id)}/can-delete`,
   );
   return data;
 }
@@ -79,10 +80,10 @@ export async function createVille(payload: VilleRow): Promise<VilleRow | undefin
 }
 
 export async function updateVille(id: string | number, payload: VilleRow): Promise<VilleRow | undefined> {
-  const { data } = await http.put<VilleRow>(`${env.villeAdminResource}/${id}`, payload);
+  const { data } = await http.put<VilleRow>(`${env.villeAdminResource}/${encodePathSegment(id)}`, payload);
   return data;
 }
 
 export async function deleteVille(id: string | number): Promise<void> {
-  await http.delete(`${env.villeAdminResource}/${id}`);
+  await http.delete(`${env.villeAdminResource}/${encodePathSegment(id)}`);
 }

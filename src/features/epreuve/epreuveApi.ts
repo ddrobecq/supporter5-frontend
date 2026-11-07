@@ -1,6 +1,7 @@
 import { env } from '../../config/env';
 import { normalizeImagePayload, updateEntityImageWithFallback } from '../../lib/entityImageApi';
 import { http } from '../../lib/http';
+import { encodePathSegment } from '../../lib/urlPath';
 import type { EpreuveCreateWizardPayload, EpreuveRow, EpreuveSuggestionRow, PaginatedResponse } from './types';
 
 export interface IntegrityConstraint {
@@ -23,7 +24,7 @@ export async function fetchEpreuve(search: string, signal?: AbortSignal): Promis
 }
 
 export async function fetchEpreuveById(id: string | number): Promise<EpreuveRow> {
-  const { data } = await http.get<EpreuveRow>(`${env.epreuvePublicResource}/${id}`);
+  const { data } = await http.get<EpreuveRow>(`${env.epreuvePublicResource}/${encodePathSegment(id)}`);
   return data;
 }
 
@@ -37,7 +38,7 @@ export async function fetchEpreuveSuggestions(search: string, signal?: AbortSign
 }
 
 export async function canDeleteEpreuve(id: string | number): Promise<CanDeleteResponse> {
-  const { data } = await http.get<CanDeleteResponse>(`${env.epreuveAdminResource}/${id}/can-delete`);
+  const { data } = await http.get<CanDeleteResponse>(`${env.epreuveAdminResource}/${encodePathSegment(id)}/can-delete`);
   return data;
 }
 
@@ -50,7 +51,7 @@ export async function createEpreuve(payload: EpreuveRow): Promise<EpreuveRow | u
     const id = (data?.IDEPREUVE ?? entityPayload.IDEPREUVE) as string | number | undefined;
     if (id !== undefined && id !== null && String(id).trim() !== '') {
       await updateEntityImageWithFallback('epreuve', id, image, async () => {
-        await http.put(`${env.epreuveAdminResource}/${id}`, { EPR_VISUEL: image });
+        await http.put(`${env.epreuveAdminResource}/${encodePathSegment(id)}`, { EPR_VISUEL: image });
       });
     }
   }
@@ -66,11 +67,11 @@ export async function createEpreuveWithWizard(payload: EpreuveCreateWizardPayloa
 export async function updateEpreuve(id: string | number, payload: EpreuveRow): Promise<EpreuveRow | undefined> {
   const image = normalizeImagePayload(payload.EPR_VISUEL);
   const { EPR_VISUEL: _visual, ...entityPayload } = payload;
-  const { data } = await http.put<EpreuveRow>(`${env.epreuveAdminResource}/${id}`, entityPayload);
+  const { data } = await http.put<EpreuveRow>(`${env.epreuveAdminResource}/${encodePathSegment(id)}`, entityPayload);
 
   if (image !== undefined) {
     await updateEntityImageWithFallback('epreuve', id, image, async () => {
-      await http.put(`${env.epreuveAdminResource}/${id}`, { EPR_VISUEL: image });
+      await http.put(`${env.epreuveAdminResource}/${encodePathSegment(id)}`, { EPR_VISUEL: image });
     });
   }
 
@@ -78,5 +79,5 @@ export async function updateEpreuve(id: string | number, payload: EpreuveRow): P
 }
 
 export async function deleteEpreuve(id: string | number): Promise<void> {
-  await http.delete(`${env.epreuveAdminResource}/${id}`);
+  await http.delete(`${env.epreuveAdminResource}/${encodePathSegment(id)}`);
 }

@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { toErrorMessage } from '../../components/useEntityPage';
+import { formatUploadLimitError, UPLOAD_LIMITS } from '../../config/uploadLimits';
 import {
   fetchCompetition,
   fetchCompetitionToursPublic,
@@ -132,6 +133,10 @@ export function RencontreImportWizardDialog({ open, onClose, onReady }: Rencontr
   const handleFileChange = async (file: File | undefined) => {
     if (!file) return;
     setErrorMessage('');
+    if (file.size > UPLOAD_LIMITS.csvImport) {
+      setErrorMessage(formatUploadLimitError('Le fichier CSV', file.size, UPLOAD_LIMITS.csvImport));
+      return;
+    }
     try {
       const text = await file.text();
       const next = parseCsv(text);

@@ -24,6 +24,7 @@ import { useEffect, useState } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
 import { http } from '../../lib/http';
 import { toErrorMessage } from '../../components/useEntityPage';
+import { formatUploadLimitError, UPLOAD_LIMITS } from '../../config/uploadLimits';
 import { formatDateTimeFr } from '../../lib/formatDate';
 import { getStoredDirectoryHandle } from './backupDirectoryStore';
 import { forceBackupNow, isFileSystemAccessSupported, pickBackupDirectory } from './backupRunner';
@@ -131,6 +132,11 @@ export function BackendMaintenancePage() {
 
     if (!isAllowedSqliteFile(file)) {
       setErrorMessage('Extension non supportee. Utilisez un fichier .sqlite ou .db.');
+      return;
+    }
+
+    if (file.size > UPLOAD_LIMITS.sqliteDatabase) {
+      setErrorMessage(formatUploadLimitError('La base SQLite', file.size, UPLOAD_LIMITS.sqliteDatabase));
       return;
     }
 

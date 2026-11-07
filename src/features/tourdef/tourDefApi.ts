@@ -1,5 +1,6 @@
 import { env } from '../../config/env';
 import { http } from '../../lib/http';
+import { encodePathSegment } from '../../lib/urlPath';
 import type { TourDefRow, PaginatedResponse } from './types';
 
 export interface IntegrityConstraint {
@@ -28,7 +29,7 @@ export async function fetchTourDefs(search: string, signal?: AbortSignal): Promi
 }
 
 export async function fetchTourDefById(id: string | number): Promise<TourDefRow> {
-  const { data } = await http.get<TourDefRow>(`${env.tourDefPublicResource}/${id}`);
+  const { data } = await http.get<TourDefRow>(`${env.tourDefPublicResource}/${encodePathSegment(id)}`);
   return data;
 }
 
@@ -38,12 +39,12 @@ export async function createTourDef(payload: TourDefRow): Promise<TourDefRow | u
 }
 
 export async function updateTourDef(id: string | number, payload: TourDefRow): Promise<TourDefRow | undefined> {
-  const { data } = await http.put<TourDefRow>(`${env.tourDefAdminResource}/${id}`, payload);
+  const { data } = await http.put<TourDefRow>(`${env.tourDefAdminResource}/${encodePathSegment(id)}`, payload);
   return data;
 }
 
 export async function deleteTourDef(id: string | number): Promise<void> {
-  await http.delete(`${env.tourDefAdminResource}/${id}`);
+  await http.delete(`${env.tourDefAdminResource}/${encodePathSegment(id)}`);
 }
 
 export async function canDeleteTourDef(_id: string | number): Promise<CanDeleteResponse> {

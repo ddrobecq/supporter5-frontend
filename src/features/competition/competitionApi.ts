@@ -1,6 +1,7 @@
 import { env } from '../../config/env';
 import { normalizeImagePayload, updateEntityImageWithFallback } from '../../lib/entityImageApi';
 import { http } from '../../lib/http';
+import { encodePathSegment } from '../../lib/urlPath';
 import type {
   CompetitionCreateWizardPayload,
   CompetitionRow,
@@ -48,7 +49,7 @@ export async function fetchCompetition(
 }
 
 export async function fetchCompetitionById(id: string | number): Promise<CompetitionRow> {
-  const { data } = await http.get<CompetitionRow>(`${env.competitionPublicResource}/${id}`);
+  const { data } = await http.get<CompetitionRow>(`${env.competitionPublicResource}/${encodePathSegment(id)}`);
   return data;
 }
 
@@ -74,18 +75,18 @@ export async function fetchCompetitionWizardData(signal?: AbortSignal): Promise<
 }
 
 export async function canDeleteCompetition(id: string | number): Promise<CanDeleteResponse> {
-  const { data } = await http.get<CanDeleteResponse>(`${env.competitionAdminResource}/${id}/can-delete`);
+  const { data } = await http.get<CanDeleteResponse>(`${env.competitionAdminResource}/${encodePathSegment(id)}/can-delete`);
   return data;
 }
 
 export async function updateCompetition(id: string | number, payload: CompetitionRow): Promise<CompetitionRow | undefined> {
   const image = normalizeImagePayload(payload.LOGO);
   const { LOGO: _logo, ...entityPayload } = payload;
-  const { data } = await http.put<CompetitionRow>(`${env.competitionAdminResource}/${id}`, entityPayload);
+  const { data } = await http.put<CompetitionRow>(`${env.competitionAdminResource}/${encodePathSegment(id)}`, entityPayload);
 
   if (image !== undefined) {
     await updateEntityImageWithFallback('competition', id, image, async () => {
-      await http.put(`${env.competitionAdminResource}/${id}`, { LOGO: image });
+      await http.put(`${env.competitionAdminResource}/${encodePathSegment(id)}`, { LOGO: image });
     });
   }
 
@@ -98,39 +99,39 @@ export async function createCompetitionWithWizard(payload: CompetitionCreateWiza
 }
 
 export async function deleteCompetition(id: string | number): Promise<void> {
-  await http.delete(`${env.competitionAdminResource}/${id}`);
+  await http.delete(`${env.competitionAdminResource}/${encodePathSegment(id)}`);
 }
 
 export async function fetchCompetitionTours(competitionId: string | number): Promise<CompetitionTourRow[]> {
   const { data } = await http.get<{ data: CompetitionTourRow[] }>(
-    `${env.tourAdminResource}/competition/${competitionId}`,
+    `${env.tourAdminResource}/competition/${encodePathSegment(competitionId)}`,
   );
   return data.data ?? [];
 }
 
 export async function fetchCompetitionToursPublic(competitionId: string | number): Promise<CompetitionTourRow[]> {
   const { data } = await http.get<{ data: CompetitionTourRow[] }>(
-    `${env.tourPublicResource}/competition/${competitionId}`,
+    `${env.tourPublicResource}/competition/${encodePathSegment(competitionId)}`,
   );
   return data.data ?? [];
 }
 
 export async function canDeleteCompetitionTour(tourId: string | number): Promise<CanDeleteResponse> {
-  const { data } = await http.get<CanDeleteResponse>(`${env.tourAdminResource}/${tourId}/can-delete`);
+  const { data } = await http.get<CanDeleteResponse>(`${env.tourAdminResource}/${encodePathSegment(tourId)}/can-delete`);
   return data;
 }
 
 export async function deleteCompetitionTour(tourId: string | number): Promise<void> {
-  await http.delete(`${env.tourAdminResource}/${tourId}`);
+  await http.delete(`${env.tourAdminResource}/${encodePathSegment(tourId)}`);
 }
 
 export async function moveCompetitionTour(tourId: string | number, direction: 'up' | 'down'): Promise<CompetitionTourRow[]> {
-  const { data } = await http.patch<{ data: CompetitionTourRow[] }>(`${env.tourAdminResource}/${tourId}/move`, { direction });
+  const { data } = await http.patch<{ data: CompetitionTourRow[] }>(`${env.tourAdminResource}/${encodePathSegment(tourId)}/move`, { direction });
   return data.data ?? [];
 }
 
 export async function fetchCompetitionTourById(tourId: string | number): Promise<CompetitionTourDetailRow> {
-  const { data } = await http.get<CompetitionTourDetailRow>(`${env.tourPublicResource}/${tourId}/detail`);
+  const { data } = await http.get<CompetitionTourDetailRow>(`${env.tourPublicResource}/${encodePathSegment(tourId)}/detail`);
   return data;
 }
 
@@ -140,7 +141,7 @@ export async function createCompetitionTour(payload: CompetitionTourUpsertPayloa
 }
 
 export async function updateCompetitionTour(tourId: string | number, payload: CompetitionTourUpsertPayload): Promise<CompetitionTourDetailRow | undefined> {
-  const { data } = await http.put<CompetitionTourDetailRow>(`${env.tourAdminResource}/${tourId}`, payload);
+  const { data } = await http.put<CompetitionTourDetailRow>(`${env.tourAdminResource}/${encodePathSegment(tourId)}`, payload);
   return data;
 }
 
@@ -158,7 +159,7 @@ export async function fetchTourDefsByType(typeId: number): Promise<TourDefRow[]>
 }
 
 export async function fetchTourDefById(tourDefId: string | number): Promise<TourDefRow> {
-  const { data } = await http.get<TourDefRow>(`${env.apiBaseUrl}/api/tourdefs/${tourDefId}`);
+  const { data } = await http.get<TourDefRow>(`${env.apiBaseUrl}/api/tourdefs/${encodePathSegment(tourDefId)}`);
   return data;
 }
 
@@ -192,7 +193,7 @@ export async function createTourDef(payload: CreateTourDefPayload): Promise<Tour
 }
 
 export async function fetchTourParticipants(tourId: string | number): Promise<TourParticipantRow[]> {
-  const { data } = await http.get<{ data: TourParticipantRow[] }>(`${env.tourAdminResource}/${tourId}/participants`);
+  const { data } = await http.get<{ data: TourParticipantRow[] }>(`${env.tourAdminResource}/${encodePathSegment(tourId)}/participants`);
   return data.data ?? [];
 }
 
@@ -202,7 +203,7 @@ export async function addTourParticipant(
   groupe = '',
   paSource = '',
 ): Promise<TourParticipantRow> {
-  const { data } = await http.post<TourParticipantRow>(`${env.tourAdminResource}/${tourId}/participants`, {
+  const { data } = await http.post<TourParticipantRow>(`${env.tourAdminResource}/${encodePathSegment(tourId)}/participants`, {
     clubId,
     groupe,
     paSource,
@@ -215,7 +216,7 @@ export async function removeTourParticipants(
   clubIds: string[],
   participantIds: Array<string | number> = [],
 ): Promise<number> {
-  const { data } = await http.delete<{ removed: number }>(`${env.tourAdminResource}/${tourId}/participants`, {
+  const { data } = await http.delete<{ removed: number }>(`${env.tourAdminResource}/${encodePathSegment(tourId)}/participants`, {
     data: { clubIds, participantIds },
   });
   return Number(data.removed ?? 0);
@@ -239,7 +240,7 @@ export async function fetchCircByTourType(typeId: number): Promise<CircOptionRow
 }
 
 export async function fetchTourRencontres(tourId: string | number): Promise<TourMatchRow[]> {
-  const { data } = await http.get<{ data: TourMatchRow[] }>(`${env.tourAdminResource}/${tourId}/rencontres`);
+  const { data } = await http.get<{ data: TourMatchRow[] }>(`${env.tourAdminResource}/${encodePathSegment(tourId)}/rencontres`);
   return data.data ?? [];
 }
 
@@ -296,5 +297,5 @@ export async function deleteTourRencontre(rencontreId: string | number): Promise
 
 /** Recalcule stats et classements du tour, puis resout les participants programmes qui en dependent. */
 export async function recomputeTour(tourId: string | number): Promise<void> {
-  await http.post(`${env.tourAdminResource}/${tourId}/recompute`);
+  await http.post(`${env.tourAdminResource}/${encodePathSegment(tourId)}/recompute`);
 }

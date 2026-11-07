@@ -5,11 +5,12 @@ import HealingRoundedIcon from '@mui/icons-material/HealingRounded';
 import ReportRoundedIcon from '@mui/icons-material/ReportRounded';
 import SquareRoundedIcon from '@mui/icons-material/SquareRounded';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
-import { Autocomplete, Box, CircularProgress, Stack, TextField, Tooltip, Typography } from '@mui/material';
+import { Alert, Autocomplete, Box, CircularProgress, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { formatDateShort } from '../../components/dateUtils';
 import { MatchDataGrid } from '../../components/MatchDataGrid';
 import { buildMatchGridColumns } from '../../components/matchGridColumns';
+import { toErrorMessage } from '../../components/useEntityPage';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { fetchJoueurMatches, fetchJoueurSeasonsByPlayedMatches } from './joueurApi';
 import type { JoueurMatchEvent, JoueurMatchRow } from './types';
@@ -72,6 +73,8 @@ export function JoueurMatchesTab({ joueurId, active }: JoueurMatchesTabProps) {
   const [matches, setMatches] = useState<JoueurMatchRow[]>([]);
   const [loadingSeasons, setLoadingSeasons] = useState(false);
   const [loadingMatches, setLoadingMatches] = useState(false);
+  const [seasonsError, setSeasonsError] = useState<string | null>(null);
+  const [matchesError, setMatchesError] = useState<string | null>(null);
 
   const columns = useMemo(() => [
     ...buildMatchGridColumns<JoueurMatchRow>({
@@ -110,12 +113,13 @@ export function JoueurMatchesTab({ joueurId, active }: JoueurMatchesTabProps) {
     if (!active) return;
     const loadSeasons = async () => {
       setLoadingSeasons(true);
+      setSeasonsError(null);
       try {
         const data = await fetchJoueurSeasonsByPlayedMatches(joueurId);
         setSeasons(data);
         setSelectedSeason((prev) => prev ?? (data[0] ?? null));
       } catch (error) {
-        console.error('Erreur chargement saisons:', error);
+        setSeasonsError(`Impossible de charger les saisons. ${toErrorMessage(error)}`);
       } finally {
         setLoadingSeasons(false);
       }
@@ -124,14 +128,15 @@ export function JoueurMatchesTab({ joueurId, active }: JoueurMatchesTabProps) {
   }, [joueurId, active]);
 
   useEffect(() => {
-    if (!selectedSeason) { setMatches([]); return; }
+    if (!selectedSeason) { setMatches([]); setMatchesError(null); return; }
     const loadMatches = async () => {
       setLoadingMatches(true);
+      setMatchesError(null);
       try {
         const data = await fetchJoueurMatches(joueurId, selectedSeason);
         setMatches(data);
       } catch (error) {
-        console.error('Erreur chargement matches:', error);
+        setMatchesError(`Impossible de charger les matchs. ${toErrorMessage(error)}`);
         setMatches([]);
       } finally {
         setLoadingMatches(false);
@@ -143,6 +148,7 @@ export function JoueurMatchesTab({ joueurId, active }: JoueurMatchesTabProps) {
   return (
     <Box sx={{ display: active ? 'block' : 'none' }}>
       <Stack spacing={2}>
+        {seasonsError ? <Alert severity="error">{seasonsError}</Alert> : null}
         <Autocomplete
           options={seasons}
           value={selectedSeason}
@@ -156,6 +162,8 @@ export function JoueurMatchesTab({ joueurId, active }: JoueurMatchesTabProps) {
             <CircularProgress size={20} />
             <Typography variant="body2" color="text.secondary">Chargement des matches...</Typography>
           </Box>
+        ) : matchesError ? (
+          <Alert severity="error">{matchesError}</Alert>
         ) : matches.length === 0 ? (
           <Box sx={{ py: 2, textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">

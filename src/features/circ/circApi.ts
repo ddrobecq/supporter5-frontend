@@ -1,5 +1,6 @@
 import { env } from '../../config/env';
 import { http } from '../../lib/http';
+import { encodePathSegment } from '../../lib/urlPath';
 import type { CircRow, PaginatedResponse } from './types';
 
 export interface IntegrityConstraint {
@@ -22,12 +23,12 @@ export async function fetchCirc(search: string, signal?: AbortSignal): Promise<P
 }
 
 export async function fetchCircById(id: string | number): Promise<CircRow> {
-  const { data } = await http.get<CircRow>(`${env.circPublicResource}/${id}`);
+  const { data } = await http.get<CircRow>(`${env.circPublicResource}/${encodePathSegment(id)}`);
   return data;
 }
 
 export async function canDeleteCirc(id: string | number): Promise<CanDeleteResponse> {
-  const { data } = await http.get<CanDeleteResponse>(`${env.circAdminResource}/${id}/can-delete`);
+  const { data } = await http.get<CanDeleteResponse>(`${env.circAdminResource}/${encodePathSegment(id)}/can-delete`);
   return data;
 }
 
@@ -37,10 +38,10 @@ export async function createCirc(payload: CircRow): Promise<CircRow | undefined>
 }
 
 export async function updateCirc(id: string | number, payload: CircRow): Promise<CircRow | undefined> {
-  const { data } = await http.put<CircRow>(`${env.circAdminResource}/${id}`, payload);
+  const { data } = await http.put<CircRow>(`${env.circAdminResource}/${encodePathSegment(id)}`, payload);
   return data;
 }
 
 export async function deleteCirc(id: string | number): Promise<void> {
-  await http.delete(`${env.circAdminResource}/${id}`);
+  await http.delete(`${env.circAdminResource}/${encodePathSegment(id)}`);
 }

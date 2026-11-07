@@ -5,6 +5,7 @@ import { Box, CircularProgress, IconButton, Stack, Tooltip } from '@mui/material
 import type { SxProps, Theme } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
+import { checkImageSize, isAllowedImageType, measureTextBytes } from '../config/uploadLimits';
 
 interface EntityImageFrameProps {
   src?: string | null;
@@ -36,6 +37,53 @@ function readFileAsDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(new Error('Erreur lors du chargement de l image.'));
     reader.readAsDataURL(file);
   });
+}
+
+class ImageUploadRejectedError extends Error {}
+
+const UNSUPPORTED_IMAGE_TYPE_MESSAGE = 'Format d image non supporte. Formats acceptes : PNG, JPEG, GIF, WEBP, SVG.';
+
+function assertImageAccepted(type: string, sizeBytes: number): void {
+  if (!isAllowedImageType(type)) {
+    throw new ImageUploadRejectedError(UNSUPPORTED_IMAGE_TYPE_MESSAGE);
+  }
+  const sizeError = checkImageSize(type, sizeBytes);
+  if (sizeError) {
+    throw new ImageUploadRejectedError(sizeError);
+  }
+}
+
+function svgTextToCheckedDataUrl(svgText: string, enforceLimits: boolean): string {
+  if (enforceLimits) {
+    assertImageAccepted('image/svg+xml', measureTextBytes(svgText));
+  }
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svgText)}`;
+}
+
+function measureDataUrlPayloadBytes(meta: string, payload: string): number {
+  if (meta.includes(';base64')) {
+    const padding = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0;
+    return Math.max(0, Math.floor((payload.length * 3) / 4) - padding);
+  }
+  try {
+    return measureTextBytes(decodeURIComponent(payload));
+  } catch (error) {
+    if (error instanceof URIError) {
+      // Malformed percent-encoding: fall back to the raw payload length as an upper bound.
+      return measureTextBytes(payload);
+    }
+    throw error;
+  }
+}
+
+function assertDataUrlAccepted(dataUrl: string): void {
+  const commaIndex = dataUrl.indexOf(',');
+  if (commaIndex < 0) {
+    throw new ImageUploadRejectedError(UNSUPPORTED_IMAGE_TYPE_MESSAGE);
+  }
+  const meta = dataUrl.slice(0, commaIndex).toLowerCase();
+  const type = meta.slice('data:'.length).split(';')[0];
+  assertImageAccepted(type, measureDataUrlPayloadBytes(meta, dataUrl.slice(commaIndex + 1)));
 }
 
 function extractSvgMarkup(value: string): string {
@@ -87,26 +135,42 @@ function resolveHtmlImageCandidates(html: string, baseUrl: string): string[] {
   return Array.from(candidates);
 }
 
-async function resolveRemoteImageSource(input: string): Promise<string | null> {
+/**
+ * Resolves a remote URL (or data URL) to a displayable image source.
+ * When `enforceLimits` is true (user-provided content), type and size limits are applied
+ * and an ImageUploadRejectedError is thrown on violation; otherwise failures resolve to null.
+ */
+async function resolveRemoteImageSource(input: string, enforceLimits = false): Promise<string | null> {
   const trimmed = input.trim();
   if (!trimmed) return null;
-  if (trimmed.toLowerCase().startsWith('data:')) return trimmed;
+  if (trimmed.toLowerCase().startsWith('data:')) {
+    if (enforceLimits) {
+      assertDataUrlAccepted(trimmed);
+    }
+    return trimmed;
+  }
   if (!/^(https?:)?\/\//i.test(trimmed)) return null;
 
   try {
     const response = await fetch(trimmed, { cache: 'no-store' });
     const contentType = response.headers.get('content-type') ?? '';
-    const rawText = await response.text();
+    // The body can only be consumed once: read it as a blob, then decode it as text
+    // unless the server announces a raster image (missing or wrong types still get sniffed).
+    const blob = await response.blob();
+    const isRasterType = contentType.startsWith('image/') && !contentType.includes('svg');
+    const rawText = isRasterType ? '' : await blob.text();
 
     if (contentType.includes('svg') || /<svg\b/i.test(rawText)) {
       const svgText = extractSvgMarkup(rawText);
       if (svgText) {
-        return `data:image/svg+xml;utf8,${encodeURIComponent(svgText)}`;
+        return svgTextToCheckedDataUrl(svgText, enforceLimits);
       }
     }
 
     if (contentType.startsWith('image/')) {
-      const blob = await response.blob();
+      if (enforceLimits) {
+        assertImageAccepted(contentType, blob.size);
+      }
       const file = new File([blob], 'remote-image', { type: contentType || 'image/png' });
       return readFileAsDataUrl(file);
     }
@@ -114,13 +178,16 @@ async function resolveRemoteImageSource(input: string): Promise<string | null> {
     if (contentType.includes('text/html') || /<html\b/i.test(rawText)) {
       const candidates = resolveHtmlImageCandidates(rawText, trimmed);
       for (const candidate of candidates) {
-        const resolved = await resolveRemoteImageSource(candidate);
+        const resolved = await resolveRemoteImageSource(candidate, enforceLimits);
         if (resolved) {
           return resolved;
         }
       }
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof ImageUploadRejectedError) {
+      throw error;
+    }
     return null;
   }
 
@@ -135,18 +202,18 @@ async function resolveClipboardTextPayload(text: string): Promise<string | null>
 
   const candidate = trimmed.replace(/^\s+|\s+$/g, '');
   if (/^https?:\/\//i.test(candidate)) {
-    return resolveRemoteImageSource(candidate);
+    return resolveRemoteImageSource(candidate, true);
   }
 
   const svgText = extractSvgMarkup(trimmed);
   if (svgText) {
-    return `data:image/svg+xml;utf8,${encodeURIComponent(svgText)}`;
+    return svgTextToCheckedDataUrl(svgText, true);
   }
 
   if (trimmed.includes('<html') || trimmed.includes('<!doctype') || trimmed.includes('<img')) {
     const htmlCandidates = resolveHtmlImageCandidates(trimmed, 'https://example.invalid');
     for (const htmlCandidate of htmlCandidates) {
-      const resolved = await resolveRemoteImageSource(htmlCandidate);
+      const resolved = await resolveRemoteImageSource(htmlCandidate, true);
       if (resolved) {
         return resolved;
       }
@@ -165,7 +232,7 @@ async function resolveClipboardImagePayload(item: ClipboardItem): Promise<string
       const text = await blob.text();
       const svgText = extractSvgMarkup(text);
       if (svgText) {
-        return `data:image/svg+xml;utf8,${encodeURIComponent(svgText)}`;
+        return svgTextToCheckedDataUrl(svgText, true);
       }
     }
   }
@@ -187,6 +254,7 @@ async function resolveClipboardImagePayload(item: ClipboardItem): Promise<string
   }
 
   const blob = await item.getType(imageType);
+  assertImageAccepted(imageType, blob.size);
   const file = new File([blob], 'clipboard-image', { type: imageType });
   return readFileAsDataUrl(file);
 }
@@ -223,6 +291,15 @@ export function EntityImageFrame({
       onActionError?.('Le fichier doit etre une image.');
       return;
     }
+    if (!isAllowedImageType(file.type)) {
+      onActionError?.(UNSUPPORTED_IMAGE_TYPE_MESSAGE);
+      return;
+    }
+    const sizeError = checkImageSize(file.type, file.size);
+    if (sizeError) {
+      onActionError?.(sizeError);
+      return;
+    }
 
     try {
       const dataUrl = await readFileAsDataUrl(file);
@@ -249,7 +326,11 @@ export function EntityImageFrame({
         return;
       }
       onActionError?.('Le presse-papiers ne contient pas d image.');
-    } catch {
+    } catch (error) {
+      if (error instanceof ImageUploadRejectedError) {
+        onActionError?.(error.message);
+        return;
+      }
       onActionError?.('Impossible de coller une image depuis le presse-papiers.');
     }
   };

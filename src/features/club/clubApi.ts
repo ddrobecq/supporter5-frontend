@@ -1,5 +1,6 @@
 import { env } from '../../config/env';
 import { http } from '../../lib/http';
+import { encodePathSegment } from '../../lib/urlPath';
 import type {
   ClubCreateWizardPayload,
   ClubGridRow,
@@ -113,12 +114,12 @@ export async function fetchClubMatches(
 }
 
 export async function canDeleteClub(id: string | number): Promise<CanDeleteResponse> {
-  const { data } = await http.get<CanDeleteResponse>(`${env.clubAdminResource}/${id}/can-delete`);
+  const { data } = await http.get<CanDeleteResponse>(`${env.clubAdminResource}/${encodePathSegment(id)}/can-delete`);
   return data;
 }
 
 export async function deleteClub(id: string | number): Promise<void> {
-  await http.delete(`${env.clubAdminResource}/${id}`);
+  await http.delete(`${env.clubAdminResource}/${encodePathSegment(id)}`);
 }
 
 export async function fetchClubSuggestions(

@@ -759,9 +759,6 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       setSnackbar({ severity: 'success', message: 'Rencontre enregistree.' });
       notifySaveDone();
     } catch (error) {
-      // Temporary log: pinpoint which request fails
-      const ax = error as { response?: { status?: number; data?: unknown; config?: { url?: string; method?: string } } };
-      console.error('[handleSave ERR]', ax.response?.status, ax.response?.config?.method, ax.response?.config?.url, ax.response?.data);
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
     } finally {
       setSaving(false);

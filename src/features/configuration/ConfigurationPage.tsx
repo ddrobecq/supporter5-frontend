@@ -31,8 +31,9 @@ interface BackendVersionResponse {
 
 export function ConfigurationPage() {
   const [backendVersion, setBackendVersion] = useState<string>('...');
-  const [adminUsername, setAdminUsername] = useState(() => getStoredAdminCredentials()?.username ?? '');
-  const [adminPassword, setAdminPassword] = useState(() => getStoredAdminCredentials()?.password ?? '');
+  const [adminUsername, setAdminUsername] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [hasStoredPassword, setHasStoredPassword] = useState(false);
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const { teamThemes, setTeamTheme } = useAppearance();
   const [themeMessage, setThemeMessage] = useState<string | null>(null);
@@ -71,9 +72,44 @@ export function ConfigurationPage() {
     };
   }, []);
 
-  const handleSaveCredentials = () => {
+  useEffect(() => {
+    let cancelled = false;
+
+    void getStoredAdminCredentials()
+      .then((stored) => {
+        if (cancelled || !stored) {
+          return;
+        }
+        setAdminUsername((current) => current || stored.username);
+        setHasStoredPassword(true);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAuthMessage('Impossible de lire les identifiants enregistres sur cet appareil.');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleSaveCredentials = async () => {
     const username = adminUsername.trim();
-    if (!username || !adminPassword) {
+    let password = adminPassword;
+    if (username && !password && hasStoredPassword) {
+      try {
+        password = (await getStoredAdminCredentials())?.password ?? '';
+      } catch {
+        setAuthMessage('Impossible de relire le mot de passe enregistre. Saisissez-le a nouveau.');
+        return;
+      }
+      if (!password) {
+        // The stored entry turned out to be unreadable and has been dropped.
+        setHasStoredPassword(false);
+      }
+    }
+    if (!username || !password) {
       setAuthMessage('Renseignez le login et le mot de passe.');
       return;
     }
@@ -81,16 +117,27 @@ export function ConfigurationPage() {
     if (!confirmed) {
       return;
     }
-    storeAdminCredentials({ username, password: adminPassword });
-    setAdminUsername(username);
-    setAuthMessage('Identifiants enregistres dans ce navigateur.');
+    try {
+      await storeAdminCredentials({ username, password });
+      setAdminUsername(username);
+      setAdminPassword('');
+      setHasStoredPassword(true);
+      setAuthMessage('Identifiants enregistres dans ce navigateur.');
+    } catch {
+      setAuthMessage('Enregistrement impossible : le stockage chiffre n est pas disponible sur ce navigateur.');
+    }
   };
 
-  const handleClearCredentials = () => {
-    clearStoredAdminCredentials();
+  const handleClearCredentials = async () => {
     setAdminUsername('');
     setAdminPassword('');
-    setAuthMessage('Identifiants effaces.');
+    setHasStoredPassword(false);
+    try {
+      await clearStoredAdminCredentials();
+      setAuthMessage('Identifiants effaces.');
+    } catch {
+      setAuthMessage('Identifiants effaces, mais la cle de chiffrement locale n a pas pu etre supprimee.');
+    }
   };
 
   return (
@@ -154,12 +201,15 @@ export function ConfigurationPage() {
               value={adminPassword}
               onChange={(event) => setAdminPassword(event.target.value)}
               autoComplete="current-password"
+              helperText={hasStoredPassword && !adminPassword
+                ? 'Un mot de passe est enregistré sur cet appareil. Laissez vide pour le conserver.'
+                : undefined}
               fullWidth
             />
             {authMessage ? <Alert severity="info">{authMessage}</Alert> : null}
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-              <Button variant="contained" onClick={handleSaveCredentials}>Enregistrer</Button>
-              <Button variant="outlined" onClick={handleClearCredentials}>Effacer</Button>
+              <Button variant="contained" onClick={() => void handleSaveCredentials()}>Enregistrer</Button>
+              <Button variant="outlined" onClick={() => void handleClearCredentials()}>Effacer</Button>
             </Stack>
           </Stack>
         </CardContent>

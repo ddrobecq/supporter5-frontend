@@ -1,4 +1,5 @@
 import {
+  Alert,
   Button,
   Box,
   FormControlLabel,
@@ -12,6 +13,7 @@ import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import { useEntityImage } from '../../lib/useEntityImage';
+import { checkImageSize, measureTextBytes } from '../../config/uploadLimits';
 import type { NatioRow } from './types';
 
 function svgToDataUrl(svg: string): string {
@@ -111,6 +113,7 @@ export function NatioFormDialog({
   const [flagPreview, setFlagPreview] = useState('');
   const [flagSvgContent, setFlagSvgContent] = useState('');
   const [flagCleared, setFlagCleared] = useState(false);
+  const [flagError, setFlagError] = useState<string | null>(null);
   const [imageRefreshToken, setImageRefreshToken] = useState(0);
   const editId = mode === 'edit' && primaryKey ? (initialData?.[primaryKey] as string | number | undefined) : undefined;
   const existingFlagImage = useEntityImage('natio', editId, imageRefreshToken);
@@ -179,6 +182,7 @@ export function NatioFormDialog({
     setFlagSvgContent('');
     setFlagPreview('');
     setFlagCleared(false);
+    setFlagError(null);
 
     const signature = JSON.stringify({ ...initial, NAT_DRAPEAU: resolvedSvg.trim() || '' });
     setInitialSignature(signature);
@@ -190,6 +194,7 @@ export function NatioFormDialog({
   }, [flagCleared, flagSvgContent, syncDirty, values]);
 
   const handleFlagImageChange = (nextValue: string | null) => {
+    setFlagError(null);
     if (nextValue === null) {
       setFlagSvgContent('');
       setFlagPreview('');
@@ -198,6 +203,11 @@ export function NatioFormDialog({
     }
     const svgText = asSvgText(nextValue);
     if (svgText) {
+      const sizeError = checkImageSize('image/svg+xml', measureTextBytes(svgText));
+      if (sizeError) {
+        setFlagError(sizeError);
+        return;
+      }
       setFlagSvgContent(svgText);
       setFlagPreview(svgToDataUrl(svgText));
     } else {
@@ -260,6 +270,7 @@ export function NatioFormDialog({
               editable
               accept=".svg,image/svg+xml,image/*"
               onChangeImage={handleFlagImageChange}
+              onActionError={setFlagError}
               actionLabels={{
                 upload: 'Importer un drapeau SVG',
                 paste: 'Coller un drapeau depuis le presse-papiers',
@@ -321,6 +332,12 @@ export function NatioFormDialog({
                 />
               ) : null}
             </Stack>
+
+            {flagError ? (
+              <Alert severity="error" sx={{ gridColumn: '1 / -1' }} onClose={() => setFlagError(null)}>
+                {flagError}
+              </Alert>
+            ) : null}
 
             {nameField ? (
               <TextField

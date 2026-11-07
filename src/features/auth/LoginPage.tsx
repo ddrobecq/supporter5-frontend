@@ -1,13 +1,33 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Alert, Box, Button, Card, CardContent, Stack, TextField, Typography } from '@mui/material';
-import { type BaseSyntheticEvent, useEffect, useMemo, useState } from 'react';
+import axios from 'axios';
+import { type BaseSyntheticEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { login } from './authApi';
-import { authStore, getStoredAdminCredentials } from './authStore';
+import { toErrorMessage } from '../../components/useEntityPage';
+import { authStore, getStoredAdminCredentials, hasStoredAdminCredentials } from './authStore';
 
 const LAST_USERNAME_KEY = 'supporter_last_username';
+const AUTO_LOGIN_FAILED_MESSAGE = 'Reconnexion automatique impossible.';
+
+function describeAutoLoginError(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const apiMessage = (error.response?.data as { message?: string } | undefined)?.message;
+    if (apiMessage) return apiMessage;
+    if (!error.response) return 'Serveur injoignable.';
+    if (error.response.status === 401) return 'Identifiants enregistres refuses.';
+  }
+  return toErrorMessage(error);
+}
+
+function describeUnreadableCredentials(): string {
+  // crypto.subtle is only exposed in secure contexts (HTTPS or localhost).
+  return window.isSecureContext
+    ? 'Identifiants enregistres illisibles.'
+    : 'Dechiffrement indisponible sur une connexion non securisee (HTTP).';
+}
 
 const loginSchema = z.object({
   username: z.string().min(1, 'Nom utilisateur requis'),
@@ -21,40 +41,63 @@ export function LoginPage() {
   const location = useLocation();
   const setToken = authStore((s) => s.setToken);
   const [error, setError] = useState<string | null>(null);
+  const manualLoginStartedRef = useRef(false);
 
   const initialUsername = useMemo(() => {
     const last = localStorage.getItem(LAST_USERNAME_KEY)?.trim();
     return last ?? '';
   }, []);
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginForm>({
+  const { register, handleSubmit, setValue, getFieldState, formState: { errors, isSubmitting } } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { username: getStoredAdminCredentials()?.username ?? initialUsername, password: '' },
+    defaultValues: { username: initialUsername, password: '' },
   });
 
   useEffect(() => {
-    const storedCredentials = getStoredAdminCredentials();
-    if (!storedCredentials) {
-      return;
-    }
-
     let cancelled = false;
-    void login(storedCredentials.username, storedCredentials.password)
-      .then((token) => {
-        if (cancelled) {
-          return;
+
+    const reportAutoLoginFailure = (cause: string) => {
+      if (cancelled || manualLoginStartedRef.current) {
+        return;
+      }
+      setError(`${AUTO_LOGIN_FAILED_MESSAGE} ${cause}`);
+    };
+
+    const autoLogin = async () => {
+      // getStoredAdminCredentials drops unreadable entries and returns null: an entry present
+      // before the call but no credentials after means decryption failed.
+      const hadStoredEntry = hasStoredAdminCredentials();
+      const storedCredentials = await getStoredAdminCredentials();
+      if (cancelled) {
+        return;
+      }
+      if (!storedCredentials) {
+        if (hadStoredEntry) {
+          reportAutoLoginFailure(describeUnreadableCredentials());
         }
-        setToken(token);
-        navigate((location.state as { from?: string } | undefined)?.from ?? '/admin/home', { replace: true });
-      })
-      .catch(() => {
-        // Keep the normal login form available when stored credentials are invalid.
-      });
+        return;
+      }
+      if (!getFieldState('username').isDirty) {
+        setValue('username', storedCredentials.username);
+      }
+
+      const token = await login(storedCredentials.username, storedCredentials.password);
+      if (cancelled) {
+        return;
+      }
+      setToken(token);
+      navigate((location.state as { from?: string } | undefined)?.from ?? '/admin/home', { replace: true });
+    };
+
+    // The manual login form stays available whatever the failure.
+    void autoLogin().catch((autoLoginError: unknown) => {
+      reportAutoLoginFailure(describeAutoLoginError(autoLoginError));
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [location.state, navigate, setToken]);
+  }, [getFieldState, location.state, navigate, setToken, setValue]);
 
   const onSubmit = async (values: LoginForm, event?: BaseSyntheticEvent) => {
     setError(null);
@@ -89,7 +132,16 @@ export function LoginPage() {
     <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', bgcolor: 'background.default', p: 2 }}>
       <Card sx={{ width: '100%', maxWidth: 420 }}>
         <CardContent>
-          <Stack spacing={2} component="form" onSubmit={handleSubmit(onSubmit)}>
+          <Stack
+            spacing={2}
+            component="form"
+            onSubmit={(event) => {
+              // A manual attempt hides and supersedes any automatic re-login failure.
+              manualLoginStartedRef.current = true;
+              setError(null);
+              return handleSubmit(onSubmit)(event);
+            }}
+          >
             <Typography variant="h5" sx={{ fontWeight: 700 }}>Administration</Typography>
             <Typography variant="body2" color="text.secondary">Connexion securisee</Typography>
 

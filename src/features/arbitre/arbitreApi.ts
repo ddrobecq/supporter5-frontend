@@ -1,6 +1,7 @@
 import { env } from '../../config/env';
 import { normalizeImagePayload, updateEntityImageWithFallback } from '../../lib/entityImageApi';
 import { http } from '../../lib/http';
+import { encodePathSegment } from '../../lib/urlPath';
 import type { ArbitreCreateWizardPayload, ArbitreRow, ArbitreSuggestionRow, PaginatedResponse } from './types';
 
 export interface IntegrityConstraint {
@@ -63,7 +64,7 @@ export async function fetchArbitre(search: string, signal?: AbortSignal): Promis
 }
 
 export async function fetchArbitreById(id: string | number): Promise<ArbitreRow> {
-  const { data } = await http.get<ArbitreRow>(`${env.arbitrePublicResource}/${id}`);
+  const { data } = await http.get<ArbitreRow>(`${env.arbitrePublicResource}/${encodePathSegment(id)}`);
   return data;
 }
 
@@ -82,7 +83,7 @@ export async function fetchArbitreSuggestions(search: string, signal?: AbortSign
 
 export async function canDeleteArbitre(id: string | number): Promise<CanDeleteResponse> {
   const { data } = await http.get<CanDeleteResponse>(
-    `${env.arbitreAdminResource}/${id}/can-delete`,
+    `${env.arbitreAdminResource}/${encodePathSegment(id)}/can-delete`,
   );
   return data;
 }
@@ -96,7 +97,7 @@ export async function createArbitre(payload: ArbitreRow): Promise<ArbitreRow | u
     const id = (data?.IDARBITRE ?? entityPayload.IDARBITRE) as string | number | undefined;
     if (id !== undefined && id !== null && String(id).trim() !== '') {
       await updateEntityImageWithFallback('arbitre', id, image, async () => {
-        await http.put(`${env.arbitreAdminResource}/${id}`, { ARB_PHOTO: image });
+        await http.put(`${env.arbitreAdminResource}/${encodePathSegment(id)}`, { ARB_PHOTO: image });
       });
     }
   }
@@ -112,11 +113,11 @@ export async function createArbitreWithWizard(payload: ArbitreCreateWizardPayloa
 export async function updateArbitre(id: string | number, payload: ArbitreRow): Promise<ArbitreRow | undefined> {
   const image = normalizeImagePayload(payload.ARB_PHOTO);
   const { ARB_PHOTO: _photo, ...entityPayload } = payload;
-  const { data } = await http.put<ArbitreRow>(`${env.arbitreAdminResource}/${id}`, entityPayload);
+  const { data } = await http.put<ArbitreRow>(`${env.arbitreAdminResource}/${encodePathSegment(id)}`, entityPayload);
 
   if (image !== undefined) {
     await updateEntityImageWithFallback('arbitre', id, image, async () => {
-      await http.put(`${env.arbitreAdminResource}/${id}`, { ARB_PHOTO: image });
+      await http.put(`${env.arbitreAdminResource}/${encodePathSegment(id)}`, { ARB_PHOTO: image });
     });
   }
 
@@ -124,5 +125,5 @@ export async function updateArbitre(id: string | number, payload: ArbitreRow): P
 }
 
 export async function deleteArbitre(id: string | number): Promise<void> {
-  await http.delete(`${env.arbitreAdminResource}/${id}`);
+  await http.delete(`${env.arbitreAdminResource}/${encodePathSegment(id)}`);
 }

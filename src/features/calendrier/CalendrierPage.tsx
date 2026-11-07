@@ -23,6 +23,7 @@ import {
 } from './calendrierApi';
 import { CalendarDateNavigator } from './CalendarDateNavigator';
 import { entityPath } from '../../lib/entityNavigation';
+import { isHttpUrl } from '../../lib/safeUrl';
 import {
   heureDigitsToApiValue,
   isValidHeureDigits,
@@ -336,17 +337,7 @@ export function CalendrierPage({ readOnly = false }: { readOnly?: boolean }) {
   }, [tourClassementByTour]);
   const competitionId = Number(selectedRow?.COCLEUNIK ?? 0);
   const competitionWebUrl = String(selectedRow?.CO_WEB ?? '').trim();
-  const canOpenCompetitionWeb = useMemo(() => {
-    if (!competitionWebUrl) {
-      return false;
-    }
-    try {
-      const url = new URL(competitionWebUrl);
-      return url.protocol === 'http:' || url.protocol === 'https:';
-    } catch {
-      return false;
-    }
-  }, [competitionWebUrl]);
+  const canOpenCompetitionWeb = useMemo(() => isHttpUrl(competitionWebUrl), [competitionWebUrl]);
 
   const openCompetitionTab = () => {
     if (!Number.isInteger(competitionId) || competitionId <= 0) {
