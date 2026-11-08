@@ -51,6 +51,7 @@ export interface ClubIncompletRow {
   SANS_VILLE: number;
   SANS_STADE: number;
   SANS_DATE_CREATION: number;
+  DATES_VIE_INCOHERENTES: number;
   SANS_LOGO: number;
 }
 
@@ -63,6 +64,7 @@ export const CLUB_INCOMPLET_CATEGORIES: Array<{
   { key: 'ville', label: 'Ville inconnue', flag: 'SANS_VILLE' },
   { key: 'stade', label: 'Stade inconnu', flag: 'SANS_STADE' },
   { key: 'création', label: 'Date de création inconnue', flag: 'SANS_DATE_CREATION' },
+  { key: 'dates-vie', label: 'Dates de vie incohérentes', flag: 'DATES_VIE_INCOHERENTES' },
   { key: 'logo', label: 'Logo manquant', flag: 'SANS_LOGO' },
 ];
 
