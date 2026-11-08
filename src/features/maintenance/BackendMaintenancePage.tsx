@@ -12,6 +12,7 @@ import {
   FormControlLabel,
   IconButton,
   InputAdornment,
+  LinearProgress,
   Stack,
   Switch,
   TextField,
@@ -20,6 +21,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import axios from 'axios';
 import { useEffect, useState } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
 import { http } from '../../lib/http';
@@ -42,6 +44,28 @@ interface RestartBackendResponse {
   scheduledInMs?: number;
 }
 
+interface UploadProgressState {
+  loaded: number;
+  total: number | null;
+  percent: number | null;
+}
+
+const BYTES_PER_MB = 1024 * 1024;
+
+function formatMegabytes(bytes: number): string {
+  return Math.round(bytes / BYTES_PER_MB).toLocaleString('fr-FR');
+}
+
+function toUploadErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error) && !error.response) {
+    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+      return "L'envoi a été interrompu (délai dépassé). La base n'a pas été remplacée.";
+    }
+    return "L'envoi a été interrompu (connexion coupée ou serveur injoignable). La base n'a pas été remplacée.";
+  }
+  return toErrorMessage(error);
+}
+
 function isAllowedSqliteFile(file: File): boolean {
   const lower = file.name.toLowerCase();
   return lower.endsWith('.sqlite') || lower.endsWith('.db');
@@ -55,6 +79,7 @@ const FREQUENCY_OPTIONS: Array<{ value: BackupFrequency; label: string }> = [
 export function BackendMaintenancePage() {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null);
   const [restartLoading, setRestartLoading] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -148,6 +173,7 @@ export function BackendMaintenancePage() {
     }
 
     setLoading(true);
+    setUploadProgress({ loaded: 0, total: file.size, percent: 0 });
     setErrorMessage(null);
     setSuccessMessage(null);
 
@@ -155,7 +181,18 @@ export function BackendMaintenancePage() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const { data } = await http.post<UploadDatabaseResponse>('/api/admin/system/database/upload', formData);
+      // Large SQLite files (~400 MB) exceed the shared 15 s timeout: disable it for this request only.
+      const { data } = await http.post<UploadDatabaseResponse>('/api/admin/system/database/upload', formData, {
+        timeout: 0,
+        onUploadProgress: (event) => {
+          const total = event.total && event.total > 0 ? event.total : null;
+          setUploadProgress({
+            loaded: event.loaded,
+            total,
+            percent: total ? Math.min(100, Math.round((event.loaded / total) * 100)) : null,
+          });
+        },
+      });
 
       const baseMessage = data.message ?? 'Base importee sur le serveur.';
       const restartHint = data.restartRequired
@@ -165,9 +202,10 @@ export function BackendMaintenancePage() {
       setSuccessMessage(`${baseMessage}${restartHint}`);
       setFile(null);
     } catch (error) {
-      setErrorMessage(toErrorMessage(error));
+      setErrorMessage(toUploadErrorMessage(error));
     } finally {
       setLoading(false);
+      setUploadProgress(null);
     }
   };
 
@@ -390,6 +428,21 @@ export function BackendMaintenancePage() {
                   >
                     {loading ? 'Import en cours...' : 'Importer la base'}
                   </Button>
+
+                  {uploadProgress ? (
+                    <Stack spacing={0.5}>
+                      <LinearProgress
+                        variant={uploadProgress.percent === null ? 'indeterminate' : 'determinate'}
+                        value={uploadProgress.percent ?? undefined}
+                        aria-label="Progression de l'envoi de la base"
+                      />
+                      <Typography variant="body2" color="text.secondary">
+                        {uploadProgress.percent === null || uploadProgress.total === null
+                          ? `Envoi : ${formatMegabytes(uploadProgress.loaded)} Mo`
+                          : `Envoi : ${uploadProgress.percent} % (${formatMegabytes(uploadProgress.loaded)} / ${formatMegabytes(uploadProgress.total)} Mo)`}
+                      </Typography>
+                    </Stack>
+                  ) : null}
                 </Stack>
               </Box>
 
