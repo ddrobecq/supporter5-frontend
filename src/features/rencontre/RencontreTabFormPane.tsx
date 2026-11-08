@@ -115,7 +115,7 @@ const STATUS_OPTIONS = [
   { value: 2, label: 'En cours' },
   { value: 3, label: 'Terminee' },
   { value: 5, label: 'Programmee' },
-  { value: 4, label: 'Non jouee' },
+  { value: 4, label: 'Non jouee/annulee' },
 ] as const;
 
 type RencontreTabKey = 'info' | 'highlights' | 'composition' | 'resume' | 'programme' | 'classement';

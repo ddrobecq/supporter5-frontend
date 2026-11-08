@@ -41,7 +41,7 @@ function formatTime(value: string | null): string {
 
 function formatScore(detail: RencontreDetailRow): string {
   if ([1, 5].includes(Number(detail.ETAT))) return '-vs-';
-  if (Number(detail.ETAT) === 4) return 'Non jouée';
+  if (Number(detail.ETAT) === 4) return 'Non jouée/annulée';
   const penalties = Number(detail.PENALTY ?? 0) === 1;
   return penalties ? `${detail.TABDOM} ${detail.BUTDOM} - ${detail.BUTEXT} ${detail.TABEXT}` : `${detail.BUTDOM} - ${detail.BUTEXT}`;
 }

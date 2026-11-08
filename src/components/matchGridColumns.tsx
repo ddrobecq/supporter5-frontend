@@ -100,7 +100,7 @@ function formatReadonlyScore(row: MatchGridBaseRow): string {
 }
 
 function getStatusLabel(value: number): string {
-  return ({ 1: 'En attente', 2: 'En cours', 3: 'Terminée', 4: 'Non jouée', 5: 'Programmée' } as Record<number, string>)[value] ?? `Etat ${value}`;
+  return ({ 1: 'En attente', 2: 'En cours', 3: 'Terminée', 4: 'Non jouée/annulée', 5: 'Programmée' } as Record<number, string>)[value] ?? `Etat ${value}`;
 }
 
 function ReadonlyScoreCell({ row, value }: { row: MatchGridBaseRow; value: string }) {

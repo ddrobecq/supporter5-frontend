@@ -7,7 +7,7 @@ const STATUS_OPTIONS = [
   { value: 2, label: 'En cours' },
   { value: 3, label: 'Terminée' },
   { value: 5, label: 'Programmée' },
-  { value: 4, label: 'Non jouée' },
+  { value: 4, label: 'Non jouée/annulée' },
 ] as const;
 
 export interface StatusCellProps {
