@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { toErrorMessage } from '../../components/useEntityPage';
+import { isAbortError } from '../../lib/httpErrors';
 import { useDepsChanged } from '../../lib/useDepsChanged';
 import { formatUploadLimitError, UPLOAD_LIMITS } from '../../config/uploadLimits';
 import {
@@ -113,20 +114,30 @@ export function RencontreImportWizardDialog({ open, onClose, onReady }: Rencontr
     }
   }
 
+  // Each load is aborted when its selection changes, so a slow response for a previous selection
+  // can never overwrite the options of the current one.
   useEffect(() => {
     if (!open) return;
-    void fetchCompetitionWizardData()
+    const controller = new AbortController();
+    void fetchCompetitionWizardData(controller.signal)
       .then((data) => {
+        if (controller.signal.aborted) return;
         setSeasonOptions((data.saisons ?? []).map((item) => String(item.SAISON ?? '').trim()).filter(Boolean));
       })
-      .catch((error) => setErrorMessage(toErrorMessage(error)))
+      .catch((error) => {
+        if (isAbortError(error)) return;
+        setErrorMessage(toErrorMessage(error));
+      })
       .finally(() => setLoading(false));
+    return () => controller.abort();
   }, [open]);
 
   useEffect(() => {
     if (!open || !season) return;
-    void fetchCompetition('', season)
+    const controller = new AbortController();
+    void fetchCompetition('', season, controller.signal)
       .then((result) => {
+        if (controller.signal.aborted) return;
         setCompetitionOptions((result.data ?? [])
           .map((row) => ({
             id: String(row.COCLEUNIK ?? '').trim(),
@@ -134,16 +145,28 @@ export function RencontreImportWizardDialog({ open, onClose, onReady }: Rencontr
           }))
           .filter((row) => row.id));
       })
-      .catch((error) => setErrorMessage(toErrorMessage(error)))
+      .catch((error) => {
+        if (isAbortError(error)) return;
+        setErrorMessage(toErrorMessage(error));
+      })
       .finally(() => setLoading(false));
+    return () => controller.abort();
   }, [open, season]);
 
   useEffect(() => {
     if (!open || !competitionId) return;
-    void fetchCompetitionToursPublic(competitionId)
-      .then((rows) => setTourOptions(rows ?? []))
-      .catch((error) => setErrorMessage(toErrorMessage(error)))
+    const controller = new AbortController();
+    void fetchCompetitionToursPublic(competitionId, controller.signal)
+      .then((rows) => {
+        if (controller.signal.aborted) return;
+        setTourOptions(rows ?? []);
+      })
+      .catch((error) => {
+        if (isAbortError(error)) return;
+        setErrorMessage(toErrorMessage(error));
+      })
       .finally(() => setLoading(false));
+    return () => controller.abort();
   }, [competitionId, open]);
 
   const handleFileChange = async (file: File | undefined) => {

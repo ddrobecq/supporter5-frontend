@@ -89,12 +89,19 @@ export function ClubCreateDialog({
     setLoading(false);
   }
 
+  // Latest onError for the effects below, which must not re-run (restarting the suggestion search
+  // or re-showing the country error) when only the callback identity changes.
+  const onErrorRef = useRef(onError);
   useEffect(() => {
-    if (open && natioError) onError(natioError);
-  }, [natioError, onError, open]);
+    onErrorRef.current = onError;
+  }, [onError]);
+
+  useEffect(() => {
+    if (open && natioError) onErrorRef.current(natioError);
+  }, [natioError, open]);
 
   // An empty query clears the suggestions while rendering, on the dependencies of the search effect below.
-  const suggestionDepsChanged = useDepsChanged([name, onError, open, step]);
+  const suggestionDepsChanged = useDepsChanged([name, open, step]);
   if (suggestionDepsChanged && open && step === 1 && !name.trim()) {
     setSuggestions([]);
     setLoading(false);
@@ -121,7 +128,7 @@ export function ClubCreateDialog({
           if (axios.isAxiosError(error) && error.code === 'ERR_CANCELED') {
             return;
           }
-          onError(toErrorMessage(error));
+          onErrorRef.current(toErrorMessage(error));
         })
         .finally(() => {
           setLoading(false);
@@ -132,7 +139,7 @@ export function ClubCreateDialog({
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [name, onError, open, step]);
+  }, [name, open, step]);
 
   useEffect(() => {
     if (!open || step !== 2) {

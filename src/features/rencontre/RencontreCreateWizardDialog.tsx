@@ -19,6 +19,7 @@ import { INVALID_DATE_MESSAGE, todayIso, toIsoDate } from '../../components/date
 import { useInvalidDateFields } from '../../components/useInvalidDateFields';
 import { TimeInputField } from '../../components/TimeInputField';
 import { toErrorMessage } from '../../components/useEntityPage';
+import { isAbortError } from '../../lib/httpErrors';
 import { useDepsChanged } from '../../lib/useDepsChanged';
 import {
   fetchCircByTourType,
@@ -194,12 +195,16 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
     if (!open) return;
 
     const defaultSeason = deriveSeasonFromIsoDate(toIsoDate(todayIso()));
+    // Each load below is aborted when its selection changes (or the dialog closes), so a slow
+    // response for a previous selection can never overwrite the options of the current one.
+    const controller = new AbortController();
 
     void Promise.all([
-      fetchCompetitionWizardData(),
+      fetchCompetitionWizardData(controller.signal),
       loadSupportedClub(),
     ])
       .then(([wizardData]) => {
+        if (controller.signal.aborted) return;
         const nextSeasons = (wizardData.saisons ?? [])
           .map((item) => String(item.SAISON ?? '').trim())
           .filter(Boolean);
@@ -207,12 +212,14 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
         setSeason(pickNearestSeason(nextSeasons, defaultSeason));
       })
       .catch((error) => {
+        if (controller.signal.aborted || isAbortError(error)) return;
         setErrorMessage(toErrorMessage(error));
         setSeason(defaultSeason);
       })
       .finally(() => {
         setOptionsLoading(false);
       });
+    return () => controller.abort();
   }, [loadSupportedClub, open]);
 
   const handleDomicileChange = (nextValue: ClubValue) => {
@@ -305,8 +312,10 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
   useEffect(() => {
     if (!open || matchKind !== 'officiel' || !season) return;
 
-    void fetchCompetition('', season)
+    const controller = new AbortController();
+    void fetchCompetition('', season, controller.signal)
       .then((result) => {
+        if (controller.signal.aborted) return;
         const rows = (result.data ?? []).map((row) => ({
           id: String(row.COCLEUNIK ?? '').trim(),
           label: buildCompetitionLabel(row as unknown as Record<string, unknown>) || String(row.COCLEUNIK ?? '').trim(),
@@ -314,46 +323,55 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
         setCompetitionOptions(rows);
       })
       .catch((error) => {
+        if (isAbortError(error)) return;
         setErrorMessage(toErrorMessage(error));
         setCompetitionOptions([]);
       })
       .finally(() => {
         setOptionsLoading(false);
       });
+    return () => controller.abort();
   }, [matchKind, open, season]);
 
   useEffect(() => {
     if (!open || matchKind !== 'officiel' || !competitionId) return;
 
-    void fetchCompetitionToursPublic(competitionId)
+    const controller = new AbortController();
+    void fetchCompetitionToursPublic(competitionId, controller.signal)
       .then((rows) => {
+        if (controller.signal.aborted) return;
         setTourOptions(rows ?? []);
       })
       .catch((error) => {
+        if (isAbortError(error)) return;
         setErrorMessage(toErrorMessage(error));
         setTourOptions([]);
       })
       .finally(() => {
         setOptionsLoading(false);
       });
+    return () => controller.abort();
   }, [competitionId, matchKind, open]);
 
   useEffect(() => {
     if (!open || matchKind !== 'officiel' || !tourId) return;
 
+    const controller = new AbortController();
     void Promise.all([
-      fetchCompetitionTourById(tourId),
-      fetchTourParticipants(tourId),
+      fetchCompetitionTourById(tourId, controller.signal),
+      fetchTourParticipants(tourId, controller.signal),
     ])
       .then(async ([tourDetail, participants]) => {
         const tourType = Number(tourDetail.TDTYPETOUR ?? 1) || 1;
-        const nextCirc = await fetchCircByTourType(tourType);
+        const nextCirc = await fetchCircByTourType(tourType, controller.signal);
+        if (controller.signal.aborted) return;
 
         setTourParticipants(participants ?? []);
         setGroupOptions(parseGroupNames(participants ?? []));
         setCircOptions(nextCirc ?? []);
       })
       .catch((error) => {
+        if (isAbortError(error)) return;
         setErrorMessage(toErrorMessage(error));
         setTourParticipants([]);
         setGroupOptions([]);
@@ -362,6 +380,7 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
       .finally(() => {
         setOptionsLoading(false);
       });
+    return () => controller.abort();
   }, [matchKind, open, tourId]);
 
   const dateInvalid = isDateInvalid('date');

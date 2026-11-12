@@ -3,6 +3,7 @@ import { CircularProgress, Dialog, DialogContent, DialogTitle, List, ListItemBut
 import { useEffect, useRef, useState } from 'react';
 import { fetchClubSuggestions } from '../club/clubApi';
 import { fetchJoueurSuggestions } from '../joueur/joueurApi';
+import { isAbortError } from '../../lib/httpErrors';
 import { useDepsChanged } from '../../lib/useDepsChanged';
 
 interface PublicSearchDialogProps {
@@ -31,6 +32,8 @@ export function PublicSearchDialog({ open, onClose, onNavigate }: PublicSearchDi
   if (searchDepsChanged) {
     if (!open || query.trim().length < 2) {
       setResults([]);
+      // An aborted request no longer clears the flag in its finally, so clear it here.
+      setLoading(false);
     } else {
       setLoading(true);
     }
@@ -43,7 +46,11 @@ export function PublicSearchDialog({ open, onClose, onNavigate }: PublicSearchDi
     const request = kind === 'joueur'
       ? fetchJoueurSuggestions(search, controller.signal).then((response) => response.data.map((row) => ({ id: row.IDJOUEUR, label: `${row.NOM} ${row.PRENOM}`.trim() })))
       : fetchClubSuggestions(search, controller.signal).then((response) => response.data.map((row) => ({ id: row.IDCLUB, label: row.CLUB_NOM_COMPLET, detail: row.CLUB_ABREGE })));
-    void request.then(setResults).catch(() => setResults([])).finally(() => setLoading(false));
+    // An aborted request is superseded by the next one: leave its results and loading flag alone.
+    void request
+      .then((rows) => { if (!controller.signal.aborted) setResults(rows); })
+      .catch((error: unknown) => { if (!isAbortError(error) && !controller.signal.aborted) setResults([]); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [kind, open, query]);
 

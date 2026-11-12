@@ -94,9 +94,13 @@ export async function fetchCompetitionTours(competitionId: string | number): Pro
   return data.data ?? [];
 }
 
-export async function fetchCompetitionToursPublic(competitionId: string | number): Promise<CompetitionTourRow[]> {
+export async function fetchCompetitionToursPublic(
+  competitionId: string | number,
+  signal?: AbortSignal,
+): Promise<CompetitionTourRow[]> {
   const { data } = await http.get<{ data: CompetitionTourRow[] }>(
     `${env.tourPublicResource}/competition/${encodePathSegment(competitionId)}`,
+    { signal },
   );
   return data.data ?? [];
 }
@@ -115,8 +119,14 @@ export async function moveCompetitionTour(tourId: string | number, direction: 'u
   return data.data ?? [];
 }
 
-export async function fetchCompetitionTourById(tourId: string | number): Promise<CompetitionTourDetailRow> {
-  const { data } = await http.get<CompetitionTourDetailRow>(`${env.tourPublicResource}/${encodePathSegment(tourId)}/detail`);
+export async function fetchCompetitionTourById(
+  tourId: string | number,
+  signal?: AbortSignal,
+): Promise<CompetitionTourDetailRow> {
+  const { data } = await http.get<CompetitionTourDetailRow>(
+    `${env.tourPublicResource}/${encodePathSegment(tourId)}/detail`,
+    { signal },
+  );
   return data;
 }
 
@@ -174,8 +184,14 @@ export async function createTourDef(payload: CreateTourDefPayload): Promise<Tour
   return data;
 }
 
-export async function fetchTourParticipants(tourId: string | number): Promise<TourParticipantRow[]> {
-  const { data } = await http.get<{ data: TourParticipantRow[] }>(`${env.tourAdminResource}/${encodePathSegment(tourId)}/participants`);
+export async function fetchTourParticipants(
+  tourId: string | number,
+  signal?: AbortSignal,
+): Promise<TourParticipantRow[]> {
+  const { data } = await http.get<{ data: TourParticipantRow[] }>(
+    `${env.tourAdminResource}/${encodePathSegment(tourId)}/participants`,
+    { signal },
+  );
   return data.data ?? [];
 }
 
@@ -204,9 +220,10 @@ export async function removeTourParticipants(
   return Number(data.removed ?? 0);
 }
 
-export async function fetchCircByTourType(typeId: number): Promise<CircOptionRow[]> {
+export async function fetchCircByTourType(typeId: number, signal?: AbortSignal): Promise<CircOptionRow[]> {
   const { data } = await http.get<PaginatedResponse<CircOptionRow>>(env.circPublicResource, {
     params: { limit: 500, sort: 'IDCIRC', order: 'asc', page: 1 },
+    signal,
   });
   return (data.data ?? [])
     .map((row) => {
