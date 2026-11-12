@@ -27,6 +27,7 @@ import { DateInputField } from '../../components/DateInputField';
 import { INVALID_DATE_MESSAGE, todayIso, toIsoDate } from '../../components/dateUtils';
 import { useInvalidDateFields } from '../../components/useInvalidDateFields';
 import { NumberField } from '../../components/NumberField';
+import { toErrorMessage } from '../../components/useEntityPage';
 import { ClubSelectField } from '../../components/ClubSelectField';
 import { CompletenessChip } from '../../components/CompletenessChip';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
@@ -106,6 +107,18 @@ interface JoueurTransactionDialogDraft {
   salaire: string;
   indemnites: string;
   echeance: string;
+  saison: string;
+}
+
+/** TRANSAC.INDEMNITES marker for "no known fee" (0 = unknown): the only negative amount accepted. */
+const NO_KNOWN_FEE = -1;
+
+// Same rule as seasonFromDate in back/src/services/joueurs.service.ts: before July -> previous season.
+function seasonFromIsoDate(isoDate: string): string {
+  const year = Number(isoDate.slice(0, 4));
+  const month = Number(isoDate.slice(5, 7));
+  const startYear = month >= 7 ? year : year - 1;
+  return `${startYear}-${startYear + 1}`;
 }
 
 interface SensOption {
@@ -175,6 +188,7 @@ function getContractsDialogSignature(draft: JoueurTransactionDialogDraft): strin
     salaire: String(draft.salaire ?? '').trim(),
     indemnites: String(draft.indemnites ?? '').trim(),
     echeance: String(draft.echeance ?? '').trim(),
+    saison: String(draft.saison ?? '').trim(),
   });
 }
 
@@ -232,6 +246,7 @@ export function JoueurFormDialog({
     salaire: '',
     indemnites: '',
     echeance: '',
+    saison: '',
   });
   const [contractsDeleteConfirmOpen, setContractsDeleteConfirmOpen] = useState(false);
   const [contractsDeleteSaving, setContractsDeleteSaving] = useState(false);
@@ -265,6 +280,12 @@ export function JoueurFormDialog({
   const transactionUsesSalaire = Number(selectedContractType?.TYT_SALAIRE ?? 0) !== 0;
   const transactionUsesIndemnites = Number(selectedContractType?.TYT_INDEMNITES ?? 0) !== 0;
   const transactionUsesMoney = transactionUsesSalaire || transactionUsesIndemnites;
+  const contractsSaisonOptions = useMemo(
+    () => (contractsDialogDraft.saison && !saisonOptions.includes(contractsDialogDraft.saison)
+      ? [contractsDialogDraft.saison, ...saisonOptions]
+      : saisonOptions),
+    [contractsDialogDraft.saison, saisonOptions],
+  );
   const isHistoryDialogDirty = historyDialogOpen
     && getHistoryDialogSignature(historyDialogDraft) !== historyDialogInitialSignatureRef.current;
   const isContractsDialogDirty = contractsDialogOpen
@@ -445,13 +466,8 @@ export function JoueurFormDialog({
       sens: defaultSens
         ? defaultSens
         : (prev.sens && sensValues.includes(prev.sens as '1' | '2' | '3') ? prev.sens : ''),
-      idClub: transactionRequiresClub ? prev.idClub : '',
-      clubName: transactionRequiresClub ? prev.clubName : '',
-      salaire: transactionUsesSalaire ? prev.salaire : '',
-      indemnites: transactionUsesIndemnites ? prev.indemnites : '',
-      echeance: transactionUsesEcheance ? prev.echeance : '',
     }));
-  }, [contractsDialogOpen, selectedContractType, selectedContractSensOptions, transactionRequiresClub, transactionUsesEcheance, transactionUsesIndemnites, transactionUsesSalaire]);
+  }, [contractsDialogOpen, selectedContractType, selectedContractSensOptions]);
 
   const reloadHistory = async () => {
     const idJoueur = normalizeNullableText(values.IDJOUEUR);
@@ -497,8 +513,9 @@ export function JoueurFormDialog({
     const defaultType = contractsTypes[0]?.TYT_CLEUNIK;
     const defaultTypeRow = contractsTypes.find((option) => Number(option.TYT_CLEUNIK) === Number(defaultType));
     const defaultTypeSensOptions = buildSensOptionsForType(defaultTypeRow);
+    const defaultDate = todayIso();
     const nextDraft = {
-      date: todayIso(),
+      date: defaultDate,
       type: defaultType != null ? String(defaultType) : '',
       sens: defaultTypeSensOptions.length === 1
         ? defaultTypeSensOptions[0].value
@@ -511,6 +528,7 @@ export function JoueurFormDialog({
       salaire: '',
       indemnites: '',
       echeance: '',
+      saison: seasonFromIsoDate(defaultDate),
     };
     setContractsDialogMode('create');
     setContractsDialogId(null);
@@ -536,6 +554,7 @@ export function JoueurFormDialog({
       salaire: selectedRow.SALAIRE == null ? '' : String(selectedRow.SALAIRE),
       indemnites: selectedRow.INDEMNITES == null ? '' : String(selectedRow.INDEMNITES),
       echeance: toIsoDate(selectedRow.TN_ECHEANCE),
+      saison: String(selectedRow.SAISON ?? '').trim(),
     };
     setContractsDialogMode('edit');
     setContractsDialogId(Number(selectedRow.TNCLEUNIK));
@@ -571,6 +590,11 @@ export function JoueurFormDialog({
     const dateIso = toIsoDate(contractsDialogDraft.date);
     if (!dateIso) {
       setErrors((prev) => ({ ...prev, contracts: 'La date de transaction est requise.' }));
+      return false;
+    }
+    const saison = contractsDialogDraft.saison.trim();
+    if (!/^\d{4}-\d{4}$/.test(saison)) {
+      setErrors((prev) => ({ ...prev, contracts: 'La saison est requise (format xxxx-yyyy).' }));
       return false;
     }
 
@@ -613,10 +637,13 @@ export function JoueurFormDialog({
       return false;
     }
 
+    // Fields the type does not use are sent as null (the back answers 422 otherwise), even when a
+    // loaded transaction still holds a value in them.
     const indemnitesValue = transactionUsesIndemnites
       ? (contractsDialogDraft.indemnites.trim() ? Number(contractsDialogDraft.indemnites.replace(',', '.')) : 0)
-      : 0;
-    if (!Number.isFinite(indemnitesValue) || indemnitesValue < 0) {
+      : null;
+    if (indemnitesValue != null
+      && (!Number.isFinite(indemnitesValue) || (indemnitesValue < 0 && indemnitesValue !== NO_KNOWN_FEE))) {
       setErrors((prev) => ({ ...prev, contracts: 'Les indemnites sont invalides.' }));
       return false;
     }
@@ -632,6 +659,7 @@ export function JoueurFormDialog({
         indemnites: indemnitesValue,
         deviseId,
         echeance: transactionUsesEcheance && echeanceIso ? echeanceIso : null,
+        saison,
       };
 
       if (contractsDialogMode === 'create') {
@@ -648,7 +676,7 @@ export function JoueurFormDialog({
       setErrors((prev) => ({ ...prev, contracts: '' }));
       return true;
     } catch (error) {
-      setErrors((prev) => ({ ...prev, contracts: String((error as { message?: string })?.message ?? 'Erreur de sauvegarde.') }));
+      setErrors((prev) => ({ ...prev, contracts: toErrorMessage(error) }));
       return false;
     } finally {
       setContractsDialogSaving(false);
@@ -1197,10 +1225,16 @@ export function JoueurFormDialog({
                   : nextSensOptions.length >= 2
                     ? ''
                     : toSensValue(option?.TYT_STATUT);
+                const nextRequiresClub = Number(option?.TYT_CLUB ?? 0) !== 0;
                 setContractsDialogDraft((prev) => ({
                   ...prev,
                   type: option ? String(option.TYT_CLEUNIK) : '',
                   sens: nextSens,
+                  idClub: nextRequiresClub ? prev.idClub : '',
+                  clubName: nextRequiresClub ? prev.clubName : '',
+                  salaire: Number(option?.TYT_SALAIRE ?? 0) !== 0 ? prev.salaire : '',
+                  indemnites: Number(option?.TYT_INDEMNITES ?? 0) !== 0 ? prev.indemnites : '',
+                  echeance: Number(option?.TYT_ECHEANCE ?? 0) !== 0 ? prev.echeance : '',
                 }));
               }}
               renderInput={(params) => <TextField {...params} label="Type de transaction" size="small" autoFocus />}
@@ -1221,11 +1255,24 @@ export function JoueurFormDialog({
             <DateInputField
               label="Date"
               value={contractsDialogDraft.date}
-              onChange={(nextDate) => setContractsDialogDraft((prev) => ({ ...prev, date: nextDate }))}
+              onChange={(nextDate) => setContractsDialogDraft((prev) => {
+                if (nextDate === prev.date) return prev;
+                const nextIso = toIsoDate(nextDate);
+                return { ...prev, date: nextDate, saison: nextIso ? seasonFromIsoDate(nextIso) : prev.saison };
+              })}
               onValidityChange={dateValidityHandler('contractDate')}
               size="small"
               fullWidth
               calendarAriaLabel="Calendrier transaction"
+            />
+
+            <Autocomplete
+              options={contractsSaisonOptions}
+              getOptionLabel={(option) => option}
+              value={contractsDialogDraft.saison || null}
+              onChange={(_event, option) => setContractsDialogDraft((prev) => ({ ...prev, saison: String(option ?? '') }))}
+              renderInput={(params) => <TextField {...params} label="Saison" size="small" />}
+              size="small"
             />
 
             {transactionRequiresClub ? (

@@ -81,6 +81,8 @@ export interface JoueurTransactionUpsertPayload {
   indemnites?: number | null;
   deviseId: number;
   echeance?: string | null;
+  /** Season `xxxx-yyyy`, required: the back stores it as sent and no longer derives it from the date. */
+  saison: string;
 }
 
 export interface JoueurMatchEvent {
