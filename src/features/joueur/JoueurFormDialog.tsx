@@ -16,6 +16,8 @@ import {
   Tab,
   Tabs,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Tooltip,
   Typography,
   useMediaQuery,
@@ -106,12 +108,18 @@ interface JoueurTransactionDialogDraft {
   deviseId: string;
   salaire: string;
   indemnites: string;
+  indemnitesMode: IndemnitesMode;
   echeance: string;
   saison: string;
 }
 
-/** TRANSAC.INDEMNITES marker for "no known fee" (0 = unknown): the only negative amount accepted. */
-const NO_KNOWN_FEE = -1;
+/** TRANSAC.INDEMNITES: 'montant' -> amount > 0, 'sans' -> 0 (known, no fee), 'inconnu' -> null. */
+type IndemnitesMode = 'montant' | 'sans' | 'inconnu';
+
+function toIndemnitesMode(value: number | null): IndemnitesMode {
+  if (value == null) return 'inconnu';
+  return Number(value) === 0 ? 'sans' : 'montant';
+}
 
 // Same rule as seasonFromDate in back/src/services/joueurs.service.ts: before July -> previous season.
 function seasonFromIsoDate(isoDate: string): string {
@@ -187,6 +195,7 @@ function getContractsDialogSignature(draft: JoueurTransactionDialogDraft): strin
     deviseId: String(draft.deviseId ?? '').trim(),
     salaire: String(draft.salaire ?? '').trim(),
     indemnites: String(draft.indemnites ?? '').trim(),
+    indemnitesMode: draft.indemnitesMode,
     echeance: String(draft.echeance ?? '').trim(),
     saison: String(draft.saison ?? '').trim(),
   });
@@ -245,6 +254,7 @@ export function JoueurFormDialog({
     deviseId: '',
     salaire: '',
     indemnites: '',
+    indemnitesMode: 'inconnu',
     echeance: '',
     saison: '',
   });
@@ -527,6 +537,7 @@ export function JoueurFormDialog({
       deviseId: contractsDefaultDeviseId != null ? String(contractsDefaultDeviseId) : (contractsDevises[0] ? String(contractsDevises[0].DVCLEUNIK) : ''),
       salaire: '',
       indemnites: '',
+      indemnitesMode: 'inconnu' as IndemnitesMode,
       echeance: '',
       saison: seasonFromIsoDate(defaultDate),
     };
@@ -552,7 +563,8 @@ export function JoueurFormDialog({
       clubName: String(selectedRow.CLUB_NOM ?? '').trim(),
       deviseId: String(selectedRow.DVCLEUNIK ?? contractsDefaultDeviseId ?? ''),
       salaire: selectedRow.SALAIRE == null ? '' : String(selectedRow.SALAIRE),
-      indemnites: selectedRow.INDEMNITES == null ? '' : String(selectedRow.INDEMNITES),
+      indemnites: selectedRow.INDEMNITES == null || Number(selectedRow.INDEMNITES) === 0 ? '' : String(selectedRow.INDEMNITES),
+      indemnitesMode: toIndemnitesMode(selectedRow.INDEMNITES),
       echeance: toIsoDate(selectedRow.TN_ECHEANCE),
       saison: String(selectedRow.SAISON ?? '').trim(),
     };
@@ -639,12 +651,15 @@ export function JoueurFormDialog({
 
     // Fields the type does not use are sent as null (the back answers 422 otherwise), even when a
     // loaded transaction still holds a value in them.
-    const indemnitesValue = transactionUsesIndemnites
-      ? (contractsDialogDraft.indemnites.trim() ? Number(contractsDialogDraft.indemnites.replace(',', '.')) : 0)
-      : null;
-    if (indemnitesValue != null
-      && (!Number.isFinite(indemnitesValue) || (indemnitesValue < 0 && indemnitesValue !== NO_KNOWN_FEE))) {
-      setErrors((prev) => ({ ...prev, contracts: 'Les indemnites sont invalides.' }));
+    const indemnitesMode = transactionUsesIndemnites ? contractsDialogDraft.indemnitesMode : 'inconnu';
+    const indemnitesValue = indemnitesMode === 'montant'
+      ? Number(contractsDialogDraft.indemnites.trim().replace(',', '.'))
+      : indemnitesMode === 'sans'
+        ? 0
+        : null;
+    if (indemnitesMode === 'montant'
+      && (!contractsDialogDraft.indemnites.trim() || !Number.isFinite(indemnitesValue) || Number(indemnitesValue) <= 0)) {
+      setErrors((prev) => ({ ...prev, contracts: 'Le montant des indemnites doit etre superieur a 0.' }));
       return false;
     }
 
@@ -1234,6 +1249,7 @@ export function JoueurFormDialog({
                   clubName: nextRequiresClub ? prev.clubName : '',
                   salaire: Number(option?.TYT_SALAIRE ?? 0) !== 0 ? prev.salaire : '',
                   indemnites: Number(option?.TYT_INDEMNITES ?? 0) !== 0 ? prev.indemnites : '',
+                  indemnitesMode: Number(option?.TYT_INDEMNITES ?? 0) !== 0 ? prev.indemnitesMode : 'inconnu',
                   echeance: Number(option?.TYT_ECHEANCE ?? 0) !== 0 ? prev.echeance : '',
                 }));
               }}
@@ -1305,17 +1321,36 @@ export function JoueurFormDialog({
                   />
                 ) : null}
 
+                <ToggleButtonGroup
+                  color="primary"
+                  exclusive
+                  fullWidth
+                  value={contractsDialogDraft.indemnitesMode}
+                  onChange={(_event, value: IndemnitesMode | null) => {
+                    if (!value) return;
+                    setContractsDialogDraft((prev) => ({ ...prev, indemnitesMode: value }));
+                  }}
+                  size="small"
+                  aria-label="Indemnites"
+                >
+                  <ToggleButton value="montant">Montant</ToggleButton>
+                  <ToggleButton value="sans">Sans indemnité</ToggleButton>
+                  <ToggleButton value="inconnu">Inconnu</ToggleButton>
+                </ToggleButtonGroup>
+
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} sx={{ alignItems: { sm: 'flex-start' } }}>
-                  <TextField
-                    label="Indemnites"
-                    value={indemnitesFieldFocused ? contractsDialogDraft.indemnites : formatMoneyWithThousands(contractsDialogDraft.indemnites)}
-                    onChange={(event) => setContractsDialogDraft((prev) => ({ ...prev, indemnites: event.target.value }))}
-                    onFocus={() => setIndemnitesFieldFocused(true)}
-                    onBlur={() => setIndemnitesFieldFocused(false)}
-                    size="small"
-                    fullWidth
-                    slotProps={{ htmlInput: { inputMode: 'decimal' } }}
-                  />
+                  {contractsDialogDraft.indemnitesMode === 'montant' ? (
+                    <TextField
+                      label="Montant des indemnites"
+                      value={indemnitesFieldFocused ? contractsDialogDraft.indemnites : formatMoneyWithThousands(contractsDialogDraft.indemnites)}
+                      onChange={(event) => setContractsDialogDraft((prev) => ({ ...prev, indemnites: event.target.value }))}
+                      onFocus={() => setIndemnitesFieldFocused(true)}
+                      onBlur={() => setIndemnitesFieldFocused(false)}
+                      size="small"
+                      fullWidth
+                      slotProps={{ htmlInput: { inputMode: 'decimal' } }}
+                    />
+                  ) : null}
 
                   <Autocomplete
                     options={contractsDevises}

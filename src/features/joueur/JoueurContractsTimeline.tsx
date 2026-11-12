@@ -7,7 +7,7 @@ import type { SxProps, Theme } from '@mui/material';
 import type { KeyboardEvent } from 'react';
 import { ClubIdentityInline } from '../../components/ClubIdentityInline';
 import { formatDateFr } from '../../lib/formatDate';
-import { formatMoney } from '../../lib/formatMoney';
+import { formatIndemnites, formatMoney } from '../../lib/formatMoney';
 import type { JoueurTransactionRow } from './types';
 
 interface JoueurContractsTimelineProps {
@@ -166,7 +166,7 @@ export function JoueurContractsTimeline({
           const hasClub = Boolean(String(row.IDCLUB ?? '').trim() || String(row.CLUB_NOM ?? '').trim());
           const isSelected = Number(selectedTransactionId ?? 0) === Number(row.TNCLEUNIK);
           const transferPhrase = getStatusPhrase(row);
-          const transferIndemnites = formatMoneyForSummary(row.INDEMNITES, row.DEVISE_SYMBOLE);
+          const transferIndemnites = formatIndemnites(row.INDEMNITES, row.DEVISE_SYMBOLE);
           const showTransferAmountAfterClub = Boolean(
             isTransferTransaction(row)
             && transferPhrase
@@ -279,7 +279,7 @@ export function JoueurContractsTimeline({
                     />
                     {showTransferAmountAfterClub || showLoanAmountAfterClub ? (
                       <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                        {`pour ${transferIndemnites}`}
+                        {transferIndemnites}
                       </Typography>
                     ) : null}
                     {!showTransferAmountAfterClub && !showLoanAmountAfterClub && showContractAmount ? (
@@ -291,9 +291,9 @@ export function JoueurContractsTimeline({
                 ) : (
                   <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                     {showTransferAmountAfterClub
-                      ? `${transferPhrase} pour ${transferIndemnites}`
+                      ? `${transferPhrase} ${transferIndemnites}`
                       : showLoanAmountAfterClub
-                        ? `${loanPhraseBeforeClub} pour ${transferIndemnites}`
+                        ? `${loanPhraseBeforeClub} ${transferIndemnites}`
                         : showContractAmount
                           ? `${buildSummaryWithEcheance(row)} pour ${contractSalary} de salaire mensuel`
                           : isLoan
