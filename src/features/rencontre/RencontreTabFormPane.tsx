@@ -42,7 +42,7 @@ import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { useEntityImage } from '../../lib/useEntityImage';
-import { hexColorOrDefault } from '../../lib/color';
+import { CLUB_DEFAULT_FOND, CLUB_DEFAULT_TEXTE, hexColorOrDefault } from '../../lib/color';
 import {
   fetchCircByTourType,
   fetchCompetition,
@@ -263,8 +263,8 @@ function ClubInlineLine({
   const tooltipLabel = String(hoverLabel ?? '').trim() || clubName;
   const canOpenClub = Boolean(clubId) && Boolean(onOpenClub);
   const ariaLabel = canOpenClub ? `Ouvrir la fiche de ${clubShortName || clubName}` : (clubShortName || clubName || 'Club');
-  const fondColor = hexColorOrDefault(clubFond, '#f2f4f7');
-  const textColor = hexColorOrDefault(clubTexte, '#111827');
+  const fondColor = hexColorOrDefault(clubFond, CLUB_DEFAULT_FOND);
+  const textColor = hexColorOrDefault(clubTexte, CLUB_DEFAULT_TEXTE);
 
   return (
     <Stack
