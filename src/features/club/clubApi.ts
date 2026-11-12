@@ -151,7 +151,7 @@ export async function mergeClubs(sourceId: string, targetId: string): Promise<Cl
 
 export async function updateClubProfile(
   id: string,
-  payload: { name: string; natioId: string; villeId?: string | number | null; fond?: string | number | null; texte?: string | number | null },
+  payload: { name: string; natioId: string; villeId?: string | number | null; fond?: string | null; texte?: string | null },
 ): Promise<ClubProfileRow> {
   const { data } = await http.put<ClubProfileRow>(`${env.clubAdminResource}/${encodeURIComponent(id)}/profile`, payload);
   return data;

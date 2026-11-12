@@ -1,39 +1,5 @@
 import jerseySvgSource from '../../../img/jersey.svg?raw';
 
-export function normalizeColorCode(raw: unknown, fallback: string): string {
-  const value = String(raw ?? '').trim();
-  if (!value) return fallback;
-
-  const numeric = Number(value);
-  if (Number.isFinite(numeric) && Number.isInteger(numeric)) {
-    const colorInt = Number(numeric);
-    if (colorInt === -1) {
-      return fallback;
-    }
-    if (colorInt >= 0 && colorInt <= 0xFFFFFF) {
-      // WinDev/OLE style integer: low byte = red, middle = green, high = blue.
-      const r = colorInt & 0xFF;
-      const g = (colorInt >> 8) & 0xFF;
-      const b = (colorInt >> 16) & 0xFF;
-      const rr = r.toString(16).padStart(2, '0');
-      const gg = g.toString(16).padStart(2, '0');
-      const bb = b.toString(16).padStart(2, '0');
-      return `#${rr}${gg}${bb}`;
-    }
-  }
-
-  const hexCandidate = value.startsWith('#') ? value : `#${value}`;
-  if (/^#[0-9a-fA-F]{3}$/.test(hexCandidate) || /^#[0-9a-fA-F]{6}$/.test(hexCandidate)) {
-    return hexCandidate;
-  }
-
-  if (typeof CSS !== 'undefined' && CSS.supports('color', value)) {
-    return value;
-  }
-
-  return fallback;
-}
-
 function replaceSvgStyleColor(svg: string, target: string, replacement: string): string {
   const escapedTarget = target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return svg

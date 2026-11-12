@@ -67,6 +67,7 @@ import { assignEliminatoireMatchGroups } from './tourWizardEliminatoireGroups';
 import type { CompetitionTourUpsertPayload, QualifRow, TourMatchRow, TourParticipantRow } from './types';
 import { MatchEtat } from '../../lib/matchStatus';
 import { normalizeText } from '../../lib/text';
+import { normalizeHexColor } from '../../lib/color';
 
 const WIZARD_STEPS = ['Description', 'Dates', 'Définition', 'Groupes', 'Classement', 'Participants', 'Rencontres'] as const;
 
@@ -493,7 +494,7 @@ export function TourWizardDialog({
       const payload: CreateQualifPayload = {
         CLASS_MinRang: Number(row.CLASS_MinRang) || 0,
         CLASS_MaxRang: Number(row.CLASS_MaxRang) || 0,
-        CLASS_Couleur: Number(row.CLASS_Couleur) || 0,
+        CLASS_Couleur: normalizeHexColor(row.CLASS_Couleur),
         CLASS_Libelle: normalizeText(row.CLASS_Libelle),
         CLASS_Type: Number(row.CLASS_Type) || 2,
         TUCLEUNIK: tourId,
@@ -505,7 +506,7 @@ export function TourWizardDialog({
         const existing = existingQualifById.get(id)!;
         const hasChange = Number(existing.CLASS_MinRang) !== payload.CLASS_MinRang
           || Number(existing.CLASS_MaxRang) !== payload.CLASS_MaxRang
-          || Number(existing.CLASS_Couleur) !== payload.CLASS_Couleur
+          || normalizeHexColor(existing.CLASS_Couleur) !== payload.CLASS_Couleur
           || normalizeText(existing.CLASS_Libelle) !== payload.CLASS_Libelle
           || Number(existing.CLASS_Type) !== payload.CLASS_Type
           || normalizeText(existing.CLASS_Abrege) !== payload.CLASS_Abrege;

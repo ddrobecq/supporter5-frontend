@@ -4,17 +4,6 @@ export function normalizeGroupName(value: unknown): string {
   return String(value ?? '').trim();
 }
 
-export function qualifColorToCss(value: unknown): string {
-  const color = Number(value);
-  if (!Number.isInteger(color) || color < 0 || color > 0xFFFFFF) {
-    return '#64748b';
-  }
-  const red = color & 0xFF;
-  const green = (color >> 8) & 0xFF;
-  const blue = (color >> 16) & 0xFF;
-  return `rgb(${red}, ${green}, ${blue})`;
-}
-
 export function hasMultipleGroups(rows: TourClassementRow[]): boolean {
   const groups = new Set(
     rows

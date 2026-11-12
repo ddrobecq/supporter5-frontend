@@ -13,6 +13,7 @@ import {
 import { type GridColDef, type GridRowId } from '@mui/x-data-grid';
 import { type Dispatch, type SetStateAction, useMemo, useState } from 'react';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
+import { hexColorOrDefault } from '../../lib/color';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { NumberField } from '../../components/NumberField';
 import { wizardGridBoxSx, wizardGridFillSx } from './tourWizardLayout';
@@ -46,37 +47,11 @@ const TYPE_OPTIONS = [
 
 const TYPE_LABEL_BY_VALUE = new Map<number, string>(TYPE_OPTIONS.map((option) => [option.value, option.label]));
 
-function toCssColor(raw: unknown, fallback = '#6a6a6a'): string {
-  const value = String(raw ?? '').trim();
-  const numeric = Number(value);
-  if (Number.isFinite(numeric) && Number.isInteger(numeric) && numeric >= 0 && numeric <= 0xFFFFFF) {
-    const r = numeric & 0xff;
-    const g = (numeric >> 8) & 0xff;
-    const b = (numeric >> 16) & 0xff;
-    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-  }
-
-  const hex = value.startsWith('#') ? value : `#${value}`;
-  if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
-    return hex;
-  }
-
-  return fallback;
-}
-
-function toDbColor(cssColor: string): number {
-  const safe = /^#[0-9a-fA-F]{6}$/.test(cssColor) ? cssColor : '#6a6a6a';
-  const r = Number.parseInt(safe.slice(1, 3), 16);
-  const g = Number.parseInt(safe.slice(3, 5), 16);
-  const b = Number.parseInt(safe.slice(5, 7), 16);
-  return r + (g << 8) + (b << 16);
-}
-
 function createDraft(row?: QualifRow): QualifDraft {
   return {
     CLASS_MinRang: String(row?.CLASS_MinRang ?? ''),
     CLASS_MaxRang: String(row?.CLASS_MaxRang ?? ''),
-    colorCss: toCssColor(row?.CLASS_Couleur),
+    colorCss: hexColorOrDefault(row?.CLASS_Couleur, '#6a6a6a'),
     CLASS_Libelle: String(row?.CLASS_Libelle ?? ''),
     CLASS_Type: String(row?.CLASS_Type ?? 2),
     CLASS_Abrege: String(row?.CLASS_Abrege ?? ''),
@@ -113,7 +88,7 @@ export function TourWizardStep4Classement({ tourId, rows, onRowsChange, onError 
                 borderRadius: 0.5,
                 border: '1px solid',
                 borderColor: 'divider',
-                bgcolor: toCssColor(params.value),
+                bgcolor: hexColorOrDefault(params.value, '#6a6a6a'),
               }}
             />
           </Box>
@@ -200,7 +175,7 @@ export function TourWizardStep4Classement({ tourId, rows, onRowsChange, onError 
         : Number(selectedRow?.CLASS_ID ?? 0),
       CLASS_MinRang: Number(draft.CLASS_MinRang),
       CLASS_MaxRang: Number(draft.CLASS_MaxRang),
-      CLASS_Couleur: toDbColor(draft.colorCss),
+      CLASS_Couleur: hexColorOrDefault(draft.colorCss, '#6A6A6A'),
       CLASS_Libelle: String(draft.CLASS_Libelle ?? '').trim(),
       CLASS_Type: Number(draft.CLASS_Type),
       TUCLEUNIK: Number.isInteger(tourId) && tourId > 0 ? tourId : 0,

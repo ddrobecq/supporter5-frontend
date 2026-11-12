@@ -42,6 +42,7 @@ import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { useEntityImage } from '../../lib/useEntityImage';
+import { hexColorOrDefault } from '../../lib/color';
 import {
   fetchCircByTourType,
   fetchCompetition,
@@ -100,13 +101,13 @@ interface RencontreDraft {
   domicileId: string;
   domicileName: string;
   domicileAbrege: string;
-  domicileFond: string | number | null;
-  domicileTexte: string | number | null;
+  domicileFond: string | null;
+  domicileTexte: string | null;
   exterieurId: string;
   exterieurName: string;
   exterieurAbrege: string;
-  exterieurFond: string | number | null;
-  exterieurTexte: string | number | null;
+  exterieurFond: string | null;
+  exterieurTexte: string | null;
 }
 
 interface CompetitionOption {
@@ -120,37 +121,6 @@ function toNonNegativeIntegerString(value: unknown): string {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return '0';
   return String(Math.max(0, Math.trunc(numeric)));
-}
-
-function normalizeColorCode(raw: unknown, fallback: string): string {
-  const value = String(raw ?? '').trim();
-  if (!value) return fallback;
-
-  const numeric = Number(value);
-  if (Number.isFinite(numeric) && Number.isInteger(numeric)) {
-    const colorInt = Number(numeric);
-    if (colorInt === -1) {
-      return fallback;
-    }
-    if (colorInt >= 0 && colorInt <= 0xFFFFFF) {
-      // WinDev/OLE integer format: red is low byte, then green, then blue.
-      const red = colorInt & 0xFF;
-      const green = (colorInt >> 8) & 0xFF;
-      const blue = (colorInt >> 16) & 0xFF;
-      return `#${red.toString(16).padStart(2, '0')}${green.toString(16).padStart(2, '0')}${blue.toString(16).padStart(2, '0')}`;
-    }
-  }
-
-  const hexCandidate = value.startsWith('#') ? value : `#${value}`;
-  if (/^#[0-9a-fA-F]{3}$/.test(hexCandidate) || /^#[0-9a-fA-F]{6}$/.test(hexCandidate)) {
-    return hexCandidate;
-  }
-
-  if (typeof CSS !== 'undefined' && CSS.supports('color', value)) {
-    return value;
-  }
-
-  return fallback;
 }
 
 function toDisplayHeure(value: string | null | undefined): string {
@@ -293,8 +263,8 @@ function ClubInlineLine({
   const tooltipLabel = String(hoverLabel ?? '').trim() || clubName;
   const canOpenClub = Boolean(clubId) && Boolean(onOpenClub);
   const ariaLabel = canOpenClub ? `Ouvrir la fiche de ${clubShortName || clubName}` : (clubShortName || clubName || 'Club');
-  const fondColor = normalizeColorCode(clubFond, '#f2f4f7');
-  const textColor = normalizeColorCode(clubTexte, '#111827');
+  const fondColor = hexColorOrDefault(clubFond, '#f2f4f7');
+  const textColor = hexColorOrDefault(clubTexte, '#111827');
 
   return (
     <Stack

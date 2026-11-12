@@ -5,9 +5,10 @@ import { type GridColDef } from '@mui/x-data-grid';
 import { MatchDataGrid } from '../../components/MatchDataGrid';
 import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useEntityImage } from '../../lib/useEntityImage';
+import { hexColorOrDefault } from '../../lib/color';
 import { fetchTourClassement, fetchTourQualifs } from './calendrierApi';
 import type { TourClassementRow, TourQualifRow } from './types';
-import { hasMultipleGroups, normalizeGroupName, qualifColorToCss, resolveMatchGroup, type ClassementGroupMatch } from './tourClassementUtils';
+import { hasMultipleGroups, normalizeGroupName, resolveMatchGroup, type ClassementGroupMatch } from './tourClassementUtils';
 
 function ClassementClubCell({
   clubId,
@@ -21,13 +22,13 @@ function ClassementClubCell({
   clubName: string;
   lockedQualifAbrege?: string | null;
   lockedQualifLibelle?: string | null;
-  lockedQualifCouleur?: number | null;
+  lockedQualifCouleur?: string | null;
   onClick?: () => void;
 }) {
   const { src } = useEntityImage('club', clubId);
   const lockedLabel = String(lockedQualifLibelle ?? '').trim();
   const lockedAbrege = String(lockedQualifAbrege ?? '').trim();
-  const lockedColor = qualifColorToCss(lockedQualifCouleur);
+  const lockedColor = hexColorOrDefault(lockedQualifCouleur, '#64748b');
   const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     onClick?.();
@@ -282,7 +283,7 @@ export const TourClassementCard = forwardRef<TourClassementCardHandle, TourClass
                   height: 26,
                   borderRadius: '50%',
                   border: qualif ? '2px solid' : 'none',
-                  borderColor: qualif ? qualifColorToCss(qualif.CLASS_Couleur) : 'transparent',
+                  borderColor: qualif ? hexColorOrDefault(qualif.CLASS_Couleur, '#64748b') : 'transparent',
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',

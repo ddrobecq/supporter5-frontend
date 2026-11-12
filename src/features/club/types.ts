@@ -12,8 +12,8 @@ export interface ClubProfileRow {
   IDVILLE: string | null;
   VILLE_NOM: string;
   VILLE_IDNATIO: string;
-  FOND: string | number | null;
-  TEXTE: string | number | null;
+  FOND: string | null;
+  TEXTE: string | null;
 }
 
 export interface ClubNameHistoryRow {

@@ -46,10 +46,10 @@ import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { pickScreenColor } from '../../lib/screenColorPicker';
+import { CLUB_DEFAULT_FOND, CLUB_DEFAULT_TEXTE, hexColorOrDefault, normalizeHexColor } from '../../lib/color';
 import { useNatioList } from '../natio/natioStore';
 import { VillePicker } from '../../components/VillePicker';
 import { ClubJerseyVisual } from './ClubJerseyVisual';
-import { normalizeColorCode } from './clubJerseySvg';
 import { ClubMatchesTab } from './ClubMatchesTab';
 import {
   createClubTerrainHistory,
@@ -100,23 +100,9 @@ interface ClubTerrainDialogDraft {
   terrainName: string;
 }
 
-function cssColorToDbColor(cssColor: string): number {
-  const normalized = normalizeColorCode(cssColor, '#000000');
-  const match = normalized.match(/^#([0-9a-fA-F]{6})$/);
-  if (!match) {
-    return 0;
-  }
-
-  const hex = match[1];
-  const red = Number.parseInt(hex.slice(0, 2), 16);
-  const green = Number.parseInt(hex.slice(2, 4), 16);
-  const blue = Number.parseInt(hex.slice(4, 6), 16);
-  return red + (green << 8) + (blue << 16);
-}
-
 function createClubProfileDraft(row?: ClubProfileRow): ClubProfileDraft {
-  const fond = normalizeColorCode(row?.FOND, '#244A73');
-  const texte = normalizeColorCode(row?.TEXTE, '#000000');
+  const fond = hexColorOrDefault(row?.FOND, CLUB_DEFAULT_FOND);
+  const texte = hexColorOrDefault(row?.TEXTE, CLUB_DEFAULT_TEXTE);
   return {
     name: String(row?.CLUB_ABREGE ?? '').trim(),
     natioId: String(row?.IDNATIO ?? '').trim(),
@@ -321,7 +307,11 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
 
   const handlePickScreenColor = async (target: 'fond' | 'texte') => {
     try {
-      const color = await pickScreenColor();
+      const color = normalizeHexColor(await pickScreenColor());
+      if (!color) {
+        setSnackbar({ severity: 'error', message: 'Impossible de sélectionner cette couleur.' });
+        return;
+      }
       if (target === 'fond') {
         handleFondChange(color);
       } else {
@@ -369,8 +359,8 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
         natioId: profileDraft.natioId.trim().toUpperCase(),
         // Empty means "no city": the back no longer picks one, so never send null (kept the old city).
         villeId: profileDraft.villeId.trim(),
-        fond: cssColorToDbColor(profileDraft.fond),
-        texte: cssColorToDbColor(profileDraft.texte),
+        fond: hexColorOrDefault(profileDraft.fond, CLUB_DEFAULT_FOND),
+        texte: hexColorOrDefault(profileDraft.texte, CLUB_DEFAULT_TEXTE),
       });
 
       if (clubImageDraft !== undefined) {

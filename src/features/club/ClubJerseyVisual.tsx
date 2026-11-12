@@ -1,12 +1,13 @@
 import type { SxProps, Theme } from '@mui/material';
 import type { ReactNode } from 'react';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
-import { createJerseyVisualDataUri, normalizeColorCode } from './clubJerseySvg';
+import { CLUB_DEFAULT_FOND, CLUB_DEFAULT_TEXTE, hexColorOrDefault } from '../../lib/color';
+import { createJerseyVisualDataUri } from './clubJerseySvg';
 
 interface ClubJerseyVisualProps {
-  /** Couleur de fond du club, format libre (entier WinDev/OLE, hex, nom CSS...). */
+  /** Couleur de fond du club, '#RRGGBB' ; null ou invalide = defaut club. */
   fond: unknown;
-  /** Couleur de texte du club, meme format libre que `fond`. */
+  /** Couleur de texte du club, meme format que `fond`. */
   texte: unknown;
   clubName: string;
   /** Boutons superposes au survol (ex: pipettes de couleur en Admin). Absent en Public. */
@@ -16,8 +17,8 @@ interface ClubJerseyVisualProps {
 
 /** Visuel du maillot d'un club, couleurs derivees des champs FOND/TEXTE. Partage entre les fiches Admin et Public. */
 export function ClubJerseyVisual({ fond, texte, clubName, overlay, sx }: ClubJerseyVisualProps) {
-  const fondColor = normalizeColorCode(fond, '#244A73');
-  const texteColor = normalizeColorCode(texte, '#000000');
+  const fondColor = hexColorOrDefault(fond, CLUB_DEFAULT_FOND);
+  const texteColor = hexColorOrDefault(texte, CLUB_DEFAULT_TEXTE);
   const kitVisualSrc = createJerseyVisualDataUri(fondColor, texteColor, clubName);
 
   return (
