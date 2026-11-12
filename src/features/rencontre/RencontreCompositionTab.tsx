@@ -49,12 +49,14 @@ interface PitchSlotProps {
   x: number;
   y: number;
   player: SquadPlayerRow | null;
+  /** Joueur également placé sur une autre case (doublon à corriger). */
+  duplicate?: boolean;
   onDrop: (code: string, playerId: string, source: string) => void;
   onRemove: (code: string) => void;
   setDragSource: (src: string) => void;
 }
 
-function PitchSlot({ code, label, x, y, player, onDrop, onRemove, setDragSource }: PitchSlotProps) {
+function PitchSlot({ code, label, x, y, player, duplicate = false, onDrop, onRemove, setDragSource }: PitchSlotProps) {
   const [over, setOver] = useState(false);
 
   return (
@@ -62,7 +64,7 @@ function PitchSlot({ code, label, x, y, player, onDrop, onRemove, setDragSource 
       x={x}
       y={y}
       sx={{ cursor: player ? 'default' : 'pointer' }}
-      title={label}
+      title={duplicate ? `${label} : joueur placé sur plusieurs cases` : label}
       onDragOver={(e) => { e.preventDefault(); setOver(true); }}
       onDragLeave={() => setOver(false)}
       onDrop={(e) => {
@@ -84,7 +86,7 @@ function PitchSlot({ code, label, x, y, player, onDrop, onRemove, setDragSource 
             e.dataTransfer.setData('source', code);
             setDragSource(code);
           }}
-          avatarSx={{ cursor: 'grab' }}
+          avatarSx={{ cursor: 'grab', ...(duplicate && !over ? { border: '2px solid', borderColor: 'error.main' } : {}) }}
         />
       ) : (
         <Box
@@ -251,6 +253,21 @@ export function RencontreCompositionTab({
     [squad, assignedIds],
   );
 
+  // Slots (titulaires + remplaçants, hors entraîneur) dont le joueur est placé sur plusieurs cases
+  const duplicateSlotCodes = useMemo<Set<string>>(() => {
+    const codesByPlayer = new Map<string, string[]>();
+    for (const code of [...PITCH_SLOTS.map((slot) => slot.code), ...REMP_CODES]) {
+      const pid = composition[code];
+      if (!pid) continue;
+      codesByPlayer.set(pid, [...(codesByPlayer.get(pid) ?? []), code]);
+    }
+    const codes = new Set<string>();
+    for (const slotCodes of codesByPlayer.values()) {
+      if (slotCodes.length > 1) slotCodes.forEach((code) => codes.add(code));
+    }
+    return codes;
+  }, [composition]);
+
   // ---------------------------------------------------------------------------
   // Drag & drop handlers
   // ---------------------------------------------------------------------------
@@ -375,6 +392,11 @@ export function RencontreCompositionTab({
   return (
     <Stack spacing={1.5}>
       {error ? <Typography variant="body2" color="error.main">{error}</Typography> : null}
+      {duplicateSlotCodes.size > 0 ? (
+        <Typography variant="body2" color="error.main">
+          Un même joueur est placé sur plusieurs cases : corrigez les cases signalées en rouge.
+        </Typography>
+      ) : null}
 
       {isNarrowViewport ? (
         <FormControlLabel
@@ -481,6 +503,7 @@ export function RencontreCompositionTab({
                 key={slot.code}
                 {...slot}
                 player={composition[slot.code] ? (playerById.get(composition[slot.code] as string) ?? null) : null}
+                duplicate={duplicateSlotCodes.has(slot.code)}
                 onDrop={handleDrop}
                 onRemove={handleRemoveFromSlot}
                 setDragSource={(src) => { dragSourceRef.current = src; }}
@@ -529,12 +552,15 @@ export function RencontreCompositionTab({
             {REMP_CODES.map((code) => {
               const pid = (composition[code] as string | null | undefined) ?? null;
               const player = pid ? (playerById.get(pid) ?? null) : null;
+              const duplicate = duplicateSlotCodes.has(code);
               return (
                 <Box
                   key={code}
+                  title={duplicate ? 'Joueur placé sur plusieurs cases' : undefined}
                   sx={{
                     ...BENCH_SLOT_SX,
                     bgcolor: player ? 'action.hover' : 'background.default',
+                    ...(duplicate ? { borderStyle: 'solid', borderColor: 'error.main' } : {}),
                   }}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => {

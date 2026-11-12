@@ -62,6 +62,11 @@ function showPlayers(typeEvent: number): boolean {
   return typeEvent !== MatchEventType.TempsAdditionnel && typeEvent !== MatchEventType.PenaltySiffle;
 }
 
+/** Types pour lesquels JOUEUR1 est obligatoire sur un événement du club supporté. */
+function requiresJoueur1(typeEvent: number): boolean {
+  return showPlayers(typeEvent);
+}
+
 function getEventDraftSignature(values: {
   adversaire: boolean;
   minute: string;
@@ -132,6 +137,8 @@ export function EventFormDialog({
   const adversaireRef = useRef<HTMLInputElement>(null);
   const [initialSignature, setInitialSignature] = useState('');
   const savingRef = useRef(false);
+  const [joueur1Missing, setJoueur1Missing] = useState(false);
+  const [confirmResolver, setConfirmResolver] = useState<((confirmed: boolean) => void) | null>(null);
 
   // Load squad on open (loader shown while rendering, on the same dependencies as the effect below)
   const squadDepsChanged = useDepsChanged([open, rencontreId]);
@@ -175,6 +182,7 @@ export function EventFormDialog({
       setJoueur2(null);
       setComment('');
       setError(null);
+      setJoueur1Missing(false);
       setInitialSignature(getEventDraftSignature({
         adversaire: false,
         minute: '',
@@ -228,6 +236,19 @@ export function EventFormDialog({
   const playerLabel = (p: SquadPlayerRow) =>
     p.SURNOM?.trim() || `${p.NOM} ${p.PRENOM}`.trim();
 
+  const joueur1Required = !adversaire && requiresJoueur1(typeEvent);
+  const joueur1InError = joueur1Missing && joueur1Required && joueur1 == null;
+
+  const askMissingJoueur2Confirmation = () =>
+    new Promise<boolean>((resolve) => {
+      setConfirmResolver(() => resolve);
+    });
+
+  const closeConfirm = (confirmed: boolean) => {
+    confirmResolver?.(confirmed);
+    setConfirmResolver(null);
+  };
+
   const handleSave = async (): Promise<boolean> => {
     const min = parseInt(minute, 10);
     if (!Number.isFinite(min) || min < 0) {
@@ -241,6 +262,17 @@ export function EventFormDialog({
         setError('Le temps additionnel doit être un nombre entier de minutes supérieur à 0.');
         return false;
       }
+    }
+    if (joueur1Required && joueur1 == null) {
+      setJoueur1Missing(true);
+      setError('Le joueur est requis.');
+      return false;
+    }
+    setJoueur1Missing(false);
+    if (!adversaire && typeEvent === MatchEventType.Remplacement && joueur2 == null) {
+      setError(null);
+      const confirmed = await askMissingJoueur2Confirmation();
+      if (!confirmed) return false;
     }
     const payload: EventPayload = {
       adversaire: isAdditionalTime ? 0 : (adversaire ? 1 : 0),
@@ -299,6 +331,7 @@ export function EventFormDialog({
     setJoueur2(null);
     setComment('');
     setError(null);
+    setJoueur1Missing(false);
   };
 
   useEffect(() => {
@@ -313,7 +346,7 @@ export function EventFormDialog({
   // Entrée valide le formulaire, sauf si une liste (Select/Autocomplete) l'a déjà traitée
   // via preventDefault, si une liste d'Autocomplete est ouverte, ou dans un textarea / bouton.
   const handleDialogKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== 'Enter' || e.defaultPrevented || e.nativeEvent.isComposing || saving) return;
+    if (e.key !== 'Enter' || e.defaultPrevented || e.nativeEvent.isComposing || saving || confirmResolver) return;
     if (e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
     const target = e.target as HTMLElement;
     if (target.tagName === 'TEXTAREA' || target.tagName === 'BUTTON') return;
@@ -330,6 +363,7 @@ export function EventFormDialog({
   }, [open]);
 
   return (
+    <>
     <Dialog open={open} onClose={onClose} onKeyDown={handleDialogKeyDown} maxWidth="sm" fullWidth>
       <DialogTitle>{isEdit ? 'Modifier l\'événement' : 'Ajouter un événement'}</DialogTitle>
       <DialogContent>
@@ -393,11 +427,22 @@ export function EventFormDialog({
                 options={squad}
                 loading={squadLoading}
                 value={joueur1}
-                onChange={(_, v) => setJoueur1(v)}
+                onChange={(_, v) => {
+                  setJoueur1(v);
+                  if (v && joueur1Missing) {
+                    setJoueur1Missing(false);
+                    setError(null);
+                  }
+                }}
                 getOptionLabel={playerLabel}
                 isOptionEqualToValue={(a, b) => a.IDJOUEUR === b.IDJOUEUR}
                 renderInput={(params) => (
-                  <TextField {...params} label={joueur1Label(typeEvent)} />
+                  <TextField
+                    {...params}
+                    label={joueur1Label(typeEvent)}
+                    required={joueur1Required}
+                    error={joueur1InError}
+                  />
                 )}
               />
               {showJoueur2(typeEvent) ? (
@@ -446,5 +491,21 @@ export function EventFormDialog({
         </Button>
       </DialogActions>
     </Dialog>
+
+    <Dialog open={confirmResolver != null} onClose={() => closeConfirm(false)} maxWidth="xs" fullWidth>
+      <DialogTitle>Confirmer l'enregistrement</DialogTitle>
+      <DialogContent dividers>
+        <Typography variant="body2">
+          Le joueur entrant n'est pas renseigné. Êtes-vous sûr de vouloir enregistrer ?
+        </Typography>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => closeConfirm(false)} color="inherit">Annuler</Button>
+        <Button variant="contained" onClick={() => closeConfirm(true)} autoFocus>
+          Enregistrer
+        </Button>
+      </DialogActions>
+    </Dialog>
+    </>
   );
 }
