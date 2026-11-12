@@ -56,8 +56,9 @@ function showJoueur2(typeEvent: number): boolean {
   return typeEvent === MatchEventType.But || typeEvent === MatchEventType.Remplacement;
 }
 
+/** Penalty sifflé (6) et temps additionnel (10) : JOUEUR1 et JOUEUR2 restent null. */
 function showPlayers(typeEvent: number): boolean {
-  return typeEvent !== MatchEventType.TempsAdditionnel;
+  return typeEvent !== MatchEventType.TempsAdditionnel && typeEvent !== MatchEventType.PenaltySiffle;
 }
 
 function getEventDraftSignature(values: {
@@ -242,8 +243,8 @@ export function EventFormDialog({
       minute: min,
       periode,
       typeEvent,
-      joueur1: isAdditionalTime || adversaire ? null : (joueur1?.IDJOUEUR ?? null),
-      joueur2: isAdditionalTime || adversaire ? null : (joueur2?.IDJOUEUR ?? null),
+      joueur1: !showPlayers(typeEvent) || adversaire ? null : (joueur1?.IDJOUEUR ?? null),
+      joueur2: !showPlayers(typeEvent) || !showJoueur2(typeEvent) || adversaire ? null : (joueur2?.IDJOUEUR ?? null),
       comment: comment.trim() || null,
     };
     setSaving(true);
@@ -361,7 +362,16 @@ export function EventFormDialog({
 
           <FormControl fullWidth>
             <InputLabel>Type d'événement</InputLabel>
-            <Select value={typeEvent} label="Type d'événement" onChange={(e) => setTypeEvent(Number(e.target.value))}>
+            <Select
+              value={typeEvent}
+              label="Type d'événement"
+              onChange={(e) => {
+                const nextType = Number(e.target.value);
+                setTypeEvent(nextType);
+                if (!showPlayers(nextType)) setJoueur1(null);
+                if (!showPlayers(nextType) || !showJoueur2(nextType)) setJoueur2(null);
+              }}
+            >
               {MATCH_EVENT_TYPES.map((o) => (
                 <MenuItem key={o.value} value={o.value}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

@@ -164,7 +164,7 @@ export { CoachInlineDisplay };
 // ---------------------------------------------------------------------------
 
 export interface CompositionTabActions {
-  save: () => Promise<void>;
+  save: () => Promise<string[]>;
   reset: () => void;
   isSaving: () => boolean;
 }
@@ -317,15 +317,16 @@ export function RencontreCompositionTab({
   // Save / Reset
   // ---------------------------------------------------------------------------
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<string[]> => {
     setSaving(true);
     savingRef.current = true;
     setError(null);
     try {
-      await saveRencontreComposition(rencontreId, composition);
+      const warnings = await saveRencontreComposition(rencontreId, composition);
       initialCompositionRef.current = { ...composition };
       _compositionCache.set(rencontreId, { ...composition });
       _initialCompositionCache.set(rencontreId, { ...composition });
+      return warnings;
     } catch (err) {
       setError(toErrorMessage(err));
       throw err;

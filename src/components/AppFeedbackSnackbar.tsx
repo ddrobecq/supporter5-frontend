@@ -2,7 +2,7 @@ import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
 import { Alert, IconButton, Snackbar, Tooltip } from '@mui/material';
 
 export interface FeedbackMessage {
-  severity: 'success' | 'error';
+  severity: 'success' | 'warning' | 'error';
   message: string;
 }
 

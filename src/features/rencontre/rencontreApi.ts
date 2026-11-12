@@ -48,8 +48,10 @@ export async function fetchRencontreComposition(rencontreId: string | number, si
   return data ?? {};
 }
 
-export async function saveRencontreComposition(rencontreId: string | number, payload: CompositionMap): Promise<void> {
-  await http.put(`${env.rencontreAdminResource}/${encodeURIComponent(String(rencontreId))}/composition`, payload);
+/** Renvoie les avertissements métier du serveur (ex: composition incomplète), vide s'il n'y en a pas. */
+export async function saveRencontreComposition(rencontreId: string | number, payload: CompositionMap): Promise<string[]> {
+  const { data } = await http.put<{ warnings?: string[] }>(`${env.rencontreAdminResource}/${encodeURIComponent(String(rencontreId))}/composition`, payload);
+  return Array.isArray(data?.warnings) ? data.warnings : [];
 }
 
 export async function fetchRencontreSquad(rencontreId: string | number, signal?: AbortSignal): Promise<SquadPlayerRow[]> {

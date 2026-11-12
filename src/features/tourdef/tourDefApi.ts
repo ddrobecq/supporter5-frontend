@@ -37,6 +37,7 @@ export async function deleteTourDef(id: string | number): Promise<void> {
   await http.delete(`${env.tourDefAdminResource}/${encodePathSegment(id)}`);
 }
 
-export async function canDeleteTourDef(_id: string | number): Promise<CanDeleteResponse> {
-  return { canDelete: true, constraints: [] };
+export async function canDeleteTourDef(id: string | number): Promise<CanDeleteResponse> {
+  const { data } = await http.get<CanDeleteResponse>(`${env.tourDefAdminResource}/${encodePathSegment(id)}/can-delete`);
+  return data;
 }

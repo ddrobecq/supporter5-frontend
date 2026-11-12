@@ -856,11 +856,14 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       setIsEventDialogSaving(true);
     }
 
+    let compositionWarnings: string[] = [];
     try {
       // Run both saves concurrently when both are dirty.
       await Promise.all([
         isDirty ? handleSave() : Promise.resolve(),
-        saveCompo ? compositionActionsRef.current!.save() : Promise.resolve(),
+        saveCompo
+          ? compositionActionsRef.current!.save().then((warnings) => { compositionWarnings = warnings; })
+          : Promise.resolve(),
         saveEvent ? eventDialogActionsRef.current!.save() : Promise.resolve(),
         shouldRecomputeForEvents && detail
           ? recomputeRencontreStats(detail.RECLEUNIK).catch((err) => {
@@ -868,6 +871,11 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
           })
           : Promise.resolve(),
       ]);
+      if (compositionWarnings.length > 0) {
+        const message = compositionWarnings.join(' ');
+        // Une erreur d'une autre section (ex: handleSave) reste prioritaire sur l'avertissement.
+        setSnackbar((prev) => (prev?.severity === 'error' ? prev : { severity: 'warning', message }));
+      }
     } catch { /* errors shown inline by each section */ }
     finally {
       if (saveCompo) setIsCompositionSaving(false);
