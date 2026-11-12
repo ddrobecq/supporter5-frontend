@@ -10,6 +10,7 @@ import { StructuredData } from '../../components/StructuredData';
 import { entityPathForPublicMode } from '../../lib/entityNavigation';
 import { isAbortError, isNotFoundError } from '../../lib/httpErrors';
 import { useEntityImage } from '../../lib/useEntityImage';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useSeoMeta } from '../../lib/useSeoMeta';
 import { useRecentRecordVisit } from '../home/useRecentRecordVisit';
 import { supportedClubStore } from '../system/supportedClubStore';
@@ -59,12 +60,26 @@ export function ClubPublicPage() {
   const matchFilterClubName = matchFilterOverride?.clubName ?? supportedClubName;
   const clubImage = useEntityImage('club', clubId);
 
-  useEffect(() => {
-    const controller = new AbortController();
+  // State resets and loading flags are applied while rendering, on the same dependencies
+  // (and conditions) as the fetch effects below, which only run the requests.
+  const profileRequestChanged = useDepsChanged([clubId, reloadKey]);
+  if (profileRequestChanged) {
     setLoading(true);
     setLoadError(null);
     setMatches([]); setMatchesLoaded(false); setMatchesError(false);
     setPalmares([]); setPalmaresLoaded(false); setPalmaresError(false);
+  }
+  const matchesRequestChanged = useDepsChanged([tab, clubId, matchesLoaded, matchesError]);
+  if (matchesRequestChanged && tab === 'matches' && !matchesLoaded && !matchesError) {
+    setMatchesLoading(true);
+  }
+  const palmaresRequestChanged = useDepsChanged([loading, profile, clubId, palmaresLoaded, palmaresError]);
+  if (palmaresRequestChanged && !loading && profile && !palmaresLoaded && !palmaresError) {
+    setPalmaresLoading(true);
+  }
+
+  useEffect(() => {
+    const controller = new AbortController();
     void Promise.all([
       fetchClubProfileById(clubId, controller.signal), fetchClubNameHistory(clubId, controller.signal),
       fetchClubTerrainHistory(clubId, controller.signal),
@@ -85,7 +100,6 @@ export function ClubPublicPage() {
   useEffect(() => {
     if (tab !== 'matches' || matchesLoaded || matchesError) return;
     const controller = new AbortController();
-    setMatchesLoading(true);
     fetchClubMatches(clubId, controller.signal)
       .then((rows) => { setMatches(rows); setMatchesLoaded(true); })
       .catch((error: unknown) => { if (!isAbortError(error)) setMatchesError(true); })
@@ -98,7 +112,6 @@ export function ClubPublicPage() {
   useEffect(() => {
     if (loading || !profile || palmaresLoaded || palmaresError) return;
     const controller = new AbortController();
-    setPalmaresLoading(true);
     fetchClubPalmares(clubId, controller.signal)
       .then((rows) => { setPalmares(rows); setPalmaresLoaded(true); })
       .catch((error: unknown) => { if (!isAbortError(error)) setPalmaresError(true); })

@@ -3,6 +3,7 @@ import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import { Box, Card, CardContent, Stack, Tooltip, Typography } from '@mui/material';
 import { type GridColDef } from '@mui/x-data-grid';
 import { MatchDataGrid } from '../../components/MatchDataGrid';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { fetchTourClassement, fetchTourQualifs } from './calendrierApi';
 import type { TourClassementRow, TourQualifRow } from './types';
@@ -137,29 +138,18 @@ export const TourClassementCard = forwardRef<TourClassementCardHandle, TourClass
     const [classementQualifRows, setClassementQualifRows] = useState<TourQualifRow[]>([]);
     const [classementLoading, setClassementLoading] = useState(false);
     const [loadedTourId, setLoadedTourId] = useState<number | null>(null);
-    const [classementGroup, setClassementGroup] = useState<string | null>(null);
 
     const classementCacheRef = useRef<Map<number, TourClassementRow[]>>(new Map());
     const classementQualifCacheRef = useRef<Map<number, TourQualifRow[]>>(new Map());
     const classementRequestTokenRef = useRef(0);
     const previousTourGroupRef = useRef<{ tourId: number | null; group: string | null }>({ tourId: null, group: null });
 
-    const loadClassementForTour = useCallback(async (targetTourId: number, force = false) => {
+    const loadClassementForTour = useCallback(async (targetTourId: number) => {
       if (!Number.isInteger(targetTourId) || targetTourId <= 0) {
         setClassementRows([]);
         setClassementQualifRows([]);
         setLoadedTourId(null);
         return;
-      }
-
-      if (!force) {
-        const cached = classementCacheRef.current.get(targetTourId);
-        if (cached) {
-          setClassementRows(cached);
-          setClassementQualifRows(classementQualifCacheRef.current.get(targetTourId) ?? []);
-          setLoadedTourId(targetTourId);
-          return;
-        }
       }
 
       const token = ++classementRequestTokenRef.current;
@@ -194,19 +184,31 @@ export const TourClassementCard = forwardRef<TourClassementCardHandle, TourClass
     useImperativeHandle(ref, () => ({
       refresh: () => {
         if (Number.isInteger(tourId) && Number(tourId) > 0) {
-          void loadClassementForTour(Number(tourId), true);
+          void loadClassementForTour(Number(tourId));
         }
       },
     }), [tourId, loadClassementForTour]);
 
+    const hasValidTour = Number.isInteger(tourId) && Number(tourId) > 0;
+    // No valid tour: clear the classement while rendering, on the same dependencies as the load effect below.
+    const tourRequestChanged = useDepsChanged([tourId, loadClassementForTour]);
+    if (tourRequestChanged && !hasValidTour) {
+      setClassementRows([]);
+      setClassementQualifRows([]);
+      setLoadedTourId(null);
+    }
+
     useEffect(() => {
-      if (!Number.isInteger(tourId) || Number(tourId) <= 0) {
-        setClassementRows([]);
-        setClassementQualifRows([]);
-        setLoadedTourId(null);
+      if (!Number.isInteger(tourId) || Number(tourId) <= 0) return;
+      const targetTourId = Number(tourId);
+      const cached = classementCacheRef.current.get(targetTourId);
+      if (cached) {
+        setClassementRows(cached);
+        setClassementQualifRows(classementQualifCacheRef.current.get(targetTourId) ?? []);
+        setLoadedTourId(targetTourId);
         return;
       }
-      void loadClassementForTour(Number(tourId), false);
+      void loadClassementForTour(targetTourId);
     }, [tourId, loadClassementForTour]);
 
     const classementHasMultipleGroups = useMemo(() => hasMultipleGroups(classementRows), [classementRows]);
@@ -215,15 +217,15 @@ export const TourClassementCard = forwardRef<TourClassementCardHandle, TourClass
       [classementRows, matchForGroup],
     );
 
+    const classementGroup = hasValidTour && classementHasMultipleGroups ? resolvedMatchGroup : null;
+
     useEffect(() => {
       if (!Number.isInteger(tourId) || Number(tourId) <= 0) {
         previousTourGroupRef.current = { tourId: null, group: null };
-        setClassementGroup(null);
         return;
       }
 
       const nextGroup = classementHasMultipleGroups ? resolvedMatchGroup : null;
-      setClassementGroup(nextGroup);
 
       const previous = previousTourGroupRef.current;
       const sameTour = previous.tourId === tourId;
@@ -232,7 +234,7 @@ export const TourClassementCard = forwardRef<TourClassementCardHandle, TourClass
       previousTourGroupRef.current = { tourId, group: nextGroup };
 
       if (sameTour && groupChanged && nextGroup) {
-        void loadClassementForTour(Number(tourId), true);
+        void loadClassementForTour(Number(tourId));
       }
     }, [tourId, classementHasMultipleGroups, resolvedMatchGroup, loadClassementForTour]);
 

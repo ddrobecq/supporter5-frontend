@@ -11,6 +11,7 @@ import { useExternalSaveTrigger } from '../../lib/useExternalSaveTrigger';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import type { ArbitreRow } from './types';
 import type { NatioRow } from '../natio/types';
@@ -102,11 +103,11 @@ export function ArbitreFormDialog({
     [codeField, nomField, prenomField, natioField, photoField],
   );
 
-  useEffect(() => {
-    if (!open) {
-      setPhotoDraft(undefined);
-      return;
-    }
+  // Initialize the form while rendering, on the dependencies of the former effect.
+  const initDepsChanged = useDepsChanged([open, resolvedFields, initialData, setInitialSignature]);
+  if (initDepsChanged && !open) {
+    setPhotoDraft(undefined);
+  } else if (initDepsChanged) {
     const initial: ArbitreRow = {};
     for (const field of resolvedFields) {
       // Ne pas stocker ARB_PHOTO dans l'état du formulaire : chargé séparément via le hook
@@ -116,7 +117,7 @@ export function ArbitreFormDialog({
     setValues(initial);
     setPhotoDraft(undefined);
     setInitialSignature(JSON.stringify({ ...initial, ARB_PHOTO: '' }));
-  }, [open, resolvedFields, initialData, setInitialSignature]);
+  }
 
   useEffect(() => {
     const currentSignature = JSON.stringify({

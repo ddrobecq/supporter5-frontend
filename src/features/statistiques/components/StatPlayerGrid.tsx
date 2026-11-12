@@ -48,7 +48,7 @@ function openJoueurTab(row: StatPlayerRow): void {
 
 /** Grille generique pour toutes les stats du domaine Joueur: 1re colonne = identite joueur. */
 export function StatPlayerGrid<R extends StatPlayerRow>({ rows, valueColumns, loading, error, getRowId, initialState, hideIdentityColumn, toolbarActions, apiRef: externalApiRef, scope, onScopeChange }: StatPlayerGridProps<R>) {
-  const resolveRowId = useCallback(getRowId ?? ((row: R) => row.IDJOUEUR), [getRowId]);
+  const resolveRowId = useMemo(() => getRowId ?? ((row: R) => row.IDJOUEUR), [getRowId]);
   const localApiRef = useGridApiRef();
   const apiRef = externalApiRef ?? localApiRef;
   const [search, setSearch] = useState('');

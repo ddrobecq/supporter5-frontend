@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useExternalSaveTrigger } from '../../lib/useExternalSaveTrigger';
 import { VillePicker } from '../../components/VillePicker';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import type { TerrainRow } from './types';
 
@@ -70,10 +71,9 @@ export function TerrainFormDialog({
     [nameField],
   );
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
+  // Initialize the form while rendering, on the dependencies of the former effect.
+  const initDepsChanged = useDepsChanged([open, resolvedFields, initialData, setInitialSignature]);
+  if (initDepsChanged && open) {
     const initial: TerrainRow = {};
     for (const field of resolvedFields) {
       initial[field] = (initialData?.[field] as string | number | null | undefined) ?? '';
@@ -85,7 +85,7 @@ export function TerrainFormDialog({
     setValues(initial);
     setErrors({});
     setInitialSignature(JSON.stringify(initial));
-  }, [open, resolvedFields, initialData, setInitialSignature]);
+  }
 
   useEffect(() => {
     syncDirty(JSON.stringify(values));

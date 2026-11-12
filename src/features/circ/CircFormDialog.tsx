@@ -2,6 +2,7 @@ import { Box, Button, MenuItem, Stack, TextField } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useExternalSaveTrigger } from '../../lib/useExternalSaveTrigger';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import { CIRC_TYPE_OPTIONS } from './circColumnsHelper';
 import type { CircRow } from './types';
@@ -24,8 +25,9 @@ export function CircFormDialog({ open, mode, embedded = false, primaryKey, initi
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, onDirtyChange);
 
-  useEffect(() => {
-    if (!open) return;
+  // Initialize the form while rendering, on the dependencies of the former effect.
+  const initDepsChanged = useDepsChanged([open, initialData, setInitialSignature]);
+  if (initDepsChanged && open) {
     const initial = {
       IDCIRC: initialData?.IDCIRC ?? '',
       CIRC: initialData?.CIRC ?? '',
@@ -34,7 +36,7 @@ export function CircFormDialog({ open, mode, embedded = false, primaryKey, initi
     setValues(initial);
     setInitialSignature(JSON.stringify(initial));
     setErrors({});
-  }, [open, initialData, setInitialSignature]);
+  }
 
   useEffect(() => {
     syncDirty(JSON.stringify(values));

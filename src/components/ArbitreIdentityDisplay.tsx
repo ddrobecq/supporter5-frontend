@@ -2,6 +2,7 @@ import { Avatar, Box, Stack, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import SportsIcon from '@mui/icons-material/Sports';
 import { NatioFlag } from './NatioFlag';
+import { useDepsChanged } from '../lib/useDepsChanged';
 import { useEntityImage } from '../lib/useEntityImage';
 import { fetchArbitreById } from '../features/rencontre/rencontreApi';
 
@@ -17,11 +18,14 @@ export function ArbitreIdentityDisplay({ arbitreId, size = 30, compact = false, 
   const { src } = useEntityImage('arbitre', normalizedId);
   const [data, setData] = useState<{ NOM: string; PRENOM: string; IDNATIO: string } | null>(null);
 
+  // Clear while rendering, on the dependencies of the fetch effect below.
+  const idChanged = useDepsChanged([normalizedId]);
+  if (idChanged && !normalizedId) {
+    setData(null);
+  }
+
   useEffect(() => {
-    if (!normalizedId) {
-      setData(null);
-      return;
-    }
+    if (!normalizedId) return;
 
     let cancelled = false;
     void fetchArbitreById(normalizedId).then((arbitre) => {

@@ -8,9 +8,10 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ClubSelectField } from '../../components/ClubSelectField';
 import { toErrorMessage } from '../../components/useEntityPage';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { mergeClubs } from './clubApi';
 
 interface ClubRef {
@@ -34,15 +35,16 @@ export function ClubMergeDialog({ open, onClose }: ClubMergeDialogProps) {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  useEffect(() => {
-    if (!open) return;
+  // Reset on open, while rendering.
+  const openChanged = useDepsChanged([open]);
+  if (openChanged && open) {
     setSource(EMPTY_CLUB);
     setTarget(EMPTY_CLUB);
     setConfirming(false);
     setMerging(false);
     setErrorMessage('');
     setSuccessMessage('');
-  }, [open]);
+  }
 
   const sameClub = Boolean(source.clubId) && source.clubId === target.clubId;
   const canMerge = Boolean(source.clubId) && Boolean(target.clubId) && !sameClub;

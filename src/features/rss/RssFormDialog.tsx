@@ -2,6 +2,7 @@ import { Box, Button, Stack, TextField } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useExternalSaveTrigger } from '../../lib/useExternalSaveTrigger';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import type { RssRow } from './types';
 
@@ -33,8 +34,9 @@ export function RssFormDialog({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, onDirtyChange);
 
-  useEffect(() => {
-    if (!open) return;
+  // Initialize the form while rendering, on the dependencies of the former effect.
+  const initDepsChanged = useDepsChanged([open, initialData, setInitialSignature]);
+  if (initDepsChanged && open) {
     const initial: RssRow = {
       RSSID: initialData?.RSSID ?? '',
       RSSURL: initialData?.RSSURL ?? '',
@@ -43,7 +45,7 @@ export function RssFormDialog({
     setValues(initial);
     setInitialSignature(JSON.stringify(initial));
     setErrors({});
-  }, [open, initialData, setInitialSignature]);
+  }
 
   useEffect(() => {
     syncDirty(JSON.stringify(values));

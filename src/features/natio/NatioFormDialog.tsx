@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useExternalSaveTrigger } from '../../lib/useExternalSaveTrigger';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { checkImageSize, measureTextBytes } from '../../config/uploadLimits';
@@ -168,10 +169,9 @@ export function NatioFormDialog({
     [codeField, nameField, localField, codeIsoField, flagField],
   );
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
+  // Initialize the form while rendering, on the dependencies of the former effect.
+  const initDepsChanged = useDepsChanged([open, resolvedFields, initialData, setInitialSignature]);
+  if (initDepsChanged && open) {
     const initial: NatioRow = {};
     for (const field of resolvedFields) {
       initial[field] = (initialData?.[field] as string | number | null | undefined) ?? '';
@@ -187,7 +187,7 @@ export function NatioFormDialog({
 
     const signature = JSON.stringify({ ...initial, NAT_DRAPEAU: resolvedSvg.trim() || '' });
     setInitialSignature(signature);
-  }, [open, resolvedFields, initialData, setInitialSignature]);
+  }
 
   useEffect(() => {
     const currentSignature = JSON.stringify({ ...values, NAT_DRAPEAU: flagSvgContent.trim() || (flagCleared ? '_cleared_' : '') });

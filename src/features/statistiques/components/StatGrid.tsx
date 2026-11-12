@@ -35,7 +35,7 @@ export function StatGrid<R extends GridValidRowModel>({ rows, columns, loading, 
     ...(initialState || {}),
   };
 
-  const rankColumn: GridColDef<R> = {
+  const rankColumn = useMemo<GridColDef<R>>(() => ({
     field: '__statRank',
     headerName: '#',
     width: 62,
@@ -74,9 +74,9 @@ export function StatGrid<R extends GridValidRowModel>({ rows, columns, loading, 
         </Tooltip>
       );
     },
-  };
+  }), [columns]);
 
-  const gridColumns = useMemo(() => [rankColumn, ...columns], [columns]);
+  const gridColumns = useMemo(() => [rankColumn, ...columns], [columns, rankColumn]);
 
   const mergedGetRowClassName = (params: GridRowClassNameParams<R>) => {
     const externalClass = getRowClassName?.(params) ?? '';

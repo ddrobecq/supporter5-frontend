@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { fetchVilleById } from '../features/ville/villeApi';
 import { VillePage } from '../features/ville/VillePage';
 import type { VilleRow } from '../features/ville/types';
+import { useDepsChanged } from '../lib/useDepsChanged';
 import { useEntityImage } from '../lib/useEntityImage';
 import { useNatio } from '../features/natio/natioStore';
 
@@ -61,11 +62,15 @@ export function VillePicker({
   const [fetchedNatioId, setFetchedNatioId] = useState('');
   const effectiveNatioId = villeNatioId || fetchedNatioId;
 
+  // Clear while rendering, on the dependencies of the fetch effect below.
+  const skipFetch = !villeId || !!villeNatioId || !entityNatioId;
+  const fetchDepsChanged = useDepsChanged([villeId, villeNatioId, entityNatioId]);
+  if (fetchDepsChanged && skipFetch) {
+    setFetchedNatioId('');
+  }
+
   useEffect(() => {
-    if (!villeId || villeNatioId || !entityNatioId) {
-      setFetchedNatioId('');
-      return;
-    }
+    if (!villeId || villeNatioId || !entityNatioId) return;
     void fetchVilleById(villeId)
       .then((row) => setFetchedNatioId(String(row.IDNATIO ?? '').trim()))
       .catch(() => setFetchedNatioId(''));

@@ -6,6 +6,7 @@ import type { SxProps, Theme } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
 import { checkImageSize, isAllowedImageType, measureTextBytes } from '../config/uploadLimits';
+import { useDepsChanged } from '../lib/useDepsChanged';
 
 interface EntityImageFrameProps {
   src?: string | null;
@@ -341,27 +342,20 @@ export function EntityImageFrame({
 
   const [resolvedRemoteSrc, setResolvedRemoteSrc] = useState<string | null>(null);
 
+  // Local sources are resolved while rendering, on the dependencies of the effect below;
+  // remote ones keep the previous value until the effect resolves them.
+  const srcChanged = useDepsChanged([src]);
+  const trimmedSrc = src ? src.trim() : '';
+  const shouldResolveRemote = /^https?:\/\//i.test(trimmedSrc);
+  if (srcChanged && !shouldResolveRemote) {
+    setResolvedRemoteSrc(trimmedSrc ? normalizeImageSource(trimmedSrc) : null);
+  }
+
   useEffect(() => {
     let cancelled = false;
 
-    if (!src) {
-      setResolvedRemoteSrc(null);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    const trimmed = src.trim();
-    if (!trimmed) {
-      setResolvedRemoteSrc(null);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    const shouldResolveRemote = /^https?:\/\//i.test(trimmed);
-    if (!shouldResolveRemote) {
-      setResolvedRemoteSrc(normalizeImageSource(trimmed));
+    const trimmed = src ? src.trim() : '';
+    if (!/^https?:\/\//i.test(trimmed)) {
       return () => {
         cancelled = true;
       };

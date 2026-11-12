@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppFeedbackSnackbar } from './AppFeedbackSnackbar';
 import type { FeedbackMessage } from './AppFeedbackSnackbar';
 import { toErrorMessage } from './useEntityPage';
+import { useDepsChanged } from '../lib/useDepsChanged';
 import { useTabFormPaneBridge } from '../lib/useTabFormPaneBridge';
 
 /** Props injected by EntityTabFormPane into the embedded `*FormDialog`. */
@@ -60,29 +61,41 @@ export function EntityTabFormPane<Row, Id, Derived = undefined>({
   const [row, setRow] = useState<Row | undefined>(undefined);
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
 
-  const reloadRow = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await fetchById(id);
+  // Loads the row; callers set `loading` to true beforehand.
+  // The executor turns a synchronous throw of fetchById into a rejection.
+  const loadRow = useCallback(() => new Promise<Row>((resolve) => resolve(fetchById(id)))
+    .then((data) => {
       setRow(data);
       if (syncLabelOnLoad) setLabel(resolveLabel(data, id));
       setDirty(false);
       return true;
-    } catch (error) {
+    })
+    .catch((error: unknown) => {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
       return false;
-    } finally {
+    })
+    .finally(() => {
       setLoading(false);
-    }
-  }, [fetchById, id, resolveLabel, setDirty, setLabel, syncLabelOnLoad]);
+    }), [fetchById, id, resolveLabel, setDirty, setLabel, syncLabelOnLoad]);
+
+  const reloadRow = useCallback(() => {
+    setLoading(true);
+    return loadRow();
+  }, [loadRow]);
+
+  // Show the loader while rendering, on the dependencies of the loading effect below.
+  const loadDepsChanged = useDepsChanged([loadRow, setDirty]);
+  if (loadDepsChanged && !loading) {
+    setLoading(true);
+  }
 
   useEffect(() => {
-    void reloadRow();
+    void loadRow();
 
     return () => {
       setDirty(false);
     };
-  }, [reloadRow, setDirty]);
+  }, [loadRow, setDirty]);
 
   const derived = useMemo(() => (row !== undefined && deriveFromRow ? deriveFromRow(row) : undefined), [deriveFromRow, row]);
 

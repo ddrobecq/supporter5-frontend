@@ -17,6 +17,7 @@ import { DateInputField } from '../../components/DateInputField';
 import { addDaysIso, toIsoDate } from '../../components/dateUtils';
 import { useInvalidDateFields } from '../../components/useInvalidDateFields';
 import { toErrorMessage } from '../../components/useEntityPage';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import {
   createSaisonWithWizard,
   fetchLastSaison,
@@ -79,7 +80,9 @@ export function SaisonCreateWizardDialog({ open, onClose, onCreated, onError }: 
   const [competitionSelection, setCompetitionSelection] = useState<GridRowId[]>([]);
   const [idemIds, setIdemIds] = useState<Set<number>>(new Set());
 
-  useEffect(() => {
+  // Reset on close / loading flag on open, while rendering, on the dependencies of the load effect below.
+  const openChanged = useDepsChanged([open]);
+  if (openChanged) {
     if (!open) {
       setStep(STEP_DATES);
       setSaving(false);
@@ -94,11 +97,15 @@ export function SaisonCreateWizardDialog({ open, onClose, onCreated, onError }: 
       setCompetitionRows([]);
       setCompetitionSelection([]);
       setIdemIds(new Set());
-      return;
+    } else {
+      setLoading(true);
     }
+  }
+
+  useEffect(() => {
+    if (!open) return;
 
     const controller = new AbortController();
-    setLoading(true);
 
     void fetchLastSaison(controller.signal)
       .then((last) => {
@@ -144,15 +151,13 @@ export function SaisonCreateWizardDialog({ open, onClose, onCreated, onError }: 
 
   // Tant que l'utilisateur n'a pas coche/decoche un joueur a la main, la selection par defaut
   // suit la date de debut saisie a l'etape precedente (regle metier: contrat au-dela de cette date).
-  useEffect(() => {
-    if (rosterTouched || rosterRows.length === 0 || !isoDebut) {
-      return;
-    }
+  const rosterDefaultDepsChanged = useDepsChanged([rosterRows, isoDebut, rosterTouched]);
+  if (rosterDefaultDepsChanged && !rosterTouched && rosterRows.length > 0 && isoDebut) {
     const defaultSelected = rosterRows
       .filter((row) => !row.CONTRAT_FIN || row.CONTRAT_FIN > isoDebut)
       .map((row) => row.JOCLEUNIK);
     setRosterSelection(defaultSelected);
-  }, [rosterRows, isoDebut, rosterTouched]);
+  }
 
   const validateStepDates = (): boolean => {
     if (!/^\d{4}-\d{4}$/.test(saisonName.trim())) {

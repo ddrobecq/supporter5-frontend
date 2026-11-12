@@ -1,6 +1,7 @@
 import { useEffect, useState, type DependencyList } from 'react';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { isAbortError } from '../../lib/httpErrors';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 
 interface UseStatRowsOptions<Row> {
   enabled?: boolean;
@@ -17,15 +18,17 @@ export function useStatRows<Row>(
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
 
+  // Reset the request state while rendering, on the dependencies of the fetch effect below.
+  const requestChanged = useDepsChanged([enabled, ...deps]);
+  if (requestChanged) {
+    setLoading(enabled);
+    if (enabled) setError(null);
+  }
+
   useEffect(() => {
-    if (!enabled) {
-      setLoading(false);
-      return;
-    }
+    if (!enabled) return;
 
     const controller = new AbortController();
-    setLoading(true);
-    setError(null);
     fetchRows(controller.signal)
       .then((data) => {
         if (!controller.signal.aborted) {

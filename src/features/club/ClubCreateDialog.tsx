@@ -23,6 +23,7 @@ import RemoveRoundedIcon from '@mui/icons-material/RemoveRounded';
 import axios from 'axios';
 import { useEffect, useRef, useState } from 'react';
 import { toErrorMessage } from '../../components/useEntityPage';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { fetchClubSuggestions } from './clubApi';
 import { DateInputField } from '../../components/DateInputField';
 import { toIsoDate } from '../../components/dateUtils';
@@ -71,26 +72,33 @@ export function ClubCreateDialog({
     return () => window.clearTimeout(timer);
   }, [open]);
 
-  useEffect(() => {
-    if (!open) {
-      setStep(1);
-      setSaving(false);
-      setName('');
-      setNatioId(DEFAULT_NATIO_ID);
-      setCreationDate('');
-      setIsSelection(false);
-      setVilleId('');
-      setVilleName('');
-      setSuggestions([]);
-      setExpandedClubId(null);
-      setSelectedClubId(null);
-      setLoading(false);
-    }
-  }, [open]);
+  // Reset on close, while rendering.
+  const openChanged = useDepsChanged([open]);
+  if (openChanged && !open) {
+    setStep(1);
+    setSaving(false);
+    setName('');
+    setNatioId(DEFAULT_NATIO_ID);
+    setCreationDate('');
+    setIsSelection(false);
+    setVilleId('');
+    setVilleName('');
+    setSuggestions([]);
+    setExpandedClubId(null);
+    setSelectedClubId(null);
+    setLoading(false);
+  }
 
   useEffect(() => {
     if (open && natioError) onError(natioError);
   }, [natioError, onError, open]);
+
+  // An empty query clears the suggestions while rendering, on the dependencies of the search effect below.
+  const suggestionDepsChanged = useDepsChanged([name, onError, open, step]);
+  if (suggestionDepsChanged && open && step === 1 && !name.trim()) {
+    setSuggestions([]);
+    setLoading(false);
+  }
 
   useEffect(() => {
     if (!open || step !== 1) {
@@ -98,11 +106,7 @@ export function ClubCreateDialog({
     }
 
     const query = name.trim();
-    if (!query) {
-      setSuggestions([]);
-      setLoading(false);
-      return;
-    }
+    if (!query) return;
 
     const controller = new AbortController();
     const timer = window.setTimeout(() => {

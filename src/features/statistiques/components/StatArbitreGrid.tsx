@@ -32,7 +32,7 @@ interface StatArbitreGridProps<R extends StatArbitreRow> {
 
 /** Grille generique pour les stats du domaine Arbitre: 1re colonne = identite arbitre (meme principe que StatPlayerGrid). */
 export function StatArbitreGrid<R extends StatArbitreRow>({ rows, valueColumns, loading, error, getRowId, initialState, toolbarActions, apiRef: externalApiRef, hideIdentityColumn, scope, onScopeChange }: StatArbitreGridProps<R>) {
-  const resolveRowId = useCallback(getRowId ?? ((row: R) => row.IDARBITRE), [getRowId]);
+  const resolveRowId = useMemo(() => getRowId ?? ((row: R) => row.IDARBITRE), [getRowId]);
   const localApiRef = useGridApiRef();
   const apiRef = externalApiRef ?? localApiRef;
   const [search, setSearch] = useState('');

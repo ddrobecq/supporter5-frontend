@@ -1,5 +1,6 @@
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, MenuItem, Switch, TextField } from '@mui/material';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import type { CompetitionCreateWizardPayload, EpreuveOption, SaisonOption } from './types';
 
 interface CompetitionCreateWizardDialogProps {
@@ -26,7 +27,9 @@ export function CompetitionCreateWizardDialog({
   const [name, setName] = useState('');
   const [sameAsLastEdition, setSameAsLastEdition] = useState(false);
 
-  useEffect(() => {
+  // (Re)initialisation while rendering: reset on close, defaults on open or when the options change.
+  const initDepsChanged = useDepsChanged([open, epreuveOptions, saisonOptions]);
+  if (initDepsChanged) {
     if (!open) {
       setStep(1);
       setSaving(false);
@@ -34,26 +37,23 @@ export function CompetitionCreateWizardDialog({
       setSaison('');
       setName('');
       setSameAsLastEdition(false);
-      return;
+    } else {
+      setEpreuveId(epreuveOptions[0]?.IDEPREUVE ?? '');
+      setSaison(saisonOptions[0]?.SAISON ?? '');
+      setName('');
+      setSameAsLastEdition(false);
     }
-
-    setEpreuveId(epreuveOptions[0]?.IDEPREUVE ?? '');
-    setSaison(saisonOptions[0]?.SAISON ?? '');
-    setName('');
-    setSameAsLastEdition(false);
-  }, [open, epreuveOptions, saisonOptions]);
+  }
 
   const selectedEpreuveName = useMemo(() => {
     const selected = epreuveOptions.find((item) => item.IDEPREUVE === epreuveId);
     return String(selected?.EPREUVE ?? '').trim();
   }, [epreuveId, epreuveOptions]);
 
-  useEffect(() => {
-    if (step !== 2) return;
-    if (!name.trim()) {
-      setName(selectedEpreuveName);
-    }
-  }, [step, name, selectedEpreuveName]);
+  // An empty name on step 2 defaults to the selected epreuve name (adjusted while rendering).
+  if (step === 2 && !name.trim() && name !== selectedEpreuveName) {
+    setName(selectedEpreuveName);
+  }
 
   const canGoNext = Number.isInteger(Number(epreuveId)) && Number(epreuveId) > 0 && saison.trim().length > 0;
   const canCreate = canGoNext && name.trim().length > 0;

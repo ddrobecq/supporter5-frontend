@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useEffect, useRef, useState } from 'react';
 import { CreateWizardSuggestionPanel } from '../../components/CreateWizardSuggestionPanel';
 import { toErrorMessage } from '../../components/useEntityPage';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useNatioList } from '../natio/natioStore';
 import { fetchArbitreSuggestions } from './arbitreApi';
 import type { ArbitreCreateWizardPayload, ArbitreSuggestionRow } from './types';
@@ -26,17 +27,20 @@ export function ArbitreCreateWizardDialog({ open, onClose, onCreate, onError }: 
   const [suggestions, setSuggestions] = useState<ArbitreSuggestionRow[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
+  // Reset on close, while rendering, on the dependencies of the focus effect below.
+  const openChanged = useDepsChanged([open]);
+  if (openChanged && !open) {
+    setStep(1);
+    setSaving(false);
+    setNom('');
+    setPrenom('');
+    setNatioId(DEFAULT_NATIO_ID);
+    setSuggestions([]);
+    setLoadingSuggestions(false);
+  }
+
   useEffect(() => {
-    if (!open) {
-      setStep(1);
-      setSaving(false);
-      setNom('');
-      setPrenom('');
-      setNatioId(DEFAULT_NATIO_ID);
-      setSuggestions([]);
-      setLoadingSuggestions(false);
-      return;
-    }
+    if (!open) return;
 
     const timer = window.setTimeout(() => {
       nameInputRef.current?.focus();
@@ -48,15 +52,18 @@ export function ArbitreCreateWizardDialog({ open, onClose, onCreate, onError }: 
     };
   }, [open]);
 
+  // An empty query clears the suggestions while rendering, on the dependencies of the search effect below.
+  const suggestionDepsChanged = useDepsChanged([nom, onError, open, step]);
+  if (suggestionDepsChanged && open && step === 1 && !nom.trim()) {
+    setSuggestions([]);
+    setLoadingSuggestions(false);
+  }
+
   useEffect(() => {
     if (!open || step !== 1) return;
 
     const query = nom.trim();
-    if (!query) {
-      setSuggestions([]);
-      setLoadingSuggestions(false);
-      return;
-    }
+    if (!query) return;
 
     const controller = new AbortController();
     const timer = window.setTimeout(() => {

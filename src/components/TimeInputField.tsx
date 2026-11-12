@@ -9,7 +9,8 @@
 
 import { TextField } from '@mui/material';
 import type { SxProps, TextFieldProps, Theme } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useDepsChanged } from '../lib/useDepsChanged';
 
 /** Converts stored "HH:MM" to display "HHhMM". */
 function storageToDisplay(value: string): string {
@@ -55,10 +56,11 @@ export function TimeInputField({
 }: TimeInputFieldProps) {
   const [display, setDisplay] = useState(() => storageToDisplay(value));
 
-  // Sync when value changes externally (e.g. reset/reload)
-  useEffect(() => {
+  // Sync when value changes externally (e.g. reset/reload), while rendering
+  const valueChanged = useDepsChanged([value]);
+  if (valueChanged) {
     setDisplay(storageToDisplay(value));
-  }, [value]);
+  }
 
   // On AZERTY, unshifted Digit keys produce non-digit chars (e.g. "&" for "1").
   // Remap them to their digit via execCommand so onChange handles the rest normally.

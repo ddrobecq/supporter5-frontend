@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { toErrorMessage } from '../../components/useEntityPage';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { formatUploadLimitError, UPLOAD_LIMITS } from '../../config/uploadLimits';
 import {
   fetchCompetition,
@@ -74,8 +75,9 @@ export function RencontreImportWizardDialog({ open, onClose, onReady }: Rencontr
   const [parsed, setParsed] = useState<ParsedCsv>({ headers: [], rows: [] });
   const [mapping, setMapping] = useState<Record<ImportTargetField, string>>({} as Record<ImportTargetField, string>);
 
-  useEffect(() => {
-    if (!open) return;
+  // State resets and loading flags run while rendering, on the dependencies of the load effects below.
+  const openChanged = useDepsChanged([open]);
+  if (openChanged && open) {
     setStepIndex(0);
     setErrorMessage('');
     setSeason('');
@@ -86,8 +88,33 @@ export function RencontreImportWizardDialog({ open, onClose, onReady }: Rencontr
     setFileName('');
     setParsed({ headers: [], rows: [] });
     setMapping({} as Record<ImportTargetField, string>);
-
     setLoading(true);
+  }
+
+  const seasonDepsChanged = useDepsChanged([open, season]);
+  if (seasonDepsChanged) {
+    if (!open || !season) {
+      setCompetitionOptions([]);
+      setCompetitionId('');
+    } else {
+      setLoading(true);
+      setCompetitionId('');
+    }
+  }
+
+  const competitionDepsChanged = useDepsChanged([competitionId, open]);
+  if (competitionDepsChanged) {
+    if (!open || !competitionId) {
+      setTourOptions([]);
+      setTourId('');
+    } else {
+      setLoading(true);
+      setTourId('');
+    }
+  }
+
+  useEffect(() => {
+    if (!open) return;
     void fetchCompetitionWizardData()
       .then((data) => {
         setSeasonOptions((data.saisons ?? []).map((item) => String(item.SAISON ?? '').trim()).filter(Boolean));
@@ -97,13 +124,7 @@ export function RencontreImportWizardDialog({ open, onClose, onReady }: Rencontr
   }, [open]);
 
   useEffect(() => {
-    if (!open || !season) {
-      setCompetitionOptions([]);
-      setCompetitionId('');
-      return;
-    }
-    setLoading(true);
-    setCompetitionId('');
+    if (!open || !season) return;
     void fetchCompetition('', season)
       .then((result) => {
         setCompetitionOptions((result.data ?? [])
@@ -118,13 +139,7 @@ export function RencontreImportWizardDialog({ open, onClose, onReady }: Rencontr
   }, [open, season]);
 
   useEffect(() => {
-    if (!open || !competitionId) {
-      setTourOptions([]);
-      setTourId('');
-      return;
-    }
-    setLoading(true);
-    setTourId('');
+    if (!open || !competitionId) return;
     void fetchCompetitionToursPublic(competitionId)
       .then((rows) => setTourOptions(rows ?? []))
       .catch((error) => setErrorMessage(toErrorMessage(error)))

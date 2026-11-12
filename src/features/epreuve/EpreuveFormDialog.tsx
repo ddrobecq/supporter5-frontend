@@ -13,6 +13,7 @@ import { useExternalSaveTrigger } from '../../lib/useExternalSaveTrigger';
 import { getEntityImageUrl, useEntityImage } from '../../lib/useEntityImage';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import { EPREUVE_SCOPE_OPTIONS as SCOPE_OPTIONS } from '../../lib/epreuveScope';
 import type { EpreuveRow } from './types';
@@ -50,12 +51,11 @@ export function EpreuveFormDialog({
   const editId = mode === 'edit' ? (initialData?.IDEPREUVE as string | number | undefined) : undefined;
   const existingPhoto = useEntityImage('epreuve', editId, imageRefreshToken);
 
-  useEffect(() => {
-    if (!open) {
-      setVisuelDraft(undefined);
-      return;
-    }
-
+  // Initialize the form while rendering, on the dependencies of the former effect.
+  const initDepsChanged = useDepsChanged([open, initialData, setInitialSignature]);
+  if (initDepsChanged && !open) {
+    setVisuelDraft(undefined);
+  } else if (initDepsChanged) {
     const initial = {
       IDEPREUVE: initialData?.IDEPREUVE ?? '',
       EPREUVE: initialData?.EPREUVE ?? '',
@@ -70,7 +70,7 @@ export function EpreuveFormDialog({
     setVisuelDraft(undefined);
     // The visual is tracked through visuelDraft, not in the signature.
     setInitialSignature(JSON.stringify({ ...initial, EPR_VISUEL: '' }));
-  }, [open, initialData, setInitialSignature]);
+  }
 
   useEffect(() => {
     const currentSignature = JSON.stringify({

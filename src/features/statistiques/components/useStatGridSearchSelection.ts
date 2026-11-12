@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useGridApiRef, type GridRowId, type GridRowSelectionModel, type GridValidRowModel } from '@mui/x-data-grid';
+import { useDepsChanged } from '../../../lib/useDepsChanged';
 
 interface UseStatGridSearchSelectionOptions<R extends GridValidRowModel> {
   rows: R[];
@@ -18,12 +19,16 @@ export function useStatGridSearchSelection<R extends GridValidRowModel>({
 }: UseStatGridSearchSelectionOptions<R>) {
   const [rowSelectionModel, setRowSelectionModel] = useState<GridRowSelectionModel>({ type: 'include', ids: new Set() });
 
+  // Empty search: clear the selection while rendering, on the same dependencies as the effect below.
+  const searchDepsChanged = useDepsChanged([apiRef, rows, search, resolveRowId, getSearchValues]);
+  const searchIsEmpty = !search.trim();
+  if (searchDepsChanged && searchIsEmpty && (rowSelectionModel.type !== 'include' || rowSelectionModel.ids.size > 0)) {
+    setRowSelectionModel({ type: 'include', ids: new Set() });
+  }
+
   useEffect(() => {
     const normalizedSearch = search.trim().toLocaleLowerCase();
-    if (!normalizedSearch) {
-      setRowSelectionModel({ type: 'include', ids: new Set() });
-      return;
-    }
+    if (!normalizedSearch) return;
 
     const sortedIds = apiRef.current?.getSortedRowIds() ?? rows.map(resolveRowId);
     const firstMatchId = sortedIds.find((rowId) => {

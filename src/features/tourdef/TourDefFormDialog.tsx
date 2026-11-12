@@ -19,6 +19,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useExternalSaveTrigger } from '../../lib/useExternalSaveTrigger';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { NumberField } from '../../components/NumberField';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import type { TourDefRow } from './types';
 import {
@@ -193,8 +194,9 @@ export function TourDefFormDialog({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, onDirtyChange);
 
-  useEffect(() => {
-    if (!open) return;
+  // Initialize the form while rendering, on the dependencies of the former effect.
+  const initDepsChanged = useDepsChanged([open, initialData, setInitialSignature]);
+  if (initDepsChanged && open) {
     const draft = createDraftFromRow(initialData);
     const parsedSortRules = parseSortRules(initialData?.TDCLEFTRI);
     setValues(draft);
@@ -203,7 +205,7 @@ export function TourDefFormDialog({
     setSelectedChosenSortField(null);
     setErrors({});
     setInitialSignature(JSON.stringify({ values: draft, sortRules: parsedSortRules }));
-  }, [open, initialData, setInitialSignature]);
+  }
 
   useEffect(() => {
     syncDirty(JSON.stringify({ values, sortRules }));

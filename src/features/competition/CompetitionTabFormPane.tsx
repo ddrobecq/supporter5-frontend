@@ -21,7 +21,7 @@ import {
 } from '@mui/material';
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useMediaQuery, useTheme } from '@mui/material';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { DateGridEditor } from '../../components/DateGridEditor';
@@ -29,6 +29,7 @@ import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { MatchDataGrid } from '../../components/MatchDataGrid';
 import { buildMatchGridColumns } from '../../components/matchGridColumns';
 import { formatDateShort, toIsoDate } from '../../components/dateUtils';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { CompetitionFormDialog } from './CompetitionFormDialog';
@@ -62,6 +63,27 @@ interface CompetitionTabFormPaneProps {
 
 type CompetitionTabKey = 'info' | 'deroules';
 type RowSaveStatus = 'idle' | 'saving' | 'saved' | 'failed';
+
+type Handlers = Record<string, (...args: never[]) => unknown>;
+
+/**
+ * Returns stable wrappers that always call the latest version of each handler (refreshed after every
+ * commit), so memoized grid columns can use them without listing every handler as a dependency.
+ */
+function useLatestHandlers<T extends Handlers>(handlers: T): T {
+  const latestRef = useRef(handlers);
+  useLayoutEffect(() => {
+    latestRef.current = handlers;
+  });
+  const [stableHandlers] = useState(() => {
+    const wrappers: Handlers = {};
+    for (const key of Object.keys(handlers)) {
+      wrappers[key] = (...args: never[]) => (latestRef.current as Handlers)[key](...args);
+    }
+    return wrappers as T;
+  });
+  return stableHandlers;
+}
 
 function resolveCompetitionLabel(row: CompetitionRow, fallback: string): string {
   const nom = String(row.NOM ?? '').trim();
@@ -266,21 +288,27 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
     orderedMatchRowsRef.current = orderedMatchRows;
   }, [orderedMatchRows]);
 
-  const reloadSelectedTourMatches = useCallback(async () => {
+  // Synchronous part of the tour matches reload (reset or loading flag), applied while rendering
+  // on the same dependencies as the reload effect below, which only runs the requests.
+  const selectedTourMatchesChanged = useDepsChanged([selectedTourRow, row]);
+  if (selectedTourMatchesChanged) {
     if (!selectedTourRow) {
       setTourMatchRows([]);
       setTourParticipants([]);
       setSelectedMatchId(null);
-      return;
+    } else {
+      setTourMatchesLoading(true);
     }
+  }
 
-    setTourMatchesLoading(true);
-    try {
-      const [rencontres, participants, circOptions] = await Promise.all([
-        fetchTourRencontres(selectedTourRow.TUCLEUNIK),
-        fetchTourParticipants(selectedTourRow.TUCLEUNIK),
-        fetchCircByTourType(Number(selectedTourRow.TYPE_ID) || 1),
-      ]);
+  const reloadSelectedTourMatches = useCallback(() => {
+    if (!selectedTourRow) return;
+
+    void Promise.all([
+      fetchTourRencontres(selectedTourRow.TUCLEUNIK),
+      fetchTourParticipants(selectedTourRow.TUCLEUNIK),
+      fetchCircByTourType(Number(selectedTourRow.TYPE_ID) || 1),
+    ]).then(([rencontres, participants, circOptions]) => {
       setTourParticipants(participants);
 
       const circById = new Map<string, string>();
@@ -330,18 +358,18 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
         }
         return mappedRows[0]?.RECLEUNIK ?? null;
       });
-    } catch (error) {
+    }).catch((error: unknown) => {
       setTourMatchRows([]);
       setTourParticipants([]);
       setSelectedMatchId(null);
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
-    } finally {
+    }).finally(() => {
       setTourMatchesLoading(false);
-    }
+    });
   }, [selectedTourRow, row]);
 
   useEffect(() => {
-    void reloadSelectedTourMatches();
+    reloadSelectedTourMatches();
   }, [reloadSelectedTourMatches]);
 
   useEffect(() => () => {
@@ -659,15 +687,36 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
     openFieldForMatchRowId(rowId, 'heure');
   };
 
+  const matchGridHandlers = useLatestHandlers({
+    startStatusEdit,
+    commitStatusEdit,
+    cancelStatusEdit,
+    handleStatusTabOut,
+    startDateEdit,
+    commitDateEdit,
+    cancelDateEdit,
+    handleDateTabOut,
+    startHeureEdit,
+    commitHeureEdit,
+    cancelHeureEdit,
+    moveHeureEditToAdjacentRow,
+    handleHeureTabOut,
+    startScoreEdit,
+    commitScoreEdit,
+    cancelScoreEdit,
+    moveScoreEditToAdjacentRow,
+    handleScoreTabOut,
+  });
+
   const matchColumns = useMemo<GridColDef<CalendrierRow>[]>(() => buildMatchGridColumns({
     status: {
       editingRowId: editingStatusRowId,
       draftValue: statusDraft,
-      onStartEdit: startStatusEdit,
+      onStartEdit: matchGridHandlers.startStatusEdit,
       onDraftChange: (_row, nextValue) => setStatusDraft(nextValue),
-      onCommit: commitStatusEdit,
-      onCancel: () => cancelStatusEdit(),
-      onTabOut: handleStatusTabOut,
+      onCommit: matchGridHandlers.commitStatusEdit,
+      onCancel: () => matchGridHandlers.cancelStatusEdit(),
+      onTabOut: matchGridHandlers.handleStatusTabOut,
       sortable: false,
     },
     date: {
@@ -681,10 +730,10 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
             <DateGridEditor
               value={dateDraft}
               onChange={setDateDraft}
-              onCommit={(nextIsoDate) => commitDateEdit(item, nextIsoDate)}
-              onCancel={cancelDateEdit}
+              onCommit={(nextIsoDate) => matchGridHandlers.commitDateEdit(item, nextIsoDate)}
+              onCancel={matchGridHandlers.cancelDateEdit}
               onTabOut={(direction) => {
-                void handleDateTabOut(item, direction);
+                void matchGridHandlers.handleDateTabOut(item, direction);
               }}
             />
           );
@@ -695,7 +744,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
             sx={{ width: '100%', textAlign: 'center', cursor: 'text' }}
             onClick={(event) => {
               event.stopPropagation();
-              startDateEdit(item);
+              matchGridHandlers.startDateEdit(item);
             }}
           >
             {formatDateShort(item.DATE)}
@@ -706,12 +755,12 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
     heure: {
       editingRowId: editingHeureRowId,
       draftDigits: heureDraftDigits,
-      onStartEdit: startHeureEdit,
+      onStartEdit: matchGridHandlers.startHeureEdit,
       onDraftChange: (_row, digits) => setHeureDraftDigits(digits),
-      onCommit: commitHeureEdit,
-      onCancel: () => cancelHeureEdit(),
-      onMoveVertical: moveHeureEditToAdjacentRow,
-      onTabOut: handleHeureTabOut,
+      onCommit: matchGridHandlers.commitHeureEdit,
+      onCancel: () => matchGridHandlers.cancelHeureEdit(),
+      onMoveVertical: matchGridHandlers.moveHeureEditToAdjacentRow,
+      onTabOut: matchGridHandlers.handleHeureTabOut,
       sortable: false,
     },
     circ: {
@@ -723,13 +772,13 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
       editingRowId: editingScoreRowId,
       draft: scoreDraft,
       canEdit: (row) => canEditScore(Number(row.ETAT)),
-      onStartEdit: startScoreEdit,
+      onStartEdit: matchGridHandlers.startScoreEdit,
       onDraftChange: (_row, patch) => setScoreDraft((prev) => ({ ...prev, ...patch })),
       onUserInput: () => undefined,
-      onCommit: commitScoreEdit,
-      onCancel: () => cancelScoreEdit(),
-      onMoveVertical: moveScoreEditToAdjacentRow,
-      onTabOut: handleScoreTabOut,
+      onCommit: matchGridHandlers.commitScoreEdit,
+      onCancel: () => matchGridHandlers.cancelScoreEdit(),
+      onMoveVertical: matchGridHandlers.moveScoreEditToAdjacentRow,
+      onTabOut: matchGridHandlers.handleScoreTabOut,
     },
   }), [
     dateDraft,
@@ -738,6 +787,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
     editingScoreRowId,
     editingStatusRowId,
     heureDraftDigits,
+    matchGridHandlers,
     scoreDraft,
     statusDraft,
   ]);

@@ -19,6 +19,7 @@ import { INVALID_DATE_MESSAGE, todayIso, toIsoDate } from '../../components/date
 import { useInvalidDateFields } from '../../components/useInvalidDateFields';
 import { TimeInputField } from '../../components/TimeInputField';
 import { toErrorMessage } from '../../components/useEntityPage';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import {
   fetchCircByTourType,
   fetchCompetition,
@@ -157,7 +158,9 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
   const [circOptions, setCircOptions] = useState<CircOptionRow[]>([]);
   const [tourParticipants, setTourParticipants] = useState<TourParticipantRow[]>([]);
 
-  useEffect(() => {
+  // State resets, defaults and loading flags run while rendering, on the dependencies of the load effects below.
+  const openDepsChanged = useDepsChanged([loadSupportedClub, open]);
+  if (openDepsChanged) {
     if (!open) {
       setStep(1);
       setSaving(false);
@@ -180,17 +183,18 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
       setGroupOptions([]);
       setCircOptions([]);
       setTourParticipants([]);
-      return;
+    } else {
+      setDate(todayIso());
+      setHeure(nowDisplayTime());
+      setOptionsLoading(true);
     }
+  }
 
-    const defaultDate = todayIso();
-    const defaultHeure = nowDisplayTime();
-    setDate(defaultDate);
-    setHeure(defaultHeure);
+  useEffect(() => {
+    if (!open) return;
 
-    const defaultSeason = deriveSeasonFromIsoDate(toIsoDate(defaultDate));
+    const defaultSeason = deriveSeasonFromIsoDate(toIsoDate(todayIso()));
 
-    setOptionsLoading(true);
     void Promise.all([
       fetchCompetitionWizardData(),
       loadSupportedClub(),
@@ -229,18 +233,17 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
     setErrorMessage('');
   };
 
-  useEffect(() => {
-    if (!open || seasonTouched) {
-      return;
-    }
+  const seasonDefaultDepsChanged = useDepsChanged([date, open, seasonOptions, seasonTouched]);
+  if (seasonDefaultDepsChanged && open && !seasonTouched) {
     const preferredSeason = deriveSeasonFromIsoDate(toIsoDate(date));
     setSeason((prev) => {
       const next = pickNearestSeason(seasonOptions, preferredSeason);
       return prev === next ? prev : next;
     });
-  }, [date, open, seasonOptions, seasonTouched]);
+  }
 
-  useEffect(() => {
+  const seasonDepsChanged = useDepsChanged([matchKind, open, season]);
+  if (seasonDepsChanged) {
     if (!open || matchKind !== 'officiel' || !season) {
       setCompetitionOptions([]);
       setCompetitionId('');
@@ -251,17 +254,56 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
       setCircOptions([]);
       setCircId('');
       setTourParticipants([]);
-      return;
+    } else {
+      setOptionsLoading(true);
+      setCompetitionId('');
+      setTourId('');
+      setGroupOptions([]);
+      setGroupName('');
+      setCircOptions([]);
+      setCircId('');
+      setTourParticipants([]);
     }
+  }
 
-    setOptionsLoading(true);
-    setCompetitionId('');
-    setTourId('');
-    setGroupOptions([]);
-    setGroupName('');
-    setCircOptions([]);
-    setCircId('');
-    setTourParticipants([]);
+  const competitionDepsChanged = useDepsChanged([competitionId, matchKind, open]);
+  if (competitionDepsChanged) {
+    if (!open || matchKind !== 'officiel' || !competitionId) {
+      setTourOptions([]);
+      setTourId('');
+      setGroupOptions([]);
+      setGroupName('');
+      setCircOptions([]);
+      setCircId('');
+      setTourParticipants([]);
+    } else {
+      setOptionsLoading(true);
+      setTourId('');
+      setGroupOptions([]);
+      setGroupName('');
+      setCircOptions([]);
+      setCircId('');
+      setTourParticipants([]);
+    }
+  }
+
+  const tourDepsChanged = useDepsChanged([matchKind, open, tourId]);
+  if (tourDepsChanged) {
+    if (!open || matchKind !== 'officiel' || !tourId) {
+      setGroupOptions([]);
+      setGroupName('');
+      setCircOptions([]);
+      setCircId('');
+      setTourParticipants([]);
+    } else {
+      setOptionsLoading(true);
+      setGroupName('');
+      setCircId('');
+    }
+  }
+
+  useEffect(() => {
+    if (!open || matchKind !== 'officiel' || !season) return;
 
     void fetchCompetition('', season)
       .then((result) => {
@@ -281,24 +323,7 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
   }, [matchKind, open, season]);
 
   useEffect(() => {
-    if (!open || matchKind !== 'officiel' || !competitionId) {
-      setTourOptions([]);
-      setTourId('');
-      setGroupOptions([]);
-      setGroupName('');
-      setCircOptions([]);
-      setCircId('');
-      setTourParticipants([]);
-      return;
-    }
-
-    setOptionsLoading(true);
-    setTourId('');
-    setGroupOptions([]);
-    setGroupName('');
-    setCircOptions([]);
-    setCircId('');
-    setTourParticipants([]);
+    if (!open || matchKind !== 'officiel' || !competitionId) return;
 
     void fetchCompetitionToursPublic(competitionId)
       .then((rows) => {
@@ -314,18 +339,7 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
   }, [competitionId, matchKind, open]);
 
   useEffect(() => {
-    if (!open || matchKind !== 'officiel' || !tourId) {
-      setGroupOptions([]);
-      setGroupName('');
-      setCircOptions([]);
-      setCircId('');
-      setTourParticipants([]);
-      return;
-    }
-
-    setOptionsLoading(true);
-    setGroupName('');
-    setCircId('');
+    if (!open || matchKind !== 'officiel' || !tourId) return;
 
     void Promise.all([
       fetchCompetitionTourById(tourId),

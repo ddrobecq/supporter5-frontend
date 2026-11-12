@@ -69,7 +69,7 @@ export function RencontreImportPage() {
     [associations],
   );
 
-  const rows = session?.rows ?? [];
+  const rows = useMemo(() => session?.rows ?? [], [session?.rows]);
   const unresolvedLabels = useMemo(() => {
     const set = new Set<string>();
     rows.forEach((row) => {

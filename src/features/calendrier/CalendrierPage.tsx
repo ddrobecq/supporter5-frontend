@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded';
@@ -24,6 +24,7 @@ import {
 } from './calendrierApi';
 import { CalendarDateNavigator } from './CalendarDateNavigator';
 import { entityPath } from '../../lib/entityNavigation';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { isHttpUrl } from '../../lib/safeUrl';
 import {
   heureDigitsToApiValue,
@@ -182,6 +183,27 @@ function getStatusAfterScoreEdit(row: CalendrierRow): number {
   return 1;
 }
 
+type Handlers = Record<string, (...args: never[]) => unknown>;
+
+/**
+ * Returns stable wrappers that always call the latest version of each handler (refreshed after every
+ * commit), so memoized grid columns can use them without listing every handler as a dependency.
+ */
+function useLatestHandlers<T extends Handlers>(handlers: T): T {
+  const latestRef = useRef(handlers);
+  useLayoutEffect(() => {
+    latestRef.current = handlers;
+  });
+  const [stableHandlers] = useState(() => {
+    const wrappers: Handlers = {};
+    for (const key of Object.keys(handlers)) {
+      wrappers[key] = (...args: never[]) => (latestRef.current as Handlers)[key](...args);
+    }
+    return wrappers as T;
+  });
+  return stableHandlers;
+}
+
 function isProgrammedUnresolvedSide(sourceValue: unknown, clubIdValue: unknown): boolean {
   const source = String(sourceValue ?? '').trim();
   const clubId = String(clubIdValue ?? '').trim();
@@ -312,10 +334,15 @@ export function CalendrierPage({ readOnly = false }: { readOnly?: boolean }) {
     window.open(competitionWebUrl, '_blank', 'noopener,noreferrer');
   };
 
-  useEffect(() => {
-    const controller = new AbortController();
+  // Loading flags are set while rendering, on the same dependency as the fetch effect below.
+  const dateChanged = useDepsChanged([date]);
+  if (dateChanged) {
     setLoading(true);
     setError(null);
+  }
+
+  useEffect(() => {
+    const controller = new AbortController();
 
     void fetchCalendarByDate(date, controller.signal)
       .then((data) => setRows(data))
@@ -375,17 +402,16 @@ export function CalendrierPage({ readOnly = false }: { readOnly?: boolean }) {
     ))).then(applyFromCache);
   }, [rows, readOnly]);
 
-  useEffect(() => {
+  // Keep the selection on an existing row (first row by default), adjusted while rendering.
+  const selectionDepsChanged = useDepsChanged([rows, selectedRowId]);
+  if (selectionDepsChanged) {
     if (rows.length === 0) {
-      setSelectedRowId(null);
-      return;
-    }
-
-    const currentExists = rows.some((row) => String(row.RECLEUNIK) === String(selectedRowId ?? ''));
-    if (!currentExists) {
+      if (selectedRowId !== null) setSelectedRowId(null);
+    } else if (!rows.some((row) => String(row.RECLEUNIK) === String(selectedRowId ?? ''))
+      && !Object.is(selectedRowId, rows[0].RECLEUNIK)) {
       setSelectedRowId(rows[0].RECLEUNIK);
     }
-  }, [rows, selectedRowId]);
+  }
 
   const displayedActiveTourId = isSelectedProgrammedEncounter ? null : activeTourId;
 
@@ -788,44 +814,65 @@ export function CalendrierPage({ readOnly = false }: { readOnly?: boolean }) {
     openFieldForRowId(rowId, 'heure');
   };
 
+  const gridHandlers = useLatestHandlers({
+    startStatusEdit,
+    updateStatusDraft,
+    commitStatusEdit,
+    cancelStatusEdit,
+    handleStatusTabOut,
+    startHeureEdit,
+    updateHeureDraft,
+    commitHeureEdit,
+    cancelHeureEdit,
+    moveHeureEditToAdjacentRow,
+    handleHeureTabOut,
+    startScoreEdit,
+    updateScoreDraft,
+    setRowModifiedFlag,
+    commitScoreEdit,
+    cancelScoreEdit,
+    moveScoreEditToAdjacentRow,
+    handleScoreTabOut,
+  });
+
   const columns = useMemo<GridColDef<CalendrierRow>[]>(() => buildMatchGridColumns({
     status: readOnly ? { mode: 'readonly' } : {
       editingRowId: editingStatusRowId,
       draftValue: statusDraft,
-      onStartEdit: startStatusEdit,
-      onDraftChange: (row, nextValue) => updateStatusDraft(row.RECLEUNIK, nextValue),
-      onCommit: commitStatusEdit,
-      onCancel: cancelStatusEdit,
-      onTabOut: handleStatusTabOut,
+      onStartEdit: gridHandlers.startStatusEdit,
+      onDraftChange: (row, nextValue) => gridHandlers.updateStatusDraft(row.RECLEUNIK, nextValue),
+      onCommit: gridHandlers.commitStatusEdit,
+      onCancel: gridHandlers.cancelStatusEdit,
+      onTabOut: gridHandlers.handleStatusTabOut,
       sortable: true,
     },
     heure: readOnly ? { mode: 'readonly' } : {
       editingRowId: editingHeureRowId,
       draftDigits: heureDraftDigits,
-      onStartEdit: startHeureEdit,
-      onDraftChange: (row, digits) => updateHeureDraft(row.RECLEUNIK, digits),
-      onCommit: commitHeureEdit,
-      onCancel: cancelHeureEdit,
-      onMoveVertical: moveHeureEditToAdjacentRow,
-      onTabOut: handleHeureTabOut,
+      onStartEdit: gridHandlers.startHeureEdit,
+      onDraftChange: (row, digits) => gridHandlers.updateHeureDraft(row.RECLEUNIK, digits),
+      onCommit: gridHandlers.commitHeureEdit,
+      onCancel: gridHandlers.cancelHeureEdit,
+      onMoveVertical: gridHandlers.moveHeureEditToAdjacentRow,
+      onTabOut: gridHandlers.handleHeureTabOut,
       sortable: true,
     },
     score: readOnly ? { mode: 'readonly' } : {
       editingRowId: editingScoreRowId,
       draft: scoreDraft,
       canEdit: (row) => canEditScore(Number(row.ETAT)),
-      onStartEdit: startScoreEdit,
-      onDraftChange: (row, patch) => updateScoreDraft(row.RECLEUNIK, patch),
-      onUserInput: (row) => setRowModifiedFlag(row.RECLEUNIK, true),
-      onCommit: commitScoreEdit,
-      onCancel: cancelScoreEdit,
-      onMoveVertical: moveScoreEditToAdjacentRow,
-      onTabOut: handleScoreTabOut,
+      onStartEdit: gridHandlers.startScoreEdit,
+      onDraftChange: (row, patch) => gridHandlers.updateScoreDraft(row.RECLEUNIK, patch),
+      onUserInput: (row) => gridHandlers.setRowModifiedFlag(row.RECLEUNIK, true),
+      onCommit: gridHandlers.commitScoreEdit,
+      onCancel: gridHandlers.cancelScoreEdit,
+      onMoveVertical: gridHandlers.moveScoreEditToAdjacentRow,
+      onTabOut: gridHandlers.handleScoreTabOut,
     },
     isDomicileWinner: (row) => isEliminatoryMatchWinner(row, 'domicile'),
     isExterieurWinner: (row) => isEliminatoryMatchWinner(row, 'exterieur'),
     onClubClick: openClub,
-  }), [editingHeureRowId, editingScoreRowId, editingStatusRowId, heureDraftDigits, isEliminatoryMatchWinner, openClub, readOnly, scoreDraft, statusDraft]);
+  }), [editingHeureRowId, editingScoreRowId, editingStatusRowId, gridHandlers, heureDraftDigits, isEliminatoryMatchWinner, openClub, readOnly, scoreDraft, statusDraft]);
 
   return (
     <Stack spacing={2}>

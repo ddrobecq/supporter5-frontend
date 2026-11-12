@@ -17,6 +17,7 @@ import {
 import { useEffect, useState } from 'react';
 import { http } from '../../lib/http';
 import { toErrorMessage } from '../../components/useEntityPage';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { fetchSaisons } from '../joueur/joueurApi';
 
 interface StatsRecomputeDialogProps {
@@ -33,12 +34,17 @@ export function StatsRecomputeDialog({ open, onClose }: StatsRecomputeDialogProp
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  useEffect(() => {
-    if (!open) return;
+  // Reset on open, while rendering, on the dependencies of the load effect below.
+  const openChanged = useDepsChanged([open]);
+  if (openChanged && open) {
     setSelected([]);
     setErrorMessage('');
     setSuccessMessage('');
     setLoading(true);
+  }
+
+  useEffect(() => {
+    if (!open) return;
 
     const controller = new AbortController();
     void fetchSaisons(controller.signal)

@@ -3,6 +3,7 @@ import { CircularProgress, Dialog, DialogContent, DialogTitle, List, ListItemBut
 import { useEffect, useRef, useState } from 'react';
 import { fetchClubSuggestions } from '../club/clubApi';
 import { fetchJoueurSuggestions } from '../joueur/joueurApi';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 
 interface PublicSearchDialogProps {
   open: boolean;
@@ -25,13 +26,19 @@ export function PublicSearchDialog({ open, onClose, onNavigate }: PublicSearchDi
     return () => window.cancelAnimationFrame(frame);
   }, [open]);
 
-  useEffect(() => {
+  // Clear the results or flag the loading while rendering, on the dependencies of the search effect below.
+  const searchDepsChanged = useDepsChanged([kind, open, query]);
+  if (searchDepsChanged) {
     if (!open || query.trim().length < 2) {
       setResults([]);
-      return undefined;
+    } else {
+      setLoading(true);
     }
+  }
+
+  useEffect(() => {
+    if (!open || query.trim().length < 2) return undefined;
     const controller = new AbortController();
-    setLoading(true);
     const search = query.trim();
     const request = kind === 'joueur'
       ? fetchJoueurSuggestions(search, controller.signal).then((response) => response.data.map((row) => ({ id: row.IDJOUEUR, label: `${row.NOM} ${row.PRENOM}`.trim() })))

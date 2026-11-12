@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useEffect, useRef, useState } from 'react';
 import { CreateWizardSuggestionPanel } from '../../components/CreateWizardSuggestionPanel';
 import { toErrorMessage } from '../../components/useEntityPage';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { createEpreuveWithWizard, fetchEpreuveSuggestions } from './epreuveApi';
 
 interface EpreuveCreateWizardDialogProps {
@@ -19,14 +20,17 @@ export function EpreuveCreateWizardDialog({ open, onClose, onCreated, onError }:
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<Array<{ IDEPREUVE: number; EPREUVE: string; SCORE: number }>>([]);
 
+  // Reset on close, while rendering, on the dependencies of the focus effect below.
+  const openChanged = useDepsChanged([open]);
+  if (openChanged && !open) {
+    setName('');
+    setSaving(false);
+    setLoadingSuggestions(false);
+    setSuggestions([]);
+  }
+
   useEffect(() => {
-    if (!open) {
-      setName('');
-      setSaving(false);
-      setLoadingSuggestions(false);
-      setSuggestions([]);
-      return;
-    }
+    if (!open) return;
     const timer = window.setTimeout(() => {
       nameInputRef.current?.focus();
       nameInputRef.current?.select();
@@ -34,15 +38,18 @@ export function EpreuveCreateWizardDialog({ open, onClose, onCreated, onError }:
     return () => window.clearTimeout(timer);
   }, [open]);
 
+  // An empty query clears the suggestions while rendering, on the dependencies of the search effect below.
+  const suggestionDepsChanged = useDepsChanged([name, onError, open]);
+  if (suggestionDepsChanged && open && !name.trim()) {
+    setSuggestions([]);
+    setLoadingSuggestions(false);
+  }
+
   useEffect(() => {
     if (!open) return;
 
     const query = name.trim();
-    if (!query) {
-      setSuggestions([]);
-      setLoadingSuggestions(false);
-      return;
-    }
+    if (!query) return;
 
     const controller = new AbortController();
     const timer = window.setTimeout(() => {

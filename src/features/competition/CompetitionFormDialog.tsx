@@ -12,6 +12,7 @@ import { useExternalSaveTrigger } from '../../lib/useExternalSaveTrigger';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { getEntityImageUrl, useEntityImage } from '../../lib/useEntityImage';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import type { EpreuveOption, CompetitionRow, SaisonOption } from './types';
 
@@ -52,12 +53,11 @@ export function CompetitionFormDialog({
   const editId = mode === 'edit' ? (initialData?.COCLEUNIK as string | number | undefined) : undefined;
   const existingLogo = useEntityImage('competition', editId, imageRefreshToken);
 
-  useEffect(() => {
-    if (!open) {
-      setLogoDraft(undefined);
-      return;
-    }
-
+  // Initialize the form while rendering, on the dependencies of the former effect.
+  const initDepsChanged = useDepsChanged([open, initialData, saisonOptions, setInitialSignature]);
+  if (initDepsChanged && !open) {
+    setLogoDraft(undefined);
+  } else if (initDepsChanged) {
     const defaultSaison = saisonOptions[0]?.SAISON ?? '';
 
     const initial = {
@@ -75,7 +75,7 @@ export function CompetitionFormDialog({
     setLogoDraft(undefined);
     // The logo is tracked through logoDraft, not in the signature.
     setInitialSignature(JSON.stringify({ ...initial, LOGO: '' }));
-  }, [open, initialData, saisonOptions, setInitialSignature]);
+  }
 
   useEffect(() => {
     const currentSignature = JSON.stringify({

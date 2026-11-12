@@ -6,6 +6,7 @@ import { DataGrid, type DataGridProps, type GridRowParams, type GridValidRowMode
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { normalizeHeureDigits } from './heureUtils';
 import { entityPath } from '../lib/entityNavigation';
+import { useDepsChanged } from '../lib/useDepsChanged';
 import { MatchEtat } from '../lib/matchStatus';
 import { useLocation } from 'react-router-dom';
 import { emitTabOpen } from '../lib/useTabMetaEvents';
@@ -161,11 +162,14 @@ export function MatchDataGrid<R extends GridValidRowModel>(props: MatchDataGridP
     setStatusAnchors(nextAnchors);
   }, [rowSaveStatusMap, saveStatusAnchorField]);
 
+  // Clear while rendering, on the dependencies of the tracking effect below.
+  const trackingDepsChanged = useDepsChanged([rowSaveStatusMap, updateStatusAnchors]);
+  if (trackingDepsChanged && !rowSaveStatusMap) {
+    setStatusAnchors([]);
+  }
+
   useEffect(() => {
-    if (!rowSaveStatusMap) {
-      setStatusAnchors([]);
-      return;
-    }
+    if (!rowSaveStatusMap) return;
 
     const wrapper = wrapperRef.current;
     if (!wrapper) return;

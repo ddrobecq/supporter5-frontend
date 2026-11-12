@@ -1,6 +1,6 @@
 import { Box } from '@mui/material';
 import { useGridApiRef, type DataGridProps, type GridColDef, type GridRowParams, type GridValidRowModel } from '@mui/x-data-grid';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { StatGrid } from './StatGrid';
 import { StatGridToolbar } from './StatGridToolbar';
 import { useStatGridSearchSelection } from './useStatGridSearchSelection';
@@ -46,7 +46,7 @@ function openRencontreTab(row: StatMatchRow): void {
 
 /** Grille generique pour toutes les stats du domaine Rencontre: la ligne ouvre le match. */
 export function StatMatchGrid<R extends StatMatchRow>({ rows, valueColumns, loading, error, getRowId, initialState, toolbarActions, apiRef: externalApiRef, rowHeight, hideSearch, scope, onScopeChange }: StatMatchGridProps<R>) {
-  const resolveRowId = useCallback(getRowId ?? ((row: R) => String(row.RECLEUNIK)), [getRowId]);
+  const resolveRowId = useMemo(() => getRowId ?? ((row: R) => String(row.RECLEUNIK)), [getRowId]);
   const localApiRef = useGridApiRef();
   const apiRef = externalApiRef ?? localApiRef;
   const [search, setSearch] = useState('');

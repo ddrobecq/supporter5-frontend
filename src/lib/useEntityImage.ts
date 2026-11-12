@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { env } from '../config/env';
+import { useDepsChanged } from './useDepsChanged';
 
 export interface EntityImageState {
   /** URL utilisable dans un <img src={}> — null tant que non chargé ou absent. */
@@ -137,14 +138,16 @@ export function useEntityImage(
   const imageKey = hasId ? toImageKey(entityType, id) : null;
   const version = useSyncExternalStore(subscribeImageVersions, () => getImageVersion(imageKey));
 
+  // Reset while rendering, on the dependencies of the loading effect below.
+  const requestChanged = useDepsChanged([entityType, id, hasId, imageKey, refreshToken, version]);
+  if (requestChanged) {
+    setState({ src: null, loading: hasId && !!imageKey, error: false });
+  }
+
   useEffect(() => {
-    if (!hasId || !imageKey) {
-      setState({ src: null, loading: false, error: false });
-      return;
-    }
+    if (!hasId || !imageKey) return;
 
     let cancelled = false;
-    setState({ src: null, loading: true, error: false });
 
     const baseUrl = `${env.apiBaseUrl}/api/images/${encodeURIComponent(entityType)}/${encodeURIComponent(String(id))}`;
     const params = new URLSearchParams();

@@ -12,6 +12,7 @@ import { fetchSaisons } from '../classements/saisonClassementApi';
 import { fetchEquipeType, fetchEquipeTypeHistorique, type EquipeTypeJoueur, type EquipeTypeResult } from './equipeTypeApi';
 import { emitTabOpen } from '../../../../lib/useTabMetaEvents';
 import { containerButtonResetSx } from '../../../../theme/buttonResetSx';
+import { useDepsChanged } from '../../../../lib/useDepsChanged';
 
 function openJoueurTab(joueur: EquipeTypeJoueur): void {
   emitTabOpen(`/admin/joueurs/${encodeURIComponent(joueur.IDJOUEUR)}`, joueurLabel(joueur));
@@ -64,6 +65,12 @@ export function EquipeTypeView({ historique = false }: { historique?: boolean } 
   const [data, setData] = useState<EquipeTypeResult | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // A (re)load starts: flag it while rendering, on the same dependencies as the fetch effect below.
+  const loadDepsChanged = useDepsChanged([historique, saison]);
+  if (loadDepsChanged && (historique || saison) && !loading) {
+    setLoading(true);
+  }
+
   useEffect(() => {
     if (historique) return;
     const controller = new AbortController();
@@ -79,7 +86,6 @@ export function EquipeTypeView({ historique = false }: { historique?: boolean } 
   useEffect(() => {
     if (historique) {
       const controller = new AbortController();
-      setLoading(true);
       fetchEquipeTypeHistorique(controller.signal)
         .then(setData)
         .catch(() => setData(null))
@@ -88,7 +94,6 @@ export function EquipeTypeView({ historique = false }: { historique?: boolean } 
     }
     if (!saison) return;
     const controller = new AbortController();
-    setLoading(true);
     fetchEquipeType(saison, controller.signal)
       .then(setData)
       .catch(() => setData(null))
