@@ -47,7 +47,7 @@ export function TerrainPickerDialog({ open, onClose, onSelect }: TerrainPickerDi
       <DialogContent dividers sx={{ p: 2, bgcolor: 'background.default', overflow: 'hidden', display: 'flex', minHeight: 0, minWidth: 0 }}>
         <Box sx={{ flex: 1, minHeight: 0, minWidth: 0, display: 'flex', '& > *': { flex: 1, minHeight: 0, minWidth: 0 } }}>
           <TerrainPage
-            variant="modalPicker"
+           
             onOpenInTab={(payload) => {
               onSelect(payload);
               onClose();

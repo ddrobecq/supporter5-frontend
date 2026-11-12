@@ -24,6 +24,16 @@ import { NumberField } from '../../components/NumberField';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { createTourDef, fetchTourDefsByType, fetchTourDefById, type CreateTourDefPayload } from './competitionApi';
 import type { TourDefRow } from './types';
+import {
+  BONUS_TYPE_OPTIONS,
+  buildSortKeyFromRules,
+  FIN_PROLONG_OPTIONS,
+  FIN_TIME_REG_OPTIONS,
+  getSortFieldLabel,
+  PARTICIP_SORT_FIELD_OPTIONS,
+  parseNumericInput,
+  toNumberOrDefault,
+} from '../tourdef/tourDefOptions';
 
 interface TourDefFormState {
   tourDefId: number;
@@ -52,11 +62,6 @@ interface SortKeyRule {
   direction: '+' | '-';
   businessLabel: string;
   technicalField: string;
-}
-
-interface SortFieldOption {
-  field: string;
-  label: string;
 }
 
 interface TourDefCreateDraft {
@@ -88,52 +93,6 @@ interface TourWizardStep3DefineFormProps {
   onTourDefChange?: (tourDefId: number) => void;
   onError?: (message: string) => void;
 }
-
-const FIN_TIME_REG_OPTIONS = [
-  { value: 1, label: 'Fin du match' },
-  { value: 2, label: 'Prolongation' },
-  { value: 3, label: 'Match rejoué' },
-  { value: 4, label: 'Tirage au sort' },
-];
-
-const FIN_PROLONG_OPTIONS = [
-  { value: 1, label: 'But en Or' },
-  { value: 2, label: 'But en Argent' },
-  { value: 3, label: 'Tirs au but' },
-  { value: 4, label: 'Rejoué' },
-  { value: 5, label: 'Tirage au sort' },
-];
-
-const BONUS_TYPE_OPTIONS = [
-  { value: 1, label: 'Aucun' },
-  { value: 2, label: 'sur nombre de buts marqués (bonus si supérieur ou égal)' },
-  { value: 3, label: 'sur différence de buts (bonus si supérieur ou égal)' },
-  { value: 4, label: 'sur nombre de buts marqués (bonus par but)' },
-];
-
-const PARTICIP_SORT_FIELD_OPTIONS: SortFieldOption[] = [
-  { field: 'PANbPoints', label: 'Points' },
-  { field: 'PANbMatch', label: 'Nombre de matchs' },
-  { field: 'PANbVD', label: 'Victoires domicile' },
-  { field: 'PANbVE', label: 'Victoires extérieur' },
-  { field: 'PANbND', label: 'Nuls domicile' },
-  { field: 'PANbNE', label: 'Nuls extérieur' },
-  { field: 'PANbDD', label: 'Défaites domicile' },
-  { field: 'PANbDE', label: 'Défaites extérieur' },
-  { field: 'PANbBPD', label: 'Buts pour domicile' },
-  { field: 'PANbBCD', label: 'Buts contre domicile' },
-  { field: 'PABonus', label: 'Bonus' },
-  { field: 'PANbBPE', label: 'Buts pour extérieur' },
-  { field: 'PANbBCE', label: 'Buts contre extérieur' },
-  { field: 'PADiff', label: 'Différence de buts' },
-  { field: 'PANbBP', label: 'Buts pour' },
-  { field: 'PANbV', label: 'Victoires totales' },
-  { field: 'PANbTaBP', label: 'TAB pour' },
-  { field: 'PANbTaBC', label: 'TAB contre' },
-  { field: 'PADiffTaB', label: 'Différence TAB' },
-  { field: 'PANbBC', label: 'Buts contre' },
-  { field: 'PARatio', label: 'Ratio BP / BC' },
-];
 
 function createDefaultFormState(): TourDefFormState {
   return {
@@ -209,35 +168,6 @@ function parseSortKeyRules(raw: string | null | undefined): SortKeyRule[] {
   return rules;
 }
 
-function getSortFieldLabel(field: string): string {
-  return PARTICIP_SORT_FIELD_OPTIONS.find((item) => item.field === field)?.label ?? field;
-}
-
-function normalizeSortBusinessLabel(label: string): string {
-  return String(label ?? '')
-    .replace(/[\r\n\t]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function normalizeSortTechnicalField(field: string): string {
-  return String(field ?? '')
-    .replace(/[^A-Za-z0-9_]/g, '')
-    .trim();
-}
-
-function buildSortKeyFromRules(rules: Array<{ field: string; direction: '+' | '-' }>): string {
-  return rules
-    .map((rule) => {
-      const direction: '+' | '-' = rule.direction === '+' ? '+' : '-';
-      const businessLabel = normalizeSortBusinessLabel(getSortFieldLabel(rule.field));
-      const technicalField = normalizeSortTechnicalField(rule.field);
-      // Compat format kept intentionally: +/-Nom metier<TAB>Nom technique
-      return `${direction}${businessLabel}\t${technicalField}`;
-    })
-    .join('\n');
-}
-
 function createDefaultSortKey(): string {
   return [
     '-Points\tPANbPoints',
@@ -271,21 +201,6 @@ function createTourDefCreateDraft(): TourDefCreateDraft {
     TDCLEFTRI: '',
     TDCalculDiffBut: '',
   };
-}
-
-function toNumberOrDefault(value: number | '', defaultValue: number): number {
-  if (value === '' || Number.isNaN(value)) {
-    return defaultValue;
-  }
-  return Number(value);
-}
-
-function parseNumericInput(rawValue: string): number | '' {
-  if (rawValue.trim() === '') {
-    return '';
-  }
-  const parsed = Number(rawValue);
-  return Number.isNaN(parsed) ? '' : parsed;
 }
 
 function mapCreateDraftToPayload(draft: TourDefCreateDraft, typeId: number): CreateTourDefPayload {
@@ -629,7 +544,7 @@ export function TourWizardStep3DefineForm({
               required
             />
 
-            <TextField label="Type de tour" size="small" value={typeId === 2 ? 'Eliminatoire' : 'Ligue'} fullWidth disabled />
+            <TextField label="Type de tour" size="small" value={typeId === 2 ? 'Éliminatoire' : 'Ligue'} fullWidth disabled />
 
             <FormControlLabel
               control={(

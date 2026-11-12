@@ -30,13 +30,14 @@ function ButeurMatchCell({ row, metric }: { row: ButeurMatchRow; metric: 'buts' 
 /** Joueur > Buts > Sur un match: best official single-match scoring performance per player. */
 export function ButeursMatchGrid({ metric = 'buts' }: { metric?: 'buts' | 'passes' }) {
   const [scope, setScope] = useState<number | null>(null);
-  const { rows, loading } = useStatRows<ButeurMatchRow>((signal) => fetchButeursParMatch(metric, scope, signal), [metric, scope]);
+  const { rows, loading, error } = useStatRows<ButeurMatchRow>((signal) => fetchButeursParMatch(metric, scope, signal), [metric, scope]);
 
   return (
     <StatPlayerGrid<ButeurMatchRow>
       rows={rows}
       valueColumns={valueColumns(metric)}
       loading={loading}
+      error={error}
       hideIdentityColumn
       getRowId={(row) => row.IDJOUEUR}
       scope={scope}

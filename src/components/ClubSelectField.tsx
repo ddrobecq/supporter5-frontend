@@ -34,7 +34,7 @@ export function ClubSelectField({
   required = false,
   error = false,
   helperText,
-  selectLabel = 'Selectionner',
+  selectLabel = 'Sélectionner',
   clearLabel = 'Effacer',
 }: ClubSelectFieldProps) {
   const [selectorOpen, setSelectorOpen] = useState(false);

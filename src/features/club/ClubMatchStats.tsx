@@ -3,6 +3,7 @@ import { useTheme } from '@mui/material/styles';
 import { PieChart } from '@mui/x-charts/PieChart';
 import { useMemo } from 'react';
 import type { ClubMatchRow } from './types';
+import { isMatchPlayed } from '../../lib/matchStatus';
 
 interface ClubMatchStatsPanelProps {
   matches: ClubMatchRow[];
@@ -35,7 +36,7 @@ export function ClubMatchStatsPanel({ matches, clubId }: ClubMatchStatsPanelProp
   const theme = useTheme();
 
   const stats = useMemo(() => {
-    const completed = matches.filter((row) => row.ETAT === 2 || row.ETAT === 3);
+    const completed = matches.filter((row) => isMatchPlayed(row.ETAT));
     let wins = 0;
     let draws = 0;
     let losses = 0;

@@ -7,7 +7,8 @@ import {
   Switch,
   TextField,
 } from '@mui/material';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useExternalSaveTrigger } from '../../lib/useExternalSaveTrigger';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { getEntityImageUrl, useEntityImage } from '../../lib/useEntityImage';
@@ -59,7 +60,7 @@ export function CompetitionFormDialog({
 
     const defaultSaison = saisonOptions[0]?.SAISON ?? '';
 
-    setValues({
+    const initial = {
       COCLEUNIK: initialData?.COCLEUNIK ?? '',
       IDEPREUVE: Number(initialData?.IDEPREUVE ?? 0) || '',
       NOM: initialData?.NOM ?? '',
@@ -68,20 +69,13 @@ export function CompetitionFormDialog({
       CO_WEB: initialData?.CO_WEB ?? '',
       CO_COMMENT: initialData?.CO_COMMENT ?? '',
       LOGO: initialData?.LOGO ?? '',
-    });
+    };
+    setValues(initial);
     setErrors({});
     setLogoDraft(undefined);
-    setInitialSignature(JSON.stringify({
-      COCLEUNIK: initialData?.COCLEUNIK ?? '',
-      IDEPREUVE: Number(initialData?.IDEPREUVE ?? 0) || '',
-      NOM: initialData?.NOM ?? '',
-      SAISON: initialData?.SAISON ?? defaultSaison,
-      CO_ANNEE: Number(initialData?.CO_ANNEE ?? 0),
-      CO_WEB: initialData?.CO_WEB ?? '',
-      CO_COMMENT: initialData?.CO_COMMENT ?? '',
-      LOGO: '',
-    }));
-  }, [open, initialData, saisonOptions]);
+    // The logo is tracked through logoDraft, not in the signature.
+    setInitialSignature(JSON.stringify({ ...initial, LOGO: '' }));
+  }, [open, initialData, saisonOptions, setInitialSignature]);
 
   useEffect(() => {
     const currentSignature = JSON.stringify({
@@ -119,7 +113,7 @@ export function CompetitionFormDialog({
 
     if (!nom) nextErrors.NOM = 'Nom requis';
     if (!saison) nextErrors.SAISON = 'Saison requise';
-    if (!Number.isInteger(epreuveId) || epreuveId <= 0) nextErrors.IDEPREUVE = 'Epreuve requise';
+    if (!Number.isInteger(epreuveId) || epreuveId <= 0) nextErrors.IDEPREUVE = 'Épreuve requise';
     if (site) {
       try {
         const parsed = new URL(site);
@@ -164,9 +158,7 @@ export function CompetitionFormDialog({
     }
   };
 
-  const handleSaveRef = useRef(handleSave);
-  handleSaveRef.current = handleSave;
-  useEffect(() => { if (saveCount > 0) void handleSaveRef.current(); }, [saveCount]);
+  useExternalSaveTrigger(saveCount, handleSave);
 
   const content = (
     <>
@@ -186,7 +178,7 @@ export function CompetitionFormDialog({
             height={180}
             loading={logoDraft === undefined && existingLogo.loading}
             src={logoPreview}
-            alt="Logo de la competition"
+            alt="Logo de la compétition"
             objectFit="contain"
             editable
             accept="image/*"
@@ -204,7 +196,7 @@ export function CompetitionFormDialog({
             fallback={(
               <Stack spacing={0.5} sx={{ alignItems: 'center', color: 'text.disabled' }}>
                 <EmojiEventsIcon sx={{ fontSize: 72 }} />
-                <Box sx={{ fontSize: 12 }}>Competition</Box>
+                <Box sx={{ fontSize: 12 }}>Compétition</Box>
               </Stack>
             )}
           />
@@ -225,7 +217,7 @@ export function CompetitionFormDialog({
         <Box sx={{ minWidth: 0, gridColumn: '1 / -1', gridRow: '2' }}>
           <Stack spacing={2}>
             <TextField
-              label="Nom de la competition"
+              label="Nom de la compétition"
               value={String(values.NOM ?? '')}
               onChange={(e) => setValues((prev) => ({ ...prev, NOM: e.target.value }))}
               size="small"
@@ -236,7 +228,7 @@ export function CompetitionFormDialog({
 
             <TextField
               select
-              label="Epreuve"
+              label="Épreuve"
               value={Number(values.IDEPREUVE ?? 0) || ''}
               onChange={(e) => setValues((prev) => ({ ...prev, IDEPREUVE: Number(e.target.value) }))}
               size="small"
@@ -275,7 +267,7 @@ export function CompetitionFormDialog({
                   onChange={(e) => setValues((prev) => ({ ...prev, CO_ANNEE: e.target.checked ? 1 : 0 }))}
                 />
               }
-              label="Competition sur une annee pleine"
+              label="Compétition sur une année pleine"
             />
 
             <TextField
@@ -318,7 +310,7 @@ export function CompetitionFormDialog({
     <EntityFormDialog
       open={open}
       onClose={onClose}
-      title={mode === 'create' ? 'Nouvelle Competition' : 'Modifier une Competition'}
+      title={mode === 'create' ? 'Nouvelle Compétition' : 'Modifier une Compétition'}
       saving={saving}
       onSave={() => void handleSave()}
       maxWidth="lg"

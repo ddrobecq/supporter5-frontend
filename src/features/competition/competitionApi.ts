@@ -1,5 +1,7 @@
 import { env } from '../../config/env';
 import { normalizeImagePayload, updateEntityImageWithFallback } from '../../lib/entityImageApi';
+import type { CanDeleteResponse } from '../../lib/apiTypes';
+import { fetchAllPages } from '../../lib/fetchAllPages';
 import { http } from '../../lib/http';
 import { encodePathSegment } from '../../lib/urlPath';
 import type {
@@ -17,17 +19,6 @@ import type {
   TourDefRow,
   TourParticipantRow,
 } from './types';
-
-export interface IntegrityConstraint {
-  table: string;
-  count: number;
-  description: string;
-}
-
-export interface CanDeleteResponse {
-  canDelete: boolean;
-  constraints: IntegrityConstraint[];
-}
 
 export async function fetchCompetition(
   search: string,
@@ -58,19 +49,13 @@ export async function fetchCompetitionWizardData(signal?: AbortSignal): Promise<
   saisons: SaisonOption[];
 }> {
   const [epreuvesResponse, saisonsResponse] = await Promise.all([
-    http.get<PaginatedResponse<EpreuveOption>>(env.epreuvePublicResource, {
-      params: { limit: 200, sort: 'EPREUVE', order: 'asc', page: 1 },
-      signal,
-    }),
-    http.get<PaginatedResponse<SaisonOption>>(env.saisonPublicResource, {
-      params: { limit: 200, sort: 'SAISON', order: 'desc', page: 1 },
-      signal,
-    }),
+    fetchAllPages<EpreuveOption>(env.epreuvePublicResource, { limit: 200, sort: 'EPREUVE', order: 'asc' }, signal),
+    fetchAllPages<SaisonOption>(env.saisonPublicResource, { limit: 200, sort: 'SAISON', order: 'desc' }, signal),
   ]);
 
   return {
-    epreuves: epreuvesResponse.data.data ?? [],
-    saisons: saisonsResponse.data.data ?? [],
+    epreuves: epreuvesResponse.data ?? [],
+    saisons: saisonsResponse.data ?? [],
   };
 }
 
@@ -146,20 +131,17 @@ export async function updateCompetitionTour(tourId: string | number, payload: Co
 }
 
 export async function fetchTourDefsByType(typeId: number): Promise<TourDefRow[]> {
-  const { data } = await http.get<PaginatedResponse<TourDefRow>>(`${env.apiBaseUrl}/api/tourdefs`, {
-    params: {
-      limit: 200,
-      sort: 'NOM',
-      order: 'asc',
-      tdtypetour: typeId,
-      page: 1,
-    },
+  const { data } = await fetchAllPages<TourDefRow>(env.tourDefPublicResource, {
+    limit: 200,
+    sort: 'NOM',
+    order: 'asc',
+    tdtypetour: typeId,
   });
-  return data.data ?? [];
+  return data ?? [];
 }
 
 export async function fetchTourDefById(tourDefId: string | number): Promise<TourDefRow> {
-  const { data } = await http.get<TourDefRow>(`${env.apiBaseUrl}/api/tourdefs/${encodePathSegment(tourDefId)}`);
+  const { data } = await http.get<TourDefRow>(`${env.tourDefPublicResource}/${encodePathSegment(tourDefId)}`);
   return data;
 }
 
@@ -188,7 +170,7 @@ export interface CreateTourDefPayload {
 }
 
 export async function createTourDef(payload: CreateTourDefPayload): Promise<TourDefRow | undefined> {
-  const { data } = await http.post<TourDefRow>('/api/admin/tourdefs', payload);
+  const { data } = await http.post<TourDefRow>(env.tourDefAdminResource, payload);
   return data;
 }
 
@@ -279,7 +261,7 @@ export async function deleteTourQualif(qualifId: string | number): Promise<void>
 export type CreateTourMatchPayload = Omit<TourMatchRow, 'RECLEUNIK'>;
 
 export async function createTourRencontre(payload: CreateTourMatchPayload): Promise<TourMatchRow | undefined> {
-  const { data } = await http.post<TourMatchRow>('/api/admin/rencontres', payload);
+  const { data } = await http.post<TourMatchRow>(env.rencontreAdminResource, payload);
   return data;
 }
 
@@ -287,12 +269,12 @@ export async function updateTourRencontre(
   rencontreId: string | number,
   payload: Partial<TourMatchRow>,
 ): Promise<TourMatchRow | undefined> {
-  const { data } = await http.put<TourMatchRow>(`/api/admin/rencontres/${encodeURIComponent(String(rencontreId))}`, payload);
+  const { data } = await http.put<TourMatchRow>(`${env.rencontreAdminResource}/${encodeURIComponent(String(rencontreId))}`, payload);
   return data;
 }
 
 export async function deleteTourRencontre(rencontreId: string | number): Promise<void> {
-  await http.delete(`/api/admin/rencontres/${encodeURIComponent(String(rencontreId))}`);
+  await http.delete(`${env.rencontreAdminResource}/${encodeURIComponent(String(rencontreId))}`);
 }
 
 /** Recalcule stats et classements du tour, puis resout les participants programmes qui en dependent. */

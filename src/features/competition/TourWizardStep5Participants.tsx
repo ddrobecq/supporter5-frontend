@@ -120,7 +120,7 @@ export function TourWizardStep5Participants({ competitionId, currentTourOrder, c
 
     const alreadyExists = rows.some((row) => String(row.IDCLUB ?? '').trim() === normalizedClubId);
     if (alreadyExists) {
-      onError?.('Ce club est deja dans la liste des participants.');
+      onError?.('Ce club est déjà dans la liste des participants.');
       return;
     }
 
@@ -205,7 +205,7 @@ export function TourWizardStep5Participants({ competitionId, currentTourOrder, c
     }
 
     if (localRows.length === 0) {
-      onError?.('Aucun participant programme a ajouter (deja present).');
+      onError?.('Aucun participant programmé à ajouter (déjà présent).');
       return;
     }
 
@@ -313,8 +313,8 @@ export function TourWizardStep5Participants({ competitionId, currentTourOrder, c
                 </Select>
               </FormControl>
               <FormControl size="small" sx={{ minWidth: 220 }}>
-                <InputLabel id="prog5-competition-label">Competition</InputLabel>
-                <Select labelId="prog5-competition-label" label="Competition" value={programCompetitionId} onChange={(event) => setProgramCompetitionId(String(event.target.value ?? ''))}>
+                <InputLabel id="prog5-competition-label">Compétition</InputLabel>
+                <Select labelId="prog5-competition-label" label="Compétition" value={programCompetitionId} onChange={(event) => setProgramCompetitionId(String(event.target.value ?? ''))}>
                   {programCompetitions.map((competition) => {
                     const id = String(competition.COCLEUNIK ?? '').trim();
                     const name = String(competition.NOM ?? '').trim();
@@ -364,7 +364,7 @@ export function TourWizardStep5Participants({ competitionId, currentTourOrder, c
                       : `${entry.group || '(Aucun groupe)'}: ${entry.clubs.length > 0 ? entry.clubs.join(' / ') : '-'}`}
                   </Typography>
                 ))
-                : <Typography variant="caption" color="text.secondary">Indetermine pour l instant</Typography>
+                : <Typography variant="caption" color="text.secondary">Indéterminé pour l'instant</Typography>
               }
             </Stack>
           </Stack>

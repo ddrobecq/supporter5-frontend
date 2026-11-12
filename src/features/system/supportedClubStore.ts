@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { fetchSupportedClubContext } from './systemApi';
 
-const SUPPORTED_CLUB_FALLBACK_ID = '0001';
-const SUPPORTED_CLUB_FALLBACK_NAME = 'Club supporte';
+export const SUPPORTED_CLUB_FALLBACK_ID = '0001';
+export const SUPPORTED_CLUB_FALLBACK_NAME = 'Club supporte';
 
 interface SupportedClubState {
   clubId: string;

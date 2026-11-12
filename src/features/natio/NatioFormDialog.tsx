@@ -8,7 +8,8 @@ import {
   TextField,
 } from '@mui/material';
 import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useExternalSaveTrigger } from '../../lib/useExternalSaveTrigger';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { useDirtySignature } from '../../lib/useDirtySignature';
@@ -186,7 +187,7 @@ export function NatioFormDialog({
 
     const signature = JSON.stringify({ ...initial, NAT_DRAPEAU: resolvedSvg.trim() || '' });
     setInitialSignature(signature);
-  }, [open, resolvedFields, initialData]);
+  }, [open, resolvedFields, initialData, setInitialSignature]);
 
   useEffect(() => {
     const currentSignature = JSON.stringify({ ...values, NAT_DRAPEAU: flagSvgContent.trim() || (flagCleared ? '_cleared_' : '') });
@@ -244,9 +245,7 @@ export function NatioFormDialog({
     }
   };
 
-  const handleSaveRef = useRef(handleSave);
-  handleSaveRef.current = handleSave;
-  useEffect(() => { if (saveCount > 0) void handleSaveRef.current(); }, [saveCount]);
+  useExternalSaveTrigger(saveCount, handleSave);
 
   const content = (
     <>
@@ -265,7 +264,7 @@ export function NatioFormDialog({
               height={120}
               loading={!flagSvgContent && !flagCleared && existingFlagImage.loading}
               src={displayFlagSrc || null}
-              alt="Apercu du drapeau"
+              alt="Aperçu du drapeau"
               objectFit="contain"
               editable
               accept=".svg,image/svg+xml,image/*"

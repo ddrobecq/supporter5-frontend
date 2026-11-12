@@ -1,6 +1,6 @@
 import { env } from '../../config/env';
 import { http } from '../../lib/http';
-import type { TourMatchRow } from '../competition/types';
+import type { TourMatchRow, TourParticipantRow } from '../competition/types';
 import type { CompositionMap, OnThisDayMatchRow, RencontreDetailRow, RencontreHighlightsRow, SquadPlayerRow, TourMatchWithNamesRow } from './types';
 
 export async function fetchOnThisDayMatch(signal?: AbortSignal): Promise<OnThisDayMatchRow | null> {
@@ -11,7 +11,7 @@ export async function fetchOnThisDayMatch(signal?: AbortSignal): Promise<OnThisD
 export type CreateRencontrePayload = Omit<TourMatchRow, 'RECLEUNIK'>;
 
 export async function createRencontre(payload: CreateRencontrePayload): Promise<TourMatchRow | undefined> {
-  const { data } = await http.post<TourMatchRow>('/api/admin/rencontres', payload);
+  const { data } = await http.post<TourMatchRow>(env.rencontreAdminResource, payload);
   return data;
 }
 
@@ -24,7 +24,7 @@ export async function updateRencontreDetail(
   rencontreId: string | number,
   payload: Partial<TourMatchRow>,
 ): Promise<TourMatchRow | undefined> {
-  const { data } = await http.put<TourMatchRow>(`/api/admin/rencontres/${encodeURIComponent(String(rencontreId))}`, payload);
+  const { data } = await http.put<TourMatchRow>(`${env.rencontreAdminResource}/${encodeURIComponent(String(rencontreId))}`, payload);
   return data;
 }
 
@@ -36,6 +36,11 @@ export async function fetchRencontreHighlightsById(rencontreId: string | number,
 export async function fetchRencontreTourMatches(rencontreId: string | number, signal?: AbortSignal): Promise<TourMatchWithNamesRow[]> {
   const { data } = await http.get<{ data: TourMatchWithNamesRow[] }>(`/api/rencontres/${encodeURIComponent(String(rencontreId))}/tour-matches`, { signal });
   return data.data;
+}
+
+export async function fetchTourParticipants(tourId: string | number, signal?: AbortSignal): Promise<TourParticipantRow[]> {
+  const { data } = await http.get<{ data?: TourParticipantRow[] }>(`${env.tourPublicResource}/${encodeURIComponent(String(tourId))}/participants`, { signal });
+  return data.data ?? [];
 }
 
 export async function fetchRencontreComposition(rencontreId: string | number, signal?: AbortSignal): Promise<CompositionMap> {
@@ -61,14 +66,6 @@ export async function fetchArbitreById(idarbitre: string): Promise<{ IDARBITRE: 
   }
 }
 
-export async function updateMatchArbitre(macleunik: number, idarbitre: string | null): Promise<void> {
-  await http.put(`/api/admin/matchs/${encodeURIComponent(String(macleunik))}`, { IDARBITRE: idarbitre || null });
-}
-
-export async function upsertRencontreArbitre(rencontreId: string | number, idarbitre: string | null): Promise<void> {
-  await http.put(`/api/admin/rencontres/${encodeURIComponent(String(rencontreId))}/arbitre`, { IDARBITRE: idarbitre || null });
-}
-
 export interface RencontreMatchMetaPayload {
   IDARBITRE?: string | null;
   TECLEUNIK?: string | null;
@@ -79,7 +76,7 @@ export interface RencontreMatchMetaPayload {
 }
 
 export async function upsertRencontreMatchMeta(rencontreId: string | number, payload: RencontreMatchMetaPayload): Promise<void> {
-  await http.put(`/api/admin/rencontres/${encodeURIComponent(String(rencontreId))}/match-meta`, payload);
+  await http.put(`${env.rencontreAdminResource}/${encodeURIComponent(String(rencontreId))}/match-meta`, payload);
 }
 
 export interface EventPayload {

@@ -14,22 +14,31 @@ import { ArbitreIdentityDisplay } from '../../components/ArbitreIdentityDisplay'
 import { formatDateShort } from '../../components/dateUtils';
 import { MatchDataGrid } from '../../components/MatchDataGrid';
 import { buildMatchGridColumns } from '../../components/matchGridColumns';
-import { PitchField, PitchPlayerAvatar, PitchPlayerMarker, PitchSlotShell, PITCH_SLOTS } from '../../components/PitchField';
-import { PublicLoadingState } from '../../components/PublicPageState';
+import { PitchField, PitchPlayerAvatar, PitchPlayerMarker, PitchSlotShell } from '../../components/PitchField';
+import { PITCH_SLOTS } from '../../components/pitchSlots';
+import { PublicErrorState, PublicLoadingState } from '../../components/PublicPageState';
 import { StructuredData } from '../../components/StructuredData';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { useSeoMeta } from '../../lib/useSeoMeta';
 import { useRecentRecordVisit } from '../home/useRecentRecordVisit';
 import { formatInteger } from '../../lib/formatNumber';
-import { http } from '../../lib/http';
-import { env } from '../../config/env';
+import { isAbortError, isNotFoundError } from '../../lib/httpErrors';
 import { entityPathForPublicMode } from '../../lib/entityNavigation';
 import type { TourParticipantRow } from '../competition/types';
-import { BENCH_SLOT_SX, BenchPlayerLabel, CoachInlineDisplay } from './RencontreCompositionTab';
+import { BenchPlayerLabel, CoachInlineDisplay } from './RencontreCompositionTab';
+import { BENCH_SLOT_SX } from './rencontreCompositionShared';
 import { RencontreHighlightsTimeline } from './RencontreHighlightsTimeline';
-import { fetchRencontreComposition, fetchRencontreDetailById, fetchRencontreHighlightsById, fetchRencontreSquad, fetchRencontreTourMatches } from './rencontreApi';
+import { fetchRencontreComposition, fetchRencontreDetailById, fetchRencontreHighlightsById, fetchRencontreSquad, fetchRencontreTourMatches, fetchTourParticipants } from './rencontreApi';
 import type { CompositionMap, RencontreDetailRow, RencontreHighlightsRow, SquadPlayerRow, TourMatchWithNamesRow } from './types';
 import { TourClassementCard } from '../calendrier/TourClassementCard';
+import { getMatchStatusLabel, MatchEtat } from '../../lib/matchStatus';
+
+type SectionErrors = Record<'highlights' | 'composition' | 'programme' | 'participants', boolean>;
+const NO_SECTION_ERRORS: SectionErrors = { highlights: false, composition: false, programme: false, participants: false };
+
+function SectionErrorMessage({ label }: { label: string }) {
+  return <Alert severity="warning">Impossible de charger {label}.</Alert>;
+}
 
 const REMP_CODES = ['REMP1', 'REMP2', 'REMP3', 'REMP4', 'REMP5', 'REMP6', 'REMP7', 'REMP8', 'REMP9', 'REMP10', 'REMP11'] as const;
 
@@ -40,8 +49,8 @@ function formatTime(value: string | null): string {
 }
 
 function formatScore(detail: RencontreDetailRow): string {
-  if ([1, 5].includes(Number(detail.ETAT))) return '-vs-';
-  if (Number(detail.ETAT) === 4) return 'Non jouée/annulée';
+  if (Number(detail.ETAT) === MatchEtat.EnAttente || Number(detail.ETAT) === MatchEtat.Programmee) return '-vs-';
+  if (Number(detail.ETAT) === MatchEtat.NonJoueeAnnulee) return getMatchStatusLabel(MatchEtat.NonJoueeAnnulee);
   const penalties = Number(detail.PENALTY ?? 0) === 1;
   return penalties ? `${detail.TABDOM} ${detail.BUTDOM} - ${detail.BUTEXT} ${detail.TABEXT}` : `${detail.BUTDOM} - ${detail.BUTEXT}`;
 }
@@ -150,29 +159,62 @@ export function RencontrePublicPage() {
   const [participants, setParticipants] = useState<TourParticipantRow[]>([]);
   const [tab, setTab] = useState<'info' | 'highlights' | 'composition' | 'resume' | 'programme' | 'classement'>('info');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<'notFound' | 'error' | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  // Sections secondaires en echec: la fiche reste affichee, seule la section concernee signale l'erreur.
+  const [sectionErrors, setSectionErrors] = useState<SectionErrors>(NO_SECTION_ERRORS);
   const competitionLogo = useEntityImage('competition', detail?.COCLEUNIK ?? null);
 
   useEffect(() => {
     const controller = new AbortController();
-    void Promise.all([
-      fetchRencontreDetailById(rencontreId, controller.signal),
-      fetchRencontreHighlightsById(rencontreId, controller.signal),
-      fetchRencontreComposition(rencontreId, controller.signal),
-      fetchRencontreSquad(rencontreId, controller.signal),
-      fetchRencontreTourMatches(rencontreId, controller.signal),
-    ]).then(async ([nextDetail, nextHighlights, nextComposition, nextSquad, nextProgramme]) => {
-      setDetail(nextDetail); setHighlights(nextHighlights); setComposition(nextComposition); setSquad(nextSquad); setProgramme(nextProgramme);
+    const { signal } = controller;
+    // Seul le detail conditionne l'affichage; les autres chargements peuvent echouer independamment.
+    void Promise.allSettled([
+      fetchRencontreDetailById(rencontreId, signal),
+      fetchRencontreHighlightsById(rencontreId, signal),
+      fetchRencontreComposition(rencontreId, signal),
+      fetchRencontreSquad(rencontreId, signal),
+      fetchRencontreTourMatches(rencontreId, signal),
+    ]).then(([detailResult, highlightsResult, compositionResult, squadResult, programmeResult]) => {
+      if (signal.aborted) return;
+      if (detailResult.status === 'rejected') {
+        setDetail(null);
+        setLoadError(isNotFoundError(detailResult.reason) ? 'notFound' : 'error');
+        setLoading(false);
+        return;
+      }
+      const nextDetail = detailResult.value;
+      setDetail(nextDetail);
+      setLoadError(null);
+      setHighlights(highlightsResult.status === 'fulfilled' ? highlightsResult.value : null);
+      setComposition(compositionResult.status === 'fulfilled' ? compositionResult.value : {});
+      setSquad(squadResult.status === 'fulfilled' ? squadResult.value : []);
+      setProgramme(programmeResult.status === 'fulfilled' ? programmeResult.value : []);
+      setParticipants([]);
+      setSectionErrors({
+        highlights: highlightsResult.status === 'rejected',
+        composition: compositionResult.status === 'rejected' || squadResult.status === 'rejected',
+        programme: programmeResult.status === 'rejected',
+        participants: false,
+      });
+      setLoading(false);
       const tourId = Number(nextDetail.TUCLEUNIK ?? 0);
       if (tourId > 0) {
-        const { data: payload } = await http.get<{ data?: TourParticipantRow[] }>(
-          `${env.tourPublicResource}/${encodeURIComponent(String(tourId))}/participants`,
-          { signal: controller.signal },
-        );
-        setParticipants(payload.data ?? []);
+        fetchTourParticipants(tourId, signal)
+          .then(setParticipants)
+          .catch((error: unknown) => {
+            if (!isAbortError(error)) setSectionErrors((current) => ({ ...current, participants: true }));
+          });
       }
-    }).catch(() => setDetail(null)).finally(() => setLoading(false));
+    });
     return () => controller.abort();
-  }, [rencontreId]);
+  }, [rencontreId, reloadKey]);
+
+  const retryLoad = () => {
+    setLoading(true);
+    setLoadError(null);
+    setReloadKey((key) => key + 1);
+  };
 
   const seoHomeName = detail?.DOMICILE_NOM_EFFECTIF || detail?.DOMICILE_ABREGE || 'Équipe à domicile';
   const seoAwayName = detail?.EXTERIEUR_NOM_EFFECTIF || detail?.EXTERIEUR_ABREGE || 'équipe à l’extérieur';
@@ -208,7 +250,7 @@ export function RencontrePublicPage() {
       homeTeam: { '@type': 'SportsTeam', name: homeName },
       awayTeam: { '@type': 'SportsTeam', name: awayName },
       ...(competitionLabel ? { description: competitionLabel } : {}),
-      ...(Number(detail.ETAT) !== 1 && Number(detail.ETAT) !== 4 && Number(detail.ETAT) !== 5 ? {
+      ...(Number(detail.ETAT) !== MatchEtat.EnAttente && Number(detail.ETAT) !== MatchEtat.NonJoueeAnnulee && Number(detail.ETAT) !== MatchEtat.Programmee ? {
         homeTeamScore: detail.BUTDOM,
         awayTeamScore: detail.BUTEXT,
       } : {}),
@@ -216,6 +258,7 @@ export function RencontrePublicPage() {
   }, [awayName, competitionLabel, detail, homeName, rencontreId]);
 
   if (loading) return <PublicLoadingState />;
+  if (loadError === 'error') return <PublicErrorState entity="la rencontre" onRetry={retryLoad} />;
   if (!detail || Number(detail.IS_SUPPORTED_CLUB_MATCH ?? 0) !== 1) return <Alert severity="info">Cette rencontre n'est pas disponible dans la partie publique.</Alert>;
 
   const competitionIcon = competitionLogo.src
@@ -245,13 +288,13 @@ export function RencontrePublicPage() {
       {hadPenalty ? <Typography sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><SportsScoreRoundedIcon color="primary" />Tirs au but</Typography> : null}
     </Stack></CardContent></Card> : null}
 
-    {tab === 'highlights' ? <Card><CardContent><RencontreHighlightsTimeline events={highlights?.EVENTS ?? []} matchHasExtraTime={hadExtratime} /></CardContent></Card> : null}
+    {tab === 'highlights' ? <Card><CardContent>{sectionErrors.highlights ? <SectionErrorMessage label="les faits marquants" /> : <RencontreHighlightsTimeline events={highlights?.EVENTS ?? []} matchHasExtraTime={hadExtratime} />}</CardContent></Card> : null}
 
-    {tab === 'composition' ? <Card><CardContent><ReadonlyComposition composition={composition} squad={squad} homeName={homeName} awayName={awayName} supportedSide={detail.SUPPORTED_CLUB_SIDE} /></CardContent></Card> : null}
+    {tab === 'composition' ? <Card><CardContent>{sectionErrors.composition ? <SectionErrorMessage label="la composition" /> : <ReadonlyComposition composition={composition} squad={squad} homeName={homeName} awayName={awayName} supportedSide={detail.SUPPORTED_CLUB_SIDE} />}</CardContent></Card> : null}
 
     {tab === 'resume' ? <Card><CardContent><Typography sx={{ whiteSpace: 'pre-wrap' }} color={detail.COMMENT ? 'text.primary' : 'text.secondary'}>{detail.COMMENT || 'Aucun résumé pour cette rencontre.'}</Typography></CardContent></Card> : null}
 
-    {tab === 'programme' ? <Card><CardContent><Box sx={{ height: 420 }}><MatchDataGrid rows={programme} columns={matchColumns} getRowId={(row) => row.RECLEUNIK} disableRowSelectionOnClick disableColumnMenu density="compact" pageSizeOptions={[10, 25, 50]} /></Box>{participants.length ? <Typography variant="caption" color="text.secondary">{participants.length} participants au tour</Typography> : null}</CardContent></Card> : null}
+    {tab === 'programme' ? <Card><CardContent>{sectionErrors.programme ? <SectionErrorMessage label="le programme du tour" /> : <Box sx={{ height: 420 }}><MatchDataGrid rows={programme} columns={matchColumns} getRowId={(row) => row.RECLEUNIK} disableRowSelectionOnClick disableColumnMenu density="compact" pageSizeOptions={[10, 25, 50]} /></Box>}{sectionErrors.participants ? <Typography variant="caption" color="text.secondary">Impossible de charger les participants du tour.</Typography> : null}{participants.length ? <Typography variant="caption" color="text.secondary">{participants.length} participants au tour</Typography> : null}</CardContent></Card> : null}
 
     {tab === 'classement' && isLigueTour ? (
       <TourClassementCard

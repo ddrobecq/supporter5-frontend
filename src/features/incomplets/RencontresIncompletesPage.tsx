@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { ClubCell } from '../../components/ClubCell';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { formatDateFr } from '../../lib/formatDate';
+import { MatchEtat } from '../../lib/matchStatus';
+import { emitTabOpen } from '../../lib/useTabMetaEvents';
 import { IncompletsView } from './IncompletsView';
 import {
   RENCONTRE_INCOMPLETE_CATEGORIES,
@@ -19,14 +21,7 @@ function matchLabel(row: RencontreIncompleteRow): string {
 
 function openRencontreTab(row: RencontreIncompleteRow): void {
   if (row.RECLEUNIK == null) return;
-  window.dispatchEvent(new CustomEvent('supporter:tab-open', {
-    detail: {
-      path: `/admin/rencontres/${encodeURIComponent(String(row.RECLEUNIK))}`,
-      label: matchLabel(row),
-      unique: true,
-      uniqueByPath: true,
-    },
-  }));
+  emitTabOpen(`/admin/rencontres/${encodeURIComponent(String(row.RECLEUNIK))}`, matchLabel(row));
 }
 
 /** Outils > Fiches incompletes > Rencontres incompletes. */
@@ -66,7 +61,7 @@ export function RencontresIncompletesPage() {
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', height: '100%', minWidth: 0 }}>
           <ClubCell clubId={params.row.DOMICILE ?? ''} clubName={params.row.DOMICILE_NOM?.trim() || params.row.DOMICILE || '?'} />
           <Typography variant="body2" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
-            {Number(params.row.ETAT) === 3 ? `${params.row.BUTDOM ?? 0} - ${params.row.BUTEXT ?? 0}` : 'vs'}
+            {Number(params.row.ETAT) === MatchEtat.Terminee ? `${params.row.BUTDOM ?? 0} - ${params.row.BUTEXT ?? 0}` : 'vs'}
           </Typography>
           <ClubCell clubId={params.row.EXTERIEUR ?? ''} clubName={params.row.EXTERIEUR_NOM?.trim() || params.row.EXTERIEUR || '?'} />
         </Stack>

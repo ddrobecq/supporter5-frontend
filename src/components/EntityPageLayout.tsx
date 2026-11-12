@@ -23,12 +23,7 @@ import { EntityDataGrid } from './EntityDataGrid';
 import { EntitySearchBar } from './EntitySearchBar';
 import { AppFeedbackSnackbar } from './AppFeedbackSnackbar';
 import type { FeedbackMessage } from './AppFeedbackSnackbar';
-
-export interface IntegrityConstraint {
-  table: string;
-  count: number;
-  description: string;
-}
+import type { IntegrityConstraint } from '../lib/apiTypes';
 
 interface EntityPageLayoutProps<Row extends GridValidRowModel> {
   // Titre affiché en haut de la page
@@ -384,12 +379,12 @@ export function EntityPageLayout<Row extends GridValidRowModel>({
         <DialogContent>
           {deleteConstraints.length === 0 ? (
             <DialogContentText>
-              Cette action est irreversible. Verifiez que {entityDescription} n'est pas utilise dans d'autres enregistrements.
+              Cette action est irréversible. Vérifiez que {entityDescription} n'est pas utilisé dans d'autres enregistrements.
             </DialogContentText>
           ) : (
             <Stack spacing={1.5}>
               <DialogContentText>
-                <strong>Suppression impossible.</strong> {entityDescription.charAt(0).toUpperCase() + entityDescription.slice(1)} est utilise dans d'autres donnees:
+                <strong>Suppression impossible.</strong> {entityDescription.charAt(0).toUpperCase() + entityDescription.slice(1)} est utilisé dans d'autres données:
               </DialogContentText>
               <Stack spacing={0.75} sx={{ ml: 2 }}>
                 {deleteConstraints.map((constraint) => (
@@ -399,7 +394,7 @@ export function EntityPageLayout<Row extends GridValidRowModel>({
                 ))}
               </Stack>
               <DialogContentText sx={{ mt: 1.5, fontStyle: 'italic', color: 'error.main' }}>
-                Supprimez ou modifiez d'abord les enregistrements dependants, puis reessayez.
+                Supprimez ou modifiez d'abord les enregistrements dépendants, puis réessayez.
               </DialogContentText>
             </Stack>
           )}

@@ -35,7 +35,7 @@ import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { CompletenessChip } from '../../components/CompletenessChip';
 import { DateInputField } from '../../components/DateInputField';
-import { formatDateShort, toIsoDate } from '../../components/dateUtils';
+import { formatDateShort, isoDateOrNull, toIsoDate } from '../../components/dateUtils';
 import { useInvalidDateFields } from '../../components/useInvalidDateFields';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { NatioAutocomplete } from '../../components/NatioAutocomplete';
@@ -45,10 +45,10 @@ import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { pickScreenColor } from '../../lib/screenColorPicker';
-import { fetchNatio } from '../natio/natioApi';
-import type { NatioRow } from '../natio/types';
+import { useNatioList } from '../natio/natioStore';
 import { VillePicker } from '../../components/VillePicker';
-import { ClubJerseyVisual, normalizeColorCode } from './ClubJerseyVisual';
+import { ClubJerseyVisual } from './ClubJerseyVisual';
+import { normalizeColorCode } from './clubJerseySvg';
 import { ClubMatchesTab } from './ClubMatchesTab';
 import {
   createClubTerrainHistory,
@@ -66,7 +66,7 @@ import {
 } from './clubApi';
 import type { ClubMatchRow, ClubNameHistoryRow, ClubPalmareRow, ClubProfileRow, ClubTerrainHistoryRow } from './types';
 import { TerrainPickerDialog } from '../terrain/TerrainPickerDialog';
-import { supportedClubStore } from '../system/supportedClubStore';
+import { SUPPORTED_CLUB_FALLBACK_ID, SUPPORTED_CLUB_FALLBACK_NAME, supportedClubStore } from '../system/supportedClubStore';
 import { getClubCompleteness } from './clubCompleteness';
 
 interface ClubTabFormPaneProps {
@@ -165,7 +165,7 @@ async function extractDominantColorsFromImage(src: string): Promise<{ fond: stri
 
   await new Promise<void>((resolve, reject) => {
     image.onload = () => resolve();
-    image.onerror = () => reject(new Error('Impossible de charger l ecusson.'));
+    image.onerror = () => reject(new Error("Impossible de charger l'écusson."));
     image.src = src;
   });
 
@@ -220,14 +220,6 @@ async function extractDominantColorsFromImage(src: string): Promise<{ fond: stri
   return { fond, texte };
 }
 
-function formatClubDate(value: unknown): string {
-  return formatDateShort(value);
-}
-
-function formatDateForApi(value: string): string | null {
-  return toIsoDate(value) || null;
-}
-
 function PalmareListItem({ row }: { row: ClubPalmareRow }) {
   const image = useEntityImage('epreuve', row.IDEPREUVE);
   return (
@@ -264,7 +256,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
   const [row, setRow] = useState<ClubProfileRow | undefined>(undefined);
   const [profileDraft, setProfileDraft] = useState<ClubProfileDraft>(createClubProfileDraft());
   const [savingProfile, setSavingProfile] = useState(false);
-  const [natioRows, setNatioRows] = useState<NatioRow[]>([]);
+  const { rows: natioRows } = useNatioList();
   const [nameHistoryRows, setNameHistoryRows] = useState<ClubNameHistoryRow[]>([]);
   const [terrainHistoryRows, setTerrainHistoryRows] = useState<ClubTerrainHistoryRow[]>([]);
   const [matchRows, setMatchRows] = useState<ClubMatchRow[]>([]);
@@ -390,7 +382,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       profileSignatureRef.current = getClubProfileSignature(createClubProfileDraft(updated));
       setLabel(String(updated.CLUB_ABREGE ?? '').trim() || String(clubId));
       setDirty(false);
-      setSnackbar({ severity: 'success', message: 'Club mis a jour.' });
+      setSnackbar({ severity: 'success', message: 'Club mis à jour.' });
       notifySaveDone();
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
@@ -411,7 +403,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       width: 120,
       minWidth: 120,
       maxWidth: 120,
-      valueGetter: (_value, historyRow) => formatClubDate(historyRow.DATE),
+      valueGetter: (_value, historyRow) => formatDateShort(historyRow.DATE),
     },
     {
       field: 'CN_ACTION_LABEL',
@@ -442,7 +434,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       width: 120,
       minWidth: 120,
       maxWidth: 120,
-      valueGetter: (_value, historyRow) => formatClubDate(historyRow.DATE),
+      valueGetter: (_value, historyRow) => formatDateShort(historyRow.DATE),
     },
     {
       field: 'STADE',
@@ -519,8 +511,8 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
 
   useEffect(() => {
     if (!supportedClubLoaded) return;
-    setMatchFilterClubId((prev) => (prev === supportedClubStore.getState().clubId || prev === '0001' ? supportedClubStoreId : prev));
-    setMatchFilterClubName((prev) => (prev === 'Club supporte' ? supportedClubStoreName : prev));
+    setMatchFilterClubId((prev) => (prev === supportedClubStore.getState().clubId || prev === SUPPORTED_CLUB_FALLBACK_ID ? supportedClubStoreId : prev));
+    setMatchFilterClubName((prev) => (prev === SUPPORTED_CLUB_FALLBACK_NAME ? supportedClubStoreName : prev));
   }, [supportedClubLoaded, supportedClubStoreId, supportedClubStoreName]);
 
   // ClubSelectField.onChange gives CLUB_NOM_COMPLET; fetch CLUB_ABREGE for this filter only
@@ -530,6 +522,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     if (newId) {
       void fetchClubProfileById(newId)
         .then((profile) => setMatchFilterClubName(profile.CLUB_ABREGE || newName))
+        // Libelle abrege seulement cosmetique: en cas d'echec on garde le nom complet deja affiche (newName).
         .catch(() => {});
     }
   };
@@ -546,18 +539,11 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
   }, [activeTab]);
 
   useEffect(() => {
-    const controller = new AbortController();
-
-    void fetchNatio('', controller.signal)
-      .then((result) => setNatioRows(result.data ?? []))
-      .catch(() => {});
-
     void reloadRow();
     void reloadHistories();
     void reloadMatches();
 
     return () => {
-      controller.abort();
       setDirty(false);
     };
   }, [reloadHistories, reloadMatches, reloadRow, setDirty]);
@@ -592,7 +578,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
   const openNameEditDialog = (historyRow?: ClubNameHistoryRow) => {
     const rowToEdit = historyRow ?? selectedNameHistoryRow;
     if (!rowToEdit) {
-      setSnackbar({ severity: 'error', message: 'Selectionnez un nom de club a modifier.' });
+      setSnackbar({ severity: 'error', message: 'Sélectionnez un nom de club à modifier.' });
       return;
     }
     const eventType = Number(rowToEdit.CN_ACTION ?? 0);
@@ -610,14 +596,14 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
 
   const openNameDeleteConfirm = () => {
     if (!selectedNameHistoryRow) {
-      setSnackbar({ severity: 'error', message: 'Selectionnez un nom de club a supprimer.' });
+      setSnackbar({ severity: 'error', message: 'Sélectionnez un nom de club à supprimer.' });
       return;
     }
     setNameDeleteConfirmOpen(true);
   };
 
   const handleNameDialogSave = async (): Promise<boolean> => {
-    const date = formatDateForApi(nameDialogDraft.date);
+    const date = isoDateOrNull(nameDialogDraft.date);
     const name = String(nameDialogDraft.name ?? '').trim();
     const eventType = nameDialogDraft.eventType;
 
@@ -644,7 +630,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
 
       await reloadHistories();
       setNameDialogOpen(false);
-      setSnackbar({ severity: 'success', message: 'Historique des noms mis a jour.' });
+      setSnackbar({ severity: 'success', message: 'Historique des noms mis à jour.' });
       return true;
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
@@ -665,7 +651,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       await deleteClubNameHistory(clubId, selectedNameHistoryRow.IDCLUB_NOM);
       await reloadHistories();
       setNameDeleteConfirmOpen(false);
-      setSnackbar({ severity: 'success', message: 'Nom de club supprime.' });
+      setSnackbar({ severity: 'success', message: 'Nom de club supprimé.' });
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
     } finally {
@@ -685,7 +671,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
   const openTerrainEditDialog = (historyRow?: ClubTerrainHistoryRow) => {
     const rowToEdit = historyRow ?? selectedTerrainHistoryRow;
     if (!rowToEdit) {
-      setSnackbar({ severity: 'error', message: 'Selectionnez un stade a modifier.' });
+      setSnackbar({ severity: 'error', message: 'Sélectionnez un stade à modifier.' });
       return;
     }
 
@@ -703,14 +689,14 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
 
   const openTerrainDeleteConfirm = () => {
     if (!selectedTerrainHistoryRow) {
-      setSnackbar({ severity: 'error', message: 'Selectionnez un stade a supprimer.' });
+      setSnackbar({ severity: 'error', message: 'Sélectionnez un stade à supprimer.' });
       return;
     }
     setTerrainDeleteConfirmOpen(true);
   };
 
   const handleTerrainDialogSave = async (): Promise<boolean> => {
-    const date = formatDateForApi(terrainDialogDraft.date);
+    const date = isoDateOrNull(terrainDialogDraft.date);
     const terrainId = String(terrainDialogDraft.terrainId ?? '').trim();
 
     if (isDateInvalid('terrainDate')) {
@@ -736,7 +722,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
 
       await reloadHistories();
       setTerrainDialogOpen(false);
-      setSnackbar({ severity: 'success', message: 'Historique des stades mis a jour.' });
+      setSnackbar({ severity: 'success', message: 'Historique des stades mis à jour.' });
       return true;
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
@@ -757,7 +743,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       await deleteClubTerrainHistory(clubId, selectedTerrainHistoryRow.CT_CLEUNIK);
       await reloadHistories();
       setTerrainDeleteConfirmOpen(false);
-      setSnackbar({ severity: 'success', message: 'Stade supprime.' });
+      setSnackbar({ severity: 'success', message: 'Stade supprimé.' });
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
     } finally {
@@ -929,8 +915,8 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
           <FormatColorTextRoundedIcon fontSize="small" />
         </IconButton>
       </Tooltip>
-      <Tooltip title="Detecter les 2 couleurs principales de l ecusson">
-        <IconButton size="small" onClick={handleAutoDetectColors} aria-label="Detecter les 2 couleurs principales de l ecusson">
+      <Tooltip title="Détecter les 2 couleurs principales de l'écusson">
+        <IconButton size="small" onClick={handleAutoDetectColors} aria-label="Détecter les 2 couleurs principales de l'écusson">
           <AutoFixHighRoundedIcon fontSize="small" />
         </IconButton>
       </Tooltip>
@@ -1003,16 +989,16 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
                   height={150}
                   loading={clubImageDraft === undefined && clubImage.loading}
                   src={clubImageDraft === undefined ? clubImage.src : clubImageDraft}
-                  alt="Ecusson du club"
+                  alt="Écusson du club"
                   objectFit="contain"
                   editable
                   accept="image/*"
                   onChangeImage={(nextValue) => setClubImageDraft(nextValue)}
                   onActionError={(message) => setSnackbar({ severity: 'error', message })}
                   actionLabels={{
-                    upload: 'Importer un ecusson',
-                    paste: 'Coller un ecusson depuis le presse-papiers',
-                    clear: 'Supprimer l ecusson',
+                    upload: 'Importer un écusson',
+                    paste: 'Coller un écusson depuis le presse-papiers',
+                    clear: "Supprimer l'écusson",
                   }}
                   fallback={<ShieldRoundedIcon sx={{ width: '100%', height: '100%', p: 1.5, color: 'text.disabled' }} />}
                   sx={{ bgcolor: 'background.paper' }}
@@ -1264,7 +1250,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
         <DialogTitle>Supprimer un stade</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Confirmez-vous la suppression de ce stade de l historique ?
+            Confirmez-vous la suppression de ce stade de l'historique ?
           </DialogContentText>
         </DialogContent>
         <DialogActions>

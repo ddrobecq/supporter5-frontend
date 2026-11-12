@@ -42,7 +42,7 @@ export function SaisonWizardStep2Joueurs({ rows, selection, onSelectionChange }:
   return (
     <Stack spacing={1} sx={wizardGridFillSx}>
       <Typography variant="body2" color="text.secondary">
-        Les joueurs coches seront repris dans le nouvel effectif, au meme poste que la saison precedente.
+        Les joueurs cochés seront repris dans le nouvel effectif, au même poste que la saison précédente.
       </Typography>
       <Box sx={wizardGridBoxSx}>
         <EntityDataGrid<SaisonWizardJoueurRow>

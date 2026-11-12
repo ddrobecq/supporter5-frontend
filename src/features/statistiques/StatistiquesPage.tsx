@@ -20,6 +20,7 @@ import {
 } from '@mui/material';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { foldForSearch } from '../../lib/text';
 import { STAT_DOMAINS, type StatDomain } from './statTree';
 import { STAT_COMPONENTS } from './statRegistry';
 
@@ -64,8 +65,8 @@ interface SelectedStat {
 }
 
 function statMatchesSearch(domain: StatDomain, themeLabel: string, typeLabel: string, search: string): boolean {
-  const haystack = `${domain.label} ${themeLabel} ${typeLabel}`.toLowerCase();
-  return haystack.includes(search.toLowerCase());
+  const haystack = foldForSearch(`${domain.label} ${themeLabel} ${typeLabel}`);
+  return haystack.includes(foldForSearch(search));
 }
 
 export function StatistiquesPage({ publicMode = false }: { publicMode?: boolean }) {
@@ -170,6 +171,7 @@ export function StatistiquesPage({ publicMode = false }: { publicMode?: boolean 
                 </InputAdornment>
               ),
             },
+            htmlInput: { 'aria-label': 'Rechercher une statistique' },
           }}
         />
       </Box>

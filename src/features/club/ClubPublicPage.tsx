@@ -5,15 +5,15 @@ import { Avatar, Box, Card, CardContent, Stack, Tab, Tabs, Typography } from '@m
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { NatioFlag } from '../../components/NatioFlag';
-import { PublicLoadingState, PublicNotFoundState } from '../../components/PublicPageState';
+import { PublicErrorState, PublicLoadingState, PublicNotFoundState } from '../../components/PublicPageState';
 import { StructuredData } from '../../components/StructuredData';
 import { entityPathForPublicMode } from '../../lib/entityNavigation';
+import { isAbortError, isNotFoundError } from '../../lib/httpErrors';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { useSeoMeta } from '../../lib/useSeoMeta';
 import { useRecentRecordVisit } from '../home/useRecentRecordVisit';
-import { fetchSupportedClubContext } from '../system/systemApi';
-import { fetchNatio } from '../natio/natioApi';
-import type { NatioRow } from '../natio/types';
+import { supportedClubStore } from '../system/supportedClubStore';
+import { useNatioList } from '../natio/natioStore';
 import { resolveNatioId, resolveNatioLabel } from '../natio/natioUi';
 import { ClubHistoryTimeline } from './ClubHistoryTimeline';
 import { ClubJerseyVisual } from './ClubJerseyVisual';
@@ -44,59 +44,70 @@ export function ClubPublicPage() {
   const [palmares, setPalmares] = useState<ClubPalmareRow[]>([]);
   const [palmaresLoading, setPalmaresLoading] = useState(false);
   const [palmaresLoaded, setPalmaresLoaded] = useState(false);
-  const [countries, setCountries] = useState<NatioRow[]>([]);
+  const { rows: countries } = useNatioList();
   const [tab, setTab] = useState<'info' | 'matches' | 'palmares'>('info');
   const [loading, setLoading] = useState(true);
-  const [matchFilterClubId, setMatchFilterClubId] = useState(() => '0001');
-  const [matchFilterClubName, setMatchFilterClubName] = useState('');
+  const [loadError, setLoadError] = useState<'notFound' | 'error' | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [matchesError, setMatchesError] = useState(false);
+  const [palmaresError, setPalmaresError] = useState(false);
+  const supportedClubId = supportedClubStore((s) => s.clubId);
+  const supportedClubName = supportedClubStore((s) => s.clubName);
+  // Filtre choisi par l'utilisateur ; tant qu'il n'y en a pas, on suit le club supporte du store.
+  const [matchFilterOverride, setMatchFilterOverride] = useState<{ clubId: string; clubName: string } | null>(null);
+  const matchFilterClubId = matchFilterOverride?.clubId ?? supportedClubId;
+  const matchFilterClubName = matchFilterOverride?.clubName ?? supportedClubName;
   const clubImage = useEntityImage('club', clubId);
 
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
-    setMatches([]); setMatchesLoaded(false);
-    setPalmares([]); setPalmaresLoaded(false);
+    setLoadError(null);
+    setMatches([]); setMatchesLoaded(false); setMatchesError(false);
+    setPalmares([]); setPalmaresLoaded(false); setPalmaresError(false);
     void Promise.all([
       fetchClubProfileById(clubId, controller.signal), fetchClubNameHistory(clubId, controller.signal),
-      fetchClubTerrainHistory(clubId, controller.signal), fetchNatio('', controller.signal),
-    ]).then(([nextProfile, nextNames, nextTerrains, nextCountries]) => {
-      setProfile(nextProfile); setNames(nextNames); setTerrains(nextTerrains); setCountries(nextCountries.data ?? []);
-    }).catch(() => setProfile(null)).finally(() => setLoading(false));
+      fetchClubTerrainHistory(clubId, controller.signal),
+    ]).then(([nextProfile, nextNames, nextTerrains]) => {
+      setProfile(nextProfile); setNames(nextNames); setTerrains(nextTerrains);
+    }).catch((error: unknown) => {
+      if (isAbortError(error)) return;
+      setProfile(null);
+      setLoadError(isNotFoundError(error) ? 'notFound' : 'error');
+    }).finally(() => {
+      if (!controller.signal.aborted) setLoading(false);
+    });
     return () => controller.abort();
-  }, [clubId]);
+  }, [clubId, reloadKey]);
 
   // Onglet Matches: charge a la demande (clic sur l'onglet) pour ne pas ralentir l'affichage initial de la fiche.
+  // En cas d'echec, matchesError bloque le rechargement automatique jusqu'au clic sur "Reessayer".
   useEffect(() => {
-    if (tab !== 'matches' || matchesLoaded) return;
+    if (tab !== 'matches' || matchesLoaded || matchesError) return;
     const controller = new AbortController();
     setMatchesLoading(true);
     fetchClubMatches(clubId, controller.signal)
       .then((rows) => { setMatches(rows); setMatchesLoaded(true); })
-      .catch(() => undefined)
+      .catch((error: unknown) => { if (!isAbortError(error)) setMatchesError(true); })
       .finally(() => setMatchesLoading(false));
     return () => controller.abort();
-  }, [tab, clubId, matchesLoaded]);
+  }, [tab, clubId, matchesLoaded, matchesError]);
 
   // Palmares: requete lourde, precalculee en silence des que la fiche est affichee
   // (sans bloquer l'affichage initial) plutot qu'attendre le clic sur l'onglet.
   useEffect(() => {
-    if (loading || !profile || palmaresLoaded) return;
+    if (loading || !profile || palmaresLoaded || palmaresError) return;
     const controller = new AbortController();
     setPalmaresLoading(true);
     fetchClubPalmares(clubId, controller.signal)
       .then((rows) => { setPalmares(rows); setPalmaresLoaded(true); })
-      .catch(() => undefined)
+      .catch((error: unknown) => { if (!isAbortError(error)) setPalmaresError(true); })
       .finally(() => setPalmaresLoading(false));
     return () => controller.abort();
-  }, [loading, profile, clubId, palmaresLoaded]);
+  }, [loading, profile, clubId, palmaresLoaded, palmaresError]);
 
   useEffect(() => {
-    void fetchSupportedClubContext()
-      .then((context) => {
-        setMatchFilterClubId(context.clubId || '0001');
-        setMatchFilterClubName(context.clubName);
-      })
-      .catch(() => undefined);
+    void supportedClubStore.getState().load();
   }, []);
 
   const country = countries.find((item) => String(resolveNatioId(item) ?? '').trim() === String(profile?.IDNATIO ?? '').trim());
@@ -117,6 +128,7 @@ export function ClubPublicPage() {
   }) : null, [clubId, clubImage.src, clubName, profile]);
 
   if (loading) return <PublicLoadingState />;
+  if (loadError === 'error') return <PublicErrorState entity="la fiche club" onRetry={() => setReloadKey((key) => key + 1)} />;
   if (!profile) return <PublicNotFoundState entity="Club" />;
 
   return (
@@ -148,13 +160,13 @@ export function ClubPublicPage() {
         // la grille (des milliers de lignes) a chaque changement d'onglet.
         <Box sx={{ display: tab === 'matches' ? 'block' : 'none' }}>
           <Card><CardContent>
-            {matchesLoading && !matchesLoaded ? <PublicLoadingState /> : (
+            {matchesError ? <PublicErrorState entity="les matches" onRetry={() => setMatchesError(false)} /> : matchesLoading && !matchesLoaded ? <PublicLoadingState /> : (
               <ClubMatchesTab
                 clubId={clubId}
                 matches={matches}
                 filterClubId={matchFilterClubId}
                 filterClubName={matchFilterClubName}
-                onFilterChange={({ clubId: nextId, clubName: nextName }) => { setMatchFilterClubId(nextId); setMatchFilterClubName(nextName); }}
+                onFilterChange={({ clubId: nextId, clubName: nextName }) => setMatchFilterOverride({ clubId: nextId, clubName: nextName })}
                 publicMode
                 onNavigateToClub={(id) => navigate(entityPathForPublicMode('club', id))}
               />
@@ -164,7 +176,7 @@ export function ClubPublicPage() {
       ) : null}
       {tab === 'palmares' ? (
         <Card><CardContent>
-          {palmaresLoading && !palmaresLoaded ? <PublicLoadingState /> : (
+          {palmaresError ? <PublicErrorState entity="le palmarès" onRetry={() => setPalmaresError(false)} /> : palmaresLoading && !palmaresLoaded ? <PublicLoadingState /> : (
             palmares.length ? palmares.map((row) => <PalmareItem key={row.IDEPREUVE} row={row} />) : <Typography color="text.secondary">Aucun titre remporté.</Typography>
           )}
         </CardContent></Card>

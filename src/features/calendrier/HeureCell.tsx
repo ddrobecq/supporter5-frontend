@@ -16,14 +16,6 @@ export interface HeureCellProps {
   onTabOut?: (direction: 'next' | 'prev') => void;
 }
 
-export {
-  normalizeHeureDigits,
-  sanitizeHeureDigits,
-  isValidHeureDigits,
-  formatHeureDisplay,
-  heureDigitsToApiValue,
-} from '../../components/heureUtils';
-
 export function HeureCell({ value, isEditing, draftDigits, onStartEdit, onDraftChange, onCommit, onCancel, onMoveVertical, onTabOut }: HeureCellProps) {
   if (isEditing) {
     return (

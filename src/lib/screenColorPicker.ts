@@ -4,7 +4,7 @@ export async function pickScreenColor(): Promise<string> {
   }).EyeDropper;
 
   if (!EyeDropperConstructor) {
-    throw new Error('La pipette n est pas disponible dans ce navigateur.');
+    throw new Error("La pipette n'est pas disponible dans ce navigateur.");
   }
 
   const result = await new EyeDropperConstructor().open();

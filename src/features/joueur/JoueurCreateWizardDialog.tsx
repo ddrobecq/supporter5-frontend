@@ -4,10 +4,10 @@ import axios from 'axios';
 import { useEffect, useRef, useState } from 'react';
 import { CreateWizardSuggestionPanel } from '../../components/CreateWizardSuggestionPanel';
 import { toErrorMessage } from '../../components/useEntityPage';
-import { fetchNatio } from '../natio/natioApi';
-import type { NatioRow } from '../natio/types';
-import { fetchJoueurPostes, fetchJoueurSuggestions } from './joueurApi';
-import type { JoueurCreateWizardPayload, JoueurSuggestionRow, PosteOption } from './types';
+import { useNatioList } from '../natio/natioStore';
+import { usePostesList } from './postesStore';
+import { fetchJoueurSuggestions } from './joueurApi';
+import type { JoueurCreateWizardPayload, JoueurSuggestionRow } from './types';
 
 interface JoueurCreateWizardDialogProps {
   open: boolean;
@@ -25,8 +25,8 @@ export function JoueurCreateWizardDialog({ open, onClose, onCreate, onError }: J
   const [alias, setAlias] = useState('');
   const [posteId, setPosteId] = useState('');
   const [natioId, setNatioId] = useState(DEFAULT_NATIO_ID);
-  const [natioRows, setNatioRows] = useState<NatioRow[]>([]);
-  const [posteOptions, setPosteOptions] = useState<PosteOption[]>([]);
+  const { rows: natioRows } = useNatioList();
+  const { rows: posteOptions } = usePostesList();
   const [suggestions, setSuggestions] = useState<JoueurSuggestionRow[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
@@ -39,8 +39,6 @@ export function JoueurCreateWizardDialog({ open, onClose, onCreate, onError }: J
       setAlias('');
       setPosteId('');
       setNatioId(DEFAULT_NATIO_ID);
-      setNatioRows([]);
-      setPosteOptions([]);
       setSuggestions([]);
       setLoadingSuggestions(false);
       return;
@@ -51,18 +49,8 @@ export function JoueurCreateWizardDialog({ open, onClose, onCreate, onError }: J
       nameInputRef.current?.select();
     }, 10);
 
-    const controller = new AbortController();
-    void fetchNatio('', controller.signal)
-      .then((result) => setNatioRows(result.data ?? []))
-      .catch(() => {});
-
-    void fetchJoueurPostes(controller.signal)
-      .then((result) => setPosteOptions(result ?? []))
-      .catch(() => {});
-
     return () => {
       window.clearTimeout(timer);
-      controller.abort();
     };
   }, [open]);
 
@@ -237,9 +225,9 @@ export function JoueurCreateWizardDialog({ open, onClose, onCreate, onError }: J
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2, pt: 1, justifyContent: 'flex-end' }}>
         <Button onClick={onClose} color="inherit" disabled={saving}>Annuler</Button>
-        {step === 2 ? <Button onClick={() => setStep(1)} color="inherit" disabled={saving}>Precedent</Button> : null}
+        {step === 2 ? <Button onClick={() => setStep(1)} color="inherit" disabled={saving}>Précédent</Button> : null}
         <Button onClick={handlePrimary} variant="contained" disabled={saving || (step === 1 ? !canGoNext : !canCreate)}>
-          {saving ? 'Enregistrement...' : step === 1 ? 'Suivant' : 'Creer'}
+          {saving ? 'Enregistrement...' : step === 1 ? 'Suivant' : 'Créer'}
         </Button>
       </DialogActions>
     </Dialog>

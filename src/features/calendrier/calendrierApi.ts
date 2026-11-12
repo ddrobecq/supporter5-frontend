@@ -27,7 +27,7 @@ export async function updateCalendarScore(
   id: string | number,
   payload: UpdateScorePayload,
 ): Promise<void> {
-  await http.put(`/api/admin/rencontres/${encodeURIComponent(String(id))}`, payload);
+  await http.put(`${env.rencontreAdminResource}/${encodeURIComponent(String(id))}`, payload);
 }
 
 interface UpdateHeurePayload {
@@ -38,7 +38,7 @@ export async function updateCalendarHeure(
   id: string | number,
   payload: UpdateHeurePayload,
 ): Promise<void> {
-  await http.put(`/api/admin/rencontres/${encodeURIComponent(String(id))}`, payload);
+  await http.put(`${env.rencontreAdminResource}/${encodeURIComponent(String(id))}`, payload);
 }
 
 interface UpdateStatusPayload {
@@ -49,11 +49,11 @@ export async function updateCalendarStatus(
   id: string | number,
   payload: UpdateStatusPayload,
 ): Promise<void> {
-  await http.put(`/api/admin/rencontres/${encodeURIComponent(String(id))}`, payload);
+  await http.put(`${env.rencontreAdminResource}/${encodeURIComponent(String(id))}`, payload);
 }
 
 export async function fetchTourClassement(tourId: string | number, publicMode = false): Promise<TourClassementRow[]> {
-  const resource = publicMode ? '/api/tours' : '/api/admin/tours';
+  const resource = publicMode ? env.tourPublicResource : env.tourAdminResource;
   const { data } = await http.get<{ data: TourClassementRow[] }>(`${resource}/${encodeURIComponent(String(tourId))}/participants`);
   return data.data ?? [];
 }

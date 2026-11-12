@@ -1,25 +1,17 @@
 import { env } from '../../config/env';
+import type { CanDeleteResponse } from '../../lib/apiTypes';
+import { fetchAllPages } from '../../lib/fetchAllPages';
 import { http } from '../../lib/http';
 import { encodePathSegment } from '../../lib/urlPath';
 import type { CircRow, PaginatedResponse } from './types';
 
-export interface IntegrityConstraint {
-  table: string;
-  count: number;
-  description: string;
-}
-
-export interface CanDeleteResponse {
-  canDelete: boolean;
-  constraints: IntegrityConstraint[];
-}
-
 export async function fetchCirc(search: string, signal?: AbortSignal): Promise<PaginatedResponse<CircRow>> {
-  const { data } = await http.get<PaginatedResponse<CircRow>>(env.circPublicResource, {
-    params: { limit: 200, sort: 'IDCIRC', order: 'asc', ...(search ? { search } : {}), page: 1 },
-    signal,
-  });
-  return data;
+  return fetchAllPages<CircRow>(env.circPublicResource, {
+    limit: 200,
+    sort: 'IDCIRC',
+    order: 'asc',
+    ...(search ? { search } : {}),
+  }, signal);
 }
 
 export async function fetchCircById(id: string | number): Promise<CircRow> {

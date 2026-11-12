@@ -1,69 +1,51 @@
-﻿import type { GridColDef, GridRowId } from '@mui/x-data-grid';
-import { useMemo, useState } from 'react';
-import { Navigate, useParams } from 'react-router-dom';
+import type { GridColDef, GridRowId } from '@mui/x-data-grid';
+import { useMemo } from 'react';
 import { Box } from '@mui/material';
 import { createArbitreWithWizard, deleteArbitre, fetchArbitre, fetchArbitreById, updateArbitre, canDeleteArbitre } from './arbitreApi';
-import { fetchNatio } from '../natio/natioApi';
+import { useNatioIndex, useNatioList } from '../natio/natioStore';
 import { NatioFlag } from '../../components/NatioFlag';
 import { ArbitreFormDialog } from './ArbitreFormDialog';
 import { ArbitreCreateWizardDialog } from './ArbitreCreateWizardDialog';
-import { EntityPageLayout } from '../../components/EntityPageLayout';
-import { useEntityPage } from '../../components/useEntityPage';
+import { EntityListPage } from '../../components/EntityListPage';
 import type { ArbitreRow } from './types';
-import type { NatioRow } from '../natio/types';
-
-const PK_CANDIDATES = ['IDARBITRE', 'ID', 'id'];
-
-function detectPrimaryKey(rows: ArbitreRow[]): string | undefined {
-  const firstRow = rows[0];
-  if (!firstRow) return undefined;
-  const keys = Object.keys(firstRow);
-  const candidate = PK_CANDIDATES.find((pk) => keys.includes(pk));
-  return candidate ?? keys[0];
-}
 
 interface ArbitrePageProps {
-  variant?: 'page' | 'modalPicker';
   onOpenInTab?: (payload: { rowId: GridRowId; label: string }) => void;
 }
 
-export function ArbitrePage({ variant = 'page', onOpenInTab }: ArbitrePageProps) {
-  const params = useParams<{ arbitreId?: string }>();
-  const arbitreId = params.arbitreId;
+const ARBITRE_API = {
+  fetchAll: fetchArbitre,
+  fetchById: fetchArbitreById,
+  update: updateArbitre,
+  remove: deleteArbitre,
+  canDelete: canDeleteArbitre,
+};
 
-  // Si variant est 'page' (page complète, pas modale) et qu'il n'y a pas d'ID, rediriger
-  if (variant === 'page' && !arbitreId) {
-    return <Navigate to="/admin/home" replace />;
-  }
+const ARBITRE_MESSAGES = {
+  singular: 'arbitre',
+  singularArticle: 'cet arbitre',
+  created: 'Arbitre créé.',
+  updated: 'Arbitre mis à jour.',
+  deleted: 'Arbitre supprimé.',
+  selectToOpen: 'Sélectionnez un arbitre à ouvrir.',
+  selectToDelete: 'Sélectionnez un arbitre à supprimer.',
+  noneSelected: 'Aucun arbitre sélectionné.',
+};
 
-  const [natioDatas, setNatioDatas] = useState<NatioRow[]>([]);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+function resolveArbitreLabel(row: ArbitreRow): string {
+  const nom = String(row.NOM ?? '').trim().toUpperCase();
+  const prenom = String(row.PRENOM ?? '').trim();
+  return [nom, prenom].filter((part) => part.length > 0).join(' ').trim();
+}
 
-  const page = useEntityPage<ArbitreRow>(
-    {
-      fetchAll: fetchArbitre,
-      fetchById: fetchArbitreById,
-      create: async () => undefined,
-      update: updateArbitre,
-      remove: deleteArbitre,
-      canDelete: canDeleteArbitre,
-    },
-    {
-      singular: 'arbitre',
-      singularArticle: 'cet arbitre',
-      created: 'Arbitre cree.',
-      updated: 'Arbitre mis a jour.',
-      deleted: 'Arbitre supprime.',
-      selectToOpen: 'Selectionnez un arbitre a ouvrir.',
-      selectToDelete: 'Selectionnez un arbitre a supprimer.',
-      noneSelected: 'Aucun arbitre selectionne.',
-    },
-    () => {
-      fetchNatio('').then((result) => setNatioDatas(result.data ?? [])).catch(() => {});
-    },
-  );
+function buildArbitreFormFields(source?: ArbitreRow): string[] {
+  const sourceFields = source ? Object.keys(source) : [];
+  return sourceFields.filter((f, i, a) => a.indexOf(f) === i);
+}
 
-  const primaryKey = useMemo(() => detectPrimaryKey(page.rows), [page.rows]);
+export function ArbitrePage({ onOpenInTab }: ArbitrePageProps) {
+  const { rows: natioDatas } = useNatioList();
+  const natioById = useNatioIndex();
 
   const columns = useMemo<GridColDef[]>(() => [{
     field: 'fullName',
@@ -75,11 +57,11 @@ export function ArbitrePage({ variant = 'page', onOpenInTab }: ArbitrePageProps)
       const nom = String(params.row.NOM ?? '').toUpperCase();
       const prenom = params.row.PRENOM ?? '';
       const idnatio = params.row.IDNATIO;
-      
+
       // Find the country data to check NALOCAL
-      const country = natioDatas.find((n) => String(n.IDNATIO ?? '') === String(idnatio ?? ''));
+      const country = natioById.get(String(idnatio ?? '').trim());
       const showFlag = idnatio && (!country || Number(country.NALOCAL ?? 0) !== 1);
-      
+
       return (
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <span>{nom} {prenom}</span>
@@ -91,118 +73,37 @@ export function ArbitrePage({ variant = 'page', onOpenInTab }: ArbitrePageProps)
         </Box>
       );
     },
-  }], [natioDatas]);
-
-  const formFields = useMemo<string[]>(() => {
-    const source = page.activeRow ?? page.rows[0];
-    const sourceFields = source ? Object.keys(source) : [];
-    return sourceFields.filter((f, i, a) => a.indexOf(f) === i);
-  }, [page.activeRow, page.rows]);
-
-  const getRowId = (row: ArbitreRow): GridRowId => {
-    if (primaryKey && (typeof row[primaryKey] === 'string' || typeof row[primaryKey] === 'number')) {
-      return row[primaryKey] as GridRowId;
-    }
-    return JSON.stringify(row);
-  };
-
-  const openInTabFromRowId = (rowId: GridRowId) => {
-    if (!onOpenInTab) return;
-    const selectedRow = page.rows.find((row) => String(getRowId(row)) === String(rowId));
-    const nom = String(selectedRow?.NOM ?? '').trim().toUpperCase();
-    const prenom = String(selectedRow?.PRENOM ?? '').trim();
-    const label = [nom, prenom].filter((part) => part.length > 0).join(' ').trim() || String(rowId);
-    onOpenInTab({ rowId, label });
-  };
-
-  const handleOpen = () => {
-    if (variant === 'modalPicker' && onOpenInTab) {
-      const selectedId = page.selection.at(0);
-      if (selectedId === undefined || selectedId === null) {
-        page.setSnackbar({ severity: 'error', message: 'Selectionnez un arbitre a ouvrir.' });
-        return;
-      }
-      openInTabFromRowId(selectedId);
-      return;
-    }
-    void page.openEditDialog();
-  };
-
-  const handleRowDoubleClick = (rowId: GridRowId) => {
-    if (variant === 'modalPicker' && onOpenInTab) {
-      openInTabFromRowId(rowId);
-      return;
-    }
-    void page.openEditDialog(rowId);
-  };
-
-  const handleCreateArbitre = async (payload: { nom: string; prenom?: string; natioId: string }) => {
-    const created = await createArbitreWithWizard(payload);
-    const rawCreatedId = created?.IDARBITRE;
-    if (rawCreatedId === undefined || rawCreatedId === null || String(rawCreatedId).trim() === '') {
-      throw new Error('Création reussie mais identifiant introuvable.');
-    }
-    const createdId = String(rawCreatedId).trim();
-
-    const label = `${String(created?.NOM ?? '').trim().toUpperCase()} ${String(created?.PRENOM ?? '').trim()}`.trim() || String(createdId);
-
-    await page.reloadData();
-    setCreateDialogOpen(false);
-    page.setSnackbar({ severity: 'success', message: 'Arbitre cree.' });
-
-    if (variant === 'modalPicker' && onOpenInTab) {
-      onOpenInTab({ rowId: createdId, label });
-    }
-  };
+  }], [natioById]);
 
   return (
-    <EntityPageLayout
-      hideTitle={variant === 'modalPicker'}
-      actionsInlineWithSearch={variant === 'modalPicker'}
+    <EntityListPage<ArbitreRow>
+      api={ARBITRE_API}
+      messages={ARBITRE_MESSAGES}
       title="Arbitres"
       searchLabel="Rechercher un arbitre"
-      search={page.search}
-      onSearchChange={page.setSearch}
-      searchInputRef={page.searchInputRef}
-      onNew={() => setCreateDialogOpen(true)}
-      onOpen={handleOpen}
-      onDelete={() => void page.handleOpenDeleteConfirm()}
-      actionButtonsRowRef={page.actionButtonsRowRef}
-      compactActionButtons={page.compactActionButtons}
-      rows={page.rows}
+      primaryKey="IDARBITRE"
+      resolveLabel={resolveArbitreLabel}
       columns={columns}
-      loading={page.loading}
-      getRowId={getRowId}
-      selection={page.selection}
-      onSelectionChange={page.setSelection}
-      onRowDoubleClick={handleRowDoubleClick}
-      confirmDeleteOpen={page.confirmDeleteOpen}
-      deleteConstraints={page.deleteConstraints}
-      entityDescription="cet arbitre"
-      onConfirmDelete={() => void page.handleDelete()}
-      onCloseDeleteConfirm={page.closeDeleteConfirm}
-      formDialog={
-        <>
-          <ArbitreFormDialog
-            open={page.dialogOpen}
-            mode="edit"
-            fields={formFields}
-            primaryKey={primaryKey}
-            initialData={page.activeRow}
-            natioDatas={natioDatas}
-            onClose={() => page.setDialogOpen(false)}
-            onSubmit={page.handleFormSubmit}
-          />
-          <ArbitreCreateWizardDialog
-            open={createDialogOpen}
-            onClose={() => setCreateDialogOpen(false)}
-            onCreate={handleCreateArbitre}
-            onError={(message) => page.setSnackbar({ severity: 'error', message })}
-          />
-        </>
-      }
-      snackbar={page.snackbar}
-      onCloseSnackbar={() => page.setSnackbar(null)}
+      buildFormFields={buildArbitreFormFields}
+      renderFormDialog={(dialog, fields) => (
+        <ArbitreFormDialog {...dialog} mode="edit" fields={fields} natioDatas={natioDatas} />
+      )}
+      renderCreateDialog={({ onCreated, ...create }) => (
+        <ArbitreCreateWizardDialog
+          {...create}
+          onCreate={async (payload) => {
+            const created = await createArbitreWithWizard(payload);
+            const rawCreatedId = created?.IDARBITRE;
+            if (rawCreatedId === undefined || rawCreatedId === null || String(rawCreatedId).trim() === '') {
+              throw new Error('Création réussie mais identifiant introuvable.');
+            }
+            const createdId = String(rawCreatedId).trim();
+            const label = `${String(created?.NOM ?? '').trim().toUpperCase()} ${String(created?.PRENOM ?? '').trim()}`.trim() || createdId;
+            await onCreated(createdId, label);
+          }}
+        />
+      )}
+      onOpenInTab={onOpenInTab}
     />
   );
 }

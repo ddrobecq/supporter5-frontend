@@ -1,5 +1,6 @@
 import { Box, Button, FormControlLabel, Stack, Switch, TextField } from '@mui/material';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useExternalSaveTrigger } from '../../lib/useExternalSaveTrigger';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import type { DeviseRow } from './types';
@@ -34,22 +35,17 @@ export function DeviseFormDialog({
 
   useEffect(() => {
     if (!open) return;
-    setValues({
+    const initial = {
       DVCLEUNIK: initialData?.DVCLEUNIK ?? '',
       NOM: initialData?.NOM ?? '',
       SYMBOLE: initialData?.SYMBOLE ?? '',
       CONVERSION: initialData?.CONVERSION ?? '',
       DVDEFAUT: initialData?.DVDEFAUT ?? 0,
-    });
-    setInitialSignature(JSON.stringify({
-      DVCLEUNIK: initialData?.DVCLEUNIK ?? '',
-      NOM: initialData?.NOM ?? '',
-      SYMBOLE: initialData?.SYMBOLE ?? '',
-      CONVERSION: initialData?.CONVERSION ?? '',
-      DVDEFAUT: initialData?.DVDEFAUT ?? 0,
-    }));
+    };
+    setValues(initial);
+    setInitialSignature(JSON.stringify(initial));
     setErrors({});
-  }, [open, initialData]);
+  }, [open, initialData, setInitialSignature]);
 
   useEffect(() => {
     syncDirty(JSON.stringify(values));
@@ -84,9 +80,7 @@ export function DeviseFormDialog({
     }
   };
 
-  const handleSaveRef = useRef(handleSave);
-  handleSaveRef.current = handleSave;
-  useEffect(() => { if (saveCount > 0) void handleSaveRef.current(); }, [saveCount]);
+  useExternalSaveTrigger(saveCount, handleSave);
 
   const title = mode === 'create' ? 'Nouvelle Devise' : 'Modifier une Devise';
 

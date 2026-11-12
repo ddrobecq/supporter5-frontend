@@ -38,7 +38,7 @@ function SanctionSentence({ row, metric }: { row: RencontreSanctionRow; metric: 
 
 export function SanctionsGrid({ metric }: { metric: SanctionMetric }) {
   const [scope, setScope] = useState<number | null>(null);
-  const { rows, loading } = useStatRows<RencontreSanctionRow>((signal) => fetchRencontreSanctions(metric, scope, signal), [metric, scope]);
+  const { rows, loading, error } = useStatRows<RencontreSanctionRow>((signal) => fetchRencontreSanctions(metric, scope, signal), [metric, scope]);
 
   const columns: GridColDef<RencontreSanctionRow>[] = useMemo(() => [{
     field: 'NB_SANCTIONS',
@@ -57,6 +57,7 @@ export function SanctionsGrid({ metric }: { metric: SanctionMetric }) {
       rows={rows}
       valueColumns={columns}
       loading={loading}
+      error={error}
       rowHeight={64}
       scope={scope}
       onScopeChange={setScope}

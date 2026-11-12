@@ -8,7 +8,8 @@ import {
   TextField,
 } from '@mui/material';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useExternalSaveTrigger } from '../../lib/useExternalSaveTrigger';
 import { getEntityImageUrl, useEntityImage } from '../../lib/useEntityImage';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
@@ -55,7 +56,7 @@ export function EpreuveFormDialog({
       return;
     }
 
-    setValues({
+    const initial = {
       IDEPREUVE: initialData?.IDEPREUVE ?? '',
       EPREUVE: initialData?.EPREUVE ?? '',
       SCOPE: Number(initialData?.SCOPE ?? 1),
@@ -63,19 +64,13 @@ export function EpreuveFormDialog({
       EPR_VISUEL: initialData?.EPR_VISUEL ?? '',
       EPR_WEB: initialData?.EPR_WEB ?? '',
       EPR_PAYS: initialData?.EPR_PAYS ?? 0,
-    });
+    };
+    setValues(initial);
     setErrors({});
     setVisuelDraft(undefined);
-    setInitialSignature(JSON.stringify({
-      IDEPREUVE: initialData?.IDEPREUVE ?? '',
-      EPREUVE: initialData?.EPREUVE ?? '',
-      SCOPE: Number(initialData?.SCOPE ?? 1),
-      OFFICIELLE: initialData?.OFFICIELLE ?? 0,
-      EPR_VISUEL: '',
-      EPR_WEB: initialData?.EPR_WEB ?? '',
-      EPR_PAYS: initialData?.EPR_PAYS ?? 0,
-    }));
-  }, [open, initialData]);
+    // The visual is tracked through visuelDraft, not in the signature.
+    setInitialSignature(JSON.stringify({ ...initial, EPR_VISUEL: '' }));
+  }, [open, initialData, setInitialSignature]);
 
   useEffect(() => {
     const currentSignature = JSON.stringify({
@@ -141,9 +136,7 @@ export function EpreuveFormDialog({
     }
   };
 
-  const handleSaveRef = useRef(handleSave);
-  handleSaveRef.current = handleSave;
-  useEffect(() => { if (saveCount > 0) void handleSaveRef.current(); }, [saveCount]);
+  useExternalSaveTrigger(saveCount, handleSave);
 
   const content = (
     <>

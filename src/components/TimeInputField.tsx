@@ -1,13 +1,10 @@
 /**
  * Canonical component for all time input fields in the app.
  * ALL hour/time fields MUST use this component to centralize future changes
- * (timezone support, display format, validation, etc.).
+ * (display format, validation, etc.).
  *
  * Internal format: "HH:MM" (e.g. "14:30")
  * Display format:  "HHhMM" (e.g. "14h30")
- *
- * Props reserved for future use:
- *   - timezone: IANA timezone id (e.g. "Europe/Paris") -- not yet implemented
  */
 
 import { TextField } from '@mui/material';
@@ -35,8 +32,6 @@ export interface TimeInputFieldProps {
   value: string;
   /** Called with "HH:MM" when a complete valid time is entered, or '' when cleared. */
   onChange: (nextValue: string) => void;
-  /** IANA timezone id (e.g. "Europe/Paris") -- reserved for future use. */
-  timezone?: string;
   size?: TextFieldProps['size'];
   fullWidth?: boolean;
   disabled?: boolean;
@@ -50,7 +45,6 @@ export function TimeInputField({
   label,
   value,
   onChange,
-  timezone: _timezone,
   size = 'small',
   fullWidth = false,
   disabled = false,

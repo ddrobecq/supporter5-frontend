@@ -26,7 +26,7 @@ function ArbitreSanctionCell({ row, metric }: { row: ArbitreSanctionRow; metric:
 /** Arbitre > Sanctions: classement decroissant par nombre de cartons donnes (avertissements ou exclusions). */
 export function ArbitreSanctionsGrid({ metric }: { metric: ArbitreSanctionMetric }) {
   const [scope, setScope] = useState<number | null>(null);
-  const { rows, loading } = useStatRows<ArbitreSanctionRow>((signal) => fetchArbitreSanctions(metric, scope, signal), [metric, scope]);
+  const { rows, loading, error } = useStatRows<ArbitreSanctionRow>((signal) => fetchArbitreSanctions(metric, scope, signal), [metric, scope]);
 
   const columns: GridColDef<ArbitreSanctionRow>[] = useMemo(() => [{
     field: 'TOTAL',
@@ -43,6 +43,7 @@ export function ArbitreSanctionsGrid({ metric }: { metric: ArbitreSanctionMetric
       rows={rows}
       valueColumns={columns}
       loading={loading}
+      error={error}
       hideIdentityColumn
       initialState={{ sorting: { sortModel: [{ field: 'TOTAL', sort: 'desc' }] } }}
       scope={scope}

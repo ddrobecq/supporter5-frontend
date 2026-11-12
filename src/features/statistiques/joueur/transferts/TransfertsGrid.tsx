@@ -38,7 +38,7 @@ function TransfertCell({ row, metric }: { row: TransfertRow; metric: TransfertMe
 }
 
 export function TransfertsGrid({ metric }: { metric: TransfertMetric }) {
-  const { rows, loading } = useStatRows<TransfertRow>((signal) => fetchTransferts(metric, signal), [metric]);
+  const { rows, loading, error } = useStatRows<TransfertRow>((signal) => fetchTransferts(metric, signal), [metric]);
 
   const columns: GridColDef<TransfertRow>[] = useMemo(() => [{
     field: 'MONTANT',
@@ -55,6 +55,7 @@ export function TransfertsGrid({ metric }: { metric: TransfertMetric }) {
       rows={rows}
       valueColumns={columns}
       loading={loading}
+      error={error}
       hideIdentityColumn
       getRowId={(row) => `${row.IDJOUEUR}-${row.CLUB_ID ?? ''}-${row.MONTANT}`}
     />

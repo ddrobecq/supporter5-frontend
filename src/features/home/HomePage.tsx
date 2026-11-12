@@ -33,6 +33,7 @@ import { supportedClubStore } from '../system/supportedClubStore';
 import { fetchRencontreDetailById } from '../rencontre/rencontreApi';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { formatHeureDisplay } from '../../components/heureUtils';
+import { formatDateShort, parseDbDate } from '../../components/dateUtils';
 import { entityPath, entityPathForPublicMode } from '../../lib/entityNavigation';
 import type { HomePageOutletContext, RecentEntityKind, RecentOpenedRecord } from './types';
 import { publicRecentRecordsStore } from './publicRecentRecordsStore';
@@ -40,6 +41,8 @@ import { SeasonStatsOverview } from './SeasonStatsOverview';
 import { ActualitesOverview } from './ActualitesOverview';
 import { OnThisDayOverview } from './OnThisDayOverview';
 import { OpponentOfTheDayOverview } from './OpponentOfTheDayOverview';
+import { MatchEtat } from '../../lib/matchStatus';
+import { emitTabOpen } from '../../lib/useTabMetaEvents';
 
 function resolveEntityIcon(kind: RecentEntityKind): ReactNode {
   switch (kind) {
@@ -195,33 +198,8 @@ function MatchRecentRecordAvatar({ record }: { record: RecentOpenedRecord }) {
   );
 }
 
-function parseCompactDate(value: string): Date | null {
-  const match = String(value ?? '').trim().match(/^(\d{4})(\d{2})(\d{2})$/);
-  if (!match) return null;
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function isSameDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
-
-function formatMatchDate(value: string): string {
-  const date = parseCompactDate(value);
-  if (!date) return value;
-  const now = new Date();
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  const tomorrow = new Date(now);
-  tomorrow.setDate(now.getDate() + 1);
-  if (isSameDay(date, now)) return 'Auj.';
-  if (isSameDay(date, yesterday)) return 'Hier';
-  if (isSameDay(date, tomorrow)) return 'Demain';
-  return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }).replace('.', '');
-}
-
 function matchTimeValue(row: ClubMatchRow): number {
-  const date = parseCompactDate(row.DATE);
+  const date = parseDbDate(row.DATE);
   if (!date) return Number.MAX_SAFE_INTEGER;
   const digits = String(row.HEURE ?? '').replace(/\D/g, '');
   const hours = Number(digits.slice(0, 2) || 0);
@@ -231,9 +209,9 @@ function matchTimeValue(row: ClubMatchRow): number {
 }
 
 function isPlayedMatch(row: ClubMatchRow, now: Date): boolean {
-  if (Number(row.ETAT) === 3) return true;
-  const date = parseCompactDate(row.DATE);
-  return Boolean(date && date < new Date(now.getFullYear(), now.getMonth(), now.getDate()) && Number(row.ETAT) !== 5);
+  if (Number(row.ETAT) === MatchEtat.Terminee) return true;
+  const date = parseDbDate(row.DATE);
+  return Boolean(date && date < new Date(now.getFullYear(), now.getMonth(), now.getDate()) && Number(row.ETAT) !== MatchEtat.Programmee);
 }
 
 function openMatch(row: ClubMatchRow, publicMode: boolean, navigate: (path: string) => void): void {
@@ -246,14 +224,7 @@ function openMatch(row: ClubMatchRow, publicMode: boolean, navigate: (path: stri
     return;
   }
 
-  window.dispatchEvent(new CustomEvent('supporter:tab-open', {
-    detail: {
-      path,
-      label: `${row.DOMICILE_NOM} - ${row.EXTERIEUR_NOM}`,
-      unique: true,
-      uniqueByPath: true,
-    },
-  }));
+  emitTabOpen(path, `${row.DOMICILE_NOM} - ${row.EXTERIEUR_NOM}`);
 }
 
 function ClubCalendarMatchCard({ row, isClosest, publicMode }: { row: ClubMatchRow; isClosest: boolean; publicMode: boolean }) {
@@ -288,7 +259,7 @@ function ClubCalendarMatchCard({ row, isClosest, publicMode }: { row: ClubMatchR
       <Stack spacing={0.7}>
         <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
-            {formatMatchDate(row.DATE)}
+            {formatDateShort(row.DATE)}
           </Typography>
           <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', minWidth: 0 }}>
             {competitionLogo ? <Box component="img" src={competitionLogo} alt="" sx={{ width: 18, height: 18, objectFit: 'contain' }} /> : null}
@@ -350,8 +321,8 @@ function SupportedClubCalendar({ clubId, publicMode }: { clubId: string; publicM
     seasonGroups.set(season, [...(seasonGroups.get(season) ?? []), match]);
   });
   const currentSeason = [...seasonGroups.entries()].find(([, rows]) => {
-    const first = parseCompactDate(rows[0]?.DATE ?? '');
-    const last = parseCompactDate(rows[rows.length - 1]?.DATE ?? '');
+    const first = parseDbDate(rows[0]?.DATE ?? '');
+    const last = parseDbDate(rows[rows.length - 1]?.DATE ?? '');
     return Boolean(first && last && first <= now && now <= last);
   });
   const currentSeasonKey = currentSeason?.[0] ?? '';
@@ -456,9 +427,7 @@ export function HomePage({ publicMode = false }: { publicMode?: boolean }) {
       return;
     }
 
-    window.dispatchEvent(new CustomEvent('supporter:tab-open', {
-      detail: { path: record.path, label: record.label, unique: true, uniqueByPath: true },
-    }));
+    emitTabOpen(record.path, record.label);
   };
 
   return (
@@ -495,7 +464,7 @@ export function HomePage({ publicMode = false }: { publicMode?: boolean }) {
         <Stack spacing={0.5}>
           <Typography variant="h6" sx={{ fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
             <HistoryRoundedIcon sx={{ fontSize: 20 }} />
-            Dernieres fiches ouvertes
+            Dernières fiches ouvertes
           </Typography>
         </Stack>
 

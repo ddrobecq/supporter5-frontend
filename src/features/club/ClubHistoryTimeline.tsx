@@ -4,6 +4,7 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import StadiumRoundedIcon from '@mui/icons-material/StadiumRounded';
 import { Typography } from '@mui/material';
 import { Timeline, TimelineConnector, TimelineContent, TimelineDot, TimelineItem, TimelineSeparator } from '@mui/lab';
+import { formatDateLong } from '../../lib/formatDate';
 import type { ClubNameHistoryRow, ClubTerrainHistoryRow } from './types';
 
 interface TimelineEvent {
@@ -18,13 +19,7 @@ function formatDate(value: string | null): string {
   if (!value) return 'Date inconnue';
   const match = value.match(/^(\d{4})(?:-(\d{2})-(\d{2})|(\d{2})(\d{2}))$/);
   if (!match) return value;
-  const month = Number(match[2] ?? match[4]);
-  const day = Number(match[3] ?? match[5]);
-  return new Date(Number(match[1]), month - 1, day).toLocaleDateString('fr-FR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).replace('.', '');
+  return formatDateLong(value);
 }
 
 function dateKey(value: string | null): string {

@@ -39,7 +39,7 @@ export const STAT_DOMAINS: StatDomain[] = [
           { key: 'buts', label: 'Buteurs' },
           { key: 'passes', label: 'Passeurs' },
           { key: 'sanctions', label: 'Sanctions' },
-          { key: 'equipe-type', label: 'Equipe type' },
+          { key: 'equipe-type', label: 'Équipe type' },
         ],
       },
       {
@@ -100,7 +100,7 @@ export const STAT_DOMAINS: StatDomain[] = [
           { key: 'anciennete', label: "Nombre d'années au club" },
           { key: 'plus-jeune', label: 'Première apparition' },
           { key: 'plus-vieux', label: 'Plus vieux joueur' },
-          { key: 'equipe-type', label: 'Equipe type' },
+          { key: 'equipe-type', label: 'Équipe type' },
         ],
       },
       {
@@ -240,7 +240,7 @@ export const STAT_DOMAINS: StatDomain[] = [
   },
   {
     key: 'entraineur',
-    label: 'Entraineur',
+    label: 'Entraîneur',
     icon: <SchoolRoundedIcon sx={{ fontSize: 18 }} />,
     themes: [
       {

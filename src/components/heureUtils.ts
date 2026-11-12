@@ -79,3 +79,38 @@ export function heureDigitsToApiValue(value: string): string {
   if (!isCompleteHeureDigits(digits) || !isValidHeureDigits(digits)) return '';
   return `${digits.slice(0, 2)}:${digits.slice(2)}`;
 }
+
+/** Strict: HHMM, HHhMM ou HH:MM:SS (bornes 0-23 / 0-59), ou chaine prefixee par HH:MM (non bornee) ; renvoie HH:MM ou ''. */
+export function parseStrictHeure(value: string | null | undefined): string {
+  const trimmed = String(value ?? '').trim();
+  const compact = /^([01]\d|2[0-3])([0-5]\d)$/.exec(trimmed);
+  if (compact) {
+    return `${compact[1]}:${compact[2]}`;
+  }
+  const withH = /^([01]\d|2[0-3])h([0-5]\d)$/i.exec(trimmed);
+  if (withH) {
+    return `${withH[1]}:${withH[2]}`;
+  }
+  const withSeconds = /^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/.exec(trimmed);
+  if (withSeconds) {
+    return `${withSeconds[1]}:${withSeconds[2]}`;
+  }
+  if (/^\d{2}:\d{2}/.test(trimmed)) {
+    return trimmed.slice(0, 5);
+  }
+  return '';
+}
+
+/** Tolerant (import de fichier) : H:mm, HH:mm, HHhmm, HHmm en HH:mm, sans controle des bornes ; '' sinon. */
+export function parseImportHeure(value: string): string {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+
+  const separated = raw.match(/^(\d{1,2})\s*[:hH]\s*(\d{1,2})/);
+  if (separated) return `${separated[1].padStart(2, '0')}:${separated[2].padStart(2, '0')}`;
+
+  const compact = raw.match(/^(\d{2})(\d{2})$/);
+  if (compact) return `${compact[1]}:${compact[2]}`;
+
+  return '';
+}

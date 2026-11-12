@@ -16,7 +16,7 @@ const VALUE_COLUMNS: GridColDef<PlusSelectionneRow>[] = [
 
 /** Joueur > Apparitions > Plus selectionnes: cumul TITULAIRETOTAL + REMPTOTAL de toutes les saisons. */
 export function PlusSelectionnesGrid() {
-  const { rows, loading } = useStatRows<PlusSelectionneRow>(fetchPlusSelectionnes, []);
+  const { rows, loading, error } = useStatRows<PlusSelectionneRow>(fetchPlusSelectionnes, []);
 
-  return <StatPlayerGrid<PlusSelectionneRow> rows={rows} valueColumns={VALUE_COLUMNS} loading={loading} />;
+  return <StatPlayerGrid<PlusSelectionneRow> rows={rows} valueColumns={VALUE_COLUMNS} loading={loading} error={error} />;
 }

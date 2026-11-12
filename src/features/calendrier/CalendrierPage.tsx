@@ -14,6 +14,7 @@ import {
 import { type GridColDef, type GridSortModel } from '@mui/x-data-grid';
 import { MatchDataGrid } from '../../components/MatchDataGrid';
 import { buildMatchGridColumns } from '../../components/matchGridColumns';
+import { toLocalIsoDate } from '../../components/dateUtils';
 import {
   fetchCalendarByDate,
   fetchTourClassement,
@@ -29,10 +30,13 @@ import {
   isValidHeureDigits,
   normalizeHeureDigits,
   sanitizeHeureDigits,
-} from './HeureCell';
+} from '../../components/heureUtils';
 import type { ScoreDraft } from './ScoreCell';
-import { normalizeGroupName, resolveMatchGroup, TourClassementCard, type TourClassementCardHandle } from './TourClassementCard';
+import { TourClassementCard, type TourClassementCardHandle } from './TourClassementCard';
+import { normalizeGroupName, resolveMatchGroup } from './tourClassementUtils';
 import type { CalendrierRow, TourClassementRow } from './types';
+import { canEditScore, parseScoreInputValue, rowStatusClass, scoreToInputValue } from '../../lib/matchStatus';
+import { emitTabOpen } from '../../lib/useTabMetaEvents';
 
 const DEFAULT_SORT_MODEL: GridSortModel = [{ field: 'HEURE', sort: 'asc' }];
 const CALENDRIER_DATE_STORAGE_KEY = 'supporter:calendrier:selected-date';
@@ -80,15 +84,8 @@ function getSortedRows(rows: CalendrierRow[], sortModel: GridSortModel): Calendr
   });
 }
 
-function formatInputDate(value: Date): string {
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, '0');
-  const day = String(value.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 function getInitialCalendrierDate(): string {
-  const fallback = formatInputDate(new Date());
+  const fallback = toLocalIsoDate(new Date());
   if (typeof window === 'undefined') {
     return fallback;
   }
@@ -98,42 +95,6 @@ function getInitialCalendrierDate(): string {
     return stored;
   }
   return fallback;
-}
-
-function rowStatusClass(etat: number): string {
-  switch (Number(etat)) {
-    case 1:
-      return 'status-en-attente';
-    case 2:
-      return 'status-en-cours';
-    case 3:
-      return 'status-terminee';
-    case 5:
-      return 'status-programmee';
-    case 4:
-      return 'status-non-jouee';
-    default:
-      return 'status-default';
-  }
-}
-
-function scoreToInputValue(value: unknown): string {
-  if (value === null || value === undefined) return '0';
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return '0';
-  return String(Math.max(0, Math.trunc(numeric)));
-}
-
-function parseScoreInputValue(value: string): number {
-  const trimmed = value.trim();
-  if (!trimmed) return 0;
-  const numeric = Number(trimmed);
-  if (!Number.isFinite(numeric) || numeric < 0) return 0;
-  return Math.trunc(numeric);
-}
-
-function canEditScore(etat: number): boolean {
-  return etat !== 4 && etat !== 5;
 }
 
 function resolveCompetitionSeasonLabel(saison: unknown, coAnnee: unknown): string {
@@ -302,14 +263,7 @@ export function CalendrierPage({ readOnly = false }: { readOnly?: boolean }) {
       navigate(path);
       return;
     }
-    window.dispatchEvent(new CustomEvent('supporter:tab-open', {
-      detail: {
-        path,
-        label: clubName.trim() || normalizedId,
-        unique: true,
-        uniqueByPath: true,
-      },
-    }));
+    emitTabOpen(path, clubName.trim() || normalizedId);
   }, [location.pathname, navigate, readOnly]);
 
   const isEliminatoryMatchWinner = useCallback((row: CalendrierRow, side: 'domicile' | 'exterieur'): boolean => {
@@ -348,14 +302,7 @@ export function CalendrierPage({ readOnly = false }: { readOnly?: boolean }) {
       navigate(path);
       return;
     }
-    window.dispatchEvent(new CustomEvent('supporter:tab-open', {
-      detail: {
-        path,
-        label: `${String(selectedRow?.COMPET_NOM ?? '').trim()} ${String(selectedRow?.SAISON ?? '').trim()}`.trim() || 'Competition',
-        unique: true,
-        uniqueByPath: true,
-      },
-    }));
+    emitTabOpen(path, `${String(selectedRow?.COMPET_NOM ?? '').trim()} ${String(selectedRow?.SAISON ?? '').trim()}`.trim() || 'Compétition');
   };
 
   const openCompetitionWeb = () => {

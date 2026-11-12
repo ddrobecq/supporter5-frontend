@@ -6,7 +6,8 @@ import {
 } from '@mui/material';
 import { NatioAutocomplete } from '../../components/NatioAutocomplete';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useExternalSaveTrigger } from '../../lib/useExternalSaveTrigger';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
@@ -115,7 +116,7 @@ export function ArbitreFormDialog({
     setValues(initial);
     setPhotoDraft(undefined);
     setInitialSignature(JSON.stringify({ ...initial, ARB_PHOTO: '' }));
-  }, [open, resolvedFields, initialData]);
+  }, [open, resolvedFields, initialData, setInitialSignature]);
 
   useEffect(() => {
     const currentSignature = JSON.stringify({
@@ -177,9 +178,7 @@ export function ArbitreFormDialog({
     }
   };
 
-  const handleSaveRef = useRef(handleSave);
-  handleSaveRef.current = handleSave;
-  useEffect(() => { if (saveCount > 0) void handleSaveRef.current(); }, [saveCount]);
+  useExternalSaveTrigger(saveCount, handleSave);
 
   const content = (
     <>

@@ -66,20 +66,6 @@ export function normalizeImportDate(value: string): string {
   return '';
 }
 
-/** Normalise une heure de fichier (H:mm, HH:mm, HHhmm, HHmm) en HH:mm. */
-export function normalizeImportTime(value: string): string {
-  const raw = String(value ?? '').trim();
-  if (!raw) return '';
-
-  const separated = raw.match(/^(\d{1,2})\s*[:hH]\s*(\d{1,2})/);
-  if (separated) return `${separated[1].padStart(2, '0')}:${separated[2].padStart(2, '0')}`;
-
-  const compact = raw.match(/^(\d{2})(\d{2})$/);
-  if (compact) return `${compact[1]}:${compact[2]}`;
-
-  return '';
-}
-
 /** Ne garde que les entiers; toute autre valeur (vide, tiret, texte) devient une chaine vide. */
 export function normalizeImportNumber(value: string): string {
   const raw = String(value ?? '').trim();

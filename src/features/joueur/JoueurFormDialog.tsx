@@ -24,7 +24,7 @@ import {
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DateInputField } from '../../components/DateInputField';
-import { INVALID_DATE_MESSAGE, toIsoDate } from '../../components/dateUtils';
+import { INVALID_DATE_MESSAGE, todayIso, toIsoDate } from '../../components/dateUtils';
 import { useInvalidDateFields } from '../../components/useInvalidDateFields';
 import { NumberField } from '../../components/NumberField';
 import { ClubSelectField } from '../../components/ClubSelectField';
@@ -33,6 +33,7 @@ import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { useDirtySignature } from '../../lib/useDirtySignature';
+import { useExternalSaveTrigger } from '../../lib/useExternalSaveTrigger';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { VillePicker } from '../../components/VillePicker';
 import { getJoueurCompleteness } from './joueurCompleteness';
@@ -112,14 +113,6 @@ interface SensOption {
   label: string;
 }
 
-function todayIsoDate(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 function toSensValue(value: unknown): string {
   const numeric = Number(value);
   if (numeric === 1 || numeric === 2 || numeric === 3) return String(numeric);
@@ -129,8 +122,8 @@ function toSensValue(value: unknown): string {
 function buildSensOptionsForType(type?: JoueurTransactionTypeOption): SensOption[] {
   if (!type) return [];
   const options: SensOption[] = [];
-  if (normalizeNullableText(type.TYT_PHRASE_DEPART)) options.push({ value: '1', label: 'Depart' });
-  if (normalizeNullableText(type.TYT_PHRASE_ARRIVEE)) options.push({ value: '2', label: 'Arrivee' });
+  if (normalizeNullableText(type.TYT_PHRASE_DEPART)) options.push({ value: '1', label: 'Départ' });
+  if (normalizeNullableText(type.TYT_PHRASE_ARRIVEE)) options.push({ value: '2', label: 'Arrivée' });
   if (normalizeNullableText(type.TYT_PHRASE_NEUTRE)) options.push({ value: '3', label: 'Neutre' });
   return options;
 }
@@ -350,6 +343,8 @@ export function JoueurFormDialog({
     if (!open) return;
     const birthId = values.IDVILLE;
     const deathId = values.VILLE_DECES;
+    // Noms de villes affiches a titre informatif: en cas d'echec le champ reste vide, l'id saisi
+    // est conserve et l'enregistrement n'est pas affecte.
     if (!birthVilleName && birthId !== undefined && birthId !== null && String(birthId).trim()) {
       void fetchVilleById(String(birthId)).then((row) => setBirthVilleName(String(row.NOM ?? ''))).catch(() => {});
     }
@@ -503,7 +498,7 @@ export function JoueurFormDialog({
     const defaultTypeRow = contractsTypes.find((option) => Number(option.TYT_CLEUNIK) === Number(defaultType));
     const defaultTypeSensOptions = buildSensOptionsForType(defaultTypeRow);
     const nextDraft = {
-      date: todayIsoDate(),
+      date: todayIso(),
       type: defaultType != null ? String(defaultType) : '',
       sens: defaultTypeSensOptions.length === 1
         ? defaultTypeSensOptions[0].value
@@ -527,7 +522,7 @@ export function JoueurFormDialog({
   const openContractsEditDialog = (row?: JoueurTransactionRow) => {
     const selectedRow = row ?? selectedContractRow;
     if (!selectedRow) {
-      setErrors((prev) => ({ ...prev, contracts: 'Selectionnez une transaction a modifier.' }));
+      setErrors((prev) => ({ ...prev, contracts: 'Sélectionnez une transaction à modifier.' }));
       return;
     }
 
@@ -551,7 +546,7 @@ export function JoueurFormDialog({
 
   const openContractsDeleteConfirm = () => {
     if (!selectedContractRow) {
-      setErrors((prev) => ({ ...prev, contracts: 'Selectionnez une transaction a supprimer.' }));
+      setErrors((prev) => ({ ...prev, contracts: 'Sélectionnez une transaction à supprimer.' }));
       return;
     }
     setContractsDeleteConfirmOpen(true);
@@ -707,7 +702,7 @@ export function JoueurFormDialog({
   const openHistoryEditDialog = (historyRow?: JoueurHistoryRow) => {
     const rowToEdit = historyRow ?? selectedHistoryRow;
     if (!rowToEdit) {
-      setErrors((prev) => ({ ...prev, history: 'Selectionnez une saison a modifier.' }));
+      setErrors((prev) => ({ ...prev, history: 'Sélectionnez une saison à modifier.' }));
       return;
     }
     const nextDraft = { saison: String(rowToEdit.SAISON ?? ''), poste: String(rowToEdit.POSTE ?? '') };
@@ -720,7 +715,7 @@ export function JoueurFormDialog({
 
   const openHistoryDeleteConfirm = () => {
     if (!selectedHistoryRow) {
-      setErrors((prev) => ({ ...prev, history: 'Selectionnez une saison a supprimer.' }));
+      setErrors((prev) => ({ ...prev, history: 'Sélectionnez une saison à supprimer.' }));
       return;
     }
     setHistoryDeleteConfirmOpen(true);
@@ -877,9 +872,7 @@ export function JoueurFormDialog({
     onClose();
   };
 
-  const handleSaveRef = useRef(handleGlobalSave);
-  handleSaveRef.current = handleGlobalSave;
-  useEffect(() => { if (saveCount > 0) void handleSaveRef.current(); }, [saveCount]);
+  useExternalSaveTrigger(saveCount, handleGlobalSave);
 
   const identityTab = (
     <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} sx={{ alignItems: 'stretch' }}>
@@ -1181,7 +1174,7 @@ export function JoueurFormDialog({
       <Dialog open={historyDeleteConfirmOpen} onClose={() => { if (!historyDeleteSaving) setHistoryDeleteConfirmOpen(false); }}>
         <DialogTitle>Supprimer une saison</DialogTitle>
         <DialogContent>
-          <DialogContentText>Confirmez-vous la suppression de cette saison dans l historique du club ?</DialogContentText>
+          <DialogContentText>Confirmez-vous la suppression de cette saison dans l'historique du club ?</DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setHistoryDeleteConfirmOpen(false)} disabled={historyDeleteSaving}>Annuler</Button>
@@ -1317,13 +1310,13 @@ export function JoueurFormDialog({
 
             {transactionUsesEcheance ? (
               <DateInputField
-                label="Echeance"
+                label="Échéance"
                 value={contractsDialogDraft.echeance}
                 onChange={(nextDate) => setContractsDialogDraft((prev) => ({ ...prev, echeance: nextDate }))}
                 onValidityChange={dateValidityHandler('contractEcheance')}
                 size="small"
                 fullWidth
-                calendarAriaLabel="Calendrier echeance"
+                calendarAriaLabel="Calendrier échéance"
               />
             ) : null}
           </Stack>
@@ -1337,7 +1330,7 @@ export function JoueurFormDialog({
       <Dialog open={contractsDeleteConfirmOpen} onClose={() => { if (!contractsDeleteSaving) setContractsDeleteConfirmOpen(false); }}>
         <DialogTitle>Supprimer une transaction</DialogTitle>
         <DialogContent>
-          <DialogContentText>Confirmez-vous la suppression de la transaction selectionnee ?</DialogContentText>
+          <DialogContentText>Confirmez-vous la suppression de la transaction sélectionnée ?</DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setContractsDeleteConfirmOpen(false)} disabled={contractsDeleteSaving}>Annuler</Button>

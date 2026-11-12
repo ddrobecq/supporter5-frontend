@@ -1,5 +1,7 @@
-import { PITCH_SLOTS } from '../../components/PitchField';
+import { PITCH_SLOTS } from '../../components/pitchSlots';
+import { todayIso as getTodayIso } from '../../components/dateUtils';
 import { RENCONTRE_INCOMPLETE_CATEGORIES } from '../incomplets/incompletsApi';
+import { MatchEventType } from './matchEventTypes';
 import type { CompositionMap, RencontreHighlightEventRow } from './types';
 
 const REMP_CODES = Array.from({ length: 11 }, (_, index) => `REMP${index + 1}`);
@@ -9,7 +11,7 @@ const STARTERS_EXPECTED = 11;
 const EXCLUDED_CATEGORY_KEYS = new Set(['clubs', 'desynchro']);
 
 function isGoalEvent(event: RencontreHighlightEventRow): boolean {
-  return event.TYPE_EVENT === 1 || (event.TYPE_EVENT === 7 && Number(event.PERIODE ?? 0) !== 5);
+  return event.TYPE_EVENT === MatchEventType.But || (event.TYPE_EVENT === MatchEventType.PenaltyMarque && Number(event.PERIODE ?? 0) !== 5);
 }
 
 function isCompositionSlotFilled(value: string | null | undefined): boolean {
@@ -63,7 +65,7 @@ export function getRencontreCompleteness(input: RencontreCompletenessInput): Ren
     .filter(isCompositionSlotFilled);
   const hasDuplicatePlayer = new Set([...starterValues, ...subValues]).size !== starterValues.length + subValues.length;
   const effectifKo = played && (starterValues.length !== STARTERS_EXPECTED || hasDuplicatePlayer);
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = getTodayIso();
 
   const flags: Record<string, boolean> = {
     arbitre: played && !input.arbitreId.trim(),
@@ -76,7 +78,7 @@ export function getRencontreCompleteness(input: RencontreCompletenessInput): Ren
     'buteurs-club': played && recordedSupportedGoals !== expectedSupportedGoals,
     'minutes-buts': played && goalEvents.some((event) => Number(event.MINUTE ?? 0) <= 0),
     remplacements: played && events.some((event) => (
-      event.TYPE_EVENT === 2
+      event.TYPE_EVENT === MatchEventType.Remplacement
       && Number(event.ADVERSAIRE ?? 0) === 0
       && (!String(event.JOUEUR1 ?? '').trim() || !String(event.JOUEUR2 ?? '').trim() || Number(event.MINUTE ?? 0) <= 0)
     )),

@@ -1,5 +1,5 @@
 import { http } from './http';
-import type { TeamAppearanceMode, TeamThemeColors } from '../theme/AppearanceProvider';
+import type { TeamAppearanceMode, TeamThemeColors } from '../theme/appearanceContext';
 
 export interface ThemeRow {
   CODE: TeamAppearanceMode;

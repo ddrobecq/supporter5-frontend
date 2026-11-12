@@ -1,12 +1,3 @@
-import AutorenewRoundedIcon from '@mui/icons-material/AutorenewRounded';
-import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
-import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
-import HealingRoundedIcon from '@mui/icons-material/HealingRounded';
-import ReportRoundedIcon from '@mui/icons-material/ReportRounded';
-import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
-import SquareRoundedIcon from '@mui/icons-material/SquareRounded';
-import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
-import TimerRoundedIcon from '@mui/icons-material/TimerRounded';
 import {
   Autocomplete,
   Box,
@@ -25,10 +16,11 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import type { KeyboardEvent, ReactElement } from 'react';
+import type { KeyboardEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { NumberField } from '../../components/NumberField';
 import { toErrorMessage } from '../../components/useEntityPage';
+import { MATCH_EVENT_TYPES, MatchEventType } from './matchEventTypes';
 import { createRencontreEvent, updateRencontreEvent, type EventPayload, fetchRencontreSquad } from './rencontreApi';
 import type { RencontreHighlightEventRow, SquadPlayerRow } from './types';
 
@@ -38,19 +30,6 @@ const PERIODE_OPTIONS = [
   { value: 3, label: 'Prolongations 1ère' },
   { value: 4, label: 'Prolongations 2ème' },
   { value: 5, label: 'Tirs au but' },
-];
-
-const TYPE_EVENT_OPTIONS: { value: number; label: string; icon: ReactElement; color: string }[] = [
-  { value: 1, label: 'But',                         icon: <SportsSoccerRoundedIcon fontSize="small" />, color: '#0f766e' },
-  { value: 2, label: 'Remplacement',                icon: <AutorenewRoundedIcon fontSize="small" />,    color: '#1d4ed8' },
-  { value: 3, label: 'Carton Jaune',                icon: <SquareRoundedIcon fontSize="small" />,       color: '#eab308' },
-  { value: 4, label: '2ème Jaune / Expulsion',      icon: <ReportRoundedIcon fontSize="small" />,       color: '#ea580c' },
-  { value: 5, label: 'Carton Rouge',                icon: <SquareRoundedIcon fontSize="small" />,       color: '#dc2626' },
-  { value: 6, label: 'Penalty sifflé',              icon: <FlagRoundedIcon fontSize="small" />,         color: '#7c3aed' },
-  { value: 7, label: 'Penalty marqué',              icon: <TaskAltRoundedIcon fontSize="small" />,      color: '#16a34a' },
-  { value: 8, label: 'Penalty manqué',              icon: <CancelRoundedIcon fontSize="small" />,       color: '#b91c1c' },
-  { value: 9, label: 'Blessure',                    icon: <HealingRoundedIcon fontSize="small" />,      color: '#be185d' },
-  { value: 10, label: 'Temps additionnel',          icon: <TimerRoundedIcon fontSize="small" />,        color: '#475569' },
 ];
 
 /** Seuils de période dérivés du TourDef du match (mi-temps, fin de temps réglementaire, mi-temps de prolongation). */
@@ -63,22 +42,22 @@ function getAutoPeriode(min: number, dureeReg: number, dureeProlong: number): nu
 }
 
 function joueur1Label(typeEvent: number): string {
-  if (typeEvent === 2) return 'Joueur sortant';
-  if (typeEvent === 9) return 'Joueur blessé';
+  if (typeEvent === MatchEventType.Remplacement) return 'Joueur sortant';
+  if (typeEvent === MatchEventType.Blessure) return 'Joueur blessé';
   return 'Action réalisée par';
 }
 
 function joueur2Label(typeEvent: number): string {
-  if (typeEvent === 2) return 'Joueur entrant';
+  if (typeEvent === MatchEventType.Remplacement) return 'Joueur entrant';
   return 'Passe décisive de';
 }
 
 function showJoueur2(typeEvent: number): boolean {
-  return typeEvent === 1 || typeEvent === 2;
+  return typeEvent === MatchEventType.But || typeEvent === MatchEventType.Remplacement;
 }
 
 function showPlayers(typeEvent: number): boolean {
-  return typeEvent !== 10;
+  return typeEvent !== MatchEventType.TempsAdditionnel;
 }
 
 function getEventDraftSignature(values: {
@@ -140,7 +119,7 @@ export function EventFormDialog({
   const [adversaire, setAdversaire] = useState(false);
   const [minute, setMinute] = useState('');
   const [periode, setPeriode] = useState(1);
-  const [typeEvent, setTypeEvent] = useState(1);
+  const [typeEvent, setTypeEvent] = useState<number>(MatchEventType.But);
   const [joueur1, setJoueur1] = useState<SquadPlayerRow | null>(null);
   const [joueur2, setJoueur2] = useState<SquadPlayerRow | null>(null);
   const [comment, setComment] = useState('');
@@ -169,13 +148,13 @@ export function EventFormDialog({
       setAdversaire(event.ADVERSAIRE === 1);
       setMinute(String(event.MINUTE ?? ''));
       setPeriode(event.PERIODE ?? 1);
-      setTypeEvent(event.TYPE_EVENT ?? 1);
+      setTypeEvent(event.TYPE_EVENT ?? MatchEventType.But);
       setComment(event.COMMENT ?? '');
       initialSignatureRef.current = getEventDraftSignature({
         adversaire: event.ADVERSAIRE === 1,
         minute: String(event.MINUTE ?? ''),
         periode: event.PERIODE ?? 1,
-        typeEvent: event.TYPE_EVENT ?? 1,
+        typeEvent: event.TYPE_EVENT ?? MatchEventType.But,
         joueur1Id: String(event.JOUEUR1 ?? ''),
         joueur2Id: String(event.JOUEUR2 ?? ''),
         comment: String(event.COMMENT ?? ''),
@@ -185,7 +164,7 @@ export function EventFormDialog({
       setAdversaire(false);
       setMinute('');
       setPeriode(1);
-      setTypeEvent(1);
+      setTypeEvent(MatchEventType.But);
       setJoueur1(null);
       setJoueur2(null);
       setComment('');
@@ -194,7 +173,7 @@ export function EventFormDialog({
         adversaire: false,
         minute: '',
         periode: 1,
-        typeEvent: 1,
+        typeEvent: MatchEventType.But,
         joueur1Id: '',
         joueur2Id: '',
         comment: '',
@@ -225,13 +204,13 @@ export function EventFormDialog({
 
   // Le temps additionnel ne concerne ni joueur ni équipe : on nettoie ces champs à la sélection.
   useEffect(() => {
-    if (typeEvent !== 10) return;
+    if (typeEvent !== MatchEventType.TempsAdditionnel) return;
     setAdversaire(false);
     setJoueur1(null);
     setJoueur2(null);
   }, [typeEvent]);
 
-  const periodeOptions = typeEvent === 10
+  const periodeOptions = typeEvent === MatchEventType.TempsAdditionnel
     ? PERIODE_OPTIONS.filter((o) => o.value === 1 || o.value === 2 || (matchHasExtraTime && (o.value === 3 || o.value === 4)))
     : PERIODE_OPTIONS;
 
@@ -250,7 +229,7 @@ export function EventFormDialog({
       setError('La minute doit être un nombre positif.');
       return false;
     }
-    const isAdditionalTime = typeEvent === 10;
+    const isAdditionalTime = typeEvent === MatchEventType.TempsAdditionnel;
     if (isAdditionalTime) {
       const addedMinutes = parseInt(comment, 10);
       if (!Number.isFinite(addedMinutes) || addedMinutes < 1) {
@@ -300,7 +279,7 @@ export function EventFormDialog({
       setAdversaire(event.ADVERSAIRE === 1);
       setMinute(String(event.MINUTE ?? ''));
       setPeriode(event.PERIODE ?? 1);
-      setTypeEvent(event.TYPE_EVENT ?? 1);
+      setTypeEvent(event.TYPE_EVENT ?? MatchEventType.But);
       setComment(event.COMMENT ?? '');
       setJoueur1(squad.find((p) => p.IDJOUEUR === event.JOUEUR1) ?? null);
       setJoueur2(squad.find((p) => p.IDJOUEUR === event.JOUEUR2) ?? null);
@@ -310,7 +289,7 @@ export function EventFormDialog({
     setAdversaire(false);
     setMinute('');
     setPeriode(1);
-    setTypeEvent(1);
+    setTypeEvent(MatchEventType.But);
     setJoueur1(null);
     setJoueur2(null);
     setComment('');
@@ -352,7 +331,7 @@ export function EventFormDialog({
         <Stack spacing={2} sx={{ mt: 1 }}>
           {error ? <Typography color="error" variant="body2">{error}</Typography> : null}
 
-          {typeEvent !== 10 ? (
+          {typeEvent !== MatchEventType.TempsAdditionnel ? (
             <FormControlLabel
               control={<Checkbox checked={adversaire} onChange={(e) => setAdversaire(e.target.checked)} slotProps={{ input: { ref: adversaireRef } }} />}
               label="Action concernant l'adversaire"
@@ -383,10 +362,10 @@ export function EventFormDialog({
           <FormControl fullWidth>
             <InputLabel>Type d'événement</InputLabel>
             <Select value={typeEvent} label="Type d'événement" onChange={(e) => setTypeEvent(Number(e.target.value))}>
-              {TYPE_EVENT_OPTIONS.map((o) => (
+              {MATCH_EVENT_TYPES.map((o) => (
                 <MenuItem key={o.value} value={o.value}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box sx={{ color: o.color, display: 'flex', alignItems: 'center' }}>{o.icon}</Box>
+                    <Box sx={{ color: o.color, display: 'flex', alignItems: 'center' }}><o.Icon fontSize="small" /></Box>
                     {o.label}
                   </Box>
                 </MenuItem>
@@ -423,7 +402,7 @@ export function EventFormDialog({
             </>
           ) : null}
 
-          {typeEvent === 10 ? (
+          {typeEvent === MatchEventType.TempsAdditionnel ? (
             <NumberField
               label="Minutes de temps additionnel"
               value={comment}

@@ -2,7 +2,7 @@ import type { GridRowId } from '@mui/x-data-grid';
 import axios from 'axios';
 import { useEffect, useRef, useState } from 'react';
 import type { FeedbackMessage } from './AppFeedbackSnackbar';
-import type { IntegrityConstraint } from './EntityPageLayout';
+import type { IntegrityConstraint } from '../lib/apiTypes';
 
 export interface EntityApi<Row> {
   fetchAll: (search: string, signal?: AbortSignal) => Promise<{ data?: Row[] }>;
@@ -40,8 +40,8 @@ export function toErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     const apiMessage = (error.response?.data as { message?: string } | undefined)?.message;
     if (apiMessage) return apiMessage;
-    if (error.response?.status === 401) return 'Session expiree. Reconnectez-vous.';
-    if (error.response?.status === 409) return 'Suppression impossible: des enregistrements dependants existent.';
+    if (error.response?.status === 401) return 'Session expirée. Reconnectez-vous.';
+    if (error.response?.status === 409) return 'Suppression impossible: des enregistrements dépendants existent.';
   }
   return 'Une erreur est survenue.';
 }
@@ -60,7 +60,7 @@ export async function createAndOpenInTab<Row extends Record<string, unknown>>({
     const createdRow = (created ?? payload) as Row;
     const createdId = resolveId(createdRow);
     if (createdId === undefined || createdId === null || String(createdId).trim() === '') {
-      setSnackbar({ severity: 'error', message: 'Création reussie mais identifiant introuvable.' });
+      setSnackbar({ severity: 'error', message: 'Création réussie mais identifiant introuvable.' });
       return;
     }
 
@@ -74,7 +74,7 @@ export async function createAndOpenInTab<Row extends Record<string, unknown>>({
 export function useEntityPage<Row extends Record<string, unknown>>(
   api: EntityApi<Row>,
   labels: EntityLabels,
-  onInitialLoad?: () => void,
+  onInitialLoad?: (helpers: { setSnackbar: (value: FeedbackMessage | null) => void }) => void,
 ) {
   const [rows, setRows] = useState<Row[]>([]);
   const [search, setSearch] = useState('');
@@ -236,7 +236,7 @@ export function useEntityPage<Row extends Record<string, unknown>>(
 
   // Chargement initial optionnel
   useEffect(() => {
-    onInitialLoad?.();
+    onInitialLoad?.({ setSnackbar });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -4,8 +4,7 @@ import axios from 'axios';
 import { useEffect, useRef, useState } from 'react';
 import { CreateWizardSuggestionPanel } from '../../components/CreateWizardSuggestionPanel';
 import { toErrorMessage } from '../../components/useEntityPage';
-import { fetchNatio } from '../natio/natioApi';
-import type { NatioRow } from '../natio/types';
+import { useNatioList } from '../natio/natioStore';
 import { fetchArbitreSuggestions } from './arbitreApi';
 import type { ArbitreCreateWizardPayload, ArbitreSuggestionRow } from './types';
 
@@ -23,7 +22,7 @@ export function ArbitreCreateWizardDialog({ open, onClose, onCreate, onError }: 
   const [nom, setNom] = useState('');
   const [prenom, setPrenom] = useState('');
   const [natioId, setNatioId] = useState(DEFAULT_NATIO_ID);
-  const [natioRows, setNatioRows] = useState<NatioRow[]>([]);
+  const { rows: natioRows } = useNatioList();
   const [suggestions, setSuggestions] = useState<ArbitreSuggestionRow[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
@@ -34,7 +33,6 @@ export function ArbitreCreateWizardDialog({ open, onClose, onCreate, onError }: 
       setNom('');
       setPrenom('');
       setNatioId(DEFAULT_NATIO_ID);
-      setNatioRows([]);
       setSuggestions([]);
       setLoadingSuggestions(false);
       return;
@@ -45,14 +43,8 @@ export function ArbitreCreateWizardDialog({ open, onClose, onCreate, onError }: 
       nameInputRef.current?.select();
     }, 10);
 
-    const controller = new AbortController();
-    void fetchNatio('', controller.signal)
-      .then((result) => setNatioRows(result.data ?? []))
-      .catch(() => {});
-
     return () => {
       window.clearTimeout(timer);
-      controller.abort();
     };
   }, [open]);
 
@@ -163,14 +155,14 @@ export function ArbitreCreateWizardDialog({ open, onClose, onCreate, onError }: 
             <CreateWizardSuggestionPanel
               loading={loadingSuggestions}
               rows={suggestions}
-              emptyText="Aucun arbitre approchant trouve."
+              emptyText="Aucun arbitre approchant trouvé."
               getKey={(row) => row.IDARBITRE}
               getPrimaryText={(row) => `${String(row.NOM ?? '').toUpperCase()} ${String(row.PRENOM ?? '')} (${String(row.IDNATIO ?? '')})`}
             />
           ) : (
             <>
               <TextField
-                label="Prenom"
+                label="Prénom"
                 value={prenom}
                 onChange={(event) => setPrenom(event.target.value)}
                 fullWidth
@@ -189,9 +181,9 @@ export function ArbitreCreateWizardDialog({ open, onClose, onCreate, onError }: 
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2, pt: 1, justifyContent: 'flex-end' }}>
         <Button onClick={onClose} color="inherit" disabled={saving}>Annuler</Button>
-        {step === 2 ? <Button onClick={() => setStep(1)} color="inherit" disabled={saving}>Precedent</Button> : null}
+        {step === 2 ? <Button onClick={() => setStep(1)} color="inherit" disabled={saving}>Précédent</Button> : null}
         <Button onClick={handlePrimary} variant="contained" disabled={saving || (step === 1 ? !canGoNext : !canCreate)}>
-          {saving ? 'Enregistrement...' : step === 1 ? 'Suivant' : 'Creer'}
+          {saving ? 'Enregistrement...' : step === 1 ? 'Suivant' : 'Créer'}
         </Button>
       </DialogActions>
     </Dialog>

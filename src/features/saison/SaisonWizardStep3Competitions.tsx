@@ -53,7 +53,7 @@ export function SaisonWizardStep3Competitions({
   const columns = useMemo<GridColDef<SaisonWizardCompetitionRow>[]>(() => [
     {
       field: 'NOM',
-      headerName: 'Competition',
+      headerName: 'Compétition',
       flex: 1,
       minWidth: 260,
       sortable: true,
@@ -80,8 +80,8 @@ export function SaisonWizardStep3Competitions({
   return (
     <Stack spacing={1} sx={wizardGridFillSx}>
       <Typography variant="body2" color="text.secondary">
-        Les competitions cochees seront creees pour la nouvelle saison. Coche "Idem", les Tours et
-        Classements de la precedente edition seront repris a l identique (hors participants et rencontres).
+        Les compétitions cochées seront créées pour la nouvelle saison. Coche "Idem", les Tours et
+        Classements de la précédente édition seront repris à l'identique (hors participants et rencontres).
       </Typography>
       <Box sx={wizardGridBoxSx}>
         <EntityDataGrid<SaisonWizardCompetitionRow>

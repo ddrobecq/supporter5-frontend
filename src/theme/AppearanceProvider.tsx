@@ -1,30 +1,14 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import type { PaletteMode } from '@mui/material';
 import type {} from '@mui/x-data-grid/themeAugmentation';
 import { fetchTeamThemes } from '../lib/themeApi';
-
-export type ClassicAppearanceMode = 'light' | 'dark' | 'system';
-export type TeamAppearanceMode = 'home' | 'away' | 'third';
-export type AppearanceMode = ClassicAppearanceMode | TeamAppearanceMode;
-
-export interface TeamThemeColors {
-  background: string;
-  text: string;
-}
-
-interface AppearanceContextValue {
-  mode: AppearanceMode;
-  setMode: (mode: AppearanceMode) => void;
-  teamThemes: Record<TeamAppearanceMode, TeamThemeColors>;
-  setTeamTheme: (mode: TeamAppearanceMode, colors: TeamThemeColors) => void;
-}
+import { AppearanceContext, type AppearanceMode, type ClassicAppearanceMode, type TeamAppearanceMode, type TeamThemeColors } from './appearanceContext';
 
 const CLASSIC_APPEARANCE_STORAGE_KEY = 'supporter:appearance-classic-mode:v1';
 const TEAM_APPEARANCE_STORAGE_KEY = 'supporter:appearance-team-mode:v1';
 const APPEARANCE_STORAGE_KEY = 'supporter:appearance-mode:v2';
 const LEGACY_APPEARANCE_STORAGE_KEY = 'supporter:appearance-mode:v1';
-const AppearanceContext = createContext<AppearanceContextValue | null>(null);
 
 const DEFAULT_TEAM_THEMES: Record<TeamAppearanceMode, TeamThemeColors> = {
   home: { background: '#ffffff', text: '#244a73' },
@@ -135,7 +119,9 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     void fetchTeamThemes().then((themes) => {
       if (!cancelled && Object.keys(themes).length === 3) setTeamThemes(themes);
-    }).catch(() => undefined);
+    }).catch(() => {
+      // Themes d'equipe optionnels: en cas d'echec on garde DEFAULT_TEAM_THEMES.
+    });
     return () => { cancelled = true; };
   }, []);
 
@@ -235,12 +221,4 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
       <ThemeProvider theme={theme}>{children}</ThemeProvider>
     </AppearanceContext.Provider>
   );
-}
-
-export function useAppearance(): AppearanceContextValue {
-  const context = useContext(AppearanceContext);
-  if (!context) {
-    throw new Error('useAppearance must be used inside AppearanceProvider');
-  }
-  return context;
 }

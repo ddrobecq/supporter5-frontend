@@ -1,5 +1,6 @@
 import { Box, Button, Stack, TextField } from '@mui/material';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useExternalSaveTrigger } from '../../lib/useExternalSaveTrigger';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import type { RssRow } from './types';
@@ -42,7 +43,7 @@ export function RssFormDialog({
     setValues(initial);
     setInitialSignature(JSON.stringify(initial));
     setErrors({});
-  }, [open, initialData]);
+  }, [open, initialData, setInitialSignature]);
 
   useEffect(() => {
     syncDirty(JSON.stringify(values));
@@ -88,9 +89,7 @@ export function RssFormDialog({
     }
   };
 
-  const handleSaveRef = useRef(handleSave);
-  handleSaveRef.current = handleSave;
-  useEffect(() => { if (saveCount > 0) void handleSaveRef.current(); }, [saveCount]);
+  useExternalSaveTrigger(saveCount, handleSave);
 
   const content = (
     <>

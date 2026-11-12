@@ -7,6 +7,7 @@ import { toErrorMessage } from '../../components/useEntityPage';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { IncompletsView } from './IncompletsView';
 import { CLUB_INCOMPLET_CATEGORIES, fetchClubsIncomplets, type ClubIncompletRow } from './incompletsApi';
+import { emitTabOpen } from '../../lib/useTabMetaEvents';
 
 function ClubIdentityCell({ row }: { row: ClubIncompletRow }) {
   const { src } = useEntityImage('club', row.IDCLUB);
@@ -26,14 +27,7 @@ function ClubIdentityCell({ row }: { row: ClubIncompletRow }) {
 }
 
 function openClubTab(row: ClubIncompletRow): void {
-  window.dispatchEvent(new CustomEvent('supporter:tab-open', {
-    detail: {
-      path: `/admin/clubs/${encodeURIComponent(row.IDCLUB)}`,
-      label: row.CLUB?.trim() || row.IDCLUB,
-      unique: true,
-      uniqueByPath: true,
-    },
-  }));
+  emitTabOpen(`/admin/clubs/${encodeURIComponent(row.IDCLUB)}`, row.CLUB?.trim() || row.IDCLUB);
 }
 
 /** Outils > Fiches incompletes > Clubs incomplets. */

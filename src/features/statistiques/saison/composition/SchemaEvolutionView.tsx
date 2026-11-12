@@ -1,4 +1,4 @@
-import { Box, Stack, Typography } from '@mui/material';
+import { Alert, Box, Stack, Typography } from '@mui/material';
 import { BarChart } from '@mui/x-charts/BarChart';
 import { useMemo } from 'react';
 import { useStatRows } from '../../useStatRows';
@@ -14,7 +14,7 @@ const LINE_SERIES: { key: keyof Omit<LigneEvolutionRow, 'SAISON' | 'MATCHES'>; l
 
 /** Saison > composition: nombre moyen de joueurs par ligne tactique, saisons triees chronologiquement. */
 export function SchemaEvolutionView() {
-  const { rows, loading } = useStatRows<LigneEvolutionRow>(fetchLignesEvolution, []);
+  const { rows, loading, error } = useStatRows<LigneEvolutionRow>(fetchLignesEvolution, []);
 
   const chronologicalRows = useMemo(
     () => [...rows].sort((a, b) => a.SAISON.localeCompare(b.SAISON)),
@@ -34,6 +34,8 @@ export function SchemaEvolutionView() {
       <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
         Nombre moyen de joueurs par ligne (gardien, défense, milieux, attaque)
       </Typography>
+
+      {error ? <Alert severity="error">{error}</Alert> : null}
 
       <Box sx={{ flex: 1, minHeight: 320 }}>
         <BarChart

@@ -88,7 +88,7 @@ interface AppearanceGridProps {
 
 export function PremierMatchGrid({ latest = false }: AppearanceGridProps) {
   const [scope, setScope] = useState<number | null>(null);
-  const { rows, loading } = useStatRows<PremierMatchWithAge>(async (signal) => {
+  const { rows, loading, error } = useStatRows<PremierMatchWithAge>(async (signal) => {
     const data = await (latest ? fetchDernierMatch : fetchPremierMatch)(scope, signal);
     return data.map((row) => {
       const age = calculateAge(row.NAISSANCE, row.FIRST_DATE);
@@ -101,6 +101,7 @@ export function PremierMatchGrid({ latest = false }: AppearanceGridProps) {
       rows={rows}
       valueColumns={VALUE_COLUMNS}
       loading={loading}
+      error={error}
       getRowId={(row) => row.IDJOUEUR}
       hideIdentityColumn
       initialState={{

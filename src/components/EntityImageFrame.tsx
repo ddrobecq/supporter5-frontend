@@ -34,14 +34,14 @@ function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result ?? ''));
-    reader.onerror = () => reject(new Error('Erreur lors du chargement de l image.'));
+    reader.onerror = () => reject(new Error("Erreur lors du chargement de l'image."));
     reader.readAsDataURL(file);
   });
 }
 
 class ImageUploadRejectedError extends Error {}
 
-const UNSUPPORTED_IMAGE_TYPE_MESSAGE = 'Format d image non supporte. Formats acceptes : PNG, JPEG, GIF, WEBP, SVG.';
+const UNSUPPORTED_IMAGE_TYPE_MESSAGE = "Format d'image non supporté. Formats acceptés : PNG, JPEG, GIF, WEBP, SVG.";
 
 function assertImageAccepted(type: string, sizeBytes: number): void {
   if (!isAllowedImageType(type)) {
@@ -288,7 +288,7 @@ export function EntityImageFrame({
     event.target.value = '';
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      onActionError?.('Le fichier doit etre une image.');
+      onActionError?.('Le fichier doit être une image.');
       return;
     }
     if (!isAllowedImageType(file.type)) {
@@ -305,13 +305,13 @@ export function EntityImageFrame({
       const dataUrl = await readFileAsDataUrl(file);
       onChangeImage?.(dataUrl);
     } catch {
-      onActionError?.('Erreur lors du chargement de l image.');
+      onActionError?.("Erreur lors du chargement de l'image.");
     }
   };
 
   const handlePasteFromClipboard = async () => {
     if (!navigator.clipboard?.read) {
-      onActionError?.('Le collage depuis le presse-papiers n est pas disponible.');
+      onActionError?.("Le collage depuis le presse-papiers n'est pas disponible.");
       return;
     }
 
@@ -325,7 +325,7 @@ export function EntityImageFrame({
         onChangeImage?.(dataUrl);
         return;
       }
-      onActionError?.('Le presse-papiers ne contient pas d image.');
+      onActionError?.("Le presse-papiers ne contient pas d'image.");
     } catch (error) {
       if (error instanceof ImageUploadRejectedError) {
         onActionError?.(error.message);
@@ -465,8 +465,8 @@ export function EntityImageFrame({
               </IconButton>
             </Tooltip>
 
-            <Tooltip title={actionLabels?.clear ?? 'Supprimer l image'}>
-              <IconButton size="small" onClick={handleClearImage} aria-label={actionLabels?.clear ?? 'Supprimer l image'}>
+            <Tooltip title={actionLabels?.clear ?? "Supprimer l'image"}>
+              <IconButton size="small" onClick={handleClearImage} aria-label={actionLabels?.clear ?? "Supprimer l'image"}>
                 <DeleteOutlineRoundedIcon fontSize="small" />
               </IconButton>
             </Tooltip>

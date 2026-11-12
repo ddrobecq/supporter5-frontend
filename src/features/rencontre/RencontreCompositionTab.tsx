@@ -19,18 +19,23 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { http } from '../../lib/http';
 import { toErrorMessage } from '../../components/useEntityPage';
-import { fetchRencontreComposition, fetchRencontreSquad, saveRencontreComposition } from './rencontreApi';
+import { saveRencontreComposition } from './rencontreApi';
+import {
+  BENCH_SLOT_SX,
+  _compositionCache,
+  _initialCompositionCache,
+  _squadCache,
+  preloadRencontreComposition,
+} from './rencontreCompositionShared';
 import type { CompositionMap, SquadPlayerRow } from './types';
 import { NatioFlag } from '../../components/NatioFlag';
 import {
-  PITCH_AVATAR_SIZE,
-  PITCH_SLOTS,
   PitchField,
   PitchPlayerAvatar as PlayerAvatar,
   PitchPlayerMarker,
   PitchSlotShell,
-  pitchPlayerLabel as playerLabel,
 } from '../../components/PitchField';
+import { PITCH_AVATAR_SIZE, PITCH_SLOTS, pitchPlayerLabel as playerLabel } from '../../components/pitchSlots';
 import { JoueurPage } from '../joueur/JoueurPage';
 
 const REMP_CODES = ['REMP1','REMP2','REMP3','REMP4','REMP5','REMP6','REMP7','REMP8','REMP9','REMP10','REMP11'] as const;
@@ -117,7 +122,8 @@ function CoachInlineDisplay({ player, href }: { player: SquadPlayerRow; href?: s
         const natio = String(data?.IDNATIO ?? '').trim();
         if (natio) setIdnatio(natio);
       })
-      .catch(() => { /* noop */ });
+      // Drapeau purement decoratif : en cas d'echec on affiche simplement l'entraineur sans drapeau.
+      .catch(() => {});
   }, [player.IDJOUEUR, idnatio]);
 
   return (
@@ -134,18 +140,6 @@ function CoachInlineDisplay({ player, href }: { player: SquadPlayerRow; href?: s
     </Stack>
   );
 }
-
-/** Cadre d'un poste de banc, partage entre la compo admin et la compo publique. */
-export const BENCH_SLOT_SX = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 0.75,
-  height: 38,
-  px: 0.75,
-  borderRadius: 1,
-  border: '1.5px dashed',
-  borderColor: 'divider',
-} as const;
 
 export function BenchPlayerLabel({ player, href }: { player: SquadPlayerRow; href?: string }) {
   return (
@@ -183,45 +177,6 @@ interface RencontreCompositionTabProps {
   opponentClubName?: string;
   onDirtyChange?: (dirty: boolean) => void;
   actionsRef?: React.MutableRefObject<CompositionTabActions | null>;
-}
-
-// Module-level caches survive component unmount/remount (main-tab switches, hot-reload, etc.)
-const _compositionCache = new Map<string, CompositionMap>();
-const _squadCache = new Map<string, SquadPlayerRow[]>();
-const _initialCompositionCache = new Map<string, CompositionMap>();
-const _pendingCompositionLoads = new Map<string, Promise<{ squad: SquadPlayerRow[]; composition: CompositionMap }>>();
-
-/**
- * Charge (ou renvoie depuis le cache) la composition et l'effectif d'un match.
- * Partagé avec RencontreTabFormPane, qui precharge ces donnees des l'ouverture de la fiche
- * (pour le calcul de completude) sans attendre que l'onglet Composition soit ouvert.
- */
-export function preloadRencontreComposition(
-  rencontreId: string,
-): Promise<{ squad: SquadPlayerRow[]; composition: CompositionMap }> {
-  const cachedComposition = _compositionCache.get(rencontreId);
-  const cachedSquad = _squadCache.get(rencontreId);
-  if (cachedComposition && cachedSquad) {
-    return Promise.resolve({ squad: cachedSquad, composition: cachedComposition });
-  }
-
-  const pending = _pendingCompositionLoads.get(rencontreId);
-  if (pending) return pending;
-
-  const promise = Promise.all([
-    fetchRencontreSquad(rencontreId),
-    fetchRencontreComposition(rencontreId),
-  ]).then(([squadData, compoData]) => {
-    _squadCache.set(rencontreId, squadData);
-    _compositionCache.set(rencontreId, compoData);
-    _initialCompositionCache.set(rencontreId, compoData);
-    return { squad: squadData, composition: compoData };
-  }).finally(() => {
-    _pendingCompositionLoads.delete(rencontreId);
-  });
-
-  _pendingCompositionLoads.set(rencontreId, promise);
-  return promise;
 }
 
 export function RencontreCompositionTab({
@@ -328,8 +283,8 @@ export function RencontreCompositionTab({
   const coachId = (composition['ENTRAINEUR'] as string | null | undefined) ?? null;
   const coachPlayer = coachId ? playerById.get(coachId) : null;
   const opponentComposition = String(composition['MACOMPOADVERSAIRE'] ?? '');
-  const normalizedSupportedClubName = String(supportedClubName ?? '').trim() || 'le club supporte';
-  const normalizedOpponentClubName = String(opponentClubName ?? '').trim() || 'l adversaire';
+  const normalizedSupportedClubName = String(supportedClubName ?? '').trim() || 'le club supporté';
+  const normalizedOpponentClubName = String(opponentClubName ?? '').trim() || "l'adversaire";
   const showSupportedComposition = !isNarrowViewport || !showOpponentCompositionOnMobile;
   const showOpponentComposition = !isNarrowViewport || showOpponentCompositionOnMobile;
   const mobileSwitchTargetClubName = showOpponentCompositionOnMobile ? normalizedSupportedClubName : normalizedOpponentClubName;
@@ -663,7 +618,7 @@ export function RencontreCompositionTab({
         </DialogTitle>
         <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
           <JoueurPage
-            variant="modalPicker"
+           
             filterPosteType={2}
             initialSeason={season}
             onOpenInTab={({ rowId }) => handleCoachSelect(rowId)}

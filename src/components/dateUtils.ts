@@ -73,6 +73,11 @@ export function toIsoDate(value: unknown): string {
   return serializeDateParts(parts) ?? '';
 }
 
+/** ISO `YYYY-MM-DD` for API payloads; null when empty or invalid. */
+export function isoDateOrNull(value: unknown): string | null {
+  return toIsoDate(value) || null;
+}
+
 export function splitDisplayDate(value: string): DateParts {
   const parsed = parseDateText(value);
   if (parsed) {
@@ -137,10 +142,46 @@ export function nextFieldIndex(currentIndex: number, shift: boolean): number | n
   return currentIndex < 2 ? currentIndex + 1 : null;
 }
 
+/** `YYYY-MM-DD` of a date in LOCAL time (unlike `toISOString()`, which is UTC). */
+export function toLocalIsoDate(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+/** Today's local date as `YYYY-MM-DD`. */
+export function todayIso(): string {
+  return toLocalIsoDate(new Date());
+}
+
+/** Adds `days` to an ISO `YYYY-MM-DD` date (local calendar); returns '' when `iso` is not a valid ISO date. */
+export function addDaysIso(iso: string, days: number): string {
+  const match = String(iso ?? '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return '';
+  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  if (!isValidCalendarDate(year, month, day)) return '';
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + days);
+  return toLocalIsoDate(date);
+}
+
+/** Parses a database date (`YYYYMMDD` or `YYYY-MM-DD`) into a local Date at midnight; null when invalid. */
+export function parseDbDate(value: unknown): Date | null {
+  const text = String(value ?? '').trim();
+  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/) ?? text.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (!match) return null;
+  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  if (!isValidCalendarDate(year, month, day)) return null;
+  return new Date(year, month - 1, day);
+}
+
+/** True when both dates fall on the same local calendar day. */
+export function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
 function todayOffset(delta: number): string {
   const d = new Date();
   d.setDate(d.getDate() + delta);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return toLocalIsoDate(d);
 }
 
 /** Short French display of a date (Auj./Hier/Demain, `DD-mmm`, `DD-mmm-YYYY`); unparseable input is returned trimmed. */

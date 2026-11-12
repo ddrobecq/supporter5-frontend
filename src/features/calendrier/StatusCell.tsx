@@ -1,14 +1,7 @@
 import { MenuItem, Stack, TextField } from '@mui/material';
 import { useState } from 'react';
 import type { KeyboardEvent } from 'react';
-
-const STATUS_OPTIONS = [
-  { value: 1, label: 'En attente' },
-  { value: 2, label: 'En cours' },
-  { value: 3, label: 'Terminée' },
-  { value: 5, label: 'Programmée' },
-  { value: 4, label: 'Non jouée/annulée' },
-] as const;
+import { getMatchStatusLabel, MATCH_STATUS_OPTIONS } from '../../lib/matchStatus';
 
 export interface StatusCellProps {
   value: number;
@@ -19,10 +12,6 @@ export interface StatusCellProps {
   onCommit: (nextValue?: number) => Promise<unknown> | void;
   onCancel: () => void;
   onTabOut?: (direction: 'next' | 'prev') => void;
-}
-
-function getStatusLabel(value: number): string {
-  return STATUS_OPTIONS.find((option) => option.value === value)?.label ?? `Etat ${value}`;
 }
 
 export function StatusCell({ value, isEditing, draftValue, onStartEdit, onDraftChange, onCommit, onCancel, onTabOut }: StatusCellProps) {
@@ -112,7 +101,7 @@ export function StatusCell({ value, isEditing, draftValue, onStartEdit, onDraftC
           onClick={(event) => event.stopPropagation()}
           onKeyDown={handleKeyDown}
         >
-          {STATUS_OPTIONS.map((option) => (
+          {MATCH_STATUS_OPTIONS.map((option) => (
             <MenuItem key={option.value} value={option.value}>
               {option.label}
             </MenuItem>
@@ -132,7 +121,7 @@ export function StatusCell({ value, isEditing, draftValue, onStartEdit, onDraftC
         onStartEdit();
       }}
     >
-      {getStatusLabel(Number(value))}
+      {getMatchStatusLabel(Number(value))}
     </Stack>
   );
 }

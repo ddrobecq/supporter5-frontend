@@ -13,6 +13,7 @@ import { PublicSearchDialog } from '../features/public/PublicSearchDialog';
 import { useState } from 'react';
 import { adminPathFromPublicPath, publicPathFromAdminPath } from '../lib/entityNavigation';
 import { useSeoMeta } from '../lib/useSeoMeta';
+import { TAB_EVENTS, type TabOpenEventDetail } from '../lib/useTabMetaEvents';
 
 export function PublicLayout() {
   const navigate = useNavigate();
@@ -41,12 +42,12 @@ export function PublicLayout() {
 
   useEffect(() => {
     const handleProtectedNavigation = (event: Event) => {
-      const detail = (event as CustomEvent<{ path?: string }>).detail;
+      const detail = (event as CustomEvent<TabOpenEventDetail>).detail;
       const path = String(detail?.path ?? '').trim();
       navigate(path.startsWith('/admin/') ? publicPathFromAdminPath(path) : (path || '/'));
     };
-    window.addEventListener('supporter:tab-open', handleProtectedNavigation);
-    return () => window.removeEventListener('supporter:tab-open', handleProtectedNavigation);
+    window.addEventListener(TAB_EVENTS.open, handleProtectedNavigation);
+    return () => window.removeEventListener(TAB_EVENTS.open, handleProtectedNavigation);
   }, [navigate]);
 
   return (

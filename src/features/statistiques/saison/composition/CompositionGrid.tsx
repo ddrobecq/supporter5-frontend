@@ -24,7 +24,7 @@ const UNITS: Record<CompositionMetric, string> = {
 
 /** Saison > composition: un item (nb joueurs, étrangers, nationalités, âge moyen, matches, remplacements) par saison. */
 export function CompositionGrid({ metric }: { metric: CompositionMetric }) {
-  const { rows, loading } = useStatRows<CompositionRow>((signal) => fetchSaisonComposition(metric, signal), [metric]);
+  const { rows, loading, error } = useStatRows<CompositionRow>((signal) => fetchSaisonComposition(metric, signal), [metric]);
 
   const columns: GridColDef<CompositionRow>[] = useMemo(() => [
     { field: 'SAISON', headerName: 'Saison', flex: 1, minWidth: 140 },
@@ -44,6 +44,7 @@ export function CompositionGrid({ metric }: { metric: CompositionMetric }) {
       rows={rows}
       columns={columns}
       loading={loading}
+      error={error}
     />
   );
 }

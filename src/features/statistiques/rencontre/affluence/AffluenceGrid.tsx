@@ -28,7 +28,7 @@ function AffluenceSentence({ row }: { row: AffluenceRow }) {
 
 export function AffluenceGrid() {
   const [scope, setScope] = useState<number | null>(null);
-  const { rows, loading } = useStatRows<AffluenceRow>((signal) => fetchAffluence(scope, signal), [scope]);
+  const { rows, loading, error } = useStatRows<AffluenceRow>((signal) => fetchAffluence(scope, signal), [scope]);
 
   const columns: GridColDef<AffluenceRow>[] = useMemo(() => [{
     field: 'NBSPECT',
@@ -47,6 +47,7 @@ export function AffluenceGrid() {
       rows={rows}
       valueColumns={columns}
       loading={loading}
+      error={error}
       rowHeight={64}
       scope={scope}
       onScopeChange={setScope}

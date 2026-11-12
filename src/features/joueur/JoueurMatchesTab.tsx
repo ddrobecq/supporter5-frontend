@@ -1,9 +1,6 @@
-﻿import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import EastRoundedIcon from '@mui/icons-material/EastRounded';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
-import HealingRoundedIcon from '@mui/icons-material/HealingRounded';
-import ReportRoundedIcon from '@mui/icons-material/ReportRounded';
-import SquareRoundedIcon from '@mui/icons-material/SquareRounded';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
 import { Alert, Autocomplete, Box, CircularProgress, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
@@ -12,6 +9,7 @@ import { MatchDataGrid } from '../../components/MatchDataGrid';
 import { buildMatchGridColumns } from '../../components/matchGridColumns';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { useEntityImage } from '../../lib/useEntityImage';
+import { getMatchEventVisual, MatchEventType } from '../rencontre/matchEventTypes';
 import { fetchJoueurMatches, fetchJoueurSeasonsByPlayedMatches } from './joueurApi';
 import type { JoueurMatchEvent, JoueurMatchRow } from './types';
 
@@ -20,15 +18,22 @@ interface JoueurMatchesTabProps {
   active: boolean;
 }
 
+/** Icône du module commun des types d'événements de match, à la taille de la grille. */
+function matchEventIcon(typeEvent: number): React.ReactElement {
+  const { Icon, color } = getMatchEventVisual(typeEvent);
+  return <Icon sx={{ fontSize: 16, color }} />;
+}
+
 const EVENT_ICONS: Record<JoueurMatchEvent['type'], { icon: React.ReactElement; label: string }> = {
-  but:     { icon: <SportsSoccerRoundedIcon sx={{ fontSize: 16, color: 'success.dark' }} />,  label: 'But' },
-  passe:   { icon: <SportsSoccerRoundedIcon sx={{ fontSize: 16, color: 'info.main' }} />,     label: 'Passe decisive' },
-  entree:  { icon: <EastRoundedIcon sx={{ fontSize: 16, color: 'success.main' }} />,           label: 'Entree' },
+  but:     { icon: matchEventIcon(MatchEventType.But), label: 'But' },
+  passe:   { icon: <SportsSoccerRoundedIcon sx={{ fontSize: 16, color: 'info.main' }} />,     label: 'Passe décisive' },
+  entree:  { icon: <EastRoundedIcon sx={{ fontSize: 16, color: 'success.main' }} />,           label: 'Entrée' },
   sortie:  { icon: <ArrowBackRoundedIcon sx={{ fontSize: 16, color: 'error.main' }} />,        label: 'Sortie' },
-  avertissement: { icon: <SquareRoundedIcon sx={{ fontSize: 16, color: '#eab308' }} />, label: 'Carton jaune' },
-  'second-avertissement': { icon: <ReportRoundedIcon sx={{ fontSize: 16, color: 'warning.dark' }} />, label: 'Second carton jaune' },
-  exclusion: { icon: <SquareRoundedIcon sx={{ fontSize: 16, color: 'error.dark' }} />,          label: 'Exclusion' },
-  blessure:{ icon: <HealingRoundedIcon sx={{ fontSize: 16, color: 'error.main' }} />,         label: 'Blessure' },
+  avertissement: { icon: matchEventIcon(MatchEventType.CartonJaune), label: 'Carton jaune' },
+  'second-avertissement': { icon: matchEventIcon(MatchEventType.SecondJaune), label: 'Second carton jaune' },
+  exclusion: { icon: matchEventIcon(MatchEventType.CartonRouge), label: 'Exclusion' },
+  blessure: { icon: matchEventIcon(MatchEventType.Blessure), label: 'Blessure' },
+  penalty: { icon: matchEventIcon(MatchEventType.PenaltyMarque), label: 'Penalty marqué' },
 };
 
 function EventIconsCell({ events }: { events: JoueurMatchEvent[] }) {
@@ -167,7 +172,7 @@ export function JoueurMatchesTab({ joueurId, active }: JoueurMatchesTabProps) {
         ) : matches.length === 0 ? (
           <Box sx={{ py: 2, textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">
-              {selectedSeason ? 'Aucun match trouve pour cette saison.' : 'Selectionnez une saison.'}
+              {selectedSeason ? 'Aucun match trouvé pour cette saison.' : 'Sélectionnez une saison.'}
             </Typography>
           </Box>
         ) : (

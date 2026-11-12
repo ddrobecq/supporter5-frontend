@@ -21,13 +21,14 @@ const VALUE_COLUMNS: GridColDef<ParSaisonRow>[] = [
 
 /** Joueur > Apparitions > Sur une saison: TITULAIRETOTAL + REMPTOTAL, 1 ligne par joueur/saison. */
 export function ParSaisonGrid() {
-  const { rows, loading } = useStatRows<ParSaisonRow>(fetchParSaison, []);
+  const { rows, loading, error } = useStatRows<ParSaisonRow>(fetchParSaison, []);
 
   return (
     <StatPlayerGrid<ParSaisonRow>
       rows={rows}
       valueColumns={VALUE_COLUMNS}
       loading={loading}
+      error={error}
       getRowId={(row) => `${row.IDJOUEUR}-${row.SAISON}`}
     />
   );

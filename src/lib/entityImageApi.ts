@@ -1,4 +1,5 @@
 import { http } from './http';
+import { invalidateEntityImage } from './useEntityImage';
 
 export async function updateEntityImage(
   entityType: string,
@@ -8,6 +9,7 @@ export async function updateEntityImage(
   await http.put(`/api/admin/images/${encodeURIComponent(entityType)}/${encodeURIComponent(String(id))}`, {
     image,
   });
+  invalidateEntityImage(entityType, id);
 }
 
 export async function updateEntityImageWithFallback(
@@ -20,6 +22,7 @@ export async function updateEntityImageWithFallback(
     await updateEntityImage(entityType, id, image);
   } catch {
     await fallback();
+    invalidateEntityImage(entityType, id);
   }
 }
 

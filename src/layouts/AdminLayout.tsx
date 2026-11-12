@@ -31,9 +31,9 @@ import { authStore } from '../features/auth/authStore';
 import { INCOMPLETS_SCREEN_BY_PATH, incompletsViewStore } from '../features/incomplets/incompletsViewStore';
 import type { HomePageOutletContext, RecentOpenedRecord } from '../features/home/types';
 import { BACKUP_RESULT_EVENT, maybeRunAutomaticBackup, type BackupResultEventDetail } from '../features/maintenance/backupRunner';
-import { emitTabSaveRequest } from '../lib/useTabMetaEvents';
+import { emitTabSaveRequest, TAB_EVENTS, type TabOpenEventDetail } from '../lib/useTabMetaEvents';
 import { useEntityImage } from '../lib/useEntityImage';
-import { supportedClubStore } from '../features/system/supportedClubStore';
+import { SUPPORTED_CLUB_FALLBACK_ID, supportedClubStore } from '../features/system/supportedClubStore';
 import {
   RECENT_OPENED_STORAGE_KEY,
   readRecentOpenedRecordsFromStorage,
@@ -67,13 +67,6 @@ interface OpenTabOptions {
   uniqueByPath?: boolean;
 }
 
-interface TabOpenEventDetail {
-  path?: string;
-  label?: string;
-  unique?: boolean;
-  uniqueByPath?: boolean;
-}
-
 const HOME_TAB_KEY = 'tab-home';
 
 export function AdminLayout() {
@@ -81,7 +74,7 @@ export function AdminLayout() {
   const location = useLocation();
   const supportedClubId = supportedClubStore((s) => s.clubId);
   const loadSupportedClub = supportedClubStore((s) => s.load);
-  const monacoLogo = useEntityImage('club', supportedClubId || '0001');
+  const monacoLogo = useEntityImage('club', supportedClubId || SUPPORTED_CLUB_FALLBACK_ID);
   const logout = authStore((s) => s.logout);
   const topToolbarRef = useRef<HTMLDivElement | null>(null);
   const topBrandRef = useRef<HTMLDivElement | null>(null);
@@ -329,8 +322,8 @@ export function AdminLayout() {
       });
     };
 
-    window.addEventListener('supporter:tab-open', handler);
-    return () => window.removeEventListener('supporter:tab-open', handler);
+    window.addEventListener(TAB_EVENTS.open, handler);
+    return () => window.removeEventListener(TAB_EVENTS.open, handler);
   }, [openTab]);
 
   const doCloseTab = (tabKey: string) => {
@@ -387,8 +380,8 @@ export function AdminLayout() {
       });
     };
 
-    window.addEventListener('supporter:tab-dirty', handler);
-    return () => window.removeEventListener('supporter:tab-dirty', handler);
+    window.addEventListener(TAB_EVENTS.dirty, handler);
+    return () => window.removeEventListener(TAB_EVENTS.dirty, handler);
   }, []);
 
   useEffect(() => {
@@ -402,8 +395,8 @@ export function AdminLayout() {
       setRecentOpenedRecords((prev) => renameRecentOpenedRecord(prev, normalizedPath, label));
     };
 
-    window.addEventListener('supporter:tab-label', handler);
-    return () => window.removeEventListener('supporter:tab-label', handler);
+    window.addEventListener(TAB_EVENTS.label, handler);
+    return () => window.removeEventListener(TAB_EVENTS.label, handler);
   }, []);
 
   useEffect(() => {
@@ -421,8 +414,8 @@ export function AdminLayout() {
       });
     };
 
-    window.addEventListener('supporter:tab-label-style', handler);
-    return () => window.removeEventListener('supporter:tab-label-style', handler);
+    window.addEventListener(TAB_EVENTS.labelStyle, handler);
+    return () => window.removeEventListener(TAB_EVENTS.labelStyle, handler);
   }, []);
 
   useEffect(() => {
@@ -437,8 +430,8 @@ export function AdminLayout() {
       doCloseTab(closeConfirmTabKey);
     };
 
-    window.addEventListener('supporter:tab-save-done', handler);
-    return () => window.removeEventListener('supporter:tab-save-done', handler);
+    window.addEventListener(TAB_EVENTS.saveDone, handler);
+    return () => window.removeEventListener(TAB_EVENTS.saveDone, handler);
   }, [closeConfirmTabKey, tabs]);
 
   const handleOpenPickerEntityInTab = (entityKey: PickerEntityKey) => ({ rowId, label }: PickerOpenPayload) => {
@@ -555,7 +548,7 @@ export function AdminLayout() {
                 </Button>
               </Tooltip>
 
-              <Tooltip title="Deconnexion" disableHoverListener={!compactTopActions}>
+              <Tooltip title="Déconnexion" disableHoverListener={!compactTopActions}>
                 <Button
                   variant="contained"
                   color="primary"
@@ -565,13 +558,13 @@ export function AdminLayout() {
                     px: compactTopActions ? 1 : 1.5,
                     '.MuiButton-startIcon': { mr: compactTopActions ? 0 : 1 },
                   }}
-                  aria-label="Deconnexion"
+                  aria-label="Déconnexion"
                   onClick={() => {
                     logout();
                     window.location.assign('/');
                   }}
                 >
-                  {compactTopActions ? <LogoutRoundedIcon /> : 'Deconnexion'}
+                  {compactTopActions ? <LogoutRoundedIcon /> : 'Déconnexion'}
                 </Button>
               </Tooltip>
             </Box>
@@ -595,7 +588,7 @@ export function AdminLayout() {
                   Refresh
                 </Button>
                 <Button variant="contained" color="primary" startIcon={<LogoutRoundedIcon />} sx={{ minWidth: 40, px: 1.5, '.MuiButton-startIcon': { mr: 1 } }}>
-                  Deconnexion
+                  Déconnexion
                 </Button>
               </Box>
             </Box>
@@ -743,7 +736,7 @@ export function AdminLayout() {
                     {dirtyTabsByPath[normalizeRoutePath(tab.path)] ? (
                       <Box
                         component="span"
-                        aria-label="Modifications non enregistrees"
+                        aria-label="Modifications non enregistrées"
                         sx={{
                           width: 6,
                           height: 6,
@@ -894,7 +887,7 @@ export function AdminLayout() {
             onCreated={(result) => {
               setToolsFeedback({
                 severity: 'success',
-                message: `Saison ${result.SAISON} creee (${result.joueursCount} joueur(s), ${result.competitionsCount} competition(s)).`,
+                message: `Saison ${result.SAISON} créée (${result.joueursCount} joueur(s), ${result.competitionsCount} compétition(s)).`,
               });
             }}
             onError={(message) => setToolsFeedback({ severity: 'error', message })}
@@ -908,7 +901,7 @@ export function AdminLayout() {
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle>Modifications non enregistrees</DialogTitle>
+        <DialogTitle>Modifications non enregistrées</DialogTitle>
         <DialogContent>
           Voulez-vous enregistrer les modifications avant de fermer cet onglet ?
         </DialogContent>

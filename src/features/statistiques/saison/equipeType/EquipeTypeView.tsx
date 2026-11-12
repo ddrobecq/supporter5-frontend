@@ -2,25 +2,19 @@ import { Box, Chip, MenuItem, Stack, TextField, Tooltip, Typography, useMediaQue
 import { useEffect, useMemo, useState } from 'react';
 import { NatioFlag } from '../../../../components/NatioFlag';
 import {
-  PITCH_SLOTS,
   PitchField,
   PitchPlayerAvatar,
   PitchPlayerMarker,
   PitchSlotShell,
-  pitchPlayerLabel as joueurLabel,
 } from '../../../../components/PitchField';
+import { PITCH_SLOTS, pitchPlayerLabel as joueurLabel } from '../../../../components/pitchSlots';
 import { fetchSaisons } from '../classements/saisonClassementApi';
 import { fetchEquipeType, fetchEquipeTypeHistorique, type EquipeTypeJoueur, type EquipeTypeResult } from './equipeTypeApi';
+import { emitTabOpen } from '../../../../lib/useTabMetaEvents';
+import { containerButtonResetSx } from '../../../../theme/buttonResetSx';
 
 function openJoueurTab(joueur: EquipeTypeJoueur): void {
-  window.dispatchEvent(new CustomEvent('supporter:tab-open', {
-    detail: {
-      path: `/admin/joueurs/${encodeURIComponent(joueur.IDJOUEUR)}`,
-      label: joueurLabel(joueur),
-      unique: true,
-      uniqueByPath: true,
-    },
-  }));
+  emitTabOpen(`/admin/joueurs/${encodeURIComponent(joueur.IDJOUEUR)}`, joueurLabel(joueur));
 }
 
 /** Nom complet (prenom + nom) pour l'affichage de l'entraineur. */
@@ -35,8 +29,10 @@ function EntraineurCard({ joueur, sx }: { joueur: EquipeTypeJoueur; sx?: object 
         <Stack
           direction="row"
           spacing={1}
+          component="button"
+          type="button"
           onClick={() => openJoueurTab(joueur)}
-          sx={{ alignItems: 'center', p: 1, border: '1.5px solid', borderColor: 'divider', borderRadius: 1.5, cursor: 'pointer', flex: 1, minWidth: 0 }}
+          sx={{ ...containerButtonResetSx, alignItems: 'center', p: 1, border: '1.5px solid', borderColor: 'divider', borderRadius: 1.5, cursor: 'pointer', flex: 1, minWidth: 0 }}
         >
           <PitchPlayerAvatar playerId={joueur.IDJOUEUR} size={34} />
           <Typography variant="body2" sx={{ fontWeight: 600, fontSize: 13, minWidth: 0, flex: 1 }}>
@@ -52,7 +48,7 @@ function EntraineurCard({ joueur, sx }: { joueur: EquipeTypeJoueur; sx?: object 
 function PitchPlayer({ joueur, label, x, y }: { joueur: EquipeTypeJoueur; label: string; x: number; y: number }) {
   return (
     <Tooltip title={`${label} · ${joueur.TITULARISATIONS} titularisations`}>
-      <PitchSlotShell x={x} y={y} sx={{ cursor: 'pointer' }} onClick={() => openJoueurTab(joueur)}>
+      <PitchSlotShell component="button" {...{ type: 'button' }} x={x} y={y} sx={{ ...containerButtonResetSx, cursor: 'pointer' }} onClick={() => openJoueurTab(joueur)}>
         <PitchPlayerMarker player={joueur} />
       </PitchSlotShell>
     </Tooltip>

@@ -1,16 +1,11 @@
-import AutorenewRoundedIcon from '@mui/icons-material/AutorenewRounded';
-import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
-import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
-import HealingRoundedIcon from '@mui/icons-material/HealingRounded';
-import ReportRoundedIcon from '@mui/icons-material/ReportRounded';
-import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
-import SquareRoundedIcon from '@mui/icons-material/SquareRounded';
-import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
 import TimerRoundedIcon from '@mui/icons-material/TimerRounded';
 import { Box, Stack, Typography } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
 import type { ReactElement } from 'react';
+import { MatchEventType, getMatchEventVisual } from './matchEventTypes';
 import type { RencontreHighlightEventRow } from './types';
+import { sortHighlightEvents } from './highlightEvents';
+import { containerButtonResetSx } from '../../theme/buttonResetSx';
 
 function formatEventMinute(eventRow: RencontreHighlightEventRow): string {
   const minute = Number(eventRow.MINUTE ?? 0);
@@ -18,84 +13,6 @@ function formatEventMinute(eventRow: RencontreHighlightEventRow): string {
     return '';
   }
   return `${Math.trunc(minute)}'`;
-}
-
-function getEventVisual(typeEvent: number): { icon: ReactElement; color: string; backgroundColor: string } {
-  if (typeEvent === 1) {
-    return {
-      icon: <SportsSoccerRoundedIcon fontSize="inherit" />,
-      color: '#0f766e',
-      backgroundColor: '#ccfbf1',
-    };
-  }
-  if (typeEvent === 2) {
-    return {
-      icon: <AutorenewRoundedIcon fontSize="inherit" />,
-      color: '#1d4ed8',
-      backgroundColor: '#dbeafe',
-    };
-  }
-  if (typeEvent === 3) {
-    return {
-      icon: <SquareRoundedIcon fontSize="inherit" />,
-      color: '#eab308',
-      backgroundColor: '#fefce8',
-    };
-  }
-  if (typeEvent === 4) {
-    return {
-      icon: <ReportRoundedIcon fontSize="inherit" />,
-      color: '#ea580c',
-      backgroundColor: '#ffedd5',
-    };
-  }
-  if (typeEvent === 5) {
-    return {
-      icon: <SquareRoundedIcon fontSize="inherit" />,
-      color: '#dc2626',
-      backgroundColor: '#fee2e2',
-    };
-  }
-  if (typeEvent === 6) {
-    return {
-      icon: <FlagRoundedIcon fontSize="inherit" />,
-      color: '#7c3aed',
-      backgroundColor: '#ede9fe',
-    };
-  }
-  if (typeEvent === 7) {
-    return {
-      icon: <TaskAltRoundedIcon fontSize="inherit" />,
-      color: '#16a34a',
-      backgroundColor: '#dcfce7',
-    };
-  }
-  if (typeEvent === 8) {
-    return {
-      icon: <CancelRoundedIcon fontSize="inherit" />,
-      color: '#b91c1c',
-      backgroundColor: '#fee2e2',
-    };
-  }
-  if (typeEvent === 9) {
-    return {
-      icon: <HealingRoundedIcon fontSize="inherit" />,
-      color: '#be185d',
-      backgroundColor: '#fce7f3',
-    };
-  }
-  if (typeEvent === 10) {
-    return {
-      icon: <TimerRoundedIcon fontSize="inherit" />,
-      color: '#475569',
-      backgroundColor: '#e2e8f0',
-    };
-  }
-  return {
-    icon: <FlagRoundedIcon fontSize="inherit" />,
-    color: '#4b5563',
-    backgroundColor: 'action.hover',
-  };
 }
 
 function buildEventCardSx(align: 'left' | 'right'): SxProps<Theme> {
@@ -109,17 +26,6 @@ function buildEventCardSx(align: 'left' | 'right'): SxProps<Theme> {
     minHeight: 32,
     textAlign: align,
   };
-}
-
-export function sortHighlightEvents(events: RencontreHighlightEventRow[]): RencontreHighlightEventRow[] {
-  return [...events].sort((a, b) => {
-    const minuteA = Number(a.MINUTE ?? 0);
-    const minuteB = Number(b.MINUTE ?? 0);
-    if (minuteA !== minuteB) {
-      return minuteA - minuteB;
-    }
-    return Number(a.EVCLEUNIK ?? 0) - Number(b.EVCLEUNIK ?? 0);
-  });
 }
 
 interface BannerChipProps {
@@ -138,12 +44,14 @@ interface BannerChipProps {
 /** Bandeau centré pleine largeur (chronomètre) : utilisé pour le temps additionnel et les marqueurs de période. */
 function BannerChip({ icon, color, backgroundColor, text, interactive = false, selected = false, onClick, onDoubleClick, showDivider = true }: BannerChipProps) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'center' }} onClick={onClick} onDoubleClick={onDoubleClick}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'center' }} onClick={interactive ? undefined : onClick} onDoubleClick={interactive ? undefined : onDoubleClick}>
       {showDivider ? <Box sx={{ flex: 1, height: '1px', bgcolor: 'divider' }} /> : null}
       <Stack
         direction="row"
         spacing={0.5}
+        {...(interactive ? { component: 'button', type: 'button', 'aria-pressed': selected, onClick, onDoubleClick } : {})}
         sx={{
+          ...(interactive ? containerButtonResetSx : {}),
           alignItems: 'center',
           px: 1.25,
           py: 0.25,
@@ -256,16 +164,17 @@ export function RencontreHighlightsTimeline({
 
         const eventRow = node.row;
         const eventText = eventRow.TEXT || String(eventRow.COMMENT ?? '');
-        const visual = getEventVisual(Number(eventRow.TYPE_EVENT ?? 0));
+        const visual = getMatchEventVisual(Number(eventRow.TYPE_EVENT ?? 0));
+        const eventIcon = <visual.Icon fontSize="inherit" />;
         const minuteText = formatEventMinute(eventRow) || '-';
         const isSelected = selectedEventId === eventRow.EVCLEUNIK;
 
         // Temps additionnel : fait de match neutre, affiché en bandeau centré plutôt que côté équipe.
-        if (Number(eventRow.TYPE_EVENT ?? 0) === 10) {
+        if (Number(eventRow.TYPE_EVENT ?? 0) === MatchEventType.TempsAdditionnel) {
           return (
             <BannerChip
               key={eventRow.EVCLEUNIK}
-              icon={visual.icon}
+              icon={eventIcon}
               color={visual.color}
               backgroundColor={visual.backgroundColor}
               text={eventText}
@@ -282,7 +191,9 @@ export function RencontreHighlightsTimeline({
 
         const card = (
           <Box
+            {...(interactive ? { component: 'button', type: 'button', 'aria-pressed': isSelected } : {})}
             sx={{
+              ...(interactive ? { ...containerButtonResetSx, display: 'block', width: '100%' } : {}),
               ...buildEventCardSx(isHomeEvent ? 'right' : 'left'),
               cursor: interactive ? 'pointer' : 'default',
               outline: isSelected ? '2px solid' : 'none',
@@ -316,7 +227,7 @@ export function RencontreHighlightsTimeline({
                       bgcolor: visual.backgroundColor,
                     }}
                   >
-                    {visual.icon}
+                    {eventIcon}
                   </Box>
                 </>
               ) : (
@@ -335,7 +246,7 @@ export function RencontreHighlightsTimeline({
                       bgcolor: visual.backgroundColor,
                     }}
                   >
-                    {visual.icon}
+                    {eventIcon}
                   </Box>
                   <Typography variant="body2" sx={{ lineHeight: 1.2, overflowWrap: 'anywhere' }}>{eventText}</Typography>
                 </>

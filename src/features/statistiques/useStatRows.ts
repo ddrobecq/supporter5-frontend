@@ -1,4 +1,6 @@
 import { useEffect, useState, type DependencyList } from 'react';
+import { toErrorMessage } from '../../components/useEntityPage';
+import { isAbortError } from '../../lib/httpErrors';
 
 interface UseStatRowsOptions<Row> {
   enabled?: boolean;
@@ -13,6 +15,7 @@ export function useStatRows<Row>(
   const { enabled = true, fallbackRows = [] } = options;
   const [rows, setRows] = useState<Row[]>(fallbackRows);
   const [loading, setLoading] = useState(enabled);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!enabled) {
@@ -22,15 +25,17 @@ export function useStatRows<Row>(
 
     const controller = new AbortController();
     setLoading(true);
+    setError(null);
     fetchRows(controller.signal)
       .then((data) => {
         if (!controller.signal.aborted) {
           setRows(data);
         }
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         if (!controller.signal.aborted) {
           setRows(fallbackRows);
+          if (!isAbortError(err)) setError(toErrorMessage(err));
         }
       })
       .finally(() => {
@@ -43,5 +48,5 @@ export function useStatRows<Row>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, ...deps]);
 
-  return { rows, loading };
+  return { rows, loading, error };
 }

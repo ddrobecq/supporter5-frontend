@@ -49,26 +49,28 @@ interface ScoringGridProps {
 }
 
 export function ButeursGrid({ metric = 'buts' }: ScoringGridProps) {
-  const { rows, loading } = useStatRows<ButeurRow>((signal) => fetchButeurs(metric, signal), [metric]);
+  const { rows, loading, error } = useStatRows<ButeurRow>((signal) => fetchButeurs(metric, signal), [metric]);
 
   return (
     <StatPlayerGrid<ButeurRow>
       rows={rows}
       valueColumns={valueColumns(metric)}
       loading={loading}
+      error={error}
       initialState={{ sorting: { sortModel: [{ field: 'BUTS', sort: 'desc' }] } }}
     />
   );
 }
 
 export function ButeursParSaisonGrid({ metric = 'buts' }: ScoringGridProps) {
-  const { rows, loading } = useStatRows<ButeurSaisonRow>((signal) => fetchButeursParSaison(metric, signal), [metric]);
+  const { rows, loading, error } = useStatRows<ButeurSaisonRow>((signal) => fetchButeursParSaison(metric, signal), [metric]);
 
   return (
     <StatPlayerGrid<ButeurSaisonRow>
       rows={rows}
       valueColumns={saisonValueColumns(metric)}
       loading={loading}
+      error={error}
       getRowId={(row) => `${row.IDJOUEUR}-${row.SAISON}`}
       initialState={{ sorting: { sortModel: [{ field: 'BUTS', sort: 'desc' }] } }}
     />
@@ -76,13 +78,14 @@ export function ButeursParSaisonGrid({ metric = 'buts' }: ScoringGridProps) {
 }
 
 export function EfficaciteButeursGrid({ metric = 'buts' }: ScoringGridProps) {
-  const { rows, loading } = useStatRows<EfficaciteButeurRow>((signal) => fetchEfficaciteButeurs(metric, signal), [metric]);
+  const { rows, loading, error } = useStatRows<EfficaciteButeurRow>((signal) => fetchEfficaciteButeurs(metric, signal), [metric]);
 
   return (
     <StatPlayerGrid<EfficaciteButeurRow>
       rows={rows}
       valueColumns={efficaciteValueColumns(metric)}
       loading={loading}
+      error={error}
       initialState={{
         sorting: { sortModel: [{ field: 'MINUTES_PAR_BUT', sort: 'asc' }] },
         columns: { columnVisibilityModel: { BUTS: false, MATCHES: false, MINUTES: false } },

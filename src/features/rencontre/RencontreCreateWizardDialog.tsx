@@ -15,7 +15,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { ClubSelectField } from '../../components/ClubSelectField';
 import { DateInputField } from '../../components/DateInputField';
-import { INVALID_DATE_MESSAGE, toIsoDate } from '../../components/dateUtils';
+import { INVALID_DATE_MESSAGE, todayIso, toIsoDate } from '../../components/dateUtils';
 import { useInvalidDateFields } from '../../components/useInvalidDateFields';
 import { TimeInputField } from '../../components/TimeInputField';
 import { toErrorMessage } from '../../components/useEntityPage';
@@ -28,7 +28,7 @@ import {
   fetchTourParticipants,
 } from '../competition/competitionApi';
 import type { CircOptionRow, CompetitionTourRow, TourParticipantRow } from '../competition/types';
-import { supportedClubStore } from '../system/supportedClubStore';
+import { SUPPORTED_CLUB_FALLBACK_ID, SUPPORTED_CLUB_FALLBACK_NAME, supportedClubStore } from '../system/supportedClubStore';
 import { createRencontre } from './rencontreApi';
 
 type WizardStep = 1 | 2;
@@ -50,16 +50,9 @@ interface ClubValue {
   clubName: string;
 }
 
-const SUPPORTED_CLUB_DEFAULT_ID = '0001';
-const SUPPORTED_CLUB_DEFAULT_NAME = 'Club supporte';
 
 function pad2(value: number): string {
   return String(value).padStart(2, '0');
-}
-
-function todayIsoDate(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
 }
 
 function nowDisplayTime(): string {
@@ -190,7 +183,7 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
       return;
     }
 
-    const defaultDate = todayIsoDate();
+    const defaultDate = todayIso();
     const defaultHeure = nowDisplayTime();
     setDate(defaultDate);
     setHeure(defaultHeure);
@@ -221,8 +214,8 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
   const handleDomicileChange = (nextValue: ClubValue) => {
     setDomicile(nextValue);
     setExterieur({
-      clubId: supportedClubId || SUPPORTED_CLUB_DEFAULT_ID,
-      clubName: supportedClubName || SUPPORTED_CLUB_DEFAULT_NAME,
+      clubId: supportedClubId || SUPPORTED_CLUB_FALLBACK_ID,
+      clubName: supportedClubName || SUPPORTED_CLUB_FALLBACK_NAME,
     });
     setErrorMessage('');
   };
@@ -230,8 +223,8 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
   const handleExterieurChange = (nextValue: ClubValue) => {
     setExterieur(nextValue);
     setDomicile({
-      clubId: supportedClubId || SUPPORTED_CLUB_DEFAULT_ID,
-      clubName: supportedClubName || SUPPORTED_CLUB_DEFAULT_NAME,
+      clubId: supportedClubId || SUPPORTED_CLUB_FALLBACK_ID,
+      clubName: supportedClubName || SUPPORTED_CLUB_FALLBACK_NAME,
     });
     setErrorMessage('');
   };
@@ -398,15 +391,15 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
       return false;
     }
     if (!domicile.clubId.trim()) {
-      setErrorMessage('L equipe domicile est requise.');
+      setErrorMessage("L'équipe domicile est requise.");
       return false;
     }
     if (!exterieur.clubId.trim()) {
-      setErrorMessage('L equipe exterieure est requise.');
+      setErrorMessage("L'équipe extérieure est requise.");
       return false;
     }
     if (domicile.clubId.trim() === exterieur.clubId.trim()) {
-      setErrorMessage('Les equipes domicile et exterieure doivent etre differentes.');
+      setErrorMessage('Les équipes domicile et extérieure doivent être différentes.');
       return false;
     }
     setErrorMessage('');
@@ -419,7 +412,7 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
     }
 
     if (!competitionId) {
-      setErrorMessage('La competition est requise pour un match officiel.');
+      setErrorMessage('La compétition est requise pour un match officiel.');
       return false;
     }
     if (!tourId) {
@@ -440,7 +433,7 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
         (row) => String(row.IDCLUB ?? '').trim() === exterieur.clubId.trim() && String(row.GROUPE ?? '').trim() === wantedGroup,
       );
       if (!homeInGroup || !awayInGroup) {
-        setErrorMessage('Les deux equipes doivent appartenir au groupe selectionne.');
+        setErrorMessage('Les deux équipes doivent appartenir au groupe sélectionné.');
         return false;
       }
     }
@@ -486,7 +479,7 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
 
       const createdId = created?.RECLEUNIK;
       if (createdId === undefined || createdId === null || !String(createdId).trim()) {
-        setErrorMessage('Création reussie mais identifiant de rencontre introuvable.');
+        setErrorMessage('Création réussie mais identifiant de rencontre introuvable.');
         return;
       }
 
@@ -556,7 +549,7 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
               </Box>
 
               <ClubSelectField
-                label="Equipe domicile"
+                label="Équipe domicile"
                 clubId={domicile.clubId}
                 clubName={domicile.clubName}
                 onChange={handleDomicileChange}
@@ -565,7 +558,7 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
               />
 
               <ClubSelectField
-                label="Equipe exterieure"
+                label="Équipe extérieure"
                 clubId={exterieur.clubId}
                 clubName={exterieur.clubName}
                 onChange={handleExterieurChange}
@@ -596,10 +589,10 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
                 <>
                   <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.25 }}>
                     <FormControl size="small" required>
-                      <InputLabel id="rencontre-create-competition-label">Competition</InputLabel>
+                      <InputLabel id="rencontre-create-competition-label">Compétition</InputLabel>
                       <Select
                         labelId="rencontre-create-competition-label"
-                        label="Competition"
+                        label="Compétition"
                         value={competitionId}
                         disabled={saving || optionsLoading}
                         onChange={(event) => setCompetitionId(String(event.target.value ?? ''))}
@@ -681,7 +674,7 @@ export function RencontreCreateWizardDialog({ open, onClose, onCreated }: Rencon
             color="inherit"
             disabled={saving}
           >
-            Precedent
+            Précédent
           </Button>
         ) : null}
         <Button

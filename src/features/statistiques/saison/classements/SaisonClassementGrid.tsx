@@ -34,7 +34,7 @@ function sentence(row: SaisonClassementRow, metric: SaisonClassementMetric): str
 export function SaisonClassementGrid({ metric }: { metric: SaisonClassementMetric }) {
   const [saisons, setSaisons] = useState<string[]>([]);
   const [saison, setSaison] = useState('');
-  const { rows, loading } = useStatRows<SaisonClassementRow>(
+  const { rows, loading, error } = useStatRows<SaisonClassementRow>(
     (signal) => fetchSaisonClassement(metric, saison, signal),
     [metric, saison],
     { enabled: Boolean(saison) },
@@ -70,6 +70,7 @@ export function SaisonClassementGrid({ metric }: { metric: SaisonClassementMetri
       rows={rows}
       valueColumns={columns}
       loading={loading}
+      error={error}
       hideIdentityColumn
       toolbarActions={(
         <TextField

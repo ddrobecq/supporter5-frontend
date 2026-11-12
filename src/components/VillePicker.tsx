@@ -3,11 +3,11 @@ import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
 import { Box, Dialog, DialogContent, DialogTitle, IconButton, InputAdornment, TextField, Tooltip } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { useEffect, useState } from 'react';
-import { http } from '../lib/http';
 import { fetchVilleById } from '../features/ville/villeApi';
 import { VillePage } from '../features/ville/VillePage';
 import type { VilleRow } from '../features/ville/types';
 import { useEntityImage } from '../lib/useEntityImage';
+import { useNatio } from '../features/natio/natioStore';
 
 export interface VillePickerProps {
   villeId: string;
@@ -26,14 +26,8 @@ export interface VillePickerProps {
 
 function VilleFlagImg({ natioId }: { natioId: string }) {
   const { src } = useEntityImage('natio', natioId || null);
-  const [natioName, setNatioName] = useState(natioId);
-
-  useEffect(() => {
-    if (!natioId) return;
-    void http.get<Record<string, unknown>>(`/api/natio/${encodeURIComponent(natioId)}`)
-      .then(({ data }) => setNatioName(String(data?.PAYS ?? natioId).trim() || natioId))
-      .catch(() => {});
-  }, [natioId]);
+  const { natio } = useNatio(natioId || null);
+  const natioName = natio ? String(natio.PAYS ?? natioId).trim() || natioId : natioId;
 
   if (!src) return null;
   return (
@@ -147,7 +141,7 @@ export function VillePicker({
         <DialogTitle>Sélectionner une Ville</DialogTitle>
         <DialogContent dividers sx={{ p: 2, bgcolor: 'background.default', overflow: 'hidden', display: 'flex', minHeight: 0 }}>
           <Box sx={{ flex: 1, minHeight: 0, minWidth: 0, display: 'flex', '& > *': { flex: 1, minHeight: 0, minWidth: 0 } }}>
-            <VillePage variant="modalPicker" onSelectVille={handleSelect} />
+            <VillePage onSelectVille={handleSelect} />
           </Box>
         </DialogContent>
       </Dialog>

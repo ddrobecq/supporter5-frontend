@@ -31,7 +31,8 @@ import {
 } from '../competition/competitionApi';
 import { buildCompetitionLabel } from './competitionLabel';
 import type { CompetitionTourRow } from '../competition/types';
-import { normalizeImportDate, normalizeImportNumber, normalizeImportTime, parseCsv, type ParsedCsv } from './csv';
+import { parseImportHeure } from '../../components/heureUtils';
+import { normalizeImportDate, normalizeImportNumber, parseCsv, type ParsedCsv } from './csv';
 import {
   IMPORT_TARGET_FIELDS,
   rencontreImportStore,
@@ -170,7 +171,7 @@ export function RencontreImportWizardDialog({ open, onClose, onReady }: Rencontr
     const rows: ImportDraftRow[] = parsed.rows.map((row, index) => ({
       id: `row-${index}`,
       DATE: normalizeImportDate(read(row, 'DATE')),
-      HEURE: normalizeImportTime(read(row, 'HEURE')),
+      HEURE: parseImportHeure(read(row, 'HEURE')),
       IDCIRC: read(row, 'IDCIRC'),
       DOMICILE_LABEL: read(row, 'DOMICILE'),
       EXTERIEUR_LABEL: read(row, 'EXTERIEUR'),

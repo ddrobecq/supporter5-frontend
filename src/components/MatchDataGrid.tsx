@@ -6,7 +6,9 @@ import { DataGrid, type DataGridProps, type GridRowParams, type GridValidRowMode
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { normalizeHeureDigits } from './heureUtils';
 import { entityPath } from '../lib/entityNavigation';
+import { MatchEtat } from '../lib/matchStatus';
 import { useLocation } from 'react-router-dom';
+import { emitTabOpen } from '../lib/useTabMetaEvents';
 
 type RowSaveStatus = 'idle' | 'saving' | 'saved' | 'failed';
 
@@ -48,7 +50,7 @@ function parseMatchDateTime(row: GridValidRowModel): Date | null {
 }
 
 function getMatchTimingClass(row: GridValidRowModel, now: Date): string {
-  if (Number(row.ETAT) !== 1) {
+  if (Number(row.ETAT) !== MatchEtat.EnAttente) {
     return '';
   }
 
@@ -122,14 +124,7 @@ export function MatchDataGrid<R extends GridValidRowModel>(props: MatchDataGridP
     const path = entityPath('rencontre', matchId, location.pathname);
     const label = 'Rencontre';
 
-    window.dispatchEvent(new CustomEvent('supporter:tab-open', {
-      detail: {
-        path,
-        label,
-        unique: true,
-        uniqueByPath: true,
-      },
-    }));
+    emitTabOpen(path, label);
   };
 
   const updateStatusAnchors = useCallback(() => {

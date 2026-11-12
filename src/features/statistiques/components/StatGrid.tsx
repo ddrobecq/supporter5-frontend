@@ -1,5 +1,5 @@
 import MilitaryTechRoundedIcon from '@mui/icons-material/MilitaryTechRounded';
-import { Box, Tooltip } from '@mui/material';
+import { Alert, Box, Tooltip } from '@mui/material';
 import { useMemo } from 'react';
 import { DataGrid, useGridApiRef, type DataGridProps, type GridColDef, type GridRowClassNameParams, type GridValidRowModel } from '@mui/x-data-grid';
 
@@ -8,10 +8,26 @@ export interface StatGridProps<R extends GridValidRowModel> extends Partial<Data
   columns: DataGridProps<R>['columns'];
   loading?: boolean;
   initialState?: DataGridProps<R>['initialState'];
+  /** Message d'erreur de chargement, affiche a la place de l'overlay "aucune ligne". */
+  error?: string | null;
+}
+
+declare module '@mui/x-data-grid' {
+  interface NoRowsOverlayPropsOverrides {
+    error?: string | null;
+  }
+}
+
+function StatGridErrorOverlay({ error }: { error?: string | null }) {
+  return (
+    <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
+      <Alert severity="error">{error}</Alert>
+    </Box>
+  );
 }
 
 /** Socle générique pour toutes les grilles de statistiques (StatPlayerGrid, StatMatchGrid, ...). */
-export function StatGrid<R extends GridValidRowModel>({ rows, columns, loading, sx, initialState, getRowClassName, apiRef: externalApiRef, ...rest }: StatGridProps<R>) {
+export function StatGrid<R extends GridValidRowModel>({ rows, columns, loading, error, sx, initialState, getRowClassName, apiRef: externalApiRef, ...rest }: StatGridProps<R>) {
   const localApiRef = useGridApiRef();
   const apiRef = externalApiRef ?? localApiRef;
   const mergedInitialState = {
@@ -109,6 +125,7 @@ export function StatGrid<R extends GridValidRowModel>({ rows, columns, loading, 
         hideFooterSelectedRowCount
         pageSizeOptions={[25, 50, 100]}
         initialState={mergedInitialState}
+        {...(error ? { slots: { noRowsOverlay: StatGridErrorOverlay }, slotProps: { noRowsOverlay: { error } } } : {})}
         {...rest}
       />
     </Box>

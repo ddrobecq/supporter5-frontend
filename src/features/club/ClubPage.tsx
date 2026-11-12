@@ -1,6 +1,5 @@
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useMemo, useState } from 'react';
-import { Navigate, useParams } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
 import { toErrorMessage, useEntityPage } from '../../components/useEntityPage';
@@ -9,21 +8,15 @@ import { ClubCreateDialog } from './ClubCreateDialog';
 import type { ClubCreateWizardPayload, ClubGridRow } from './types';
 
 interface ClubPageProps {
-  variant?: 'page' | 'modalPicker';
   onOpenInTab?: (payload: { rowId: GridRowId; label: string }) => void;
   onSelectClub?: (club: ClubGridRow) => void;
 }
 
-export function ClubPage({ variant = 'page', onOpenInTab, onSelectClub }: ClubPageProps) {
-  const params = useParams<{ clubId?: string }>();
-  const clubId = params.clubId;
+const getClubRowId = (row: ClubGridRow): GridRowId => row.IDCLUB;
 
-  // Si variant est 'page' (page complète, pas modale) et qu'il n'y a pas d'ID, rediriger
-  if (variant === 'page' && !clubId) {
-    return <Navigate to="/admin/home" replace />;
-  }
-
+export function ClubPage({ onOpenInTab, onSelectClub }: ClubPageProps) {
   const navigate = useNavigate();
+  const canOpenRow = Boolean(onOpenInTab || onSelectClub);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const page = useEntityPage<ClubGridRow>(
@@ -37,12 +30,12 @@ export function ClubPage({ variant = 'page', onOpenInTab, onSelectClub }: ClubPa
     {
       singular: 'club',
       singularArticle: 'ce club',
-      created: 'Club cree.',
-      updated: 'Club mis a jour.',
-      deleted: 'Club supprime.',
-      selectToOpen: 'Selectionnez un club a ouvrir.',
-      selectToDelete: 'Selectionnez un club a supprimer.',
-      noneSelected: 'Aucun club selectionne.',
+      created: 'Club créé.',
+      updated: 'Club mis à jour.',
+      deleted: 'Club supprimé.',
+      selectToOpen: 'Sélectionnez un club à ouvrir.',
+      selectToDelete: 'Sélectionnez un club à supprimer.',
+      noneSelected: 'Aucun club sélectionné.',
     },
   );
 
@@ -92,11 +85,11 @@ export function ClubPage({ variant = 'page', onOpenInTab, onSelectClub }: ClubPa
   const handleOpen = () => {
     const selectedId = page.selection.at(0);
     if (selectedId === undefined || selectedId === null) {
-      page.setSnackbar({ severity: 'error', message: 'Selectionnez un club a ouvrir.' });
+      page.setSnackbar({ severity: 'error', message: 'Sélectionnez un club à ouvrir.' });
       return;
     }
 
-    if (variant === 'modalPicker' && (onOpenInTab || onSelectClub)) {
+    if (canOpenRow) {
       openInTabFromRowId(selectedId);
       return;
     }
@@ -108,9 +101,9 @@ export function ClubPage({ variant = 'page', onOpenInTab, onSelectClub }: ClubPa
     const created = await createClubWithWizard(payload);
 
     await page.reloadData();
-    page.setSnackbar({ severity: 'success', message: 'Club cree.' });
+    page.setSnackbar({ severity: 'success', message: 'Club créé.' });
 
-    if (variant === 'modalPicker' && (onOpenInTab || onSelectClub)) {
+    if (canOpenRow) {
       const label = String(created.CLUB_NOM_COMPLET ?? '').trim() || String(created.CLUB_ABREGE ?? '').trim() || String(created.IDCLUB);
       if (onSelectClub) {
         onSelectClub(created);
@@ -125,8 +118,8 @@ export function ClubPage({ variant = 'page', onOpenInTab, onSelectClub }: ClubPa
 
   return (
     <EntityPageLayout
-      hideTitle={variant === 'modalPicker'}
-      actionsInlineWithSearch={variant === 'modalPicker'}
+      hideTitle
+      actionsInlineWithSearch
       title="Clubs"
       searchLabel="Rechercher un club"
       search={page.search}
@@ -140,11 +133,11 @@ export function ClubPage({ variant = 'page', onOpenInTab, onSelectClub }: ClubPa
       rows={page.rows}
       columns={columns}
       loading={page.loading}
-      getRowId={(row) => row.IDCLUB}
+      getRowId={getClubRowId}
       selection={page.selection}
       onSelectionChange={page.setSelection}
       onRowDoubleClick={(rowId) => {
-        if (variant === 'modalPicker' && (onOpenInTab || onSelectClub)) {
+        if (canOpenRow) {
           openInTabFromRowId(rowId);
           return;
         }

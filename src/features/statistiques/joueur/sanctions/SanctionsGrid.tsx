@@ -17,17 +17,17 @@ function label(metric: SanctionMetric): string {
 }
 
 export function SanctionsGrid({ metric }: SanctionsGridProps) {
-  const { rows, loading } = useStatRows<SanctionRow>((signal) => fetchSanctions(metric, signal), [metric]);
+  const { rows, loading, error } = useStatRows<SanctionRow>((signal) => fetchSanctions(metric, signal), [metric]);
 
   const columns: GridColDef<SanctionRow>[] = [{
     field: 'BUTS', headerName: label(metric), width: 150, type: 'number', align: 'right', headerAlign: 'right',
   }];
 
-  return <StatPlayerGrid<SanctionRow> rows={rows} valueColumns={columns} loading={loading} initialState={{ sorting: { sortModel: [{ field: 'BUTS', sort: 'desc' }] } }} />;
+  return <StatPlayerGrid<SanctionRow> rows={rows} valueColumns={columns} loading={loading} error={error} initialState={{ sorting: { sortModel: [{ field: 'BUTS', sort: 'desc' }] } }} />;
 }
 
 export function SanctionsParSaisonGrid({ metric }: SanctionsGridProps) {
-  const { rows, loading } = useStatRows<SanctionSaisonRow>((signal) => fetchSanctionsParSaison(metric, signal), [metric]);
+  const { rows, loading, error } = useStatRows<SanctionSaisonRow>((signal) => fetchSanctionsParSaison(metric, signal), [metric]);
 
   const columns: GridColDef<SanctionSaisonRow>[] = [
     { field: 'SAISON', headerName: 'Saison', width: 120 },
@@ -39,6 +39,7 @@ export function SanctionsParSaisonGrid({ metric }: SanctionsGridProps) {
       rows={rows}
       valueColumns={columns}
       loading={loading}
+      error={error}
       getRowId={(row) => `${row.IDJOUEUR}-${row.SAISON}`}
       initialState={{ sorting: { sortModel: [{ field: 'BUTS', sort: 'desc' }] } }}
     />
@@ -47,7 +48,7 @@ export function SanctionsParSaisonGrid({ metric }: SanctionsGridProps) {
 
 export function ExclusionsRapidesGrid() {
   const [scope, setScope] = useState<number | null>(null);
-  const { rows, loading } = useStatRows<ExclusionRapideRow>((signal) => fetchExclusionsRapides(scope, signal), [scope]);
+  const { rows, loading, error } = useStatRows<ExclusionRapideRow>((signal) => fetchExclusionsRapides(scope, signal), [scope]);
 
   const columns: GridColDef<ExclusionRapideRow>[] = [{
     field: 'MINUTE',
@@ -63,6 +64,7 @@ export function ExclusionsRapidesGrid() {
       rows={rows}
       valueColumns={columns}
       loading={loading}
+      error={error}
       hideIdentityColumn
       initialState={{ sorting: { sortModel: [{ field: 'MINUTE', sort: 'asc' }] } }}
       scope={scope}

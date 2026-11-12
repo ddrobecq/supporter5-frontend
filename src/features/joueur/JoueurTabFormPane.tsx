@@ -4,11 +4,11 @@ import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
-import { fetchNatio } from '../natio/natioApi';
-import type { NatioRow } from '../natio/types';
+import { useNatioList } from '../natio/natioStore';
+import { usePostesList } from './postesStore';
 import { JoueurFormDialog } from './JoueurFormDialog';
-import { fetchJoueurById, fetchJoueurPostes, updateJoueur } from './joueurApi';
-import type { JoueurRow, PosteOption } from './types';
+import { fetchJoueurById, updateJoueur } from './joueurApi';
+import type { JoueurRow } from './types';
 
 interface JoueurTabFormPaneProps {
   tabPath: string;
@@ -26,8 +26,8 @@ export function JoueurTabFormPane({ tabPath, joueurId, active }: JoueurTabFormPa
   const { setDirty, setLabel, saveRequestCount, notifySaveDone } = useTabFormPaneBridge({ tabPath });
   const [loading, setLoading] = useState(true);
   const [row, setRow] = useState<JoueurRow | undefined>(undefined);
-  const [natioDatas, setNatioDatas] = useState<NatioRow[]>([]);
-  const [posteOptions, setPosteOptions] = useState<PosteOption[]>([]);
+  const { rows: natioDatas } = useNatioList();
+  const { rows: posteOptions } = usePostesList();
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
 
   const reloadRow = useCallback(async () => {
@@ -47,20 +47,9 @@ export function JoueurTabFormPane({ tabPath, joueurId, active }: JoueurTabFormPa
   }, [joueurId, setDirty, setLabel]);
 
   useEffect(() => {
-    const controller = new AbortController();
-
-    void fetchNatio('', controller.signal)
-      .then((result) => setNatioDatas(result.data ?? []))
-      .catch(() => {});
-
-    void fetchJoueurPostes(controller.signal)
-      .then((result) => setPosteOptions(result))
-      .catch(() => {});
-
     void reloadRow();
 
     return () => {
-      controller.abort();
       setDirty(false);
     };
   }, [reloadRow, setDirty]);
@@ -89,7 +78,7 @@ export function JoueurTabFormPane({ tabPath, joueurId, active }: JoueurTabFormPa
               setRow(refreshed);
               setLabel(resolveJoueurLabel(refreshed, String(joueurId)));
               setDirty(false);
-              setSnackbar({ severity: 'success', message: 'Joueur mis a jour.' });
+              setSnackbar({ severity: 'success', message: 'Joueur mis à jour.' });
               notifySaveDone();
             } catch (error) {
               setSnackbar({ severity: 'error', message: toErrorMessage(error) });

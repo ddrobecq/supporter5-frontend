@@ -5,6 +5,7 @@ import { JoueurIdentityDisplay } from '../../../components/JoueurIdentityDisplay
 import { StatGrid } from './StatGrid';
 import { StatGridToolbar } from './StatGridToolbar';
 import { useStatGridSearchSelection } from './useStatGridSearchSelection';
+import { emitTabOpen } from '../../../lib/useTabMetaEvents';
 
 export interface StatPlayerRow extends GridValidRowModel {
   IDJOUEUR: string;
@@ -20,6 +21,7 @@ interface StatPlayerGridProps<R extends StatPlayerRow> {
   /** Colonnes propres a la stat (le joueur est ajoute automatiquement en premiere colonne). */
   valueColumns: GridColDef<R>[];
   loading?: boolean;
+  error?: string | null;
   /** Par defaut IDJOUEUR (1 ligne par joueur); a surcharger si plusieurs lignes par joueur (ex: par saison). */
   getRowId?: (row: R) => string;
   /** Optional DataGrid initialState for sorting, filtering, etc. */
@@ -41,18 +43,11 @@ function openJoueurTab(row: StatPlayerRow): void {
   const prenom = row.PRENOM?.trim() ?? '';
   const label = surnom || `${nom}${prenom ? ` ${prenom}` : ''}` || row.IDJOUEUR;
 
-  window.dispatchEvent(new CustomEvent('supporter:tab-open', {
-    detail: {
-      path: `/admin/joueurs/${encodeURIComponent(row.IDJOUEUR)}`,
-      label,
-      unique: true,
-      uniqueByPath: true,
-    },
-  }));
+  emitTabOpen(`/admin/joueurs/${encodeURIComponent(row.IDJOUEUR)}`, label);
 }
 
 /** Grille generique pour toutes les stats du domaine Joueur: 1re colonne = identite joueur. */
-export function StatPlayerGrid<R extends StatPlayerRow>({ rows, valueColumns, loading, getRowId, initialState, hideIdentityColumn, toolbarActions, apiRef: externalApiRef, scope, onScopeChange }: StatPlayerGridProps<R>) {
+export function StatPlayerGrid<R extends StatPlayerRow>({ rows, valueColumns, loading, error, getRowId, initialState, hideIdentityColumn, toolbarActions, apiRef: externalApiRef, scope, onScopeChange }: StatPlayerGridProps<R>) {
   const resolveRowId = useCallback(getRowId ?? ((row: R) => row.IDJOUEUR), [getRowId]);
   const localApiRef = useGridApiRef();
   const apiRef = externalApiRef ?? localApiRef;
@@ -96,6 +91,7 @@ export function StatPlayerGrid<R extends StatPlayerRow>({ rows, valueColumns, lo
           rows={rows}
           columns={columns}
           loading={loading}
+          error={error}
           getRowId={resolveRowId}
           apiRef={apiRef}
           rowSelectionModel={rowSelectionModel}

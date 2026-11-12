@@ -4,6 +4,7 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { StatGrid } from './StatGrid';
 import { StatGridToolbar } from './StatGridToolbar';
 import { useStatGridSearchSelection } from './useStatGridSearchSelection';
+import { emitTabOpen } from '../../../lib/useTabMetaEvents';
 
 export interface StatMatchRow extends GridValidRowModel {
   RECLEUNIK: number | string;
@@ -19,6 +20,7 @@ interface StatMatchGridProps<R extends StatMatchRow> {
   /** Colonnes propres a la stat (la rencontre est deja identifiee par RECLEUNIK). */
   valueColumns: GridColDef<R>[];
   loading?: boolean;
+  error?: string | null;
   getRowId?: (row: R) => string;
   initialState?: DataGridProps<R>['initialState'];
   /** Controles propres a la stat, affiches sur la meme ligne que la recherche. */
@@ -34,23 +36,16 @@ interface StatMatchGridProps<R extends StatMatchRow> {
 }
 
 /** Ouvre la fiche rencontre dans un onglet interne (cle RECLEUNIK, pas MACLEUNIK). */
-export function openRencontreTab(row: StatMatchRow): void {
+function openRencontreTab(row: StatMatchRow): void {
   const domicile = row.DOMICILE_NOM?.trim() ?? '';
   const exterieur = row.EXTERIEUR_NOM?.trim() ?? '';
   const label = domicile && exterieur ? `${domicile} - ${exterieur}` : 'Rencontre';
 
-  window.dispatchEvent(new CustomEvent('supporter:tab-open', {
-    detail: {
-      path: `/admin/rencontres/${encodeURIComponent(String(row.RECLEUNIK))}`,
-      label,
-      unique: true,
-      uniqueByPath: true,
-    },
-  }));
+  emitTabOpen(`/admin/rencontres/${encodeURIComponent(String(row.RECLEUNIK))}`, label);
 }
 
 /** Grille generique pour toutes les stats du domaine Rencontre: la ligne ouvre le match. */
-export function StatMatchGrid<R extends StatMatchRow>({ rows, valueColumns, loading, getRowId, initialState, toolbarActions, apiRef: externalApiRef, rowHeight, hideSearch, scope, onScopeChange }: StatMatchGridProps<R>) {
+export function StatMatchGrid<R extends StatMatchRow>({ rows, valueColumns, loading, error, getRowId, initialState, toolbarActions, apiRef: externalApiRef, rowHeight, hideSearch, scope, onScopeChange }: StatMatchGridProps<R>) {
   const resolveRowId = useCallback(getRowId ?? ((row: R) => String(row.RECLEUNIK)), [getRowId]);
   const localApiRef = useGridApiRef();
   const apiRef = externalApiRef ?? localApiRef;
@@ -81,6 +76,7 @@ export function StatMatchGrid<R extends StatMatchRow>({ rows, valueColumns, load
           rows={rows}
           columns={valueColumns}
           loading={loading}
+          error={error}
           getRowId={resolveRowId}
           apiRef={apiRef}
           rowSelectionModel={rowSelectionModel}

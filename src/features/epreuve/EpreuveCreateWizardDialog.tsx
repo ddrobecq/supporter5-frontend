@@ -66,7 +66,7 @@ export function EpreuveCreateWizardDialog({ open, onClose, onCreated, onError }:
 
   const handleCreate = async () => {
     if (!canCreate) {
-      onError('Le nom de l epreuve est requis.');
+      onError("Le nom de l'épreuve est requis.");
       return;
     }
 
@@ -75,7 +75,7 @@ export function EpreuveCreateWizardDialog({ open, onClose, onCreated, onError }:
       const created = await createEpreuveWithWizard({ name: name.trim() });
       const createdId = created?.IDEPREUVE;
       if (createdId === undefined || createdId === null || String(createdId).trim() === '') {
-        onError('Création reussie mais identifiant introuvable.');
+        onError('Création réussie mais identifiant introuvable.');
         return;
       }
       const label = String(created?.EPREUVE ?? '').trim() || name.trim();
@@ -105,7 +105,7 @@ export function EpreuveCreateWizardDialog({ open, onClose, onCreated, onError }:
 
   return (
     <Dialog open={open} onClose={() => { if (!saving) onClose(); }} fullWidth maxWidth="sm" onKeyDown={handleKeyDown}>
-      <DialogTitle>Nouvelle Epreuve</DialogTitle>
+      <DialogTitle>Nouvelle Épreuve</DialogTitle>
       <DialogContent sx={{ p: 0, overflowX: 'hidden' }}>
         <Box sx={{ px: 3, pt: 1.5, pb: 1.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <TextField
@@ -121,7 +121,7 @@ export function EpreuveCreateWizardDialog({ open, onClose, onCreated, onError }:
           <CreateWizardSuggestionPanel
             loading={loadingSuggestions}
             rows={suggestions}
-            emptyText="Aucune epreuve approchante trouvee."
+            emptyText="Aucune épreuve approchante trouvée."
             getKey={(row) => row.IDEPREUVE}
             getPrimaryText={(row) => String(row.EPREUVE ?? '')}
           />
@@ -130,7 +130,7 @@ export function EpreuveCreateWizardDialog({ open, onClose, onCreated, onError }:
       <DialogActions sx={{ px: 3, pb: 2, pt: 1, justifyContent: 'flex-end' }}>
         <Button onClick={onClose} color="inherit" disabled={saving}>Annuler</Button>
         <Button onClick={() => void handleCreate()} variant="contained" disabled={saving || !canCreate}>
-          {saving ? 'Enregistrement...' : 'Creer'}
+          {saving ? 'Enregistrement...' : 'Créer'}
         </Button>
       </DialogActions>
     </Dialog>

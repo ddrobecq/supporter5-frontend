@@ -40,7 +40,7 @@ function ScoreSentence({ row }: { row: ScoreRow }) {
 
 export function ScoresGrid({ metric }: { metric: ScoreMetric }) {
   const [scope, setScope] = useState<number | null>(null);
-  const { rows, loading } = useStatRows<ScoreRow>((signal) => fetchScores(metric, scope, signal), [metric, scope]);
+  const { rows, loading, error } = useStatRows<ScoreRow>((signal) => fetchScores(metric, scope, signal), [metric, scope]);
 
   const columns: GridColDef<ScoreRow>[] = useMemo(() => [{
     field: SORT_FIELDS[metric],
@@ -59,6 +59,7 @@ export function ScoresGrid({ metric }: { metric: ScoreMetric }) {
       rows={rows}
       valueColumns={columns}
       loading={loading}
+      error={error}
       rowHeight={64}
       scope={scope}
       onScopeChange={setScope}

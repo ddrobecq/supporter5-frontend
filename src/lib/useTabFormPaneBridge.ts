@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { emitTabSaveDone, useTabMetaEvents } from './useTabMetaEvents';
+import { emitTabSaveDone, TAB_EVENTS, useTabMetaEvents } from './useTabMetaEvents';
 
 interface UseTabFormPaneBridgeArgs {
   tabPath: string;
@@ -38,8 +38,8 @@ export function useTabFormPaneBridge({ tabPath, onSaveRequest }: UseTabFormPaneB
       setSaveRequestCount((current) => current + 1);
     };
 
-    window.addEventListener('supporter:tab-save-request', handler);
-    return () => window.removeEventListener('supporter:tab-save-request', handler);
+    window.addEventListener(TAB_EVENTS.saveRequest, handler);
+    return () => window.removeEventListener(TAB_EVENTS.saveRequest, handler);
   }, [tabPath]);
 
   return {

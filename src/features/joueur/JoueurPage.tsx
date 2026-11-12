@@ -2,26 +2,24 @@ import { Alert, FormControl, InputLabel, MenuItem, Select } from '@mui/material'
 import type { GridColDef, GridRowClassNameParams, GridRowId } from '@mui/x-data-grid';
 import axios from 'axios';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Navigate, useParams } from 'react-router-dom';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
 import { toErrorMessage } from '../../components/useEntityPage';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
-import { fetchNatio } from '../natio/natioApi';
-import type { NatioRow } from '../natio/types';
+import { useNatioList } from '../natio/natioStore';
+import { usePostesList } from './postesStore';
 import { readLastSelectedSeason, writeLastSelectedSeason } from '../saison/lastSelectedSeason';
 import {
   canDeleteJoueur,
   createJoueurWithWizard,
   deleteJoueur,
   fetchJoueurById,
-  fetchJoueurPostes,
   fetchJoueursGrid,
   fetchSaisons,
   updateJoueur,
 } from './joueurApi';
 import { JoueurFormDialog } from './JoueurFormDialog';
 import { JoueurCreateWizardDialog } from './JoueurCreateWizardDialog';
-import type { IntegrityConstraint, JoueurGridRow, JoueurRow, PosteOption, SaisonRow } from './types';
+import type { IntegrityConstraint, JoueurGridRow, JoueurRow, SaisonRow } from './types';
 
 function detectSelectedRow(rows: JoueurGridRow[], selection: GridRowId[]): JoueurGridRow | undefined {
   const selected = selection.at(0);
@@ -32,29 +30,22 @@ function detectSelectedRow(rows: JoueurGridRow[], selection: GridRowId[]): Joueu
 }
 
 interface JoueurPageProps {
-  variant?: 'page' | 'modalPicker';
   onOpenInTab?: (payload: { rowId: GridRowId; label: string }) => void;
   filterPosteType?: number;
   initialSeason?: string;
 }
 
-export function JoueurPage({ variant = 'page', onOpenInTab, filterPosteType, initialSeason }: JoueurPageProps) {
-  const params = useParams<{ joueurId?: string }>();
-  const joueurId = params.joueurId;
+const getJoueurRowId = (row: JoueurGridRow): GridRowId => row.JOCLEUNIK;
 
-  // Si variant est 'page' (page complète, pas modale) et qu'il n'y a pas d'ID, rediriger
-  if (variant === 'page' && !joueurId) {
-    return <Navigate to="/admin/home" replace />;
-  }
-
+export function JoueurPage({ onOpenInTab, filterPosteType, initialSeason }: JoueurPageProps) {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const actionButtonsRowRef = useRef<HTMLDivElement | null>(null);
   const [compactActionButtons, setCompactActionButtons] = useState(false);
 
   const [rows, setRows] = useState<JoueurGridRow[]>([]);
   const [seasons, setSeasons] = useState<SaisonRow[]>([]);
-  const [natioDatas, setNatioDatas] = useState<NatioRow[]>([]);
-  const [posteOptions, setPosteOptions] = useState<PosteOption[]>([]);
+  const { rows: natioDatas } = useNatioList();
+  const { rows: posteOptions } = usePostesList();
   const [selectedSeason, setSelectedSeason] = useState('');
   const [search, setSearch] = useState('');
   const [selection, setSelection] = useState<GridRowId[]>([]);
@@ -143,7 +134,7 @@ export function JoueurPage({ variant = 'page', onOpenInTab, filterPosteType, ini
         setSeasons(data);
         if (!selectedSeason) {
           const isKnownSeason = (season: string) => data.some((s) => String(s.SAISON) === season);
-          const storedSeason = variant === 'modalPicker' ? readLastSelectedSeason() : '';
+          const storedSeason = readLastSelectedSeason();
           const target = initialSeason && isKnownSeason(initialSeason)
             ? initialSeason
             : storedSeason && isKnownSeason(storedSeason)
@@ -158,14 +149,6 @@ export function JoueurPage({ variant = 'page', onOpenInTab, filterPosteType, ini
         }
         setSnackbar({ severity: 'error', message: toErrorMessage(error) });
       });
-
-    void fetchNatio('', controller.signal)
-      .then((result) => setNatioDatas(result.data ?? []))
-      .catch(() => {});
-
-    void fetchJoueurPostes(controller.signal)
-      .then((result) => setPosteOptions(result))
-      .catch(() => {});
 
     return () => controller.abort();
   }, []);
@@ -204,10 +187,10 @@ export function JoueurPage({ variant = 'page', onOpenInTab, filterPosteType, ini
   };
 
   const openEditDialog = async (rowId?: GridRowId) => {
-    if (variant === 'modalPicker' && onOpenInTab) {
+    if (onOpenInTab) {
       const selectedId = rowId ?? selection.at(0);
       if (selectedId === undefined || selectedId === null) {
-        setSnackbar({ severity: 'error', message: 'Selectionnez un joueur a ouvrir.' });
+        setSnackbar({ severity: 'error', message: 'Sélectionnez un joueur à ouvrir.' });
         return;
       }
       openInTabFromRowId(selectedId);
@@ -216,7 +199,7 @@ export function JoueurPage({ variant = 'page', onOpenInTab, filterPosteType, ini
 
     const selectedId = rowId ?? selection.at(0);
     if (selectedId === undefined || selectedId === null) {
-      setSnackbar({ severity: 'error', message: 'Selectionnez un joueur a ouvrir.' });
+      setSnackbar({ severity: 'error', message: 'Sélectionnez un joueur à ouvrir.' });
       return;
     }
 
@@ -256,11 +239,11 @@ export function JoueurPage({ variant = 'page', onOpenInTab, filterPosteType, ini
       if (dialogMode === 'edit') {
         const row = selectedGridRow;
         if (!row) {
-          setSnackbar({ severity: 'error', message: 'Aucun joueur selectionne.' });
+          setSnackbar({ severity: 'error', message: 'Aucun joueur sélectionné.' });
           return;
         }
         await updateJoueur(row.IDJOUEUR, payload);
-        setSnackbar({ severity: 'success', message: 'Joueur mis a jour.' });
+        setSnackbar({ severity: 'success', message: 'Joueur mis à jour.' });
       }
 
       setDialogOpen(false);
@@ -274,7 +257,7 @@ export function JoueurPage({ variant = 'page', onOpenInTab, filterPosteType, ini
     const created = await createJoueurWithWizard(payload);
     const rawCreatedId = created?.IDJOUEUR;
     if (rawCreatedId === undefined || rawCreatedId === null || String(rawCreatedId).trim() === '') {
-      throw new Error('Création reussie mais identifiant introuvable.');
+      throw new Error('Création réussie mais identifiant introuvable.');
     }
     const createdId = String(rawCreatedId).trim();
 
@@ -282,17 +265,14 @@ export function JoueurPage({ variant = 'page', onOpenInTab, filterPosteType, ini
 
     await reloadGrid();
     setCreateDialogOpen(false);
-    setSnackbar({ severity: 'success', message: 'Joueur cree.' });
-
-    if (variant === 'modalPicker' && onOpenInTab) {
-      onOpenInTab({ rowId: createdId, label });
-    }
+    setSnackbar({ severity: 'success', message: 'Joueur créé.' });
+    onOpenInTab?.({ rowId: createdId, label });
   };
 
   const handleOpenDeleteConfirm = async () => {
     const row = selectedGridRow;
     if (!row) {
-      setSnackbar({ severity: 'error', message: 'Selectionnez un joueur a supprimer.' });
+      setSnackbar({ severity: 'error', message: 'Sélectionnez un joueur à supprimer.' });
       return;
     }
 
@@ -308,13 +288,13 @@ export function JoueurPage({ variant = 'page', onOpenInTab, filterPosteType, ini
   const handleDelete = async () => {
     const row = selectedGridRow;
     if (!row) {
-      setSnackbar({ severity: 'error', message: 'Selectionnez un joueur a supprimer.' });
+      setSnackbar({ severity: 'error', message: 'Sélectionnez un joueur à supprimer.' });
       return;
     }
 
     try {
       await deleteJoueur(row.IDJOUEUR);
-      setSnackbar({ severity: 'success', message: 'Joueur supprime.' });
+      setSnackbar({ severity: 'success', message: 'Joueur supprimé.' });
       setConfirmDeleteOpen(false);
       setDeleteConstraints([]);
       await reloadGrid();
@@ -335,9 +315,7 @@ export function JoueurPage({ variant = 'page', onOpenInTab, filterPosteType, ini
         onChange={(event) => {
           const nextSeason = String(event.target.value);
           setSelectedSeason(nextSeason);
-          if (variant === 'modalPicker') {
-            writeLastSelectedSeason(nextSeason);
-          }
+          writeLastSelectedSeason(nextSeason);
         }}
       >
         {seasons.map((season) => (
@@ -352,8 +330,8 @@ export function JoueurPage({ variant = 'page', onOpenInTab, filterPosteType, ini
   return (
     <>
       <EntityPageLayout
-        hideTitle={variant === 'modalPicker'}
-        actionsInlineWithSearch={variant === 'modalPicker'}
+        hideTitle
+        actionsInlineWithSearch
         title="Joueurs"
         searchLabel="Rechercher un joueur"
         search={search}
@@ -369,7 +347,7 @@ export function JoueurPage({ variant = 'page', onOpenInTab, filterPosteType, ini
         rows={rows}
         columns={columns}
         loading={loading}
-        getRowId={(row) => row.JOCLEUNIK}
+        getRowId={getJoueurRowId}
         selection={selection}
         onSelectionChange={setSelection}
         onRowDoubleClick={(rowId) => void openEditDialog(rowId)}

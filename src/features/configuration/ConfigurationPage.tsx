@@ -17,7 +17,7 @@ import { http } from '../../lib/http';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { pickScreenColor } from '../../lib/screenColorPicker';
 import { updateTeamTheme } from '../../lib/themeApi';
-import { useAppearance, type TeamAppearanceMode } from '../../theme/AppearanceProvider';
+import { useAppearance, type TeamAppearanceMode } from '../../theme/appearanceContext';
 import { ThemeModeSelector } from '../../theme/ThemeModeSelector';
 import {
   clearStoredAdminCredentials,
@@ -85,7 +85,7 @@ export function ConfigurationPage() {
       })
       .catch(() => {
         if (!cancelled) {
-          setAuthMessage('Impossible de lire les identifiants enregistres sur cet appareil.');
+          setAuthMessage('Impossible de lire les identifiants enregistrés sur cet appareil.');
         }
       });
 
@@ -101,7 +101,7 @@ export function ConfigurationPage() {
       try {
         password = (await getStoredAdminCredentials())?.password ?? '';
       } catch {
-        setAuthMessage('Impossible de relire le mot de passe enregistre. Saisissez-le a nouveau.');
+        setAuthMessage('Impossible de relire le mot de passe enregistré. Saisissez-le à nouveau.');
         return;
       }
       if (!password) {
@@ -122,9 +122,9 @@ export function ConfigurationPage() {
       setAdminUsername(username);
       setAdminPassword('');
       setHasStoredPassword(true);
-      setAuthMessage('Identifiants enregistres dans ce navigateur.');
+      setAuthMessage('Identifiants enregistrés dans ce navigateur.');
     } catch {
-      setAuthMessage('Enregistrement impossible : le stockage chiffre n est pas disponible sur ce navigateur.');
+      setAuthMessage("Enregistrement impossible : le stockage chiffré n'est pas disponible sur ce navigateur.");
     }
   };
 
@@ -134,9 +134,9 @@ export function ConfigurationPage() {
     setHasStoredPassword(false);
     try {
       await clearStoredAdminCredentials();
-      setAuthMessage('Identifiants effaces.');
+      setAuthMessage('Identifiants effacés.');
     } catch {
-      setAuthMessage('Identifiants effaces, mais la cle de chiffrement locale n a pas pu etre supprimee.');
+      setAuthMessage("Identifiants effacés, mais la clé de chiffrement locale n'a pas pu être supprimée.");
     }
   };
 

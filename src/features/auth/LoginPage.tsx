@@ -1,10 +1,7 @@
-import { zodResolver } from '@hookform/resolvers/zod';
 import { Alert, Box, Button, Card, CardContent, Stack, TextField, Typography } from '@mui/material';
 import axios from 'axios';
-import { type BaseSyntheticEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { z } from 'zod';
 import { login } from './authApi';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { authStore, getStoredAdminCredentials, hasStoredAdminCredentials } from './authStore';
@@ -17,7 +14,7 @@ function describeAutoLoginError(error: unknown): string {
     const apiMessage = (error.response?.data as { message?: string } | undefined)?.message;
     if (apiMessage) return apiMessage;
     if (!error.response) return 'Serveur injoignable.';
-    if (error.response.status === 401) return 'Identifiants enregistres refuses.';
+    if (error.response.status === 401) return 'Identifiants enregistrés refusés.';
   }
   return toErrorMessage(error);
 }
@@ -25,16 +22,22 @@ function describeAutoLoginError(error: unknown): string {
 function describeUnreadableCredentials(): string {
   // crypto.subtle is only exposed in secure contexts (HTTPS or localhost).
   return window.isSecureContext
-    ? 'Identifiants enregistres illisibles.'
-    : 'Dechiffrement indisponible sur une connexion non securisee (HTTP).';
+    ? 'Identifiants enregistrés illisibles.'
+    : 'Déchiffrement indisponible sur une connexion non sécurisée (HTTP).';
 }
 
-const loginSchema = z.object({
-  username: z.string().min(1, 'Nom utilisateur requis'),
-  password: z.string().min(1, 'Mot de passe requis'),
-});
+type LoginField = 'username' | 'password';
+type LoginFieldErrors = Partial<Record<LoginField, string>>;
 
-type LoginForm = z.infer<typeof loginSchema>;
+const REQUIRED_MESSAGES: Record<LoginField, string> = {
+  username: 'Nom utilisateur requis',
+  password: 'Mot de passe requis',
+};
+
+// Same rule as the former z.string().min(1): checked on the raw (untrimmed) value.
+function validateField(field: LoginField, value: string): string | undefined {
+  return value.length < 1 ? REQUIRED_MESSAGES[field] : undefined;
+}
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -48,10 +51,23 @@ export function LoginPage() {
     return last ?? '';
   }, []);
 
-  const { register, handleSubmit, setValue, getFieldState, formState: { errors, isSubmitting } } = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { username: initialUsername, password: '' },
-  });
+  const [username, setUsername] = useState(initialUsername);
+  const [password, setPassword] = useState('');
+  const [errors, setErrors] = useState<LoginFieldErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Like the former reValidateMode 'onChange': fields are re-validated on change once a submit was attempted.
+  const submitAttemptedRef = useRef(false);
+
+  const handleFieldChange = (field: LoginField, value: string) => {
+    if (field === 'username') {
+      setUsername(value);
+    } else {
+      setPassword(value);
+    }
+    if (submitAttemptedRef.current) {
+      setErrors((current) => ({ ...current, [field]: validateField(field, value) }));
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -77,9 +93,8 @@ export function LoginPage() {
         }
         return;
       }
-      if (!getFieldState('username').isDirty) {
-        setValue('username', storedCredentials.username);
-      }
+      // Keep a username already modified by the user (value differing from its initial value).
+      setUsername((current) => (current === initialUsername ? storedCredentials.username : current));
 
       const token = await login(storedCredentials.username, storedCredentials.password);
       if (cancelled) {
@@ -97,34 +112,51 @@ export function LoginPage() {
     return () => {
       cancelled = true;
     };
-  }, [getFieldState, location.state, navigate, setToken, setValue]);
+  }, [initialUsername, location.state, navigate, setToken]);
 
-  const onSubmit = async (values: LoginForm, event?: BaseSyntheticEvent) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    // A manual attempt hides and supersedes any automatic re-login failure.
+    manualLoginStartedRef.current = true;
+    submitAttemptedRef.current = true;
     setError(null);
-    try {
-      // Read actual DOM values to avoid first-submit autofill desync with RHF state.
-      const form = event?.target as HTMLFormElement | undefined;
-      const formData = form ? new FormData(form) : null;
-      const username = String(formData?.get('username') ?? values.username ?? '').trim();
-      const password = String(formData?.get('password') ?? values.password ?? '');
 
-      const token = await login(username, password);
+    // Read actual DOM values to avoid first-submit autofill desync with React state.
+    const formData = new FormData(event.currentTarget);
+    const rawUsername = String(formData.get('username') ?? username);
+    const rawPassword = String(formData.get('password') ?? password);
+
+    const fieldErrors: LoginFieldErrors = {
+      username: validateField('username', rawUsername),
+      password: validateField('password', rawPassword),
+    };
+    setErrors(fieldErrors);
+    if (fieldErrors.username || fieldErrors.password) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const submittedUsername = rawUsername.trim();
+      const token = await login(submittedUsername, rawPassword);
       setToken(token);
-      localStorage.setItem(LAST_USERNAME_KEY, username);
+      localStorage.setItem(LAST_USERNAME_KEY, submittedUsername);
       const redirectTo = (location.state as { from?: string } | undefined)?.from ?? '/admin/home';
       navigate(redirectTo, { replace: true });
     } catch (error) {
       let message = 'Connexion impossible.';
       if (error instanceof Error) {
         if (error.message.includes('timeout')) {
-          message += ' Le serveur prend du temps a demarrer (Render free plan). Reessayez.';
+          message += ' Le serveur prend du temps à démarrer (Render free plan). Réessayez.';
         } else if (error.message) {
           message += ` ${error.message}`;
         } else {
-          message += ' Verifiez vos identifiants.';
+          message += ' Vérifiez vos identifiants.';
         }
       }
       setError(message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -135,32 +167,33 @@ export function LoginPage() {
           <Stack
             spacing={2}
             component="form"
-            onSubmit={(event) => {
-              // A manual attempt hides and supersedes any automatic re-login failure.
-              manualLoginStartedRef.current = true;
-              setError(null);
-              return handleSubmit(onSubmit)(event);
+            onSubmit={(event: FormEvent<HTMLFormElement>) => {
+              void handleSubmit(event);
             }}
           >
             <Typography variant="h5" sx={{ fontWeight: 700 }}>Administration</Typography>
-            <Typography variant="body2" color="text.secondary">Connexion securisee</Typography>
+            <Typography variant="body2" color="text.secondary">Connexion sécurisée</Typography>
 
             {error ? <Alert severity="error">{error}</Alert> : null}
 
             <TextField
               label="Utilisateur"
-              {...register('username')}
+              name="username"
+              value={username}
+              onChange={(event) => handleFieldChange('username', event.target.value)}
               autoComplete="username"
               error={Boolean(errors.username)}
-              helperText={errors.username?.message}
+              helperText={errors.username}
             />
             <TextField
               label="Mot de passe"
               type="password"
-              {...register('password')}
+              name="password"
+              value={password}
+              onChange={(event) => handleFieldChange('password', event.target.value)}
               autoComplete="current-password"
               error={Boolean(errors.password)}
-              helperText={errors.password?.message}
+              helperText={errors.password}
             />
 
             <Button type="submit" variant="contained" disabled={isSubmitting}>

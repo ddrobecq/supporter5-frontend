@@ -18,6 +18,7 @@ interface StatArbitreGridProps<R extends StatArbitreRow> {
   /** Colonnes propres a la stat (l'arbitre est ajoute automatiquement en premiere colonne). */
   valueColumns: GridColDef<R>[];
   loading?: boolean;
+  error?: string | null;
   getRowId?: (row: R) => string;
   initialState?: DataGridProps<R>['initialState'];
   toolbarActions?: ReactNode;
@@ -30,7 +31,7 @@ interface StatArbitreGridProps<R extends StatArbitreRow> {
 }
 
 /** Grille generique pour les stats du domaine Arbitre: 1re colonne = identite arbitre (meme principe que StatPlayerGrid). */
-export function StatArbitreGrid<R extends StatArbitreRow>({ rows, valueColumns, loading, getRowId, initialState, toolbarActions, apiRef: externalApiRef, hideIdentityColumn, scope, onScopeChange }: StatArbitreGridProps<R>) {
+export function StatArbitreGrid<R extends StatArbitreRow>({ rows, valueColumns, loading, error, getRowId, initialState, toolbarActions, apiRef: externalApiRef, hideIdentityColumn, scope, onScopeChange }: StatArbitreGridProps<R>) {
   const resolveRowId = useCallback(getRowId ?? ((row: R) => row.IDARBITRE), [getRowId]);
   const localApiRef = useGridApiRef();
   const apiRef = externalApiRef ?? localApiRef;
@@ -74,6 +75,7 @@ export function StatArbitreGrid<R extends StatArbitreRow>({ rows, valueColumns, 
           rows={rows}
           columns={columns}
           loading={loading}
+          error={error}
           getRowId={resolveRowId}
           apiRef={apiRef}
           rowSelectionModel={rowSelectionModel}

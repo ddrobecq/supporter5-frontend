@@ -21,7 +21,7 @@ export function isFileSystemAccessSupported(): boolean {
 /** Ouvre le picker natif pour choisir/changer le dossier de sauvegarde; doit etre appele depuis un geste utilisateur. */
 export async function pickBackupDirectory(): Promise<FileSystemDirectoryHandle> {
   if (!window.showDirectoryPicker) {
-    throw new Error('La selection de dossier n est pas supportee par ce navigateur.');
+    throw new Error("La sélection de dossier n'est pas supportée par ce navigateur.");
   }
 
   const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
@@ -82,8 +82,8 @@ function describeBackupError(error: unknown): string {
   if (axios.isAxiosError(error)) {
     const apiMessage = (error.response?.data as { message?: string } | undefined)?.message;
     if (apiMessage) return apiMessage;
-    if (error.response?.status === 401) return 'Session expiree. Reconnectez-vous.';
-    return 'Le telechargement de la base a echoue.';
+    if (error.response?.status === 401) return 'Session expirée. Reconnectez-vous.';
+    return 'Le téléchargement de la base a échoué.';
   }
   if (error instanceof Error && error.message) return error.message;
   return 'Une erreur est survenue.';
@@ -106,6 +106,8 @@ async function pruneOldBackups(dirHandle: FileSystemDirectoryHandle, keepCount: 
 
   names.sort().reverse();
   const toRemove = names.slice(Math.max(keepCount, 0));
+  // Suppression "au mieux": une ancienne sauvegarde non supprimable (verrou, droits) ne doit pas
+  // faire echouer la sauvegarde qui vient de reussir; elle sera retentee au prochain passage.
   await Promise.all(toRemove.map((name) => dirHandle.removeEntry(name).catch(() => undefined)));
 }
 
@@ -131,7 +133,7 @@ export async function runBackupNow(handle: FileSystemDirectoryHandle): Promise<v
     await pruneOldBackups(handle, getBackupSettings().keepCount);
     saveBackupSettings({ lastBackupAt: new Date().toISOString() });
 
-    emitBackupResult(true, `Sauvegarde effectuee (${fileName}).`);
+    emitBackupResult(true, `Sauvegarde effectuée (${fileName}).`);
   } catch (error) {
     emitBackupResult(false, describeBackupError(error));
   }
@@ -168,7 +170,7 @@ export async function maybeRunAutomaticBackup(): Promise<void> {
 export async function forceBackupNow(handle: FileSystemDirectoryHandle): Promise<void> {
   const permitted = await ensureDirectoryPermission(handle);
   if (!permitted) {
-    emitBackupResult(false, "Autorisation d'acces au dossier refusee.");
+    emitBackupResult(false, "Autorisation d'accès au dossier refusée.");
     return;
   }
   await runBackupNow(handle);

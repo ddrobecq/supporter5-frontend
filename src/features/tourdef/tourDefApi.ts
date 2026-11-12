@@ -1,18 +1,8 @@
 import { env } from '../../config/env';
+import type { CanDeleteResponse } from '../../lib/apiTypes';
 import { http } from '../../lib/http';
 import { encodePathSegment } from '../../lib/urlPath';
 import type { TourDefRow, PaginatedResponse } from './types';
-
-export interface IntegrityConstraint {
-  table: string;
-  count: number;
-  description: string;
-}
-
-export interface CanDeleteResponse {
-  canDelete: boolean;
-  constraints: IntegrityConstraint[];
-}
 
 export async function fetchTourDefs(search: string, signal?: AbortSignal): Promise<PaginatedResponse<TourDefRow>> {
   const { data } = await http.get<PaginatedResponse<TourDefRow>>(env.tourDefPublicResource, {

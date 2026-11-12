@@ -9,6 +9,8 @@ import { ClubSelectField } from '../../components/ClubSelectField';
 import { entityPath } from '../../lib/entityNavigation';
 import { ClubMatchStatsPanel } from './ClubMatchStats';
 import type { ClubMatchRow } from './types';
+import { MatchEtat } from '../../lib/matchStatus';
+import { emitTabOpen } from '../../lib/useTabMetaEvents';
 
 interface ClubMatchesTabProps {
   clubId: string;
@@ -25,8 +27,8 @@ interface ClubMatchesTabProps {
 
 function formatMatchScore(row: MatchGridBaseRow): string {
   const etat = Number(row.ETAT ?? 0);
-  if (etat === 1 || etat === 5) return '-vs-';
-  if (etat === 4) return '';
+  if (etat === MatchEtat.EnAttente || etat === MatchEtat.Programmee) return '-vs-';
+  if (etat === MatchEtat.NonJoueeAnnulee) return '';
   const hasPenalties = Number(row.TABDOM ?? 0) > 0 || Number(row.TABEXT ?? 0) > 0;
   if (hasPenalties) {
     return `${Number(row.TABDOM ?? 0)} ${Number(row.BUTDOM ?? 0)}-${Number(row.BUTEXT ?? 0)} ${Number(row.TABEXT ?? 0)}`;
@@ -53,14 +55,7 @@ export function ClubMatchesTab({
 
   const openMatch = useCallback((row: ClubMatchRow) => {
     if (!row.RECLEUNIK) return;
-    window.dispatchEvent(new CustomEvent('supporter:tab-open', {
-      detail: {
-        path: entityPath('rencontre', row.RECLEUNIK, location.pathname),
-        label: 'Rencontre',
-        unique: true,
-        uniqueByPath: true,
-      },
-    }));
+    emitTabOpen(entityPath('rencontre', row.RECLEUNIK, location.pathname), 'Rencontre');
   }, [location.pathname]);
 
   const matchColumns = useMemo<GridColDef<ClubMatchRow>[]>(() => {

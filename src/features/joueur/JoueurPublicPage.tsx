@@ -10,31 +10,28 @@ import { useParams } from 'react-router-dom';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { NatioFlag } from '../../components/NatioFlag';
-import { PublicLoadingState, PublicNotFoundState } from '../../components/PublicPageState';
+import { PublicErrorState, PublicLoadingState, PublicNotFoundState } from '../../components/PublicPageState';
+import { isAbortError, isNotFoundError } from '../../lib/httpErrors';
 import { StructuredData } from '../../components/StructuredData';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { useSeoMeta } from '../../lib/useSeoMeta';
+import { formatDateLong } from '../../lib/formatDate';
+import { normalizeText } from '../../lib/text';
 import { useRecentRecordVisit } from '../home/useRecentRecordVisit';
-import { fetchNatio } from '../natio/natioApi';
+import { useNatioList } from '../natio/natioStore';
+import { usePostesList } from './postesStore';
 import { resolveNatioId, resolveNatioLabel } from '../natio/natioUi';
 import { fetchVilleById } from '../ville/villeApi';
 import { JoueurContractsTimeline } from './JoueurContractsTimeline';
 import { JoueurMatchesTab } from './JoueurMatchesTab';
-import { fetchJoueurById, fetchJoueurHistory, fetchJoueurPostes, fetchJoueurTransactions } from './joueurApi';
-import type { JoueurHistoryRow, JoueurRow, JoueurTransactionRow, PosteOption } from './types';
-import type { NatioRow } from '../natio/types';
+import { fetchJoueurById, fetchJoueurHistory, fetchJoueurTransactions } from './joueurApi';
+import type { JoueurHistoryRow, JoueurRow, JoueurTransactionRow } from './types';
 
 function displayDate(value: unknown): string {
   const text = String(value ?? '').trim();
   const match = text.match(/^(\d{4})(?:-(\d{2})-(\d{2})|(\d{2})(\d{2}))$/);
   if (!match) return text || 'date inconnue';
-  const month = Number(match[2] ?? match[4]);
-  const day = Number(match[3] ?? match[5]);
-  return new Date(Number(match[1]), month - 1, day).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', '');
-}
-
-function normalizeText(value: unknown): string {
-  return String(value ?? '').trim();
+  return formatDateLong(text);
 }
 
 function resolvePlayerName(row: JoueurRow): { title: string; subtitle: string } {
@@ -65,40 +62,47 @@ export function JoueurPublicPage() {
   const [profile, setProfile] = useState<JoueurRow | null>(null);
   const [history, setHistory] = useState<JoueurHistoryRow[]>([]);
   const [contracts, setContracts] = useState<JoueurTransactionRow[]>([]);
-  const [countries, setCountries] = useState<NatioRow[]>([]);
-  const [postes, setPostes] = useState<PosteOption[]>([]);
+  const { rows: countries } = useNatioList();
+  const { rows: postes } = usePostesList();
   const [birthCity, setBirthCity] = useState('');
   const [birthCityCountry, setBirthCityCountry] = useState('');
   const [tab, setTab] = useState<'identite' | 'historique' | 'matches' | 'contrat'>('identite');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<'notFound' | 'error' | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const portrait = useEntityImage('joueurrg', joueurId);
   const historyColumns = useMemo(buildHistoryColumns, []);
 
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
+    setLoadError(null);
     void Promise.all([
       fetchJoueurById(joueurId, controller.signal),
       fetchJoueurHistory(joueurId, controller.signal),
       fetchJoueurTransactions(joueurId, controller.signal),
-      fetchNatio('', controller.signal),
-      fetchJoueurPostes(controller.signal),
-    ]).then(([nextProfile, nextHistory, nextContracts, nextCountries, nextPostes]) => {
+    ]).then(([nextProfile, nextHistory, nextContracts]) => {
       setProfile(nextProfile);
       setHistory(nextHistory);
       setContracts(nextContracts);
-      setCountries(nextCountries.data ?? []);
-      setPostes(nextPostes);
       const cityId = normalizeText(nextProfile.IDVILLE);
       if (cityId && cityId !== '0') {
         void fetchVilleById(cityId).then((city) => {
           setBirthCity(normalizeText(city.NOM));
           setBirthCityCountry(normalizeText(city.IDNATIO));
-        }).catch(() => undefined);
+        }).catch(() => {
+          // Ville de naissance: information secondaire; en cas d'echec la fiche reste affichee sans elle.
+        });
       }
-    }).catch(() => setProfile(null)).finally(() => setLoading(false));
+    }).catch((error: unknown) => {
+      if (isAbortError(error)) return;
+      setProfile(null);
+      setLoadError(isNotFoundError(error) ? 'notFound' : 'error');
+    }).finally(() => {
+      if (!controller.signal.aborted) setLoading(false);
+    });
     return () => controller.abort();
-  }, [joueurId]);
+  }, [joueurId, reloadKey]);
 
   const seoName = profile ? resolvePlayerName(profile).title : 'Joueur';
   useSeoMeta(
@@ -130,6 +134,7 @@ export function JoueurPublicPage() {
   }), [birthCity, birthDate, contracts, countryName, joueurId, name.subtitle, name.title, portrait.src, poste]);
 
   if (loading) return <PublicLoadingState />;
+  if (loadError === 'error') return <PublicErrorState entity="la fiche joueur" onRetry={() => setReloadKey((key) => key + 1)} />;
   if (!profile) return <PublicNotFoundState entity="Joueur" />;
 
   return (

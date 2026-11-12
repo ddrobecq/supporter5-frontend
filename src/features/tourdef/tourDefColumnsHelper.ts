@@ -10,7 +10,7 @@ export function createTourDefColumns(): GridColDef[] {
       sortable: true,
       valueGetter: (value: unknown) => {
         const num = Number(value ?? 0);
-        return num === 2 ? 'Eliminatoire' : 'Ligue';
+        return num === 2 ? 'Éliminatoire' : 'Ligue';
       },
     },
   ];

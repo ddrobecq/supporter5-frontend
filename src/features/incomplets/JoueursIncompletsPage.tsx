@@ -4,6 +4,7 @@ import { JoueurIdentityDisplay } from '../../components/JoueurIdentityDisplay';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { IncompletsView } from './IncompletsView';
 import { JOUEUR_INCOMPLET_CATEGORIES, fetchJoueursIncomplets, type JoueurIncompletRow } from './incompletsApi';
+import { emitTabOpen } from '../../lib/useTabMetaEvents';
 
 function openJoueurTab(row: JoueurIncompletRow): void {
   const surnom = row.SURNOM?.trim();
@@ -11,14 +12,7 @@ function openJoueurTab(row: JoueurIncompletRow): void {
   const prenom = row.PRENOM?.trim() ?? '';
   const label = surnom || `${nom}${prenom ? ` ${prenom}` : ''}` || row.IDJOUEUR;
 
-  window.dispatchEvent(new CustomEvent('supporter:tab-open', {
-    detail: {
-      path: `/admin/joueurs/${encodeURIComponent(row.IDJOUEUR)}`,
-      label,
-      unique: true,
-      uniqueByPath: true,
-    },
-  }));
+  emitTabOpen(`/admin/joueurs/${encodeURIComponent(row.IDJOUEUR)}`, label);
 }
 
 /** Outils > Fiches incompletes > Joueurs incomplets. */

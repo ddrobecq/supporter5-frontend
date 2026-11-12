@@ -22,7 +22,7 @@ export function PerformancesGrid({ metric }: { metric: PerformanceMetric }) {
   const [mode, setMode] = useState<DisplayMode>('count');
   const [scope, setScope] = useState<number | null>(null);
   const apiRef = useGridApiRef();
-  const { rows, loading } = useStatRows<PerformanceRow>((signal) => fetchPerformances(metric, scope, signal), [metric, scope]);
+  const { rows, loading, error } = useStatRows<PerformanceRow>((signal) => fetchPerformances(metric, scope, signal), [metric, scope]);
 
   // Le tri doit suivre la colonne affichee par le switch, une fois les colonnes remontees.
   useEffect(() => {
@@ -54,6 +54,7 @@ export function PerformancesGrid({ metric }: { metric: PerformanceMetric }) {
       rows={rows}
       valueColumns={columns}
       loading={loading}
+      error={error}
       apiRef={apiRef}
       scope={scope}
       onScopeChange={setScope}

@@ -1,65 +1,17 @@
 import { env } from '../../config/env';
+import type { CanDeleteResponse } from '../../lib/apiTypes';
+import { fetchAllPages } from '../../lib/fetchAllPages';
 import { http } from '../../lib/http';
 import { encodePathSegment } from '../../lib/urlPath';
 import type { TerrainRow, PaginatedResponse } from './types';
 
-export interface IntegrityConstraint {
-  table: string;
-  count: number;
-  description: string;
-}
-
-export interface CanDeleteResponse {
-  canDelete: boolean;
-  constraints: IntegrityConstraint[];
-}
-
 export async function fetchTerrain(search: string, signal?: AbortSignal): Promise<PaginatedResponse<TerrainRow>> {
-  const baseParams = {
+  return fetchAllPages<TerrainRow>(env.terrainPublicResource, {
     limit: 200,
     sort: 'STADE',
     order: 'asc',
     ...(search ? { search } : {}),
-  };
-
-  const { data: firstPage } = await http.get<PaginatedResponse<TerrainRow>>(env.terrainPublicResource, {
-    params: {
-      ...baseParams,
-      page: 1,
-    },
-    signal,
-  });
-
-  if (firstPage.totalPages <= 1) {
-    return firstPage;
-  }
-
-  const remainingRequests: Array<Promise<{ data: PaginatedResponse<TerrainRow> }>> = [];
-  for (let page = 2; page <= firstPage.totalPages; page += 1) {
-    remainingRequests.push(
-      http.get<PaginatedResponse<TerrainRow>>(env.terrainPublicResource, {
-        params: {
-          ...baseParams,
-          page,
-        },
-        signal,
-      }),
-    );
-  }
-
-  const remainingPages = await Promise.all(remainingRequests);
-  const allRows = [
-    ...firstPage.data,
-    ...remainingPages.flatMap((response) => response.data.data),
-  ];
-
-  return {
-    ...firstPage,
-    data: allRows,
-    page: 1,
-    limit: allRows.length,
-    totalPages: 1,
-  };
+  }, signal);
 }
 
 export async function fetchTerrainById(id: string | number): Promise<TerrainRow> {

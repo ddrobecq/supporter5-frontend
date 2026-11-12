@@ -14,7 +14,7 @@ export function ClubSelectionDialog({ open, onClose, onSelect }: ClubSelectionDi
       <DialogTitle>Sélectionner un club</DialogTitle>
       <DialogContent dividers sx={{ p: 2, bgcolor: 'background.default', overflow: 'hidden', display: 'flex', minHeight: 0 }}>
         <ClubPage
-          variant="modalPicker"
+         
           onSelectClub={(club) => {
             onSelect(String(club.IDCLUB), club);
             onClose();

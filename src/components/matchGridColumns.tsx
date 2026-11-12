@@ -1,12 +1,14 @@
 import { type ReactNode } from 'react';
 import { type GridColDef, type GridRowId } from '@mui/x-data-grid';
-import { Box, Typography } from '@mui/material';
+import { Box } from '@mui/material';
 import { ClubCell } from './ClubCell';
+import { ReadonlyScoreCell } from './ReadonlyScoreCell';
 import type { ScoreDraft } from '../features/calendrier/ScoreCell';
 import { ScoreCell } from '../features/calendrier/ScoreCell';
 import { StatusCell } from '../features/calendrier/StatusCell';
 import { HeureCell } from '../features/calendrier/HeureCell';
 import type { CalendrierRow } from '../features/calendrier/types';
+import { getMatchStatusLabel, MatchEtat } from '../lib/matchStatus';
 
 export interface MatchGridBaseRow {
   RECLEUNIK: string | number;
@@ -90,30 +92,13 @@ type ScoreColumnConfig<R extends MatchGridBaseRow> = EditableScoreColumnConfig<R
 
 function formatReadonlyScore(row: MatchGridBaseRow): string {
   const status = Number(row.ETAT);
-  if (status === 1 || status === 5) {
+  if (status === MatchEtat.EnAttente || status === MatchEtat.Programmee) {
     return '-vs-';
   }
-  if (status === 4) {
+  if (status === MatchEtat.NonJoueeAnnulee) {
     return '';
   }
   return `${row.BUTDOM}-${row.BUTEXT}`;
-}
-
-function getStatusLabel(value: number): string {
-  return ({ 1: 'En attente', 2: 'En cours', 3: 'Terminée', 4: 'Non jouée/annulée', 5: 'Programmée' } as Record<number, string>)[value] ?? `Etat ${value}`;
-}
-
-function ReadonlyScoreCell({ row, value }: { row: MatchGridBaseRow; value: string }) {
-  const tabDom = Number(row.TABDOM ?? 0);
-  const tabExt = Number(row.TABEXT ?? 0);
-
-  return (
-    <Box sx={{ width: '100%', textAlign: 'center', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-      {tabDom > 0 ? <Typography component="sup" sx={{ fontSize: 9, mr: 0.3 }}>{tabDom}</Typography> : null}
-      {value}
-      {tabExt > 0 ? <Typography component="sup" sx={{ fontSize: 9, ml: 0.3 }}>{tabExt}</Typography> : null}
-    </Box>
-  );
 }
 
 interface CircColumnConfig {
@@ -151,7 +136,7 @@ export function buildMatchGridColumns<R extends MatchGridBaseRow>(
       renderCell: (params) => {
         const row = params.row;
         if (options.status!.mode === 'readonly') {
-          return getStatusLabel(Number(row.ETAT));
+          return getMatchStatusLabel(Number(row.ETAT));
         }
         const editableStatus = options.status as EditableStatusColumnConfig<R>;
         return (
@@ -294,7 +279,7 @@ export function buildMatchGridColumns<R extends MatchGridBaseRow>(
 
   columns.push({
     field: 'EXTERIEUR_NOM',
-    headerName: options.exterieurHeaderName ?? 'Exterieur',
+    headerName: options.exterieurHeaderName ?? 'Extérieur',
     minWidth: 120,
     flex: 1,
     resizable: false,

@@ -4,7 +4,9 @@ import CompareArrowsRoundedIcon from '@mui/icons-material/CompareArrowsRounded';
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
 import { Box, CircularProgress, Stack, Typography } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material';
+import type { KeyboardEvent } from 'react';
 import { ClubIdentityInline } from '../../components/ClubIdentityInline';
+import { formatDateFr } from '../../lib/formatDate';
 import { formatMoney } from '../../lib/formatMoney';
 import type { JoueurTransactionRow } from './types';
 
@@ -14,13 +16,6 @@ interface JoueurContractsTimelineProps {
   selectedTransactionId?: number | null;
   onSelectTransaction?: (transactionId: number) => void;
   onTransactionDoubleClick?: (transactionId: number) => void;
-}
-
-function formatDate(value: string): string {
-  const text = String(value ?? '').trim();
-  const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!iso) return text;
-  return `${iso[3]}/${iso[2]}/${iso[1]}`;
 }
 
 function normalizeLabel(value: unknown): string {
@@ -106,7 +101,7 @@ function buildSummary(row: JoueurTransactionRow): string {
 
 function buildSummaryWithEcheance(row: JoueurTransactionRow): string {
   const base = buildSummary(row);
-  const echeance = formatDate(String(row.TN_ECHEANCE ?? '').trim());
+  const echeance = formatDateFr(String(row.TN_ECHEANCE ?? '').trim());
   if (!echeance) return base;
   return `${base} jusqu'au ${echeance}`;
 }
@@ -186,7 +181,7 @@ export function JoueurContractsTimeline({
           const { base: loanBase, preposition: loanPreposition } = isLoan
             ? splitTrailingPreposition(transferPhrase)
             : { base: '', preposition: '' };
-          const loanEcheance = formatDate(String(row.TN_ECHEANCE ?? '').trim());
+          const loanEcheance = formatDateFr(String(row.TN_ECHEANCE ?? '').trim());
           const loanPhraseBeforeClub = loanEcheance ? `${loanBase} jusqu'au ${loanEcheance}` : loanBase;
           const phraseBeforeClub = isLoan
             ? loanPhraseBeforeClub
@@ -205,6 +200,17 @@ export function JoueurContractsTimeline({
             <Box
               key={row.TNCLEUNIK}
               onClick={() => onSelectTransaction?.(Number(row.TNCLEUNIK))}
+              // Pas de <button> ici: la ligne contient un lien club (ClubIdentityInline); role/tabIndex rendent la selection accessible au clavier.
+              {...(onSelectTransaction ? {
+                role: 'button',
+                tabIndex: 0,
+                'aria-pressed': isSelected,
+                onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
+                  if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return;
+                  event.preventDefault();
+                  onSelectTransaction(Number(row.TNCLEUNIK));
+                },
+              } : {})}
               onDoubleClick={() => onTransactionDoubleClick?.(Number(row.TNCLEUNIK))}
               sx={{
                 display: 'grid',
@@ -218,6 +224,7 @@ export function JoueurContractsTimeline({
                 outlineColor: isSelected ? 'primary.light' : 'transparent',
                 transition: 'background-color 120ms ease-out, outline-color 120ms ease-out',
                 '&:hover': { bgcolor: isSelected ? 'action.selected' : 'action.hover' },
+                '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
               }}
             >
               <Box sx={{ position: 'relative', pt: '6px' }}>
@@ -252,7 +259,7 @@ export function JoueurContractsTimeline({
 
               <Stack spacing={0.5}>
                 <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>{formatDate(row.DATE)}</Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>{formatDateFr(row.DATE)}</Typography>
                 </Stack>
 
                 {hasClub ? (

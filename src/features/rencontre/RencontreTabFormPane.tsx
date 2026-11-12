@@ -34,7 +34,7 @@ import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
 import { DateInputField } from '../../components/DateInputField';
-import { formatDateShort, toIsoDate } from '../../components/dateUtils';
+import { formatDateShort, isoDateOrNull, toIsoDate } from '../../components/dateUtils';
 import { useInvalidDateFields } from '../../components/useInvalidDateFields';
 import { TimeInputField } from '../../components/TimeInputField';
 import { NumberField } from '../../components/NumberField';
@@ -54,16 +54,19 @@ import { parsePaSourceForLabel, useProgrammedParticipantResolver } from '../comp
 import { fetchRencontreDetailById, fetchRencontreHighlightsById, fetchRencontreTourMatches, updateRencontreDetail, deleteRencontreEvent, upsertRencontreMatchMeta, recomputeRencontreStats } from './rencontreApi';
 import { TourClassementCard, type TourClassementCardHandle } from '../calendrier/TourClassementCard';
 import type { CompositionMap, RencontreDetailRow, RencontreHighlightsRow, TourMatchWithNamesRow } from './types';
-import { preloadRencontreComposition, RencontreCompositionTab, type CompositionTabActions } from './RencontreCompositionTab';
+import { RencontreCompositionTab, type CompositionTabActions } from './RencontreCompositionTab';
+import { preloadRencontreComposition } from './rencontreCompositionShared';
 import { getRencontreCompleteness } from './rencontreCompleteness';
 import { CompletenessChip } from '../../components/CompletenessChip';
-import { RencontreHighlightsTimeline, sortHighlightEvents } from './RencontreHighlightsTimeline';
+import { RencontreHighlightsTimeline } from './RencontreHighlightsTimeline';
+import { sortHighlightEvents } from './highlightEvents';
 import { EventFormDialog, type EventFormDialogActions } from './EventFormDialog';
 import { ArbitrePage } from '../arbitre/ArbitrePage';
 import { ArbitreIdentityDisplay } from '../../components/ArbitreIdentityDisplay';
 import { TerrainPickerDialog } from '../terrain/TerrainPickerDialog';
 import { ClubSelectionDialog } from '../competition/ClubSelectionDialog';
 import type { ClubGridRow } from '../club/types';
+import { isMatchPlayed, MATCH_STATUS_OPTIONS } from '../../lib/matchStatus';
 
 interface RencontreTabFormPaneProps {
   tabPath: string;
@@ -110,14 +113,6 @@ interface CompetitionOption {
   label: string;
 }
 
-const STATUS_OPTIONS = [
-  { value: 1, label: 'En attente' },
-  { value: 2, label: 'En cours' },
-  { value: 3, label: 'Terminee' },
-  { value: 5, label: 'Programmee' },
-  { value: 4, label: 'Non jouee/annulee' },
-] as const;
-
 type RencontreTabKey = 'info' | 'highlights' | 'composition' | 'resume' | 'programme' | 'classement';
 
 function toNonNegativeIntegerString(value: unknown): string {
@@ -135,10 +130,6 @@ function normalizeColorCode(raw: unknown, fallback: string): string {
     const colorInt = Number(numeric);
     if (colorInt === -1) {
       return fallback;
-    }
-    if (colorInt >= 0 && colorInt <= 255) {
-      const channel = colorInt.toString(16).padStart(2, '0');
-      return `#${channel}${channel}${channel}`;
     }
     if (colorInt >= 0 && colorInt <= 0xFFFFFF) {
       // WinDev/OLE integer format: red is low byte, then green, then blue.
@@ -159,10 +150,6 @@ function normalizeColorCode(raw: unknown, fallback: string): string {
   }
 
   return fallback;
-}
-
-function toApiDate(value: string): string | null {
-  return toIsoDate(value) || null;
 }
 
 function toDisplayHeure(value: string | null | undefined): string {
@@ -227,7 +214,7 @@ function getDraftSignature(draft: RencontreDraft, adminDecisionEnabled: boolean)
     tabDom: draft.penalty ? toNonNegativeIntegerString(draft.tabDom) : '0',
     tabExt: draft.penalty ? toNonNegativeIntegerString(draft.tabExt) : '0',
     etat: Number(draft.etat) || 1,
-    date: toApiDate(draft.date),
+    date: isoDateOrNull(draft.date),
     heure: String(draft.heure ?? '').trim() || null,
     saison: String(draft.saison ?? '').trim(),
     competitionId: String(draft.competitionId ?? '').trim(),
@@ -443,8 +430,8 @@ function ClubInlineLine({
             </Tooltip>
           ) : null}
           {onSwapClubs ? (
-            <Tooltip title="Permuter domicile et exterieur">
-              <IconButton size="small" onClick={onSwapClubs} aria-label="Permuter domicile et exterieur">
+            <Tooltip title="Permuter domicile et extérieur">
+              <IconButton size="small" onClick={onSwapClubs} aria-label="Permuter domicile et extérieur">
                 <SwapHorizRoundedIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -598,6 +585,8 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     // Precharge la composition (independamment de l'onglet actif) pour l'indicateur de completude.
     void preloadRencontreComposition(String(detail.RECLEUNIK))
       .then(({ composition: compoData }) => setComposition(compoData))
+      // Prechargement pour l'indicateur de completude uniquement: l'onglet Composition recharge
+      // lui-meme ses donnees et affiche sa propre erreur; composition reste null (completude inconnue).
       .catch(() => {});
 
     const tourId = Number(detail.TUCLEUNIK ?? 0);
@@ -710,7 +699,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
 
     setSaving(true);
     try {
-      const nextDate = toApiDate(draft.date);
+      const nextDate = isoDateOrNull(draft.date);
       const readminValue = adminDecisionEnabled
         ? Math.max(1, Math.min(4, Number(draft.readmin) || 1))
         : 0;
@@ -721,7 +710,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       const nextDomicile = String(draft.domicileId ?? '').trim();
       const nextExterieur = String(draft.exterieurId ?? '').trim();
       if (nextDomicile && nextDomicile === nextExterieur) {
-        setSnackbar({ severity: 'error', message: 'Les equipes domicile et exterieure doivent etre differentes.' });
+        setSnackbar({ severity: 'error', message: 'Les équipes domicile et extérieure doivent être différentes.' });
         return;
       }
 
@@ -756,7 +745,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       if (Number(detail.TYPE_TOUR ?? 1) !== 2) {
         classementCardRef.current?.refresh();
       }
-      setSnackbar({ severity: 'success', message: 'Rencontre enregistree.' });
+      setSnackbar({ severity: 'success', message: 'Rencontre enregistrée.' });
       notifySaveDone();
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
@@ -885,7 +874,11 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       if (saveEvent) setIsEventDialogSaving(false);
       if (saveCompo && detail) {
         // La sauvegarde de la composition met a jour le cache partage : on le relit pour l'indicateur de completude.
-        void preloadRencontreComposition(String(detail.RECLEUNIK)).then(({ composition: compoData }) => setComposition(compoData));
+        void preloadRencontreComposition(String(detail.RECLEUNIK))
+          .then(({ composition: compoData }) => setComposition(compoData))
+          // Relecture pour l'indicateur de completude uniquement: l'onglet Composition affiche sa propre
+          // erreur de sauvegarde/chargement; en cas d'echec l'indicateur garde sa derniere valeur.
+          .catch(() => {});
       }
       setIsEventsChanged(false);
     }
@@ -969,7 +962,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     if (!detail || !draft || Number(detail.IS_SUPPORTED_CLUB_MATCH ?? 0) !== 1) return [];
     return getRencontreCompleteness({
       etat: Number(draft.etat) || 0,
-      dateIso: toApiDate(draft.date),
+      dateIso: isoDateOrNull(draft.date),
       arbitreId: draft.arbitreId,
       terrainId: draft.terrainId,
       nbSpect: Number(toNonNegativeIntegerString(draft.nbSpect)),
@@ -1002,7 +995,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
         </Typography>
         <Box>
           <Button size="small" variant="outlined" onClick={() => void reloadAll()}>
-            Reessayer
+            Réessayer
           </Button>
         </Box>
       </Stack>
@@ -1059,7 +1052,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       headerAlign: 'center',
       sortable: false,
       valueGetter: (_value: unknown, row: TourMatchWithNamesRow) => {
-        if (Number(row.ETAT) !== 3 && Number(row.ETAT) !== 2) return '-';
+        if (!isMatchPlayed(Number(row.ETAT))) return '-';
         return `${row.BUTDOM} - ${row.BUTEXT}`;
       },
     },
@@ -1209,7 +1202,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
                 value={draft.etat}
                 onChange={(event) => setDraft((prev) => (prev ? { ...prev, etat: Number(event.target.value) } : prev))}
               >
-                {STATUS_OPTIONS.map((option) => (
+                {MATCH_STATUS_OPTIONS.map((option) => (
                   <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
                 ))}
               </Select>
@@ -1248,10 +1241,10 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
 
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.25, rowGap: 2, alignItems: 'flex-start', justifyContent: 'flex-start' }}>
             <FormControl size="small" sx={{ width: 300, flex: '0 0 auto' }}>
-              <InputLabel id="rencontre-competition-label">Competition</InputLabel>
+              <InputLabel id="rencontre-competition-label">Compétition</InputLabel>
               <Select
                 labelId="rencontre-competition-label"
-                label="Competition"
+                label="Compétition"
                 value={draft.competitionId}
                 onChange={(event) => {
                   void handleCompetitionChange(String(event.target.value ?? ''));
@@ -1320,8 +1313,8 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
                 >
                   <MenuItem value={1}>{`Victoire de ${detail.DOMICILE_NOM_EFFECTIF}`}</MenuItem>
                   <MenuItem value={2}>{`Victoire de ${detail.EXTERIEUR_NOM_EFFECTIF}`}</MenuItem>
-                  <MenuItem value={3}>Nul pour les 2 equipes</MenuItem>
-                  <MenuItem value={4}>Defaites pour les 2 equipes</MenuItem>
+                  <MenuItem value={3}>Nul pour les 2 équipes</MenuItem>
+                  <MenuItem value={4}>Défaites pour les 2 équipes</MenuItem>
                 </Select>
               </FormControl>
             ) : null}
@@ -1643,7 +1636,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
             <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
               <SportsIcon sx={{ fontSize: 18 }} />
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>Selectionner un Arbitre</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>Sélectionner un Arbitre</Typography>
             </Box>
             <IconButton aria-label="Fermer la liste des arbitres" onClick={() => setArbitrePickerOpen(false)}>
               <CloseRoundedIcon />
@@ -1652,7 +1645,6 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
         </DialogTitle>
         <DialogContent dividers sx={{ p: 2, display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}>
           <ArbitrePage
-            variant="modalPicker"
             onOpenInTab={({ rowId, label }) => {
               setDraft((prev) => (prev ? {
                 ...prev,

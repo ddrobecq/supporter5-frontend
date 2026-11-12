@@ -29,8 +29,7 @@ import { toIsoDate } from '../../components/dateUtils';
 import { useInvalidDateFields } from '../../components/useInvalidDateFields';
 import { DEFAULT_NATIO_ID, NatioAutocomplete } from '../../components/NatioAutocomplete';
 import { VillePicker } from '../../components/VillePicker';
-import { fetchNatio } from '../natio/natioApi';
-import type { NatioRow } from '../natio/types';
+import { useNatioList } from '../natio/natioStore';
 import type { ClubCreateWizardPayload, ClubSuggestionRow } from './types';
 
 interface ClubCreateDialogProps {
@@ -57,9 +56,8 @@ export function ClubCreateDialog({
   const [villeId, setVilleId] = useState('');
   const [villeName, setVilleName] = useState('');
   const [villeNatioId, setVilleNatioId] = useState('');
-  const [natioRows, setNatioRows] = useState<NatioRow[]>([]);
+  const { rows: natioRows, loading: loadingNatio, error: natioError } = useNatioList();
   const [loading, setLoading] = useState(false);
-  const [loadingNatio, setLoadingNatio] = useState(false);
   const [suggestions, setSuggestions] = useState<ClubSuggestionRow[]>([]);
   const [expandedClubId, setExpandedClubId] = useState<string | null>(null);
   const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
@@ -83,31 +81,16 @@ export function ClubCreateDialog({
       setIsSelection(false);
       setVilleId('');
       setVilleName('');
-      setNatioRows([]);
       setSuggestions([]);
       setExpandedClubId(null);
       setSelectedClubId(null);
       setLoading(false);
-      setLoadingNatio(false);
-      return;
     }
+  }, [open]);
 
-    const controller = new AbortController();
-    setLoadingNatio(true);
-    void fetchNatio('', controller.signal)
-      .then((result) => {
-        setNatioRows(result.data ?? []);
-      })
-      .catch((error: unknown) => {
-        if (axios.isAxiosError(error) && error.code === 'ERR_CANCELED') {
-          return;
-        }
-        onError(toErrorMessage(error));
-      })
-      .finally(() => setLoadingNatio(false));
-
-    return () => controller.abort();
-  }, [onError, open]);
+  useEffect(() => {
+    if (open && natioError) onError(natioError);
+  }, [natioError, onError, open]);
 
   useEffect(() => {
     if (!open || step !== 1) {
@@ -475,14 +458,14 @@ export function ClubCreateDialog({
         <DialogActions sx={{ px: 3, pb: 2, pt: 1, justifyContent: 'flex-end' }}>
           <Button onClick={onClose} color="inherit" disabled={saving}>Annuler</Button>
           {step === 2 ? (
-            <Button onClick={() => setStep(1)} color="inherit" disabled={saving}>Precedent</Button>
+            <Button onClick={() => setStep(1)} color="inherit" disabled={saving}>Précédent</Button>
           ) : null}
           <Button
             onClick={handlePrimaryAction}
             variant="contained"
             disabled={saving || (step === 1 ? !canGoNext : !canCreate)}
           >
-            {saving ? 'Enregistrement...' : step === 1 ? 'Suivant' : 'Creer'}
+            {saving ? 'Enregistrement...' : step === 1 ? 'Suivant' : 'Créer'}
           </Button>
         </DialogActions>
       </Dialog>

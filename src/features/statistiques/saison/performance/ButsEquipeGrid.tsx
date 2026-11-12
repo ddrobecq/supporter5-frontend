@@ -14,7 +14,7 @@ const HEADERS: Record<ButsEquipeMetric, string> = {
 
 /** Saison > Performance: buts marques/encaisses du club supporte, matchs officiels uniquement, une ligne par saison. */
 export function ButsEquipeGrid({ metric }: { metric: ButsEquipeMetric }) {
-  const { rows, loading } = useStatRows<ButsEquipeRow>((signal) => fetchSaisonButsEquipe(metric, signal), [metric]);
+  const { rows, loading, error } = useStatRows<ButsEquipeRow>((signal) => fetchSaisonButsEquipe(metric, signal), [metric]);
 
   const columns: GridColDef<ButsEquipeRow>[] = useMemo(() => [
     { field: 'SAISON', headerName: 'Saison', flex: 1, minWidth: 140 },
@@ -33,6 +33,7 @@ export function ButsEquipeGrid({ metric }: { metric: ButsEquipeMetric }) {
       rows={rows}
       columns={columns}
       loading={loading}
+      error={error}
     />
   );
 }

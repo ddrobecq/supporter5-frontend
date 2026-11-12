@@ -48,9 +48,11 @@ import {
 } from './competitionApi';
 import type { CompetitionRow, CompetitionTourRow, EpreuveOption, SaisonOption } from './types';
 import type { CalendrierRow } from '../calendrier/types';
-import { heureDigitsToApiValue, isValidHeureDigits, normalizeHeureDigits, sanitizeHeureDigits } from '../calendrier/HeureCell';
+import { heureDigitsToApiValue, isValidHeureDigits, normalizeHeureDigits, sanitizeHeureDigits } from '../../components/heureUtils';
 import type { ScoreDraft } from '../calendrier/ScoreCell';
 import { useProgrammedParticipantResolver } from './useProgrammedParticipantLabels';
+import { normalizeCircId } from './tourWizardRencontresUtils';
+import { canEditScore, parseScoreInputValue, rowStatusClass, scoreToInputValue } from '../../lib/matchStatus';
 
 interface CompetitionTabFormPaneProps {
   tabPath: string;
@@ -60,46 +62,6 @@ interface CompetitionTabFormPaneProps {
 
 type CompetitionTabKey = 'info' | 'deroules';
 type RowSaveStatus = 'idle' | 'saving' | 'saved' | 'failed';
-
-function rowStatusClass(etat: number): string {
-  switch (Number(etat)) {
-    case 1:
-      return 'status-en-attente';
-    case 2:
-      return 'status-en-cours';
-    case 3:
-      return 'status-terminee';
-    case 5:
-      return 'status-programmee';
-    case 4:
-      return 'status-non-jouee';
-    default:
-      return 'status-default';
-  }
-}
-
-function scoreToInputValue(value: unknown): string {
-  if (value === null || value === undefined) return '0';
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return '0';
-  return String(Math.max(0, Math.trunc(numeric)));
-}
-
-function parseScoreInputValue(value: string): number {
-  const trimmed = value.trim();
-  if (!trimmed) return 0;
-  const numeric = Number(trimmed);
-  if (!Number.isFinite(numeric) || numeric < 0) return 0;
-  return Math.trunc(numeric);
-}
-
-function canEditScore(etat: number): boolean {
-  return etat !== 4 && etat !== 5;
-}
-
-function normalizeCircId(value: unknown): string {
-  return String(value ?? '').trim();
-}
 
 function resolveCompetitionLabel(row: CompetitionRow, fallback: string): string {
   const nom = String(row.NOM ?? '').trim();
@@ -789,7 +751,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
   const openTourEditModal = (tour?: CompetitionTourRow) => {
     const rowToEdit = tour ?? selectedTourRow;
     if (!rowToEdit) {
-      setSnackbar({ severity: 'error', message: 'Selectionnez un tour a modifier.' });
+      setSnackbar({ severity: 'error', message: 'Sélectionnez un tour à modifier.' });
       return;
     }
     setTourSelection([rowToEdit.TUCLEUNIK]);
@@ -800,7 +762,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
 
   const openTourDeleteConfirm = () => {
     if (!selectedTourRow) {
-      setSnackbar({ severity: 'error', message: 'Selectionnez un tour a supprimer.' });
+      setSnackbar({ severity: 'error', message: 'Sélectionnez un tour à supprimer.' });
       return;
     }
     setTourDeleteConfirmOpen(true);
@@ -825,7 +787,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
       await deleteCompetitionTour(selectedTourRow.TUCLEUNIK);
       await reloadTours();
       setTourDeleteConfirmOpen(false);
-      setSnackbar({ severity: 'success', message: 'Tour supprime.' });
+      setSnackbar({ severity: 'success', message: 'Tour supprimé.' });
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
     } finally {
@@ -938,7 +900,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
       {loading ? (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
           <CircularProgress size={16} />
-          <Typography variant="body2" color="text.secondary">Chargement de la competition...</Typography>
+          <Typography variant="body2" color="text.secondary">Chargement de la compétition...</Typography>
         </Box>
       ) : row ? (
         <Stack spacing={2}>
@@ -970,7 +932,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
                   setLabel(label);
                   setDirty(false);
                   setInfoDirty(false);
-                  setSnackbar({ severity: 'success', message: 'Competition mise a jour.' });
+                  setSnackbar({ severity: 'success', message: 'Compétition mise à jour.' });
                   notifySaveDone();
                 } catch (error) {
                   setSnackbar({ severity: 'error', message: toErrorMessage(error) });

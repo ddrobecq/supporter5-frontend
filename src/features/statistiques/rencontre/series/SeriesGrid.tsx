@@ -42,7 +42,7 @@ function SerieSentence({ row, metric }: { row: SerieRowWithId; metric: Rencontre
 
 export function SeriesGrid({ metric }: { metric: RencontreSerieMetric }) {
   const [scope, setScope] = useState<number | null>(null);
-  const { rows, loading } = useStatRows<SerieRowWithId>(async (signal) => {
+  const { rows, loading, error } = useStatRows<SerieRowWithId>(async (signal) => {
     const data = await fetchRencontreSeries(metric, scope, signal);
     return data.map((row) => ({ ...row, RECLEUNIK: row.SERIE_FIN_RECLEUNIK }));
   }, [metric, scope]);
@@ -64,6 +64,7 @@ export function SeriesGrid({ metric }: { metric: RencontreSerieMetric }) {
       rows={rows}
       valueColumns={columns}
       loading={loading}
+      error={error}
       getRowId={(row) => `${row.SERIE_DEBUT_RECLEUNIK}-${row.SERIE_FIN_RECLEUNIK}`}
       rowHeight={64}
       hideSearch

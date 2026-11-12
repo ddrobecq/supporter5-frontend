@@ -1,5 +1,5 @@
 import { Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
-import { useAppearance, type AppearanceMode, type ClassicAppearanceMode, type TeamAppearanceMode } from './AppearanceProvider';
+import { useAppearance, type AppearanceMode, type ClassicAppearanceMode, type TeamAppearanceMode } from './appearanceContext';
 
 const CLASSIC_APPEARANCE_OPTIONS: Array<{ value: ClassicAppearanceMode; label: string }> = [
   { value: 'light', label: 'Clair' },

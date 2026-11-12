@@ -1,66 +1,18 @@
 import { env } from '../../config/env';
 import { normalizeImagePayload, updateEntityImageWithFallback } from '../../lib/entityImageApi';
+import type { CanDeleteResponse } from '../../lib/apiTypes';
+import { fetchAllPages } from '../../lib/fetchAllPages';
 import { http } from '../../lib/http';
 import { encodePathSegment } from '../../lib/urlPath';
 import type { ArbitreCreateWizardPayload, ArbitreRow, ArbitreSuggestionRow, PaginatedResponse } from './types';
 
-export interface IntegrityConstraint {
-  table: string;
-  count: number;
-  description: string;
-}
-
-export interface CanDeleteResponse {
-  canDelete: boolean;
-  constraints: IntegrityConstraint[];
-}
-
 export async function fetchArbitre(search: string, signal?: AbortSignal): Promise<PaginatedResponse<ArbitreRow>> {
-  const baseParams = {
+  return fetchAllPages<ArbitreRow>(env.arbitrePublicResource, {
     limit: 200,
     sort: 'NOM',
     order: 'asc',
     ...(search ? { search } : {}),
-  };
-
-  const { data: firstPage } = await http.get<PaginatedResponse<ArbitreRow>>(env.arbitrePublicResource, {
-    params: {
-      ...baseParams,
-      page: 1,
-    },
-    signal,
-  });
-
-  if (firstPage.totalPages <= 1) {
-    return firstPage;
-  }
-
-  const remainingRequests: Array<Promise<{ data: PaginatedResponse<ArbitreRow> }>> = [];
-  for (let page = 2; page <= firstPage.totalPages; page += 1) {
-    remainingRequests.push(
-      http.get<PaginatedResponse<ArbitreRow>>(env.arbitrePublicResource, {
-        params: {
-          ...baseParams,
-          page,
-        },
-        signal,
-      }),
-    );
-  }
-
-  const remainingPages = await Promise.all(remainingRequests);
-  const allRows = [
-    ...firstPage.data,
-    ...remainingPages.flatMap((response) => response.data.data),
-  ];
-
-  return {
-    ...firstPage,
-    data: allRows,
-    page: 1,
-    limit: allRows.length,
-    totalPages: 1,
-  };
+  }, signal);
 }
 
 export async function fetchArbitreById(id: string | number): Promise<ArbitreRow> {
@@ -85,23 +37,6 @@ export async function canDeleteArbitre(id: string | number): Promise<CanDeleteRe
   const { data } = await http.get<CanDeleteResponse>(
     `${env.arbitreAdminResource}/${encodePathSegment(id)}/can-delete`,
   );
-  return data;
-}
-
-export async function createArbitre(payload: ArbitreRow): Promise<ArbitreRow | undefined> {
-  const image = normalizeImagePayload(payload.ARB_PHOTO);
-  const { ARB_PHOTO: _photo, ...entityPayload } = payload;
-  const { data } = await http.post<ArbitreRow>(env.arbitreAdminResource, entityPayload);
-
-  if (image !== undefined) {
-    const id = (data?.IDARBITRE ?? entityPayload.IDARBITRE) as string | number | undefined;
-    if (id !== undefined && id !== null && String(id).trim() !== '') {
-      await updateEntityImageWithFallback('arbitre', id, image, async () => {
-        await http.put(`${env.arbitreAdminResource}/${encodePathSegment(id)}`, { ARB_PHOTO: image });
-      });
-    }
-  }
-
   return data;
 }
 

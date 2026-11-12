@@ -1,174 +1,74 @@
-﻿import type { GridColDef, GridRowId } from '@mui/x-data-grid';
-import { useMemo } from 'react';
-import { Navigate, useParams } from 'react-router-dom';
+import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { createTerrain, deleteTerrain, fetchTerrain, fetchTerrainById, updateTerrain, canDeleteTerrain } from './terrainApi';
 import { TerrainFormDialog } from './TerrainFormDialog';
-import { EntityPageLayout } from '../../components/EntityPageLayout';
-import { createAndOpenInTab, useEntityPage } from '../../components/useEntityPage';
+import { EntityListPage } from '../../components/EntityListPage';
 import type { TerrainRow } from './types';
-import { buildTerrainFormFields, detectTerrainPrimaryKey, resolveTerrainId, resolveTerrainLabel } from './terrainUi';
+import { buildTerrainFormFields, resolveTerrainId, resolveTerrainLabel } from './terrainUi';
 
 interface TerrainPageProps {
-  variant?: 'page' | 'modalPicker';
   onOpenInTab?: (payload: { rowId: GridRowId; label: string }) => void;
 }
 
-function toComparableId(value: unknown): string {
-  return String(value);
+const TERRAIN_API = {
+  fetchAll: fetchTerrain,
+  fetchById: fetchTerrainById,
+  create: createTerrain,
+  update: updateTerrain,
+  remove: deleteTerrain,
+  canDelete: canDeleteTerrain,
+};
+
+const TERRAIN_MESSAGES = {
+  singular: 'terrain',
+  singularArticle: 'ce terrain',
+  created: 'Terrain créé.',
+  updated: 'Terrain mis à jour.',
+  deleted: 'Terrain supprimé.',
+  selectToOpen: 'Sélectionnez un terrain à ouvrir.',
+  selectToDelete: 'Sélectionnez un terrain à supprimer.',
+  noneSelected: 'Aucun terrain sélectionné.',
+};
+
+const TERRAIN_HEADER_LABELS: Record<string, string> = { STADE: 'Stade', VILLE_NOM: 'Ville' };
+
+const TERRAIN_DEFAULT_COLUMNS: GridColDef<TerrainRow>[] = [
+  { field: 'STADE', headerName: 'Stade', flex: 1, minWidth: 220, sortable: true },
+  { field: 'VILLE_NOM', headerName: 'Ville', flex: 0.8, minWidth: 150, sortable: true },
+];
+
+/** Columns derived from the fields of the first loaded row (name first). */
+function createTerrainColumns(rows: TerrainRow[]): GridColDef<TerrainRow>[] {
+  const first = rows[0];
+  if (!first) return TERRAIN_DEFAULT_COLUMNS;
+  const allFields = Object.keys(first);
+  const nameField = allFields.find((f) => ['STADE', 'NOM'].includes(f));
+  const visibleFields = allFields.filter((field) => !['TERRAIN_LOGO', 'TECLEUNIK', 'IDVILLE'].includes(field));
+  const orderedFields = [nameField, ...visibleFields].filter(
+    (field, index, array): field is string => Boolean(field) && array.indexOf(field) === index,
+  );
+  return orderedFields.map((field, index) => ({
+    field,
+    headerName: TERRAIN_HEADER_LABELS[field] || field,
+    flex: index === 0 ? 1 : undefined,
+    minWidth: index === 0 ? 220 : 150,
+    sortable: true,
+  }));
 }
 
-export function TerrainPage({ variant = 'page', onOpenInTab }: TerrainPageProps) {
-  const params = useParams<{ terrainId?: string }>();
-  const terrainId = params.terrainId;
-
-  // Si variant est 'page' (page complète, pas modale) et qu'il n'y a pas d'ID, rediriger
-  if (variant === 'page' && !terrainId) {
-    return <Navigate to="/admin/home" replace />;
-  }
-
-  const page = useEntityPage<TerrainRow>(
-    {
-      fetchAll: fetchTerrain,
-      fetchById: fetchTerrainById,
-      create: createTerrain,
-      update: updateTerrain,
-      remove: deleteTerrain,
-      canDelete: canDeleteTerrain,
-    },
-    {
-      singular: 'terrain',
-      singularArticle: 'ce terrain',
-      created: 'Terrain cree.',
-      updated: 'Terrain mis a jour.',
-      deleted: 'Terrain supprime.',
-      selectToOpen: 'Selectionnez un terrain a ouvrir.',
-      selectToDelete: 'Selectionnez un terrain a supprimer.',
-      noneSelected: 'Aucun terrain selectionne.',
-    },
-  );
-
-  const primaryKey = useMemo(() => detectTerrainPrimaryKey(page.rows), [page.rows]);
-
-  const columns = useMemo<GridColDef[]>(() => {
-    const first = page.rows[0];
-    const headerLabels: Record<string, string> = { STADE: 'Stade', VILLE_NOM: 'Ville' };
-    if (!first) {
-      return [
-        { field: 'STADE', headerName: 'Stade', flex: 1, minWidth: 220, sortable: true },
-        { field: 'VILLE_NOM', headerName: 'Ville', flex: 0.8, minWidth: 150, sortable: true },
-      ];
-    }
-    const allFields = Object.keys(first);
-    const nameField = allFields.find((f) => ['STADE', 'NOM'].includes(f));
-    const visibleFields = allFields.filter((field) => !['TERRAIN_LOGO', 'TECLEUNIK', 'IDVILLE'].includes(field));
-    const orderedFields = [nameField, ...visibleFields].filter(
-      (field, index, array): field is string => Boolean(field) && array.indexOf(field) === index,
-    );
-    return orderedFields.map((field, index) => ({
-      field,
-      headerName: headerLabels[field] || field,
-      flex: index === 0 ? 1 : undefined,
-      minWidth: index === 0 ? 220 : 150,
-      sortable: true,
-    }));
-  }, [page.rows]);
-
-  const formFields = useMemo<string[]>(() => {
-    const source = page.activeRow ?? page.rows[0];
-    return buildTerrainFormFields(source);
-  }, [page.activeRow, page.rows]);
-
-  const getRowId = (row: TerrainRow): GridRowId => {
-    if (primaryKey && (typeof row[primaryKey] === 'string' || typeof row[primaryKey] === 'number')) {
-      return row[primaryKey] as GridRowId;
-    }
-    return JSON.stringify(row);
-  };
-
-  const openInTabFromRowId = (rowId: GridRowId) => {
-    if (!onOpenInTab) return;
-    const selectedRow = page.rows.find((row) => toComparableId(getRowId(row)) === toComparableId(rowId));
-    const label = selectedRow ? resolveTerrainLabel(selectedRow) : String(rowId);
-    onOpenInTab({ rowId, label });
-  };
-
-  const handleOpen = () => {
-    if (variant === 'modalPicker' && onOpenInTab) {
-      const selectedId = page.selection.at(0);
-      if (selectedId === undefined || selectedId === null) {
-        page.setSnackbar({ severity: 'error', message: 'Selectionnez un terrain a ouvrir.' });
-        return;
-      }
-      openInTabFromRowId(selectedId);
-      return;
-    }
-    void page.openEditDialog();
-  };
-
-  const handleRowDoubleClick = (rowId: GridRowId) => {
-    if (variant === 'modalPicker' && onOpenInTab) {
-      openInTabFromRowId(rowId);
-      return;
-    }
-    void page.openEditDialog(rowId);
-  };
-
-  const handleFormSubmit = async (payload: TerrainRow) => {
-    if (variant === 'modalPicker' && onOpenInTab && page.dialogMode === 'create') {
-      await createAndOpenInTab({
-        create: createTerrain,
-        payload,
-        resolveId: resolveTerrainId,
-        resolveLabel: resolveTerrainLabel,
-        closeDialog: () => page.setDialogOpen(false),
-        onOpenInTab,
-        setSnackbar: page.setSnackbar,
-      });
-      return;
-    }
-
-    await page.handleFormSubmit(payload);
-  };
-
+export function TerrainPage({ onOpenInTab }: TerrainPageProps) {
   return (
-    <EntityPageLayout
-      hideTitle={variant === 'modalPicker'}
-      actionsInlineWithSearch={variant === 'modalPicker'}
+    <EntityListPage<TerrainRow>
+      api={TERRAIN_API}
+      messages={TERRAIN_MESSAGES}
       title="Stades"
       searchLabel="Rechercher un terrain"
-      search={page.search}
-      onSearchChange={page.setSearch}
-      searchInputRef={page.searchInputRef}
-      onNew={page.openCreateDialog}
-      onOpen={handleOpen}
-      onDelete={() => void page.handleOpenDeleteConfirm()}
-      actionButtonsRowRef={page.actionButtonsRowRef}
-      compactActionButtons={page.compactActionButtons}
-      rows={page.rows}
-      columns={columns}
-      loading={page.loading}
-      getRowId={getRowId}
-      selection={page.selection}
-      onSelectionChange={page.setSelection}
-      onRowDoubleClick={handleRowDoubleClick}
-      confirmDeleteOpen={page.confirmDeleteOpen}
-      deleteConstraints={page.deleteConstraints}
-      entityDescription="ce terrain"
-      onConfirmDelete={() => void page.handleDelete()}
-      onCloseDeleteConfirm={page.closeDeleteConfirm}
-      formDialog={
-        <TerrainFormDialog
-          open={page.dialogOpen}
-          mode={page.dialogMode}
-          fields={formFields}
-          primaryKey={primaryKey}
-          initialData={page.activeRow}
-          onClose={() => page.setDialogOpen(false)}
-          onSubmit={handleFormSubmit}
-        />
-      }
-      snackbar={page.snackbar}
-      onCloseSnackbar={() => page.setSnackbar(null)}
+      primaryKey="TECLEUNIK"
+      resolveId={resolveTerrainId}
+      resolveLabel={resolveTerrainLabel}
+      columns={createTerrainColumns}
+      buildFormFields={buildTerrainFormFields}
+      renderFormDialog={(dialog, fields) => <TerrainFormDialog {...dialog} fields={fields} />}
+      onOpenInTab={onOpenInTab}
     />
   );
 }

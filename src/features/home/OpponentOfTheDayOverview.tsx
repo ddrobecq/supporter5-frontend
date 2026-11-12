@@ -5,28 +5,19 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { formatHeureDisplay } from '../../components/heureUtils';
-import { formatDateShort } from '../../components/dateUtils';
+import { formatDateShort, isSameDay, parseDbDate } from '../../components/dateUtils';
 import { entityPath, entityPathForPublicMode } from '../../lib/entityNavigation';
 import { fetchClubMatches } from '../club/clubApi';
 import { ClubMatchStatsPanel } from '../club/ClubMatchStats';
 import type { ClubMatchRow } from '../club/types';
-
-function parseCompactDate(value: string): Date | null {
-  const match = String(value ?? '').trim().match(/^(\d{4})(\d{2})(\d{2})$/);
-  if (!match) return null;
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function isSameDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
+import { isMatchPlayed, MatchEtat } from '../../lib/matchStatus';
+import { emitTabOpen } from '../../lib/useTabMetaEvents';
 
 /** Match "reel" (hors bye/forfait technique ETAT 4/5) programme ou joue aujourd'hui. */
 function isTodayMatch(row: ClubMatchRow, now: Date): boolean {
   const etat = Number(row.ETAT);
-  if (etat === 4 || etat === 5) return false;
-  const date = parseCompactDate(row.DATE);
+  if (etat === MatchEtat.NonJoueeAnnulee || etat === MatchEtat.Programmee) return false;
+  const date = parseDbDate(row.DATE);
   return Boolean(date && isSameDay(date, now));
 }
 
@@ -39,7 +30,7 @@ function formatMatchScore(row: ClubMatchRow): string {
 }
 
 function matchDateValue(row: ClubMatchRow): number {
-  return parseCompactDate(row.DATE)?.getTime() ?? 0;
+  return parseDbDate(row.DATE)?.getTime() ?? 0;
 }
 
 function ClubCrest({ clubId, size = 40 }: { clubId: string; size?: number }) {
@@ -80,14 +71,7 @@ function openOpponentClub(opponentId: string, opponentName: string, publicMode: 
     return;
   }
 
-  window.dispatchEvent(new CustomEvent('supporter:tab-open', {
-    detail: {
-      path,
-      label: opponentName,
-      unique: true,
-      uniqueByPath: true,
-    },
-  }));
+  emitTabOpen(path, opponentName);
 }
 
 function openMatch(row: ClubMatchRow, publicMode: boolean, navigate: (path: string) => void): void {
@@ -100,14 +84,7 @@ function openMatch(row: ClubMatchRow, publicMode: boolean, navigate: (path: stri
     return;
   }
 
-  window.dispatchEvent(new CustomEvent('supporter:tab-open', {
-    detail: {
-      path,
-      label: `${row.DOMICILE_NOM} - ${row.EXTERIEUR_NOM}`,
-      unique: true,
-      uniqueByPath: true,
-    },
-  }));
+  emitTabOpen(path, `${row.DOMICILE_NOM} - ${row.EXTERIEUR_NOM}`);
 }
 
 function ConfrontationRow({ row, publicMode, navigate }: { row: ClubMatchRow; publicMode: boolean; navigate: (path: string) => void }) {
@@ -201,14 +178,14 @@ export function OpponentOfTheDayOverview({ clubId, publicMode = false }: { clubI
   const lastConfrontations = useMemo(() => {
     if (!todayMatch) return [];
     return headToHeadMatches
-      .filter((row) => (row.ETAT === 2 || row.ETAT === 3) && row.RECLEUNIK !== todayMatch.RECLEUNIK)
+      .filter((row) => isMatchPlayed(row.ETAT) && row.RECLEUNIK !== todayMatch.RECLEUNIK)
       .sort((a, b) => matchDateValue(b) - matchDateValue(a))
       .slice(0, 4);
   }, [headToHeadMatches, todayMatch]);
 
   if (!loaded || !todayMatch || !opponent) return null;
 
-  const played = todayMatch.ETAT === 2 || todayMatch.ETAT === 3;
+  const played = isMatchPlayed(todayMatch.ETAT);
   const infoParts = [formatHeureDisplay(todayMatch.HEURE), todayMatch.TERRAIN_NOM].filter(Boolean);
 
   return (

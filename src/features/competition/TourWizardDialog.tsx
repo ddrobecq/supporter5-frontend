@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { DateInputField } from '../../components/DateInputField';
+import { isoDateOrNull } from '../../components/dateUtils';
 import { useInvalidDateFields } from '../../components/useInvalidDateFields';
 import { NumberField } from '../../components/NumberField';
 import { TimeInputField } from '../../components/TimeInputField';
@@ -49,7 +50,6 @@ import {
   createDefaultDraft,
   createDraftFromDetail,
   mapTourTypeToDb,
-  toApiDate,
   type SelectionMode,
   type TourDraft,
   type TourType,
@@ -62,6 +62,8 @@ import { TourWizardStep6Rencontres } from './TourWizardStep6Rencontres';
 import { getDistinctNonEmptyGroupNames } from './tourWizardGroups';
 import { assignEliminatoireMatchGroups } from './tourWizardEliminatoireGroups';
 import type { CompetitionTourUpsertPayload, QualifRow, TourMatchRow, TourParticipantRow } from './types';
+import { MatchEtat } from '../../lib/matchStatus';
+import { normalizeText } from '../../lib/text';
 
 const WIZARD_STEPS = ['Description', 'Dates', 'Définition', 'Groupes', 'Classement', 'Participants', 'Rencontres'] as const;
 
@@ -109,17 +111,13 @@ function getPreviousAvailableStep(step: number, type: TourType): number | null {
   return null;
 }
 
-function normalizeText(value: unknown): string {
-  return String(value ?? '').trim();
-}
-
 function isRencontreProtected(row: TourMatchRow): boolean {
   const hasScore = Number(row.BUTDOM ?? 0) !== 0
     || Number(row.BUTEXT ?? 0) !== 0
     || Number(row.TABDOM ?? 0) !== 0
     || Number(row.TABEXT ?? 0) !== 0;
   const status = Number(row.ETAT ?? 0);
-  const hasAdvancedStatus = ![0, 1, 5].includes(status);
+  const hasAdvancedStatus = ![0, MatchEtat.EnAttente, MatchEtat.Programmee].includes(status);
   return hasScore || hasAdvancedStatus;
 }
 
@@ -328,8 +326,8 @@ export function TourWizardDialog({
   const isLastStep = nextStep === null;
 
   const isDateRangeInvalid = useMemo(() => {
-    const start = toApiDate(draft.dateDebut);
-    const end = toApiDate(draft.dateFin);
+    const start = isoDateOrNull(draft.dateDebut);
+    const end = isoDateOrNull(draft.dateFin);
     if (!start || !end) return false;
     return end < start;
   }, [draft.dateDebut, draft.dateFin]);
@@ -340,7 +338,7 @@ export function TourWizardDialog({
     const participants = Number(draft.participants);
 
     if (!nom) {
-      nextErrors.nom = 'Intitule requis.';
+      nextErrors.nom = 'Intitulé requis.';
     }
     if (!Number.isInteger(participants) || participants <= 0) {
       nextErrors.participants = 'Nombre de participants invalide.';
@@ -358,7 +356,7 @@ export function TourWizardDialog({
     const nextErrors: Record<string, string> = {};
 
     if (isDateRangeInvalid) {
-      nextErrors.dateFin = 'La date de fin doit etre superieure ou egale a la date de debut.';
+      nextErrors.dateFin = 'La date de fin doit être supérieure ou égale à la date de début.';
     }
 
     setErrors((prev) => ({ ...prev, ...nextErrors }));
@@ -395,10 +393,10 @@ export function TourWizardDialog({
       NB_PARTICIPANTS: Number(draft.participants) || 0,
       TU_FINAL: draft.final ? 1 : 0,
       TU_SELECTION: 0,
-      TU_DATETIRAGE: draft.selectionMode === 'tirage' ? toApiDate(draft.dateTirage) : null,
+      TU_DATETIRAGE: draft.selectionMode === 'tirage' ? isoDateOrNull(draft.dateTirage) : null,
       TU_HEURETIRAGE: draft.selectionMode === 'tirage' ? String(draft.heureTirage ?? '').trim() || null : null,
-      DATE_DEBUT: toApiDate(draft.dateDebut),
-      DATE_FIN: toApiDate(draft.dateFin),
+      DATE_DEBUT: isoDateOrNull(draft.dateDebut),
+      DATE_FIN: isoDateOrNull(draft.dateFin),
       TUHEURE: String(draft.heureMatches ?? '').trim() || null,
       TU_ORDRE: Number(draft.ordre) || 1,
       NB_EQUIPE: Number(draft.nbEquipe) || 0,
@@ -424,7 +422,7 @@ export function TourWizardDialog({
     const rencontreBlockingIssues = buildRencontreBlockingIssues(existingRencontres, rencontreDraftRows);
     if (rencontreBlockingIssues.length > 0) {
       const details = rencontreBlockingIssues.join(' | ');
-      throw new Error(`Enregistrement bloque: certaines rencontres protegees seraient supprimees ou modifiees. ${details}`);
+      throw new Error(`Enregistrement bloqué: certaines rencontres protégées seraient supprimées ou modifiées. ${details}`);
     }
 
     const existingQualifById = new Map(
@@ -484,7 +482,7 @@ export function TourWizardDialog({
     if (draft.type === 'eliminatoire') {
       const assignment = assignEliminatoireMatchGroups(participantDraftRows, rencontreDraftRows);
       if (assignment.conflicts.length > 0) {
-        throw new Error(`Enregistrement bloque: un participant est relie a plusieurs confrontations. ${assignment.conflicts.join(' | ')}`);
+        throw new Error(`Enregistrement bloqué: un participant est relié à plusieurs confrontations. ${assignment.conflicts.join(' | ')}`);
       }
       participantRowsToSave = assignment.participants;
     }
@@ -645,7 +643,7 @@ export function TourWizardDialog({
         const created = await createCompetitionTour(payload);
         targetTourId = Number(created?.TUCLEUNIK ?? 0);
         if (!Number.isInteger(targetTourId) || targetTourId <= 0) {
-          throw new Error('Impossible de recuperer l identifiant du tour cree.');
+          throw new Error("Impossible de récupérer l'identifiant du tour créé.");
         }
       } else {
         if (!initialTourId) {
@@ -690,7 +688,7 @@ export function TourWizardDialog({
       <DialogContent sx={{ display: 'flex', minHeight: 0, overflowY: 'hidden', overflowX: 'hidden', px: 2 }}>
         <Stack spacing={2} sx={{ pt: 0.5, flex: 1, minHeight: 0, minWidth: 0, overflowY: 'auto', overflowX: 'hidden' }}>
           <Typography variant="body2" color="text.secondary">
-            Competition: {competitionLabel}
+            Compétition: {competitionLabel}
           </Typography>
 
           <Stepper activeStep={stepIndex} alternativeLabel>
@@ -718,14 +716,14 @@ export function TourWizardDialog({
             <Stack spacing={1.5}>
               <TextField
                 label="Identifiant"
-                value={mode === 'create' ? 'Attribue a l enregistrement' : String(draft.id)}
+                value={mode === 'create' ? "Attribué à l'enregistrement" : String(draft.id)}
                 size="small"
                 fullWidth
                 disabled
               />
 
               <TextField
-                label="Intitule"
+                label="Intitulé"
                 value={draft.nom}
                 onChange={(event) => {
                   const value = event.target.value;
@@ -749,7 +747,7 @@ export function TourWizardDialog({
                   }}
                 >
                   <FormControlLabel value="ligue" control={<Radio />} label="Ligue" />
-                  <FormControlLabel value="eliminatoire" control={<Radio />} label="Eliminatoire" />
+                  <FormControlLabel value="eliminatoire" control={<Radio />} label="Éliminatoire" />
                 </RadioGroup>
               </Stack>
 
@@ -775,7 +773,7 @@ export function TourWizardDialog({
                     }}
                   />
                 }
-                label="Finale de la competition"
+                label="Finale de la compétition"
               />
             </Stack>
           ) : null}
@@ -784,7 +782,7 @@ export function TourWizardDialog({
             <Stack spacing={2}>
               <Box sx={{ p: 1.25, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
                 <Stack spacing={1.25}>
-                  <FormLabel>Selection des matches</FormLabel>
+                  <FormLabel>Sélection des matches</FormLabel>
                   <ToggleButtonGroup
                     color="primary"
                     exclusive
@@ -835,7 +833,7 @@ export function TourWizardDialog({
 
                   <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25}>
                     <DateInputField
-                      label="Debut"
+                      label="Début"
                       value={draft.dateDebut}
                       onChange={(nextDate) => {
                         setDraft((prev) => ({ ...prev, dateDebut: nextDate }));
@@ -939,8 +937,8 @@ export function TourWizardDialog({
                 tourType={draft.type}
                 isAllerRetour={isAllerRetour}
                 competitionSeason={String(competitionSeason ?? '').trim()}
-                tourStartDate={toApiDate(draft.dateDebut) ?? ''}
-                tourEndDate={toApiDate(draft.dateFin) ?? ''}
+                tourStartDate={isoDateOrNull(draft.dateDebut) ?? ''}
+                tourEndDate={isoDateOrNull(draft.dateFin) ?? ''}
                 tourDefaultHeure={String(draft.heureMatches ?? '').trim()}
                 nbMatch={draft.nbMatch}
                 nbGroupe={draft.nbGroupe}
@@ -957,7 +955,7 @@ export function TourWizardDialog({
 
       <DialogActions>
         <Button onClick={onClose} color="inherit" disabled={saving}>Annuler</Button>
-        <Button onClick={handleBack} disabled={!canGoBack || loading}>Precedent</Button>
+        <Button onClick={handleBack} disabled={!canGoBack || loading}>Précédent</Button>
         {!isLastStep ? (
           <Button onClick={handleNext} disabled={!canGoNext || loading}>Suivant</Button>
         ) : (

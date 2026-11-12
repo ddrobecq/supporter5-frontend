@@ -60,7 +60,7 @@ export function CompetitionCreateWizardDialog({
 
   const handleCreate = async () => {
     if (!canCreate) {
-      onError('Epreuve, saison et nom sont requis.');
+      onError('Épreuve, saison et nom sont requis.');
       return;
     }
 
@@ -82,14 +82,14 @@ export function CompetitionCreateWizardDialog({
 
   return (
     <Dialog open={open} onClose={() => { if (!saving) onClose(); }} fullWidth maxWidth="sm">
-      <DialogTitle>Nouvelle Competition</DialogTitle>
+      <DialogTitle>Nouvelle Compétition</DialogTitle>
       <DialogContent sx={{ p: 0, overflowX: 'hidden' }}>
         <Box sx={{ px: 3, pt: 1.5, pb: 1.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
           {step === 1 ? (
             <>
               <TextField
                 select
-                label="Epreuve"
+                label="Épreuve"
                 value={epreuveId}
                 onChange={(event) => setEpreuveId(Number(event.target.value))}
                 fullWidth
@@ -120,7 +120,7 @@ export function CompetitionCreateWizardDialog({
           ) : (
             <>
               <TextField
-                label="Nom de la competition"
+                label="Nom de la compétition"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 fullWidth
@@ -142,12 +142,12 @@ export function CompetitionCreateWizardDialog({
       <DialogActions sx={{ px: 3, pb: 2, pt: 1, justifyContent: 'flex-end' }}>
         <Button onClick={onClose} color="inherit" disabled={saving}>Annuler</Button>
         {step === 2 ? (
-          <Button onClick={() => setStep(1)} color="inherit" disabled={saving}>Precedent</Button>
+          <Button onClick={() => setStep(1)} color="inherit" disabled={saving}>Précédent</Button>
         ) : null}
         {step === 1 ? (
           <Button onClick={() => {
             if (!canGoNext) {
-              onError('Epreuve et saison requises.');
+              onError('Épreuve et saison requises.');
               return;
             }
             setStep(2);
@@ -156,7 +156,7 @@ export function CompetitionCreateWizardDialog({
           </Button>
         ) : (
           <Button onClick={() => void handleCreate()} variant="contained" disabled={saving || !canCreate}>
-            {saving ? 'Enregistrement...' : 'Creer'}
+            {saving ? 'Enregistrement...' : 'Créer'}
           </Button>
         )}
       </DialogActions>

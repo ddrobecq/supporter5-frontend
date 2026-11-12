@@ -24,15 +24,16 @@ import { useGridApiRef, type GridColDef, type GridRenderEditCellParams, type Gri
 import { type Dispatch, type KeyboardEvent, type SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
 import { ClubCell } from '../../components/ClubCell';
 import { DateGridEditor } from '../../components/DateGridEditor';
-import { INVALID_DATE_MESSAGE, toIsoDate } from '../../components/dateUtils';
+import { formatDateShort, INVALID_DATE_MESSAGE, todayIso, toIsoDate } from '../../components/dateUtils';
 import { HeureGridEditorCell } from '../../components/HeureGridEditorCell';
 import { MatchDataGrid } from '../../components/MatchDataGrid';
 import { toErrorMessage } from '../../components/useEntityPage';
 import {
   heureDigitsToApiValue,
   normalizeHeureDigits,
+  parseStrictHeure,
   sanitizeHeureDigits,
-} from '../calendrier/HeureCell';
+} from '../../components/heureUtils';
 import {
   fetchCircByTourType,
 } from './competitionApi';
@@ -52,16 +53,15 @@ import {
 import { wizardGridBoxSx, wizardGridFillSx } from './tourWizardLayout';
 import {
   compareDateHeure,
-  formatDateDisplay,
   formatHeureDisplay,
   getParticipantIdentityKey,
   normalizeCircId,
-  normalizeHeure,
 } from './tourWizardRencontresUtils';
 import { buildAdjacentSelectionState, getAdjacentSelectionValue } from './tourWizardSelection';
 import { useProgrammedParticipantResolver } from './useProgrammedParticipantLabels';
 import { TourParticipantGrid } from './TourParticipantGrid';
 import type { CircOptionRow, TourMatchRow, TourParticipantRow } from './types';
+import { MatchEtat } from '../../lib/matchStatus';
 
 interface TourWizardStep6RencontresProps {
   tourId: number;
@@ -444,7 +444,7 @@ export function TourWizardStep6Rencontres({
         minWidth: 96,
         maxWidth: 96,
         editable: true,
-        valueFormatter: (value) => formatDateDisplay(value),
+        valueFormatter: (value) => formatDateShort(value),
         renderEditCell: (params: GridRenderEditCellParams<RencontresGridModelRow, unknown>) => (
           <DateGridEditor
             value={String(params.value ?? '')}
@@ -525,7 +525,7 @@ export function TourWizardStep6Rencontres({
 
     const nextDate = toIsoDate(newRow.DATE);
     const rawHeure = String(newRow.HEURE ?? '').trim();
-    const nextHeure = rawHeure ? normalizeHeure(rawHeure) : null;
+    const nextHeure = rawHeure ? parseStrictHeure(rawHeure) : null;
 
     if (!nextDate) {
       throw new Error(`${INVALID_DATE_MESSAGE}.`);
@@ -535,7 +535,7 @@ export function TourWizardStep6Rencontres({
     }
 
     const prevDate = toIsoDate(oldRow.DATE);
-    const prevHeure = normalizeHeure(oldRow.HEURE) || null;
+    const prevHeure = parseStrictHeure(oldRow.HEURE) || null;
     const updatedRow: RencontresGridModelRow = { ...newRow, DATE: nextDate, HEURE: nextHeure };
 
     if (nextDate === prevDate && nextHeure === prevHeure) {
@@ -582,8 +582,8 @@ export function TourWizardStep6Rencontres({
       const lastMatch = filteredRencontreRows.length > 0
         ? filteredRencontreRows[filteredRencontreRows.length - 1]
         : undefined;
-      const startDate = toIsoDate(lastMatch?.DATE) || toIsoDate(tourStartDate) || new Date().toISOString().slice(0, 10);
-      const startHeure = normalizeHeure(lastMatch?.HEURE ?? '') || normalizeHeure(tourDefaultHeure) || null;
+      const startDate = toIsoDate(lastMatch?.DATE) || toIsoDate(tourStartDate) || todayIso();
+      const startHeure = parseStrictHeure(lastMatch?.HEURE ?? '') || parseStrictHeure(tourDefaultHeure) || null;
       setPending({
         date: startDate,
         heure: startHeure,
@@ -680,7 +680,7 @@ export function TourWizardStep6Rencontres({
 
     const endDate = toIsoDate(tourEndDate);
     if (!endDate) {
-      onError?.('La date de fin du tour est requise pour creer les matches retour.');
+      onError?.('La date de fin du tour est requise pour créer les matches retour.');
       return;
     }
 
@@ -744,7 +744,7 @@ export function TourWizardStep6Rencontres({
         BUTEXT: 0,
         TABDOM: 0,
         TABEXT: 0,
-        ETAT: Number(aller.ETAT) === 1 ? 1 : 5,
+        ETAT: Number(aller.ETAT) === MatchEtat.EnAttente ? MatchEtat.EnAttente : MatchEtat.Programmee,
         TUCLEUNIK: tourId,
         SAISON: String(competitionSeason ?? '').trim(),
         READMIN: 0,
@@ -756,7 +756,7 @@ export function TourWizardStep6Rencontres({
     });
 
     if (payloads.length === 0) {
-      onError?.('Aucun match retour a creer (deja presents ou donnees invalides).');
+      onError?.('Aucun match retour à créer (déjà présents ou données invalides).');
       return;
     }
 
@@ -821,14 +821,14 @@ export function TourWizardStep6Rencontres({
               </Select>
             </FormControl>
 
-            <Tooltip title="Groupe precedent">
+            <Tooltip title="Groupe précédent">
               <span>
                 <IconButton
                   size="small"
                   sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, flexShrink: 0 }}
                   onClick={() => selectAdjacentGroup(-1)}
                   disabled={loading || !canSelectPreviousGroup}
-                  aria-label="Selectionner le groupe precedent"
+                  aria-label="Sélectionner le groupe précédent"
                 >
                   <NavigateBeforeRoundedIcon fontSize="small" />
                 </IconButton>
@@ -842,7 +842,7 @@ export function TourWizardStep6Rencontres({
                   sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, flexShrink: 0 }}
                   onClick={() => selectAdjacentGroup(1)}
                   disabled={loading || !canSelectNextGroup}
-                  aria-label="Selectionner le groupe suivant"
+                  aria-label="Sélectionner le groupe suivant"
                 >
                   <NavigateNextRoundedIcon fontSize="small" />
                 </IconButton>
@@ -867,14 +867,14 @@ export function TourWizardStep6Rencontres({
             </Select>
           </FormControl>
 
-          <Tooltip title="Manche precedente">
+          <Tooltip title="Manche précédente">
             <span>
               <IconButton
                 size="small"
                 sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, flexShrink: 0 }}
                 onClick={() => selectAdjacentCirc(-1)}
                 disabled={loading || !canSelectPreviousCirc}
-                aria-label="Selectionner la manche precedente"
+                aria-label="Sélectionner la manche précédente"
               >
                 <NavigateBeforeRoundedIcon fontSize="small" />
               </IconButton>
@@ -888,7 +888,7 @@ export function TourWizardStep6Rencontres({
                 sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, flexShrink: 0 }}
                 onClick={() => selectAdjacentCirc(1)}
                 disabled={loading || !canSelectNextCirc}
-                aria-label="Selectionner la manche suivante"
+                aria-label="Sélectionner la manche suivante"
               >
                 <NavigateNextRoundedIcon fontSize="small" />
               </IconButton>
@@ -896,7 +896,7 @@ export function TourWizardStep6Rencontres({
           </Tooltip>
 
           {canGenerateRetour ? (
-            <Tooltip title="Creer les matches retour depuis les matches aller">
+            <Tooltip title="Créer les matches retour depuis les matches aller">
               <span>
                 <Button
                   size="small"
@@ -1024,10 +1024,10 @@ export function TourWizardStep6Rencontres({
           setRetourConfirmOpen(false);
         }}
       >
-        <DialogTitle>Generer les matches retour</DialogTitle>
+        <DialogTitle>Générer les matches retour</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Confirmez-vous la création automatique des matches retour a partir des matches aller deja saisis ?
+            Confirmez-vous la création automatique des matches retour à partir des matches aller déjà saisis ?
           </DialogContentText>
         </DialogContent>
         <DialogActions>

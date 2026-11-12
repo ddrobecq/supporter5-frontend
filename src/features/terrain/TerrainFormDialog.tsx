@@ -4,7 +4,8 @@ import {
   Stack,
   TextField,
 } from '@mui/material';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useExternalSaveTrigger } from '../../lib/useExternalSaveTrigger';
 import { VillePicker } from '../../components/VillePicker';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { useDirtySignature } from '../../lib/useDirtySignature';
@@ -84,7 +85,7 @@ export function TerrainFormDialog({
     setValues(initial);
     setErrors({});
     setInitialSignature(JSON.stringify(initial));
-  }, [open, resolvedFields, initialData]);
+  }, [open, resolvedFields, initialData, setInitialSignature]);
 
   useEffect(() => {
     syncDirty(JSON.stringify(values));
@@ -118,9 +119,7 @@ export function TerrainFormDialog({
     }
   };
 
-  const handleSaveRef = useRef(handleSave);
-  handleSaveRef.current = handleSave;
-  useEffect(() => { if (saveCount > 0) void handleSaveRef.current(); }, [saveCount]);
+  useExternalSaveTrigger(saveCount, handleSave);
 
 
   const content = (

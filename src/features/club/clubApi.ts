@@ -1,4 +1,5 @@
 import { env } from '../../config/env';
+import type { CanDeleteResponse } from '../../lib/apiTypes';
 import { http } from '../../lib/http';
 import { encodePathSegment } from '../../lib/urlPath';
 import type {
@@ -12,17 +13,6 @@ import type {
   ClubTerrainHistoryRow,
   GridResponse,
 } from './types';
-
-export interface IntegrityConstraint {
-  table: string;
-  count: number;
-  description: string;
-}
-
-export interface CanDeleteResponse {
-  canDelete: boolean;
-  constraints: IntegrityConstraint[];
-}
 
 export async function fetchClubsGrid(
   search: string,
@@ -156,14 +146,6 @@ export interface ClubMergeResult {
 
 export async function mergeClubs(sourceId: string, targetId: string): Promise<ClubMergeResult> {
   const { data } = await http.post<ClubMergeResult>(`${env.clubAdminResource}/merge`, { sourceId, targetId });
-  return data;
-}
-
-export async function updateClubColors(
-  id: string,
-  payload: { fond: string | number | null; texte: string | number | null },
-): Promise<ClubProfileRow> {
-  const { data } = await http.put<ClubProfileRow>(`${env.clubAdminResource}/${encodeURIComponent(id)}/colors`, payload);
   return data;
 }
 

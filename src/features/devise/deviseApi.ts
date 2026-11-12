@@ -1,25 +1,17 @@
 import { env } from '../../config/env';
+import type { CanDeleteResponse } from '../../lib/apiTypes';
+import { fetchAllPages } from '../../lib/fetchAllPages';
 import { http } from '../../lib/http';
 import { encodePathSegment } from '../../lib/urlPath';
 import type { DeviseRow, PaginatedResponse } from './types';
 
-export interface IntegrityConstraint {
-  table: string;
-  count: number;
-  description: string;
-}
-
-export interface CanDeleteResponse {
-  canDelete: boolean;
-  constraints: IntegrityConstraint[];
-}
-
 export async function fetchDevise(search: string, signal?: AbortSignal): Promise<PaginatedResponse<DeviseRow>> {
-  const { data } = await http.get<PaginatedResponse<DeviseRow>>(env.devisePublicResource, {
-    params: { limit: 200, sort: 'NOM', order: 'asc', ...(search ? { search } : {}), page: 1 },
-    signal,
-  });
-  return data;
+  return fetchAllPages<DeviseRow>(env.devisePublicResource, {
+    limit: 200,
+    sort: 'NOM',
+    order: 'asc',
+    ...(search ? { search } : {}),
+  }, signal);
 }
 
 export async function fetchDeviseById(id: string | number): Promise<DeviseRow> {

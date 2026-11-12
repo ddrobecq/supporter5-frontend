@@ -19,13 +19,14 @@ const VALUE_COLUMNS: GridColDef<GardienRow>[] = [
 // Pas de filtre par competition ici: MATCHES/MINUTES viennent des totaux saison de JOUEUR
 // (non filtrables par match), donc le filtre fausserait le ratio (seul BUTS_ENCAISSES serait filtre).
 export function GardiensGrid() {
-  const { rows, loading } = useStatRows<GardienRow>((signal) => fetchMeilleursGardiens(null, signal), []);
+  const { rows, loading, error } = useStatRows<GardienRow>((signal) => fetchMeilleursGardiens(null, signal), []);
 
   return (
     <StatPlayerGrid<GardienRow>
       rows={rows}
       valueColumns={VALUE_COLUMNS}
       loading={loading}
+      error={error}
       initialState={{ sorting: { sortModel: [{ field: 'MINUTES_PAR_BUT_ENCAISSE', sort: 'desc' }] } }}
     />
   );

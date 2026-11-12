@@ -72,7 +72,7 @@ export function StatsRecomputeDialog({ open, onClose }: StatsRecomputeDialogProp
     setSuccessMessage('');
     try {
       await http.post('/api/admin/stats/recompute', { saisons: selected });
-      setSuccessMessage(`Statistiques recalculees pour ${selected.length} saison(s).`);
+      setSuccessMessage(`Statistiques recalculées pour ${selected.length} saison(s).`);
     } catch (error) {
       setErrorMessage(toErrorMessage(error));
     } finally {
@@ -86,8 +86,8 @@ export function StatsRecomputeDialog({ open, onClose }: StatsRecomputeDialogProp
       <DialogContent dividers>
         <Stack spacing={2}>
           <Typography variant="body2" color="text.secondary">
-            Selectionnez une ou plusieurs saisons : les statistiques des joueurs seront recalculees
-            a partir des compositions et des evenements des matchs, comme lors de l&apos;enregistrement d&apos;un match.
+            Sélectionnez une ou plusieurs saisons : les statistiques des joueurs seront recalculées
+            à partir des compositions et des événements des matchs, comme lors de l&apos;enregistrement d&apos;un match.
           </Typography>
 
           {loading ? (

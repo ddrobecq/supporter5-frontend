@@ -28,6 +28,7 @@ import { http } from '../../lib/http';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { formatUploadLimitError, UPLOAD_LIMITS } from '../../config/uploadLimits';
 import { formatDateTimeFr } from '../../lib/formatDate';
+import { todayIso } from '../../components/dateUtils';
 import { getStoredDirectoryHandle } from './backupDirectoryStore';
 import { forceBackupNow, isFileSystemAccessSupported, pickBackupDirectory } from './backupRunner';
 import { getBackupSettings, saveBackupSettings, type BackupFrequency, type BackupSettings } from './backupSettings';
@@ -151,12 +152,12 @@ export function BackendMaintenancePage() {
 
   const handleImport = async () => {
     if (!file) {
-      setErrorMessage('Selectionnez un fichier SQLite (.sqlite ou .db).');
+      setErrorMessage('Sélectionnez un fichier SQLite (.sqlite ou .db).');
       return;
     }
 
     if (!isAllowedSqliteFile(file)) {
-      setErrorMessage('Extension non supportee. Utilisez un fichier .sqlite ou .db.');
+      setErrorMessage('Extension non supportée. Utilisez un fichier .sqlite ou .db.');
       return;
     }
 
@@ -166,7 +167,7 @@ export function BackendMaintenancePage() {
     }
 
     const confirmed = window.confirm(
-      'Confirmez-vous l import de cette base sur le serveur ? Un redemarrage du backend sera necessaire pour l utiliser.',
+      "Confirmez-vous l'import de cette base sur le serveur ? Un redémarrage du backend sera nécessaire pour l'utiliser.",
     );
     if (!confirmed) {
       return;
@@ -194,9 +195,9 @@ export function BackendMaintenancePage() {
         },
       });
 
-      const baseMessage = data.message ?? 'Base importee sur le serveur.';
+      const baseMessage = data.message ?? 'Base importée sur le serveur.';
       const restartHint = data.restartRequired
-        ? ' Redemarrez le backend Render pour charger cette base en memoire.'
+        ? ' Redémarrez le backend Render pour charger cette base en mémoire.'
         : '';
 
       setSuccessMessage(`${baseMessage}${restartHint}`);
@@ -211,7 +212,7 @@ export function BackendMaintenancePage() {
 
   const handleRestartBackend = async () => {
     const confirmed = window.confirm(
-      'Confirmez-vous le redemarrage du backend ? Les requetes seront interrompues quelques secondes.',
+      'Confirmez-vous le redémarrage du backend ? Les requêtes seront interrompues quelques secondes.',
     );
     if (!confirmed) {
       return;
@@ -223,7 +224,7 @@ export function BackendMaintenancePage() {
 
     try {
       const { data } = await http.post<RestartBackendResponse>('/api/admin/system/restart');
-      setSuccessMessage(data.message ?? 'Redemarrage du backend programme.');
+      setSuccessMessage(data.message ?? 'Redémarrage du backend programmé.');
     } catch (error) {
       setErrorMessage(toErrorMessage(error));
     } finally {
@@ -243,7 +244,7 @@ export function BackendMaintenancePage() {
 
       const contentDisposition = String(response.headers['content-disposition'] ?? '');
       const match = contentDisposition.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
-      const fallbackName = `supporter-${new Date().toISOString().slice(0, 10)}.sqlite`;
+      const fallbackName = `supporter-${todayIso()}.sqlite`;
       const rawName = match?.[1] ? decodeURIComponent(match[1]) : fallbackName;
       const fileName = rawName.replace(/[\\/:*?"<>|]/g, '_');
 
@@ -256,7 +257,7 @@ export function BackendMaintenancePage() {
       link.remove();
       window.URL.revokeObjectURL(blobUrl);
 
-      setSuccessMessage('Telechargement de la base demarre.');
+      setSuccessMessage('Téléchargement de la base démarré.');
     } catch (error) {
       setErrorMessage(toErrorMessage(error));
     } finally {
@@ -297,7 +298,7 @@ export function BackendMaintenancePage() {
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: { md: 'flex-end' } }}>
                   <TextField
                     label="Répertoire de sauvegarde"
-                    value={backupDirHandle?.name ?? backupSettings.directoryName ?? 'Aucun dossier selectionne'}
+                    value={backupDirHandle?.name ?? backupSettings.directoryName ?? 'Aucun dossier sélectionné'}
                     fullWidth
                     slotProps={{
                       input: {
@@ -346,7 +347,7 @@ export function BackendMaintenancePage() {
                 </Stack>
 
                 <Typography variant="body2" color="text.secondary">
-                  Derniere sauvegarde : {backupSettings.lastBackupAt ? formatDateTimeFr(backupSettings.lastBackupAt) : 'jamais'}
+                  Dernière sauvegarde : {backupSettings.lastBackupAt ? formatDateTimeFr(backupSettings.lastBackupAt) : 'jamais'}
                 </Typography>
 
                 <Button
@@ -368,9 +369,9 @@ export function BackendMaintenancePage() {
         <CardContent>
           <Stack spacing={2}>
             <Box>
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>Base de donnees</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>Base de données</Typography>
               <Typography variant="body2" color="text.secondary">
-                Gerez la base SQLite active du backend: import sur serveur et telechargement local.
+                Gérez la base SQLite active du backend: import sur serveur et téléchargement local.
               </Typography>
             </Box>
 
@@ -402,7 +403,7 @@ export function BackendMaintenancePage() {
                     disabled={loading || downloadLoading || restartLoading}
                     fullWidth
                   >
-                    Selectionner un fichier
+                    Sélectionner un fichier
                     <input
                       type="file"
                       hidden
@@ -416,7 +417,7 @@ export function BackendMaintenancePage() {
                   </Button>
 
                   <Typography variant="body2" color="text.secondary" sx={{ minHeight: 22 }}>
-                    {file ? `Fichier selectionne: ${file.name}` : 'Aucun fichier selectionne.'}
+                    {file ? `Fichier sélectionné: ${file.name}` : 'Aucun fichier sélectionné.'}
                   </Typography>
 
                   <Button
@@ -459,7 +460,7 @@ export function BackendMaintenancePage() {
                   <Box>
                     <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Downloader</Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Telechargez en local le fichier SQLite actuellement utilise par le backend.
+                      Téléchargez en local le fichier SQLite actuellement utilisé par le backend.
                     </Typography>
                   </Box>
 
@@ -473,7 +474,7 @@ export function BackendMaintenancePage() {
                     disabled={downloadLoading || loading || restartLoading}
                     fullWidth
                   >
-                    {downloadLoading ? 'Telechargement...' : 'Telecharger la base'}
+                    {downloadLoading ? 'Téléchargement...' : 'Télécharger la base'}
                   </Button>
                 </Stack>
               </Box>
@@ -488,7 +489,7 @@ export function BackendMaintenancePage() {
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 700 }}>Maintenance backend</Typography>
               <Typography variant="body2" color="text.secondary">
-                Redemarrez le service backend apres un upload de base pour charger le nouveau fichier.
+                Redémarrez le service backend après un upload de base pour charger le nouveau fichier.
               </Typography>
             </Box>
 
@@ -500,7 +501,7 @@ export function BackendMaintenancePage() {
               disabled={restartLoading || loading || downloadLoading}
               sx={{ width: { xs: '100%', md: 280 } }}
             >
-              {restartLoading ? 'Redemarrage...' : 'Redemarrer le backend'}
+              {restartLoading ? 'Redémarrage...' : 'Redémarrer le backend'}
             </Button>
           </Stack>
         </CardContent>

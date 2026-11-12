@@ -23,10 +23,6 @@ export interface TourDraft {
   nbMatch: number;
 }
 
-export function toApiDate(value: string): string | null {
-  return toIsoDate(value) || null;
-}
-
 export function toDisplayTime(value: string | null | undefined): string {
   const text = String(value ?? '').trim();
   if (!text) return '';

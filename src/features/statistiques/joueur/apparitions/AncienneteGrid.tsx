@@ -20,7 +20,7 @@ const VALUE_COLUMNS: GridColDef<AncienneteRow>[] = [
 export function AncienneteGrid() {
   const [searchParams, setSearchParams] = useSearchParams();
   const playerOnly = searchParams.get('playerOnly') === 'true';
-  const { rows, loading } = useStatRows<AncienneteRow>((signal) => fetchNombreAnneesAuClub(playerOnly, signal), [playerOnly]);
+  const { rows, loading, error } = useStatRows<AncienneteRow>((signal) => fetchNombreAnneesAuClub(playerOnly, signal), [playerOnly]);
 
   const handlePlayerOnlyChange = (checked: boolean) => {
     const nextParams = new URLSearchParams(searchParams);
@@ -46,7 +46,7 @@ export function AncienneteGrid() {
           label="En tant que joueur"
         />
       </Stack>
-      <StatPlayerGrid<AncienneteRow> rows={rows} valueColumns={VALUE_COLUMNS} loading={loading} />
+      <StatPlayerGrid<AncienneteRow> rows={rows} valueColumns={VALUE_COLUMNS} loading={loading} error={error} />
     </Stack>
   );
 }

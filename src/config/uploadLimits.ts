@@ -52,5 +52,5 @@ export function formatUploadLimitError(label: string, actualBytes: number, limit
 export function checkImageSize(type: string, sizeBytes: number): string | null {
   const limit = getImageSizeLimit(type);
   if (sizeBytes <= limit) return null;
-  return formatUploadLimitError(isSvgType(type) ? 'Le fichier SVG' : 'L image', sizeBytes, limit);
+  return formatUploadLimitError(isSvgType(type) ? 'Le fichier SVG' : "L'image", sizeBytes, limit);
 }

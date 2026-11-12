@@ -2,6 +2,7 @@ import { Box, Stack, TextField, Typography } from '@mui/material';
 import { useRef } from 'react';
 import type { KeyboardEvent, ReactNode, RefObject } from 'react';
 import type { CalendrierRow } from './types';
+import { isMatchPlayed, MatchEtat } from '../../lib/matchStatus';
 
 export interface ScoreDraft {
   tabDom: string;
@@ -29,15 +30,15 @@ type ScoreField = keyof ScoreDraft;
 const SCORE_FIELDS: ScoreField[] = ['tabDom', 'butDom', 'butExt', 'tabExt'];
 
 function isWaitingOrProgrammed(etat: number): boolean {
-  return etat === 1 || etat === 5;
+  return etat === MatchEtat.EnAttente || etat === MatchEtat.Programmee;
 }
 
 function isNoGame(etat: number): boolean {
-  return etat === 4;
+  return etat === MatchEtat.NonJoueeAnnulee;
 }
 
 function isInProgressOrDone(etat: number): boolean {
-  return etat === 2 || etat === 3;
+  return isMatchPlayed(etat);
 }
 
 function normalizeScoreValue(value: unknown): number {

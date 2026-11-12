@@ -5,16 +5,11 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { formatHeureDisplay } from '../../components/heureUtils';
+import { parseDbDate } from '../../components/dateUtils';
 import { entityPath, entityPathForPublicMode } from '../../lib/entityNavigation';
 import { fetchOnThisDayMatch } from '../rencontre/rencontreApi';
 import type { OnThisDayMatchRow } from '../rencontre/types';
-
-function parseCompactDate(value: string): Date | null {
-  const match = String(value ?? '').trim().match(/^(\d{4})(\d{2})(\d{2})$/);
-  if (!match) return null;
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  return Number.isNaN(date.getTime()) ? null : date;
-}
+import { emitTabOpen } from '../../lib/useTabMetaEvents';
 
 function formatMatchScore(match: OnThisDayMatchRow): string {
   const hasPenalties = match.TABDOM > 0 || match.TABEXT > 0;
@@ -63,14 +58,7 @@ function openOnThisDayMatch(match: OnThisDayMatchRow, publicMode: boolean, navig
     return;
   }
 
-  window.dispatchEvent(new CustomEvent('supporter:tab-open', {
-    detail: {
-      path,
-      label: `${match.DOMICILE_NOM} - ${match.EXTERIEUR_NOM}`,
-      unique: true,
-      uniqueByPath: true,
-    },
-  }));
+  emitTabOpen(path, `${match.DOMICILE_NOM} - ${match.EXTERIEUR_NOM}`);
 }
 
 /** Accueil : match du club soutenu ayant été joué le même jour (dd/mm) dans le passé. */
@@ -90,7 +78,7 @@ export function OnThisDayOverview({ publicMode = false }: { publicMode?: boolean
 
   if (!loaded || !match) return null;
 
-  const matchDate = parseCompactDate(match.DATE);
+  const matchDate = parseDbDate(match.DATE);
   const dateLabel = matchDate
     ? matchDate.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
     : '';

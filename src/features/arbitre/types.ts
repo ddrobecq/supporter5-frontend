@@ -14,10 +14,4 @@ export interface ArbitreCreateWizardPayload {
   natioId: string;
 }
 
-export interface PaginatedResponse<T> {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
+export type { PaginatedResponse } from '../../lib/apiTypes';

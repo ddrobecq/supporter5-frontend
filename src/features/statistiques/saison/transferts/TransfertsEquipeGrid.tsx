@@ -12,7 +12,7 @@ const HEADERS: Record<TransfertEquipeMetric, string> = {
 
 /** Saison > Transfert: somme des indemnites d'achat/vente du club supporte, une ligne par saison. */
 export function TransfertsEquipeGrid({ metric }: { metric: TransfertEquipeMetric }) {
-  const { rows, loading } = useStatRows<TransfertEquipeRow>((signal) => fetchSaisonTransferts(metric, signal), [metric]);
+  const { rows, loading, error } = useStatRows<TransfertEquipeRow>((signal) => fetchSaisonTransferts(metric, signal), [metric]);
 
   const columns: GridColDef<TransfertEquipeRow>[] = useMemo(() => [
     { field: 'SAISON', headerName: 'Saison', flex: 1, minWidth: 140 },
@@ -32,6 +32,7 @@ export function TransfertsEquipeGrid({ metric }: { metric: TransfertEquipeMetric
       rows={rows}
       columns={columns}
       loading={loading}
+      error={error}
       valueFormatter={(value) => formatMoney(value ?? 0)}
     />
   );

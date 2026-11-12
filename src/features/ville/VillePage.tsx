@@ -1,168 +1,59 @@
-﻿import type { GridColDef, GridRowId } from '@mui/x-data-grid';
-import { useMemo, useState } from 'react';
-import { Navigate, useParams } from 'react-router-dom';
+import type { GridColDef, GridRowId } from '@mui/x-data-grid';
+import { useMemo } from 'react';
 import { createVille, deleteVille, fetchVille, fetchVilleById, updateVille, canDeleteVille } from './villeApi';
-import { fetchNatio } from '../natio/natioApi';
+import { useNatioList } from '../natio/natioStore';
 import { VilleFormDialog } from './VilleFormDialog';
 import { createVilleColumns, createNatioMap } from './villeColumnsHelper';
-import { EntityPageLayout } from '../../components/EntityPageLayout';
-import { createAndOpenInTab, useEntityPage } from '../../components/useEntityPage';
+import { EntityListPage } from '../../components/EntityListPage';
 import type { VilleRow } from './types';
-import type { NatioRow } from '../natio/types';
-import { buildVilleFormFields, detectVillePrimaryKey, resolveVilleId, resolveVilleLabel } from './villeUi';
+import { buildVilleFormFields, resolveVilleId, resolveVilleLabel } from './villeUi';
 
 interface VillePageProps {
-  variant?: 'page' | 'modalPicker';
   onOpenInTab?: (payload: { rowId: GridRowId; label: string }) => void;
   onSelectVille?: (ville: VilleRow) => void;
 }
 
-function toComparableId(value: unknown): string {
-  return String(value);
-}
+const VILLE_API = {
+  fetchAll: fetchVille,
+  fetchById: fetchVilleById,
+  create: createVille,
+  update: updateVille,
+  remove: deleteVille,
+  canDelete: canDeleteVille,
+};
 
-export function VillePage({ variant = 'page', onOpenInTab, onSelectVille }: VillePageProps) {
-  const params = useParams<{ villeId?: string }>();
-  const villeId = params.villeId;
+const VILLE_MESSAGES = {
+  singular: 'ville',
+  singularArticle: 'cette ville',
+  created: 'Ville créée.',
+  updated: 'Ville mise à jour.',
+  deleted: 'Ville supprimée.',
+  selectToOpen: 'Sélectionnez une ville à ouvrir.',
+  selectToDelete: 'Sélectionnez une ville à supprimer.',
+  noneSelected: 'Aucune ville sélectionnée.',
+};
 
-  // Si variant est 'page' (page complète, pas modale) et qu'il n'y a pas d'ID, rediriger
-  if (variant === 'page' && !villeId) {
-    return <Navigate to="/admin/home" replace />;
-  }
-
-  const [natioDatas, setNatioDatas] = useState<NatioRow[]>([]);
-
-  const page = useEntityPage<VilleRow>(
-    {
-      fetchAll: fetchVille,
-      fetchById: fetchVilleById,
-      create: createVille,
-      update: updateVille,
-      remove: deleteVille,
-      canDelete: canDeleteVille,
-    },
-    {
-      singular: 'ville',
-      singularArticle: 'cette ville',
-      created: 'Ville creee.',
-      updated: 'Ville mise a jour.',
-      deleted: 'Ville supprimee.',
-      selectToOpen: 'Selectionnez une ville a ouvrir.',
-      selectToDelete: 'Selectionnez une ville a supprimer.',
-      noneSelected: 'Aucune ville selectionnee.',
-    },
-    () => {
-      fetchNatio('').then((result) => setNatioDatas(result.data ?? [])).catch(() => {});
-    },
-  );
-
-  const primaryKey = useMemo(() => detectVillePrimaryKey(page.rows), [page.rows]);
+export function VillePage({ onOpenInTab, onSelectVille }: VillePageProps) {
+  const { rows: natioDatas } = useNatioList();
   const natioMap = useMemo(() => createNatioMap(natioDatas), [natioDatas]);
-  const columns = useMemo<GridColDef[]>(() => createVilleColumns(natioMap), [natioMap]);
-
-  const formFields = useMemo<string[]>(() => {
-    const source = page.activeRow ?? page.rows[0];
-    return buildVilleFormFields(source);
-  }, [page.activeRow, page.rows]);
-
-  const getRowId = (row: VilleRow): GridRowId => {
-    if (primaryKey && (typeof row[primaryKey] === 'string' || typeof row[primaryKey] === 'number')) {
-      return row[primaryKey] as GridRowId;
-    }
-    return JSON.stringify(row);
-  };
-
-  const openInTabFromRowId = (rowId: GridRowId) => {
-    const selectedRow = page.rows.find((row) => toComparableId(getRowId(row)) === toComparableId(rowId));
-    if (!selectedRow) return;
-    if (onSelectVille) {
-      onSelectVille(selectedRow);
-      return;
-    }
-    if (!onOpenInTab) return;
-    const label = selectedRow ? resolveVilleLabel(selectedRow) : String(rowId);
-    onOpenInTab({ rowId, label });
-  };
-
-  const handleOpen = () => {
-    if (variant === 'modalPicker' && (onOpenInTab || onSelectVille)) {
-      const selectedId = page.selection.at(0);
-      if (selectedId === undefined || selectedId === null) {
-        page.setSnackbar({ severity: 'error', message: 'Selectionnez une ville a ouvrir.' });
-        return;
-      }
-      openInTabFromRowId(selectedId);
-      return;
-    }
-
-    void page.openEditDialog();
-  };
-
-  const handleRowDoubleClick = (rowId: GridRowId) => {
-    if (variant === 'modalPicker' && (onOpenInTab || onSelectVille)) {
-      openInTabFromRowId(rowId);
-      return;
-    }
-    void page.openEditDialog(rowId);
-  };
-
-  const handleFormSubmit = async (payload: VilleRow) => {
-    if (variant === 'modalPicker' && onOpenInTab && page.dialogMode === 'create') {
-      await createAndOpenInTab({
-        create: createVille,
-        payload,
-        resolveId: resolveVilleId,
-        resolveLabel: resolveVilleLabel,
-        closeDialog: () => page.setDialogOpen(false),
-        onOpenInTab,
-        setSnackbar: page.setSnackbar,
-      });
-      return;
-    }
-
-    await page.handleFormSubmit(payload);
-  };
+  const columns = useMemo<GridColDef<VilleRow>[]>(() => createVilleColumns(natioMap), [natioMap]);
 
   return (
-    <EntityPageLayout
-      hideTitle={variant === 'modalPicker'}
-      actionsInlineWithSearch={variant === 'modalPicker'}
+    <EntityListPage<VilleRow>
+      api={VILLE_API}
+      messages={VILLE_MESSAGES}
       title="Villes"
       searchLabel="Rechercher une ville"
-      search={page.search}
-      onSearchChange={page.setSearch}
-      searchInputRef={page.searchInputRef}
-      onNew={page.openCreateDialog}
-      onOpen={handleOpen}
-      onDelete={() => void page.handleOpenDeleteConfirm()}
-      actionButtonsRowRef={page.actionButtonsRowRef}
-      compactActionButtons={page.compactActionButtons}
-      rows={page.rows}
+      primaryKey="VICLEUNIK"
+      resolveId={resolveVilleId}
+      resolveLabel={resolveVilleLabel}
       columns={columns}
-      loading={page.loading}
-      getRowId={getRowId}
-      selection={page.selection}
-      onSelectionChange={page.setSelection}
-      onRowDoubleClick={handleRowDoubleClick}
-      confirmDeleteOpen={page.confirmDeleteOpen}
-      deleteConstraints={page.deleteConstraints}
-      entityDescription="cette ville"
-      onConfirmDelete={() => void page.handleDelete()}
-      onCloseDeleteConfirm={page.closeDeleteConfirm}
-      formDialog={
-        <VilleFormDialog
-          open={page.dialogOpen}
-          mode={page.dialogMode}
-          fields={formFields}
-          primaryKey={primaryKey}
-          initialData={page.activeRow}
-          natioDatas={natioDatas}
-          onClose={() => page.setDialogOpen(false)}
-          onSubmit={handleFormSubmit}
-        />
-      }
-      snackbar={page.snackbar}
-      onCloseSnackbar={() => page.setSnackbar(null)}
+      buildFormFields={buildVilleFormFields}
+      renderFormDialog={(dialog, fields) => (
+        <VilleFormDialog {...dialog} fields={fields} natioDatas={natioDatas} />
+      )}
+      onOpenInTab={onOpenInTab}
+      onSelectRow={onSelectVille}
     />
   );
 }

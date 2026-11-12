@@ -1,9 +1,8 @@
-import type { GridColDef, GridRowId } from '@mui/x-data-grid';
+import type { GridRowId } from '@mui/x-data-grid';
 import { MenuItem, TextField } from '@mui/material';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Navigate, useParams } from 'react-router-dom';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
-import { useEntityPage } from '../../components/useEntityPage';
+import { toErrorMessage, useEntityPage } from '../../components/useEntityPage';
 import {
   canDeleteCompetition,
   createCompetitionWithWizard,
@@ -20,7 +19,6 @@ import type { CompetitionRow, EpreuveOption, SaisonOption } from './types';
 import { readLastSelectedSeason, writeLastSelectedSeason } from '../saison/lastSelectedSeason';
 
 interface CompetitionPageProps {
-  variant?: 'page' | 'modalPicker';
   onOpenInTab?: (payload: { rowId: GridRowId; label: string }) => void;
 }
 
@@ -28,20 +26,19 @@ type CompetitionListRow = CompetitionRow & {
   __isFinishedCompetition?: boolean;
 };
 
-export function CompetitionPage({ variant = 'page', onOpenInTab }: CompetitionPageProps) {
-  const params = useParams<{ competitionId?: string }>();
-  const competitionId = params.competitionId;
+const COMPETITION_COLUMNS = createCompetitionColumns().filter((col) => col.field !== 'IDEPREUVE');
 
-  // Si variant est 'page' (page complète, pas modale) et qu'il n'y a pas d'ID, rediriger
-  if (variant === 'page' && !competitionId) {
-    return <Navigate to="/admin/home" replace />;
-  }
+const getCompetitionRowId = (row: CompetitionRow): GridRowId =>
+  (typeof row.COCLEUNIK === 'string' || typeof row.COCLEUNIK === 'number')
+    ? row.COCLEUNIK
+    : JSON.stringify(row);
 
+export function CompetitionPage({ onOpenInTab }: CompetitionPageProps) {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [epreuveOptions, setEpreuveOptions] = useState<EpreuveOption[]>([]);
   const [saisonOptions, setSaisonOptions] = useState<SaisonOption[]>([]);
-  // In picker mode, start from the last season chosen during the session so the first load is already filtered.
-  const [initialSeason] = useState(() => (variant === 'modalPicker' ? readLastSelectedSeason() : ''));
+  // Start from the last season chosen during the session so the first load is already filtered.
+  const [initialSeason] = useState(readLastSelectedSeason);
   const [selectedSeason, setSelectedSeason] = useState(initialSeason);
   const selectedSeasonRef = useRef(initialSeason);
 
@@ -54,11 +51,8 @@ export function CompetitionPage({ variant = 'page', onOpenInTab }: CompetitionPa
 
   const page = useEntityPage<CompetitionRow>(
     {
-      fetchAll: (search, signal) => fetchCompetition(
-        variant === 'modalPicker' ? '' : search,
-        variant === 'modalPicker' ? selectedSeasonRef.current : undefined,
-        signal,
-      ),
+      // The list is filtered by season only; the search text is not used.
+      fetchAll: (_search, signal) => fetchCompetition('', selectedSeasonRef.current, signal),
       fetchById: fetchCompetitionById,
       create: async () => undefined,
       update: updateCompetition,
@@ -66,16 +60,16 @@ export function CompetitionPage({ variant = 'page', onOpenInTab }: CompetitionPa
       canDelete: canDeleteCompetition,
     },
     {
-      singular: 'competition',
-      singularArticle: 'cette competition',
-      created: 'Competition creee.',
-      updated: 'Competition mise a jour.',
-      deleted: 'Competition supprimee.',
-      selectToOpen: 'Selectionnez une competition a ouvrir.',
-      selectToDelete: 'Selectionnez une competition a supprimer.',
-      noneSelected: 'Aucune competition selectionnee.',
+      singular: 'compétition',
+      singularArticle: 'cette compétition',
+      created: 'Compétition créée.',
+      updated: 'Compétition mise à jour.',
+      deleted: 'Compétition supprimée.',
+      selectToOpen: 'Sélectionnez une compétition à ouvrir.',
+      selectToDelete: 'Sélectionnez une compétition à supprimer.',
+      noneSelected: 'Aucune compétition sélectionnée.',
     },
-    () => {
+    ({ setSnackbar }) => {
       void fetchCompetitionWizardData()
         .then((result) => {
           setEpreuveOptions(result.epreuves);
@@ -89,7 +83,8 @@ export function CompetitionPage({ variant = 'page', onOpenInTab }: CompetitionPa
             setSelectedSeason(nextSeason);
           }
         })
-        .catch(() => {});
+        // Sans ces listes, le filtre saison et les formulaires (epreuve/saison) sont vides: on le signale.
+        .catch((error: unknown) => setSnackbar({ severity: 'error', message: toErrorMessage(error) }));
     },
   );
 
@@ -106,23 +101,11 @@ export function CompetitionPage({ variant = 'page', onOpenInTab }: CompetitionPa
     [page.rows],
   );
 
-  const columns = useMemo<GridColDef[]>(() => {
-    const base = createCompetitionColumns();
-    if (variant === 'modalPicker') {
-      return base.filter((col) => col.field !== 'IDEPREUVE');
-    }
-    return base;
-  }, [variant]);
   const primaryKey = 'COCLEUNIK';
-
-  const getRowId = (row: CompetitionRow): GridRowId =>
-    (typeof row.COCLEUNIK === 'string' || typeof row.COCLEUNIK === 'number')
-      ? row.COCLEUNIK
-      : JSON.stringify(row);
 
   const openInTabFromRowId = (rowId: GridRowId) => {
     if (!onOpenInTab) return;
-    const selectedRow = page.rows.find((row) => String(getRowId(row)) === String(rowId));
+    const selectedRow = page.rows.find((row) => String(getCompetitionRowId(row)) === String(rowId));
     const label = resolveCompetitionLabel(selectedRow ?? {}, String(rowId));
     onOpenInTab({ rowId, label });
   };
@@ -131,24 +114,22 @@ export function CompetitionPage({ variant = 'page', onOpenInTab }: CompetitionPa
     selectedSeasonRef.current = nextSeason;
     setSelectedSeason(nextSeason);
     page.setSelection([]);
-    if (variant === 'modalPicker') {
-      writeLastSelectedSeason(nextSeason);
-      void page.reloadData();
-    }
+    writeLastSelectedSeason(nextSeason);
+    void page.reloadData();
   };
 
-  // Recharger les données quand la saison de sélection change en mode picker.
+  // Recharger les données quand la saison sélectionnée change.
   useEffect(() => {
-    if (variant !== 'modalPicker' || !selectedSeason) return;
+    if (!selectedSeason) return;
     void page.reloadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSeason, variant]);
+  }, [selectedSeason]);
 
   const handleOpen = () => {
-    if (variant === 'modalPicker' && onOpenInTab) {
+    if (onOpenInTab) {
       const selectedId = page.selection.at(0);
       if (selectedId === undefined || selectedId === null) {
-        page.setSnackbar({ severity: 'error', message: 'Selectionnez une competition a ouvrir.' });
+        page.setSnackbar({ severity: 'error', message: 'Sélectionnez une compétition à ouvrir.' });
         return;
       }
       openInTabFromRowId(selectedId);
@@ -158,7 +139,7 @@ export function CompetitionPage({ variant = 'page', onOpenInTab }: CompetitionPa
   };
 
   const handleRowDoubleClick = (rowId: GridRowId) => {
-    if (variant === 'modalPicker' && onOpenInTab) {
+    if (onOpenInTab) {
       openInTabFromRowId(rowId);
       return;
     }
@@ -168,23 +149,20 @@ export function CompetitionPage({ variant = 'page', onOpenInTab }: CompetitionPa
   const handleCreated = async (createdId: string | number, label: string) => {
     await page.reloadData();
     setCreateDialogOpen(false);
-    page.setSnackbar({ severity: 'success', message: 'Competition creee.' });
-
-    if (variant === 'modalPicker' && onOpenInTab) {
-      onOpenInTab({ rowId: createdId, label });
-    }
+    page.setSnackbar({ severity: 'success', message: 'Compétition créée.' });
+    onOpenInTab?.({ rowId: createdId, label });
   };
 
   return (
     <EntityPageLayout
-      hideTitle={variant === 'modalPicker'}
-      actionsInlineWithSearch={variant === 'modalPicker'}
-      title="Competitions"
-      searchLabel="Rechercher une competition"
+      hideTitle
+      actionsInlineWithSearch
+      title="Compétitions"
+      searchLabel="Rechercher une compétition"
       search={page.search}
       onSearchChange={page.setSearch}
       searchInputRef={page.searchInputRef}
-      searchControl={variant === 'modalPicker' ? (
+      searchControl={(
         <TextField
           select
           label="Saison"
@@ -197,23 +175,23 @@ export function CompetitionPage({ variant = 'page', onOpenInTab }: CompetitionPa
             <MenuItem key={season} value={season}>{season}</MenuItem>
           ))}
         </TextField>
-      ) : undefined}
+      )}
       onNew={() => setCreateDialogOpen(true)}
       onOpen={handleOpen}
       onDelete={() => void page.handleOpenDeleteConfirm()}
       actionButtonsRowRef={page.actionButtonsRowRef}
       compactActionButtons={page.compactActionButtons}
       rows={displayRows}
-      columns={columns}
+      columns={COMPETITION_COLUMNS}
       loading={page.loading}
-      getRowId={getRowId}
+      getRowId={getCompetitionRowId}
       selection={page.selection}
       onSelectionChange={page.setSelection}
       onRowDoubleClick={handleRowDoubleClick}
       getRowClassName={(params) => (params.row.__isFinishedCompetition ? 'competition-finished-row' : '')}
       confirmDeleteOpen={page.confirmDeleteOpen}
       deleteConstraints={page.deleteConstraints}
-      entityDescription="cette competition"
+      entityDescription="cette compétition"
       onConfirmDelete={() => void page.handleDelete()}
       onCloseDeleteConfirm={page.closeDeleteConfirm}
       formDialog={(
@@ -237,7 +215,7 @@ export function CompetitionPage({ variant = 'page', onOpenInTab }: CompetitionPa
               const created = await createCompetitionWithWizard(payload);
               const createdId = created?.COCLEUNIK;
               if (createdId === undefined || createdId === null || String(createdId).trim() === '') {
-                throw new Error('Création reussie mais identifiant introuvable.');
+                throw new Error('Création réussie mais identifiant introuvable.');
               }
               const label = resolveCompetitionLabel(created ?? { NOM: payload.name, SAISON: payload.saison }, payload.name);
               await handleCreated(createdId, label);

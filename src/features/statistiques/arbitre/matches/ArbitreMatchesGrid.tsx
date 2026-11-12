@@ -26,7 +26,7 @@ const VALUE_COLUMNS: GridColDef<ArbitreMatchesRow>[] = [{
 /** Arbitre > Matches: classement decroissant par nombre de matchs officiels arbitres. */
 export function ArbitreMatchesGrid() {
   const [scope, setScope] = useState<number | null>(null);
-  const { rows, loading } = useStatRows<ArbitreMatchesRow>((signal) => fetchArbitreMatches(scope, signal), [scope]);
+  const { rows, loading, error } = useStatRows<ArbitreMatchesRow>((signal) => fetchArbitreMatches(scope, signal), [scope]);
 
   const columns = useMemo(() => VALUE_COLUMNS, []);
 
@@ -35,6 +35,7 @@ export function ArbitreMatchesGrid() {
       rows={rows}
       valueColumns={columns}
       loading={loading}
+      error={error}
       hideIdentityColumn
       initialState={{ sorting: { sortModel: [{ field: 'MATCHES', sort: 'desc' }] } }}
       scope={scope}

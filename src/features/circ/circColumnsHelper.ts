@@ -3,7 +3,7 @@ import type { GridColDef } from '@mui/x-data-grid';
 export const CIRC_TYPE_OPTIONS = [
   { value: 0, label: 'Autre' },
   { value: 1, label: 'Ligue' },
-  { value: 2, label: 'Eliminatoire' },
+  { value: 2, label: 'Éliminatoire' },
 ] as const;
 
 export function formatCircType(value: unknown): string {

@@ -1,5 +1,6 @@
 import { Box, Button, MenuItem, Stack, TextField } from '@mui/material';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useExternalSaveTrigger } from '../../lib/useExternalSaveTrigger';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import { CIRC_TYPE_OPTIONS } from './circColumnsHelper';
@@ -25,18 +26,15 @@ export function CircFormDialog({ open, mode, embedded = false, primaryKey, initi
 
   useEffect(() => {
     if (!open) return;
-    setValues({
+    const initial = {
       IDCIRC: initialData?.IDCIRC ?? '',
       CIRC: initialData?.CIRC ?? '',
       TYPE_TOUR: Number(initialData?.TYPE_TOUR ?? 1),
-    });
-    setInitialSignature(JSON.stringify({
-      IDCIRC: initialData?.IDCIRC ?? '',
-      CIRC: initialData?.CIRC ?? '',
-      TYPE_TOUR: Number(initialData?.TYPE_TOUR ?? 1),
-    }));
+    };
+    setValues(initial);
+    setInitialSignature(JSON.stringify(initial));
     setErrors({});
-  }, [open, initialData]);
+  }, [open, initialData, setInitialSignature]);
 
   useEffect(() => {
     syncDirty(JSON.stringify(values));
@@ -74,9 +72,7 @@ export function CircFormDialog({ open, mode, embedded = false, primaryKey, initi
     }
   };
 
-  const handleSaveRef = useRef(handleSave);
-  handleSaveRef.current = handleSave;
-  useEffect(() => { if (saveCount > 0) void handleSaveRef.current(); }, [saveCount]);
+  useExternalSaveTrigger(saveCount, handleSave);
 
   const content = (
     <>

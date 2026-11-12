@@ -18,6 +18,7 @@ interface SeasonTrendViewProps<Row extends SeasonTrendRow> {
   rows: Row[];
   columns: GridColDef<Row>[];
   loading?: boolean;
+  error?: string | null;
   valueFormatter?: (value: number | null) => string;
   initialState?: DataGridProps<Row>['initialState'];
 }
@@ -27,6 +28,7 @@ export function SeasonTrendView<Row extends SeasonTrendRow>({
   rows,
   columns,
   loading,
+  error,
   valueFormatter,
   initialState,
 }: SeasonTrendViewProps<Row>) {
@@ -62,6 +64,7 @@ export function SeasonTrendView<Row extends SeasonTrendRow>({
             rows={rows}
             columns={columns}
             loading={loading}
+            error={error}
             getRowId={(row) => row.SAISON}
             initialState={initialState ?? {
               sorting: { sortModel: [{ field: 'VALEUR', sort: 'desc' }] },

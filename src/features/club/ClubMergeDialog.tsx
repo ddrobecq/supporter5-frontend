@@ -54,8 +54,8 @@ export function ClubMergeDialog({ open, onClose }: ClubMergeDialogProps) {
     try {
       const result = await mergeClubs(source.clubId, target.clubId);
       setSuccessMessage(
-        `Fusion effectuee : ${result.rencontresDomicile + result.rencontresExterieur} rencontre(s) et `
-        + `${result.participations} participation(s) reaffectees, club source supprime.`,
+        `Fusion effectuée : ${result.rencontresDomicile + result.rencontresExterieur} rencontre(s) et `
+        + `${result.participations} participation(s) réaffectées, club source supprimé.`,
       );
       setConfirming(false);
     } catch (error) {

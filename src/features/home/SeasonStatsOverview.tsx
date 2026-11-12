@@ -5,16 +5,17 @@ import { Box, Button, Chip, Paper, Stack, Tooltip, Typography } from '@mui/mater
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  PITCH_SLOTS,
   PitchField,
   PitchPlayerAvatar,
   PitchPlayerMarker,
   PitchSlotShell,
-  pitchPlayerLabel,
 } from '../../components/PitchField';
+import { PITCH_SLOTS, pitchPlayerLabel } from '../../components/pitchSlots';
+import { buttonResetSx, containerButtonResetSx } from '../../theme/buttonResetSx';
 import { fetchSaisonClassement, fetchSaisons, type SaisonClassementRow } from '../statistiques/saison/classements/saisonClassementApi';
 import { fetchEquipeType, type EquipeTypeResult } from '../statistiques/saison/equipeType/equipeTypeApi';
 import { entityPath, entityPathForPublicMode } from '../../lib/entityNavigation';
+import { emitTabOpen } from '../../lib/useTabMetaEvents';
 
 const TOP_COUNT = 3;
 
@@ -24,14 +25,7 @@ function openStatTab(selection: string, publicMode: boolean): void {
     return;
   }
 
-  window.dispatchEvent(new CustomEvent('supporter:tab-open', {
-    detail: {
-      path: `/admin/statistiques?${selection}`,
-      label: 'Statistiques',
-      unique: true,
-      uniqueByPath: true,
-    },
-  }));
+  emitTabOpen(`/admin/statistiques?${selection}`, 'Statistiques');
 }
 
 function openJoueurTab(row: { IDJOUEUR: string; NOM?: string | null; SURNOM?: string | null }, publicMode: boolean, navigate: (path: string) => void): void {
@@ -44,14 +38,7 @@ function openJoueurTab(row: { IDJOUEUR: string; NOM?: string | null; SURNOM?: st
     return;
   }
 
-  window.dispatchEvent(new CustomEvent('supporter:tab-open', {
-    detail: {
-      path,
-      label: pitchPlayerLabel(row),
-      unique: true,
-      uniqueByPath: true,
-    },
-  }));
+  emitTabOpen(path, pitchPlayerLabel(row));
 }
 
 function TopList({ title, icon, rows, unit, onOpenMore, publicMode, navigate }: {
@@ -67,8 +54,10 @@ function TopList({ title, icon, rows, unit, onOpenMore, publicMode, navigate }: 
     <Stack spacing={0.75} sx={{ minWidth: 160, flex: 1 }}>
       <Typography
         variant="subtitle2"
+        component="button"
+        type="button"
         onClick={onOpenMore}
-        sx={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+        sx={{ ...buttonResetSx, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
       >
         {icon}
         {title}
@@ -80,8 +69,10 @@ function TopList({ title, icon, rows, unit, onOpenMore, publicMode, navigate }: 
           key={row.IDJOUEUR}
           direction="row"
           spacing={1}
+          component="button"
+          type="button"
           onClick={() => openJoueurTab(row, publicMode, navigate)}
-          sx={{ alignItems: 'center', cursor: 'pointer', borderRadius: 1, p: 0.4, '&:hover': { bgcolor: 'action.hover' } }}
+          sx={{ ...containerButtonResetSx, alignItems: 'center', cursor: 'pointer', borderRadius: 1, p: 0.4, '&:hover': { bgcolor: 'action.hover' } }}
         >
           <Typography variant="caption" sx={{ fontWeight: 800, width: 14, color: 'text.secondary' }}>
             {index + 1}
@@ -183,15 +174,22 @@ export function SeasonStatsOverview({ publicMode = false }: { publicMode?: boole
             <Stack
               direction="row"
               spacing={0.75}
+              component="button"
+              type="button"
               onClick={() => openStatTab('d=saison&t=performance&s=equipe-type', publicMode)}
-              sx={{ alignItems: 'center', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+              sx={{ ...containerButtonResetSx, alignItems: 'center', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
             >
               <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Équipe type</Typography>
               {equipeType?.FORMATION ? (
                 <Chip size="small" color="primary" label={equipeType.FORMATION} sx={{ height: 20, fontSize: 11, fontWeight: 700 }} />
               ) : null}
             </Stack>
-            <Box onClick={() => openStatTab('d=saison&t=performance&s=equipe-type', publicMode)} sx={{ width: '100%', maxWidth: 390, cursor: 'pointer' }}>
+            <Box
+              component="button"
+              type="button"
+              aria-label={`Voir le détail de l'équipe type ${saison}`}
+              onClick={() => openStatTab('d=saison&t=performance&s=equipe-type', publicMode)}
+              sx={{ ...containerButtonResetSx, display: 'block', width: '100%', maxWidth: 390, cursor: 'pointer' }}>
               <PitchField>
                 {PITCH_SLOTS.filter((slot) => joueurParPoste.has(slot.code)).map((slot) => {
                   const joueur = joueurParPoste.get(slot.code)!;

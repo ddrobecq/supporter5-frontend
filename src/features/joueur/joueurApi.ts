@@ -1,5 +1,6 @@
 import { env } from '../../config/env';
 import { normalizeImagePayload, updateEntityImageWithFallback } from '../../lib/entityImageApi';
+import { fetchAllPages } from '../../lib/fetchAllPages';
 import { http } from '../../lib/http';
 import { encodePathSegment } from '../../lib/urlPath';
 import type {
@@ -13,7 +14,6 @@ import type {
   JoueurTransactionOptions,
   JoueurTransactionRow,
   JoueurTransactionUpsertPayload,
-  PaginatedResponse,
   PosteOption,
   SaisonRow,
   JoueurSuggestionRow,
@@ -46,42 +46,12 @@ export async function fetchJoueurPostes(signal?: AbortSignal): Promise<PosteOpti
 }
 
 export async function fetchSaisons(signal?: AbortSignal): Promise<SaisonRow[]> {
-  const baseParams = {
+  const { data } = await fetchAllPages<SaisonRow>(env.saisonPublicResource, {
     limit: 200,
     sort: 'SAISON',
     order: 'desc',
-  };
-
-  const { data: firstPage } = await http.get<PaginatedResponse<SaisonRow>>('/api/saisons', {
-    params: {
-      ...baseParams,
-      page: 1,
-    },
-    signal,
-  });
-
-  if (firstPage.totalPages <= 1) {
-    return firstPage.data ?? [];
-  }
-
-  const remainingRequests: Array<Promise<{ data: PaginatedResponse<SaisonRow> }>> = [];
-  for (let page = 2; page <= firstPage.totalPages; page += 1) {
-    remainingRequests.push(
-      http.get<PaginatedResponse<SaisonRow>>('/api/saisons', {
-        params: {
-          ...baseParams,
-          page,
-        },
-        signal,
-      }),
-    );
-  }
-
-  const remainingPages = await Promise.all(remainingRequests);
-  return [
-    ...(firstPage.data ?? []),
-    ...remainingPages.flatMap((response) => response.data.data ?? []),
-  ];
+  }, signal);
+  return data ?? [];
 }
 
 export async function fetchJoueurById(id: string | number, signal?: AbortSignal): Promise<JoueurRow> {
@@ -159,23 +129,6 @@ export async function deleteJoueurHistory(
   historyId: string | number,
 ): Promise<void> {
   await http.delete(`${env.joueurAdminResource}/${encodePathSegment(id)}/history/${encodePathSegment(historyId)}`);
-}
-
-export async function createJoueur(payload: JoueurRow): Promise<JoueurRow | undefined> {
-  const image = normalizeImagePayload(payload.PHOTO);
-  const { PHOTO: _photo, ...entityPayload } = payload;
-  const { data } = await http.post<JoueurRow>(env.joueurAdminResource, entityPayload);
-
-  if (image !== undefined) {
-    const id = (data?.IDJOUEUR ?? entityPayload.IDJOUEUR) as string | number | undefined;
-    if (id !== undefined && id !== null && String(id).trim() !== '') {
-      await updateEntityImageWithFallback('joueurrg', id, image, async () => {
-        await http.put(`${env.joueurAdminResource}/${encodePathSegment(id)}`, { PHOTO: image });
-      });
-    }
-  }
-
-  return data;
 }
 
 export async function createJoueurWithWizard(payload: JoueurCreateWizardPayload): Promise<JoueurRow | undefined> {

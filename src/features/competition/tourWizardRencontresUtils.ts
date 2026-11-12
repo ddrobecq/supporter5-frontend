@@ -1,32 +1,8 @@
-import { formatDateShort } from '../../components/dateUtils';
+import { parseStrictHeure } from '../../components/heureUtils';
 import type { TourMatchRow, TourParticipantRow } from './types';
 
-export function formatDateDisplay(value: unknown): string {
-  return formatDateShort(value);
-}
-
-export function normalizeHeure(value: string | null | undefined): string {
-  const trimmed = String(value ?? '').trim();
-  const compact = /^([01]\d|2[0-3])([0-5]\d)$/.exec(trimmed);
-  if (compact) {
-    return `${compact[1]}:${compact[2]}`;
-  }
-  const withH = /^([01]\d|2[0-3])h([0-5]\d)$/i.exec(trimmed);
-  if (withH) {
-    return `${withH[1]}:${withH[2]}`;
-  }
-  const withSeconds = /^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/.exec(trimmed);
-  if (withSeconds) {
-    return `${withSeconds[1]}:${withSeconds[2]}`;
-  }
-  if (/^\d{2}:\d{2}/.test(trimmed)) {
-    return trimmed.slice(0, 5);
-  }
-  return '';
-}
-
 export function formatHeureDisplay(value: unknown): string {
-  const dbHeure = normalizeHeure(String(value ?? ''));
+  const dbHeure = parseStrictHeure(String(value ?? ''));
   if (!dbHeure) {
     return String(value ?? '').trim();
   }

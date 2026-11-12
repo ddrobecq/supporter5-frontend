@@ -15,11 +15,24 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useExternalSaveTrigger } from '../../lib/useExternalSaveTrigger';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { NumberField } from '../../components/NumberField';
 import { useDirtySignature } from '../../lib/useDirtySignature';
 import type { TourDefRow } from './types';
+import {
+  BONUS_TYPE_OPTIONS,
+  buildSortKeyFromRules,
+  FIN_PROLONG_OPTIONS,
+  FIN_TIME_REG_OPTIONS,
+  getSortFieldLabel,
+  normalizeSortTechnicalField,
+  PARTICIP_SORT_FIELD_OPTIONS,
+  parseNumericInput,
+  toNumberOrDefault,
+  type SortDirection,
+} from './tourDefOptions';
 
 interface TourDefFormDialogProps {
   open: boolean;
@@ -31,13 +44,6 @@ interface TourDefFormDialogProps {
   onClose: () => void;
   onSubmit: (payload: TourDefRow) => Promise<void>;
   saveCount?: number;
-}
-
-type SortDirection = '+' | '-';
-
-interface SortFieldOption {
-  field: string;
-  label: string;
 }
 
 interface TourDefDraft {
@@ -64,80 +70,6 @@ interface TourDefDraft {
   VALEUR_BONUS_D: number | '';
 }
 
-const FIN_TIME_REG_OPTIONS = [
-  { value: 1, label: 'Fin du match' },
-  { value: 2, label: 'Prolongation' },
-  { value: 3, label: 'Match rejoue' },
-  { value: 4, label: 'Tirage au sort' },
-];
-
-const FIN_PROLONG_OPTIONS = [
-  { value: 1, label: 'But en Or' },
-  { value: 2, label: 'But en Argent' },
-  { value: 3, label: 'Tirs au but' },
-  { value: 4, label: 'Rejoue' },
-  { value: 5, label: 'Tirage au sort' },
-];
-
-const BONUS_TYPE_OPTIONS = [
-  { value: 1, label: 'Aucun' },
-  { value: 2, label: 'sur nombre de buts marques (bonus si superieur ou egal)' },
-  { value: 3, label: 'sur difference de buts (bonus si superieur ou egal)' },
-  { value: 4, label: 'sur nombre de buts marques (bonus par but)' },
-];
-
-const PARTICIP_SORT_FIELD_OPTIONS: SortFieldOption[] = [
-  { field: 'PANbPoints', label: 'Points' },
-  { field: 'PANbMatch', label: 'Nombre de matchs' },
-  { field: 'PANbVD', label: 'Victoires domicile' },
-  { field: 'PANbVE', label: 'Victoires exterieur' },
-  { field: 'PANbND', label: 'Nuls domicile' },
-  { field: 'PANbNE', label: 'Nuls exterieur' },
-  { field: 'PANbDD', label: 'Defaites domicile' },
-  { field: 'PANbDE', label: 'Defaites exterieur' },
-  { field: 'PANbBPD', label: 'Buts pour domicile' },
-  { field: 'PANbBCD', label: 'Buts contre domicile' },
-  { field: 'PABonus', label: 'Bonus' },
-  { field: 'PANbBPE', label: 'Buts pour exterieur' },
-  { field: 'PANbBCE', label: 'Buts contre exterieur' },
-  { field: 'PADiff', label: 'Difference de buts' },
-  { field: 'PANbBP', label: 'Buts pour' },
-  { field: 'PANbV', label: 'Victoires totales' },
-  { field: 'PANbTaBP', label: 'TAB pour' },
-  { field: 'PANbTaBC', label: 'TAB contre' },
-  { field: 'PADiffTaB', label: 'Difference TAB' },
-  { field: 'PANbBC', label: 'Buts contre' },
-  { field: 'PARatio', label: 'Ratio BP / BC' },
-];
-
-function parseNumericInput(rawValue: string): number | '' {
-  if (rawValue.trim() === '') return '';
-  const parsed = Number(rawValue);
-  return Number.isNaN(parsed) ? '' : parsed;
-}
-
-function toNumberOrDefault(value: number | '', fallback: number): number {
-  if (value === '' || Number.isNaN(value)) return fallback;
-  return Number(value);
-}
-
-function getSortFieldLabel(field: string): string {
-  return PARTICIP_SORT_FIELD_OPTIONS.find((item) => item.field === field)?.label ?? field;
-}
-
-function normalizeSortBusinessLabel(label: string): string {
-  return String(label ?? '')
-    .replace(/[\r\n\t]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function normalizeSortTechnicalField(field: string): string {
-  return String(field ?? '')
-    .replace(/[^A-Za-z0-9_]/g, '')
-    .trim();
-}
-
 function parseSortRules(raw: unknown): Array<{ field: string; direction: SortDirection }> {
   const lines = String(raw ?? '')
     .split(/\r?\n/)
@@ -157,17 +89,6 @@ function parseSortRules(raw: unknown): Array<{ field: string; direction: SortDir
   }
 
   return parsed;
-}
-
-function buildSortKeyFromRules(rules: Array<{ field: string; direction: SortDirection }>): string {
-  return rules
-    .map((rule) => {
-      const direction: SortDirection = rule.direction === '+' ? '+' : '-';
-      const businessLabel = normalizeSortBusinessLabel(getSortFieldLabel(rule.field));
-      const technicalField = normalizeSortTechnicalField(rule.field);
-      return `${direction}${businessLabel}\t${technicalField}`;
-    })
-    .join('\n');
 }
 
 function createEmptyDraft(): TourDefDraft {
@@ -361,11 +282,7 @@ export function TourDefFormDialog({
     }
   };
 
-  const handleSaveRef = useRef(handleSave);
-  handleSaveRef.current = handleSave;
-  useEffect(() => {
-    if (saveCount > 0) void handleSaveRef.current();
-  }, [saveCount]);
+  useExternalSaveTrigger(saveCount, handleSave);
 
   const content = (
     <Stack spacing={1.25}>
@@ -398,9 +315,9 @@ export function TourDefFormDialog({
             value={values.TDTYPETOUR === '' ? '' : String(values.TDTYPETOUR)}
             onChange={(event) => setValues((prev) => ({ ...prev, TDTYPETOUR: parseNumericInput(event.target.value) }))}
           >
-            <MenuItem value="">Aucune selection</MenuItem>
+            <MenuItem value="">Aucune sélection</MenuItem>
             <MenuItem value="1">Ligue</MenuItem>
-            <MenuItem value="2">Eliminatoire</MenuItem>
+            <MenuItem value="2">Éliminatoire</MenuItem>
           </Select>
         </FormControl>
         <FormControlLabel
@@ -411,16 +328,16 @@ export function TourDefFormDialog({
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25}>
         <NumberField
-          label="Duree temps reglementaire"
+          label="Durée temps réglementaire"
           value={String(values.DUREE_TPS_REG)}
           onChange={(v) => setValues((prev) => ({ ...prev, DUREE_TPS_REG: v === '' ? '' : Number(v) }))}
           fullWidth
         />
         <FormControl fullWidth size="small">
-          <InputLabel id="tourdef-fin-reg-label">Fin temps reglementaire</InputLabel>
+          <InputLabel id="tourdef-fin-reg-label">Fin temps réglementaire</InputLabel>
           <Select
             labelId="tourdef-fin-reg-label"
-            label="Fin temps reglementaire"
+            label="Fin temps réglementaire"
             value={values.FIN_TPS_REG === '' ? '' : String(values.FIN_TPS_REG)}
             onChange={(event) => {
               const FIN_TPS_REG = parseNumericInput(event.target.value);
@@ -431,7 +348,7 @@ export function TourDefFormDialog({
               }));
             }}
           >
-            <MenuItem value="">Aucune selection</MenuItem>
+            <MenuItem value="">Aucune sélection</MenuItem>
             {FIN_TIME_REG_OPTIONS.map((option) => (
               <MenuItem key={option.value} value={String(option.value)}>{option.label}</MenuItem>
             ))}
@@ -441,7 +358,7 @@ export function TourDefFormDialog({
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25}>
         <NumberField
-          label="Duree prolongation"
+          label="Durée prolongation"
           value={String(values.DUREE_TPS_PROLONG)}
           onChange={(v) => setValues((prev) => ({ ...prev, DUREE_TPS_PROLONG: v === '' ? '' : Number(v) }))}
           fullWidth
@@ -456,7 +373,7 @@ export function TourDefFormDialog({
             onChange={(event) => setValues((prev) => ({ ...prev, FIN_PROLONG: parseNumericInput(event.target.value) }))}
             disabled={values.FIN_TPS_REG !== 2}
           >
-            <MenuItem value="">Aucune selection</MenuItem>
+            <MenuItem value="">Aucune sélection</MenuItem>
             {FIN_PROLONG_OPTIONS.map((option) => (
               <MenuItem key={option.value} value={String(option.value)}>{option.label}</MenuItem>
             ))}
@@ -490,7 +407,7 @@ export function TourDefFormDialog({
             value={values.TDCalculDiffBut === '' ? '' : String(values.TDCalculDiffBut)}
             onChange={(event) => setValues((prev) => ({ ...prev, TDCalculDiffBut: parseNumericInput(event.target.value) }))}
           >
-            <MenuItem value="">Aucune selection</MenuItem>
+            <MenuItem value="">Aucune sélection</MenuItem>
             <MenuItem value="1">Difference (BP - BC)</MenuItem>
             <MenuItem value="2">Ratio (BP / BC)</MenuItem>
           </Select>
@@ -503,9 +420,9 @@ export function TourDefFormDialog({
             value={values.CLASS_GAD === '' ? '' : String(values.CLASS_GAD)}
             onChange={(event) => setValues((prev) => ({ ...prev, CLASS_GAD: parseNumericInput(event.target.value) }))}
           >
-            <MenuItem value="">Aucune selection</MenuItem>
+            <MenuItem value="">Aucune sélection</MenuItem>
             <MenuItem value="1">Direct</MenuItem>
-            <MenuItem value="2">General</MenuItem>
+            <MenuItem value="2">Général</MenuItem>
           </Select>
         </FormControl>
       </Stack>
@@ -520,7 +437,7 @@ export function TourDefFormDialog({
             value={values.BONUS_TYPE === '' ? '' : String(values.BONUS_TYPE)}
             onChange={(event) => setValues((prev) => ({ ...prev, BONUS_TYPE: parseNumericInput(event.target.value) }))}
           >
-            <MenuItem value="">Aucune selection</MenuItem>
+            <MenuItem value="">Aucune sélection</MenuItem>
             {BONUS_TYPE_OPTIONS.map((option) => (
               <MenuItem key={option.value} value={String(option.value)}>{option.label}</MenuItem>
             ))}
@@ -532,7 +449,7 @@ export function TourDefFormDialog({
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25}>
         <NumberField label="Bonus victoire" value={String(values.VALEUR_BONUS_V)} onChange={(v) => setValues((prev) => ({ ...prev, VALEUR_BONUS_V: v === '' ? '' : Number(v) }))} fullWidth disabled={values.BONUS_TYPE === 1} />
         <NumberField label="Bonus nul" value={String(values.VALEUR_BONUS_N)} onChange={(v) => setValues((prev) => ({ ...prev, VALEUR_BONUS_N: v === '' ? '' : Number(v) }))} fullWidth disabled={values.BONUS_TYPE === 1} />
-        <NumberField label="Bonus defaite" value={String(values.VALEUR_BONUS_D)} onChange={(v) => setValues((prev) => ({ ...prev, VALEUR_BONUS_D: v === '' ? '' : Number(v) }))} fullWidth disabled={values.BONUS_TYPE === 1} />
+        <NumberField label="Bonus défaite" value={String(values.VALEUR_BONUS_D)} onChange={(v) => setValues((prev) => ({ ...prev, VALEUR_BONUS_D: v === '' ? '' : Number(v) }))} fullWidth disabled={values.BONUS_TYPE === 1} />
       </Stack>
 
       <Box>
@@ -621,7 +538,7 @@ export function TourDefFormDialog({
     );
   }
 
-  const title = mode === 'create' ? 'Nouvelle definition de tour' : 'Modifier une definition de tour';
+  const title = mode === 'create' ? 'Nouvelle définition de tour' : 'Modifier une définition de tour';
   return (
     <EntityFormDialog open={open} onClose={onClose} title={title} saving={saving} onSave={handleSave} saveLabel="Enregistrer">
       {content}

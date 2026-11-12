@@ -1,5 +1,6 @@
 import { Link as MuiLink } from '@mui/material';
 import { formatDateLong } from '../../../lib/formatDate';
+import { emitTabOpen } from '../../../lib/useTabMetaEvents';
 
 /** Date d'une rencontre, cliquable: ouvre la fiche dans un onglet interne. */
 export function RencontreDateLink({ date, recleunik }: { date: string; recleunik: number | string | null | undefined }) {
@@ -9,14 +10,7 @@ export function RencontreDateLink({ date, recleunik }: { date: string; recleunik
       type="button"
       onClick={(event) => {
         event.stopPropagation();
-        window.dispatchEvent(new CustomEvent('supporter:tab-open', {
-          detail: {
-            path: `/admin/rencontres/${encodeURIComponent(String(recleunik ?? ''))}`,
-            label: 'Rencontre',
-            unique: true,
-            uniqueByPath: true,
-          },
-        }));
+        emitTabOpen(`/admin/rencontres/${encodeURIComponent(String(recleunik ?? ''))}`, 'Rencontre');
       }}
       sx={{ cursor: 'pointer', textDecoration: 'underline', color: 'inherit', font: 'inherit', verticalAlign: 'baseline' }}
     >

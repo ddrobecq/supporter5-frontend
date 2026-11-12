@@ -84,7 +84,7 @@ export interface JoueurTransactionUpsertPayload {
 }
 
 export interface JoueurMatchEvent {
-  type: 'but' | 'passe' | 'entree' | 'sortie' | 'avertissement' | 'second-avertissement' | 'exclusion' | 'blessure';
+  type: 'but' | 'passe' | 'entree' | 'sortie' | 'avertissement' | 'second-avertissement' | 'exclusion' | 'blessure' | 'penalty';
   minute: number;
   periode: number;
 }
@@ -118,16 +118,7 @@ export interface PosteOption {
   POS_TYPE?: number;
 }
 
-export interface IntegrityConstraint {
-  table: string;
-  count: number;
-  description: string;
-}
-
-export interface CanDeleteResponse {
-  canDelete: boolean;
-  constraints: IntegrityConstraint[];
-}
+export type { CanDeleteResponse, IntegrityConstraint } from '../../lib/apiTypes';
 
 export interface SaisonRow {
   SAISON: string;
@@ -155,10 +146,4 @@ export interface JoueurCreateWizardPayload {
   alias?: string;
 }
 
-export interface PaginatedResponse<T> {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
+export type { PaginatedResponse } from '../../lib/apiTypes';

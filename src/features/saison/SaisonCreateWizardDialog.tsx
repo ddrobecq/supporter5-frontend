@@ -14,7 +14,7 @@ import {
 import type { GridRowId } from '@mui/x-data-grid';
 import { useEffect, useMemo, useState } from 'react';
 import { DateInputField } from '../../components/DateInputField';
-import { toIsoDate } from '../../components/dateUtils';
+import { addDaysIso, toIsoDate } from '../../components/dateUtils';
 import { useInvalidDateFields } from '../../components/useInvalidDateFields';
 import { toErrorMessage } from '../../components/useEntityPage';
 import {
@@ -43,10 +43,6 @@ interface SaisonCreateWizardDialogProps {
   onError: (message: string) => void;
 }
 
-function pad2(value: number): string {
-  return String(value).padStart(2, '0');
-}
-
 function nextSaisonName(previous: string | undefined): string {
   const match = String(previous ?? '').trim().match(/^(\d{4})-(\d{4})$/);
   if (match) {
@@ -56,14 +52,6 @@ function nextSaisonName(previous: string | undefined): string {
   const now = new Date();
   const startYear = now.getMonth() + 1 >= 7 ? now.getFullYear() : now.getFullYear() - 1;
   return `${startYear}-${startYear + 1}`;
-}
-
-function dayAfterIso(iso: string | undefined): string {
-  const match = String(iso ?? '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return '';
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  date.setDate(date.getDate() + 1);
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 }
 
 function startYearOfSaison(saison: string): number | null {
@@ -116,7 +104,7 @@ export function SaisonCreateWizardDialog({ open, onClose, onCreated, onError }: 
       .then((last) => {
         const nextName = nextSaisonName(last?.SAISON);
         const startYear = startYearOfSaison(nextName) ?? new Date().getFullYear();
-        const defaultDebut = dayAfterIso(last?.SA_FIN) || `${startYear}-07-01`;
+        const defaultDebut = addDaysIso(last?.SA_FIN ?? '', 1) || `${startYear}-07-01`;
         const defaultFin = `${startYear + 1}-06-30`;
 
         setPreviousSaison(String(last?.SAISON ?? '').trim());
@@ -172,7 +160,7 @@ export function SaisonCreateWizardDialog({ open, onClose, onCreated, onError }: 
       return false;
     }
     if (isDateInvalid('dateDebut')) {
-      setErrorMessage('La date de debut est invalide.');
+      setErrorMessage('La date de début est invalide.');
       return false;
     }
     if (isDateInvalid('dateFin')) {
@@ -180,7 +168,7 @@ export function SaisonCreateWizardDialog({ open, onClose, onCreated, onError }: 
       return false;
     }
     if (!isoDebut) {
-      setErrorMessage('La date de debut est requise.');
+      setErrorMessage('La date de début est requise.');
       return false;
     }
     if (!isoFin) {
@@ -188,7 +176,7 @@ export function SaisonCreateWizardDialog({ open, onClose, onCreated, onError }: 
       return false;
     }
     if (isoFin < isoDebut) {
-      setErrorMessage('La date de fin doit etre posterieure ou egale a la date de debut.');
+      setErrorMessage('La date de fin doit être postérieure ou égale à la date de début.');
       return false;
     }
     setErrorMessage('');
@@ -274,7 +262,7 @@ export function SaisonCreateWizardDialog({ open, onClose, onCreated, onError }: 
         <Stack spacing={2} sx={{ pt: 0.5, flex: 1, minHeight: 0, minWidth: 0, overflowY: 'auto', overflowX: 'hidden' }}>
           {previousSaison ? (
             <Typography variant="body2" color="text.secondary">
-              Saison precedente : {previousSaison}
+              Saison précédente : {previousSaison}
             </Typography>
           ) : null}
 
@@ -313,7 +301,7 @@ export function SaisonCreateWizardDialog({ open, onClose, onCreated, onError }: 
               />
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25}>
                 <DateInputField
-                  label="Date de debut"
+                  label="Date de début"
                   value={dateDebut}
                   onChange={setDateDebut}
                   onValidityChange={dateValidityHandler('dateDebut')}
@@ -370,7 +358,7 @@ export function SaisonCreateWizardDialog({ open, onClose, onCreated, onError }: 
       </DialogContent>
       <DialogActions>
         <Button onClick={handleDialogClose} color="inherit" disabled={saving}>Annuler</Button>
-        <Button onClick={handleBack} disabled={step === STEP_DATES || loading || saving}>Precedent</Button>
+        <Button onClick={handleBack} disabled={step === STEP_DATES || loading || saving}>Précédent</Button>
         {step !== STEP_COMPETITIONS ? (
           <Button onClick={handleNext} disabled={!canGoNext || loading || saving}>Suivant</Button>
         ) : (

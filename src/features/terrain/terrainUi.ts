@@ -20,13 +20,6 @@ export function resolveTerrainLabel(row: TerrainRow): string {
   return 'Stade';
 }
 
-export function resolveTerrainDisplay(row: TerrainRow): string {
-  const label = resolveTerrainLabel(row);
-  const ville = row.VILLE_NOM;
-  const city = typeof ville === 'string' ? ville.trim() : '';
-  return city ? `${label} (${city})` : label;
-}
-
 export function resolveTerrainId(row: TerrainRow): string | number | undefined {
   const preferred = ['TECLEUNIK', 'ID', 'id', 'CODE'];
   for (const field of preferred) {

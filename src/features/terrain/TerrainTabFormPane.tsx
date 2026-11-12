@@ -1,12 +1,6 @@
-import { Box, CircularProgress, Typography } from '@mui/material';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { emitTabSaveDone } from '../../lib/useTabMetaEvents';
-import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
-import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
-import { toErrorMessage } from '../../components/useEntityPage';
-import { useTabMetaEvents } from '../../lib/useTabMetaEvents';
-import { fetchTerrainById, updateTerrain } from './terrainApi';
+import { EntityTabFormPane } from '../../components/EntityTabFormPane';
 import { TerrainFormDialog } from './TerrainFormDialog';
+import { fetchTerrainById, updateTerrain } from './terrainApi';
 import type { TerrainRow } from './types';
 import { buildTerrainFormFields, detectTerrainPrimaryKey, resolveTerrainLabel } from './terrainUi';
 
@@ -16,85 +10,24 @@ interface TerrainTabFormPaneProps {
   active: boolean;
 }
 
+function detectTerrainRowPrimaryKey(row: TerrainRow): string | undefined {
+  return detectTerrainPrimaryKey([row]);
+}
+
 export function TerrainTabFormPane({ tabPath, terrainId, active }: TerrainTabFormPaneProps) {
-  const { setDirty, setLabel } = useTabMetaEvents(tabPath);
-  const [loading, setLoading] = useState(true);
-  const [row, setRow] = useState<TerrainRow | undefined>(undefined);
-  const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
-  const [saveCount, setSaveCount] = useState(0);
-
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const ev = e as CustomEvent<{ path?: string }>;
-      if (ev.detail?.path === tabPath) setSaveCount((c) => c + 1);
-    };
-    window.addEventListener('supporter:tab-save-request', handler);
-    return () => window.removeEventListener('supporter:tab-save-request', handler);
-  }, [tabPath]);
-
-  const reloadRow = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await fetchTerrainById(terrainId);
-      setRow(data);
-      setDirty(false);
-      return true;
-    } catch (error) {
-      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, [setDirty, terrainId]);
-
-  useEffect(() => {
-    void reloadRow();
-
-    return () => {
-      setDirty(false);
-    };
-  }, [reloadRow, setDirty]);
-
-  const fields = useMemo(() => buildTerrainFormFields(row), [row]);
-  const primaryKey = useMemo(() => detectTerrainPrimaryKey(row ? [row] : []), [row]);
-
-  const handleSubmit = async (payload: TerrainRow) => {
-    try {
-      await updateTerrain(terrainId, payload);
-      const refreshed = await fetchTerrainById(terrainId);
-      setRow(refreshed);
-      setLabel(resolveTerrainLabel(refreshed));
-      setSnackbar({ severity: 'success', message: 'Terrain mis a jour.' });
-      setDirty(false);
-      emitTabSaveDone(tabPath);
-    } catch (error) {
-      setSnackbar({ severity: 'error', message: toErrorMessage(error) });
-    }
-  };
-
   return (
-    <Box sx={{ display: active ? 'block' : 'none' }}>
-      {loading ? (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
-          <CircularProgress size={16} />
-          <Typography variant="body2" color="text.secondary">Chargement du stade...</Typography>
-        </Box>
-      ) : row ? (
-        <TerrainFormDialog
-          open
-          mode="edit"
-          embedded
-          fields={fields}
-          primaryKey={primaryKey}
-          initialData={row}
-          onDirtyChange={(dirty) => setDirty(dirty)}
-          onClose={() => { void reloadRow(); }}
-          onSubmit={handleSubmit}
-          saveCount={saveCount}
-        />
-      ) : null}
-
-      <AppFeedbackSnackbar value={snackbar} onClose={() => setSnackbar(null)} />
-    </Box>
+    <EntityTabFormPane
+      tabPath={tabPath}
+      id={terrainId}
+      active={active}
+      fetchById={fetchTerrainById}
+      update={updateTerrain}
+      resolveLabel={resolveTerrainLabel}
+      primaryKey={detectTerrainRowPrimaryKey}
+      deriveFromRow={buildTerrainFormFields}
+      loadingLabel="Chargement du stade..."
+      successMessage="Terrain mis à jour."
+      renderForm={(formProps, fields) => <TerrainFormDialog {...formProps} fields={fields} />}
+    />
   );
 }

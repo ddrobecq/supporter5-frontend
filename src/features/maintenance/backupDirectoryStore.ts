@@ -21,7 +21,7 @@ async function withStore<T>(mode: IDBTransactionMode, run: (store: IDBObjectStor
       const tx = db.transaction(STORE_NAME, mode);
       const request = run(tx.objectStore(STORE_NAME));
       request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error ?? new Error('Operation IndexedDB impossible.'));
+      request.onerror = () => reject(request.error ?? new Error('Opération IndexedDB impossible.'));
     });
   } finally {
     db.close();
@@ -35,8 +35,4 @@ export async function getStoredDirectoryHandle(): Promise<FileSystemDirectoryHan
 
 export async function setStoredDirectoryHandle(handle: FileSystemDirectoryHandle): Promise<void> {
   await withStore('readwrite', (store) => store.put(handle, DIRECTORY_KEY));
-}
-
-export async function clearStoredDirectoryHandle(): Promise<void> {
-  await withStore('readwrite', (store) => store.delete(DIRECTORY_KEY));
 }

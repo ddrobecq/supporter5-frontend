@@ -25,7 +25,7 @@ function PhysiqueCell({ row, metric }: { row: PhysiqueRow; metric: PhysiqueMetri
 }
 
 export function PhysiqueGrid({ metric }: { metric: PhysiqueMetric }) {
-  const { rows, loading } = useStatRows<PhysiqueRow>((signal) => fetchPhysique(metric, signal), [metric]);
+  const { rows, loading, error } = useStatRows<PhysiqueRow>((signal) => fetchPhysique(metric, signal), [metric]);
 
   const columns: GridColDef<PhysiqueRow>[] = useMemo(() => [{
     field: metric === 'gabarits' ? 'IMC' : 'HAUTEUR',
@@ -42,6 +42,7 @@ export function PhysiqueGrid({ metric }: { metric: PhysiqueMetric }) {
       rows={rows}
       valueColumns={columns}
       loading={loading}
+      error={error}
       hideIdentityColumn
     />
   );

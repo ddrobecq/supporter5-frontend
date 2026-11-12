@@ -13,7 +13,7 @@ const HEADERS: Record<SanctionEquipeMetric, string> = {
 
 /** Saison > Sanction: avertissements/exclusions du club supporte, une ligne par saison. */
 export function SanctionsEquipeGrid({ metric }: { metric: SanctionEquipeMetric }) {
-  const { rows, loading } = useStatRows<SanctionEquipeRow>((signal) => fetchSaisonSanctionsEquipe(metric, signal), [metric]);
+  const { rows, loading, error } = useStatRows<SanctionEquipeRow>((signal) => fetchSaisonSanctionsEquipe(metric, signal), [metric]);
 
   const columns: GridColDef<SanctionEquipeRow>[] = useMemo(() => [
     { field: 'SAISON', headerName: 'Saison', flex: 1, minWidth: 140 },
@@ -32,6 +32,7 @@ export function SanctionsEquipeGrid({ metric }: { metric: SanctionEquipeMetric }
       rows={rows}
       columns={columns}
       loading={loading}
+      error={error}
     />
   );
 }

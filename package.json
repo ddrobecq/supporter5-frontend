@@ -1,7 +1,7 @@
 {
   "name": "front",
   "private": true,
-  "version": "5.41.0",
+  "version": "5.42.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,10 +11,8 @@
     "generate:favicons": "node ./scripts/generate-favicons.mjs"
   },
   "dependencies": {
-    "@base-ui/react": "^1.6.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
-    "@hookform/resolvers": "^5.4.0",
     "@mui/icons-material": "^9.3.1",
     "@mui/lab": "^9.0.0-beta.8",
     "@mui/material": "^9.3.1",
@@ -22,11 +20,8 @@
     "@mui/x-data-grid": "^9.9.0",
     "axios": "^1.18.1",
     "react": "^19.2.7",
-    "react-contexify": "^6.0.0",
     "react-dom": "^19.2.7",
-    "react-hook-form": "^7.81.0",
     "react-router-dom": "^7.18.1",
-    "zod": "^4.4.3",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
