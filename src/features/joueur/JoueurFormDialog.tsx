@@ -149,7 +149,7 @@ function buildSensOptionsForType(type?: JoueurTransactionTypeOption): SensOption
   return options;
 }
 
-// Legacy values (DD/MM/YYYY, YYYYMMDD...) are converted to ISO; unrecognized values are kept as is.
+// Legacy values (DD/MM/YYYY, YYYY/MM/DD) are converted to ISO; unrecognized values are kept as is.
 function normalizeStoredDate(value: unknown): string {
   const text = normalizeNullableText(value);
   return toIsoDate(text) || text;
@@ -556,7 +556,7 @@ export function JoueurFormDialog({
     }
 
     const nextDraft = {
-      date: toIsoDate(selectedRow.DATE),
+      date: selectedRow.DATE,
       type: String(selectedRow.TYPE ?? ''),
       sens: Number(selectedRow.STATUT) === 1 ? '1' : Number(selectedRow.STATUT) === 2 ? '2' : '3',
       idClub: String(selectedRow.IDCLUB ?? '').trim(),
@@ -565,7 +565,7 @@ export function JoueurFormDialog({
       salaire: selectedRow.SALAIRE == null ? '' : String(selectedRow.SALAIRE),
       indemnites: selectedRow.INDEMNITES == null || Number(selectedRow.INDEMNITES) === 0 ? '' : String(selectedRow.INDEMNITES),
       indemnitesMode: toIndemnitesMode(selectedRow.INDEMNITES),
-      echeance: toIsoDate(selectedRow.TN_ECHEANCE),
+      echeance: selectedRow.TN_ECHEANCE ?? '',
       saison: String(selectedRow.SAISON ?? '').trim(),
     };
     setContractsDialogMode('edit');

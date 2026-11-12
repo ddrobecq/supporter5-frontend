@@ -526,7 +526,7 @@ export function TourWizardStep6Rencontres({
       throw new Error('Heure invalide. Format attendu: HHhMM.');
     }
 
-    const prevDate = toIsoDate(oldRow.DATE);
+    const prevDate = oldRow.DATE;
     const prevHeure = parseStrictHeure(oldRow.HEURE) || null;
     const updatedRow: RencontresGridModelRow = { ...newRow, DATE: nextDate, HEURE: nextHeure };
 
@@ -574,7 +574,7 @@ export function TourWizardStep6Rencontres({
       const lastMatch = filteredRencontreRows.length > 0
         ? filteredRencontreRows[filteredRencontreRows.length - 1]
         : undefined;
-      const startDate = toIsoDate(lastMatch?.DATE) || toIsoDate(tourStartDate) || todayIso();
+      const startDate = lastMatch?.DATE || toIsoDate(tourStartDate) || todayIso();
       const startHeure = parseStrictHeure(lastMatch?.HEURE ?? '') || parseStrictHeure(tourDefaultHeure) || null;
       setPending({
         date: startDate,

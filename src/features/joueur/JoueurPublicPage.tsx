@@ -30,8 +30,7 @@ import type { JoueurHistoryRow, JoueurRow, JoueurTransactionRow } from './types'
 
 function displayDate(value: unknown): string {
   const text = String(value ?? '').trim();
-  const match = text.match(/^(\d{4})(?:-(\d{2})-(\d{2})|(\d{2})(\d{2}))$/);
-  if (!match) return text || 'date inconnue';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return text || 'date inconnue';
   return formatDateLong(text);
 }
 

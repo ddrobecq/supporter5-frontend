@@ -1,4 +1,3 @@
-import { toIsoDate } from '../../components/dateUtils';
 import type { CompetitionTourDetailRow, TourDefRow } from './types';
 
 export type TourType = 'ligue' | 'eliminatoire';
@@ -85,10 +84,10 @@ export function createDraftFromDetail(source: CompetitionTourDetailRow): TourDra
     participants,
     final: isFinal,
     selectionMode: hasTirageValues ? 'tirage' : 'programmation',
-    dateTirage: toIsoDate(source.TU_DATETIRAGE),
+    dateTirage: source.TU_DATETIRAGE ?? '',
     heureTirage: toDisplayTime(source.TU_HEURETIRAGE as string | null | undefined),
-    dateDebut: toIsoDate(source.DATE_DEBUT),
-    dateFin: toIsoDate(source.DATE_FIN),
+    dateDebut: source.DATE_DEBUT ?? '',
+    dateFin: source.DATE_FIN ?? '',
     heureMatches: toDisplayTime(source.TUHEURE as string | null | undefined),
     ordre: Number(source.TU_ORDRE ?? 1) || 1,
     nbEquipe: Number(source.NB_EQUIPE ?? 0) || 0,

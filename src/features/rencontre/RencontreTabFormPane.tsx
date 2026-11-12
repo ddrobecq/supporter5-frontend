@@ -34,7 +34,7 @@ import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
 import { DateInputField } from '../../components/DateInputField';
-import { formatDateShort, isoDateOrNull, toIsoDate } from '../../components/dateUtils';
+import { formatDateShort, isoDateOrNull } from '../../components/dateUtils';
 import { useInvalidDateFields } from '../../components/useInvalidDateFields';
 import { TimeInputField } from '../../components/TimeInputField';
 import { NumberField } from '../../components/NumberField';
@@ -149,7 +149,7 @@ function buildDraftFromDetail(detail: RencontreDetailRow): RencontreDraft {
     tabDom: toNonNegativeIntegerString(detail.TABDOM),
     tabExt: toNonNegativeIntegerString(detail.TABEXT),
     etat: Number(detail.ETAT ?? 1) || 1,
-    date: toIsoDate(detail.DATE),
+    date: detail.DATE ?? '',
     heure: toDisplayHeure(detail.HEURE),
     saison: String(detail.SAISON ?? '').trim(),
     competitionId: Number(detail.COCLEUNIK) > 0 ? String(detail.COCLEUNIK).trim() : '',

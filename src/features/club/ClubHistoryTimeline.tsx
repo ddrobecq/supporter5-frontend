@@ -17,16 +17,8 @@ interface TimelineEvent {
 
 function formatDate(value: string | null): string {
   if (!value) return 'Date inconnue';
-  const match = value.match(/^(\d{4})(?:-(\d{2})-(\d{2})|(\d{2})(\d{2}))$/);
-  if (!match) return value;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
   return formatDateLong(value);
-}
-
-function dateKey(value: string | null): string {
-  if (!value) return '';
-  const match = value.match(/^(\d{4})(?:-(\d{2})-(\d{2})|(\d{2})(\d{2}))$/);
-  if (!match) return value;
-  return `${match[1]}${match[2] ?? match[4]}${match[3] ?? match[5]}`;
 }
 
 export function ClubHistoryTimeline({ names, terrains }: { names: ClubNameHistoryRow[]; terrains: ClubTerrainHistoryRow[] }) {
@@ -52,14 +44,14 @@ export function ClubHistoryTimeline({ names, terrains }: { names: ClubNameHistor
   ];
   const creation = events.find((event) => event.kind === 'create');
   const hasOlderStadium = Boolean(creation && terrains.some((terrain) => {
-    const stadiumDate = dateKey(terrain.DATE);
-    const creationDate = dateKey(creation.date);
+    const stadiumDate = terrain.DATE;
+    const creationDate = creation.date;
     return Boolean(stadiumDate && creationDate && stadiumDate < creationDate);
   }));
   events.sort((left, right) => {
     if (!left.date) return 1;
     if (!right.date) return -1;
-    return dateKey(right.date).localeCompare(dateKey(left.date));
+    return right.date.localeCompare(left.date);
   });
   if (creation && !hasOlderStadium) {
     const creationIndex = events.indexOf(creation);

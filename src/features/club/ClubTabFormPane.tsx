@@ -35,7 +35,7 @@ import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { CompletenessChip } from '../../components/CompletenessChip';
 import { DateInputField } from '../../components/DateInputField';
-import { formatDateShort, isoDateOrNull, toIsoDate } from '../../components/dateUtils';
+import { formatDateShort, isoDateOrNull } from '../../components/dateUtils';
 import { useInvalidDateFields } from '../../components/useInvalidDateFields';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { NatioAutocomplete } from '../../components/NatioAutocomplete';
@@ -595,7 +595,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     }
     const eventType = Number(rowToEdit.CN_ACTION ?? 0);
     const nextDraft = {
-      date: toIsoDate(rowToEdit.DATE),
+      date: rowToEdit.DATE ?? '',
       eventType: eventType >= 1 && eventType <= 3 ? String(eventType) as '1' | '2' | '3' : '2',
       name: String(rowToEdit.CN_NOM ?? ''),
     };
@@ -688,7 +688,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     }
 
     const nextDraft = {
-      date: toIsoDate(rowToEdit.DATE),
+      date: rowToEdit.DATE ?? '',
       terrainId: String(rowToEdit.TECLEUNIK ?? ''),
       terrainName: String(rowToEdit.STADE ?? ''),
     };

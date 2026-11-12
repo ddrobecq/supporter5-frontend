@@ -20,7 +20,7 @@ import type { DatePart, DateParts } from './dateUtils';
 
 interface DateInputFieldProps {
   label: string;
-  /** Current value, in any format accepted by `toIsoDate` (ISO, YYYYMMDD, YYYY/MM/DD, DD/MM/YYYY). */
+  /** Current value, in any format accepted by `toIsoDate` (ISO, YYYY/MM/DD, DD/MM/YYYY). */
   value: string;
   /**
    * Called only with a validated value: ISO `YYYY-MM-DD`, or '' when the user cleared the field.

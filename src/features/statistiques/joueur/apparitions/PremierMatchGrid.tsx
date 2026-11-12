@@ -14,21 +14,12 @@ interface PremierMatchWithAge extends PremierMatchRow {
 
 /**
  * Calculate age in years, months, days from birth date and appearance date.
- * Dates can be in YYYY-MM-DD or YYYYMMDD format.
+ * Dates are ISO YYYY-MM-DD.
  */
 function calculateAge(birthDateStr: string, appearanceDateStr: string): { years: number; months: number; days: number } {
-  // Parse dates handling both YYYY-MM-DD and YYYYMMDD formats
   const parseDate = (dateStr: string) => {
-    if (dateStr.includes('-')) {
-      const [year, month, day] = dateStr.split('-').map(x => parseInt(x, 10));
-      return { year, month, day };
-    } else {
-      return {
-        year: parseInt(dateStr.substring(0, 4), 10),
-        month: parseInt(dateStr.substring(4, 6), 10),
-        day: parseInt(dateStr.substring(6, 8), 10),
-      };
-    }
+    const [year, month, day] = dateStr.split('-').map(x => parseInt(x, 10));
+    return { year, month, day };
   };
 
   const birth = parseDate(birthDateStr);

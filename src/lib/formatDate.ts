@@ -1,4 +1,4 @@
-/** Formate une date base (YYYYMMDD ou YYYY-MM-DD) en JJ/MM/AAAA. */
+/** Formate une date ISO (YYYY-MM-DD) en JJ/MM/AAAA. */
 export function formatDateFr(value: unknown): string {
   const raw = String(value ?? '').trim();
   if (!raw) return '';
@@ -6,8 +6,7 @@ export function formatDateFr(value: unknown): string {
     const [year, month, day] = raw.split('-');
     return `${day}/${month}/${year}`;
   }
-  if (raw.length < 8) return raw;
-  return `${raw.substring(6, 8)}/${raw.substring(4, 6)}/${raw.substring(0, 4)}`;
+  return raw;
 }
 
 /** Formate un timestamp ISO en "JJ/MM/AAAA HH:mm" (heure locale). */
@@ -37,10 +36,6 @@ export function formatDateLong(value: unknown): string {
   let day: string;
   if (raw.includes('-')) {
     [year, month, day] = raw.split('-');
-  } else if (raw.length >= 8) {
-    year = raw.substring(0, 4);
-    month = raw.substring(4, 6);
-    day = raw.substring(6, 8);
   } else {
     return raw;
   }

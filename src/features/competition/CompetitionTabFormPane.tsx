@@ -443,7 +443,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
     setEditingHeureRowId(null);
     setEditingScoreRowId(null);
     setEditingDateRowId(item.RECLEUNIK);
-    setDateDraft(toIsoDate(item.DATE));
+    setDateDraft(item.DATE);
   };
 
   const cancelDateEdit = () => {
@@ -458,7 +458,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
       setSnackbar({ severity: 'error', message: 'Date invalide.' });
       return false;
     }
-    if (isoDate === toIsoDate(item.DATE)) {
+    if (isoDate === item.DATE) {
       setEditingDateRowId(null);
       return true;
     }

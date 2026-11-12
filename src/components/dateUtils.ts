@@ -16,13 +16,12 @@ export const INVALID_DATE_MESSAGE = 'Date invalide';
 
 /**
  * Structural parsing of every supported date text format, without calendar validation.
- * Supported: YYYY-MM-DD (optionally followed by a time), YYYYMMDD, YYYY/MM/DD, DD/MM/YYYY.
+ * Supported: YYYY-MM-DD (optionally followed by a time), YYYY/MM/DD, DD/MM/YYYY.
  */
 function parseDateText(value: unknown): DateParts | null {
   const text = String(value ?? '').trim();
 
   const ymd = text.match(/^(\d{4})-(\d{2})-(\d{2})/)
-    ?? text.match(/^(\d{4})(\d{2})(\d{2})$/)
     ?? text.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
   if (ymd) {
     return { year: ymd[1], month: ymd[2], day: ymd[3] };
@@ -163,10 +162,10 @@ export function addDaysIso(iso: string, days: number): string {
   return toLocalIsoDate(date);
 }
 
-/** Parses a database date (`YYYYMMDD` or `YYYY-MM-DD`) into a local Date at midnight; null when invalid. */
+/** Parses an API date (ISO `YYYY-MM-DD`) into a local Date at midnight; null when empty or invalid. */
 export function parseDbDate(value: unknown): Date | null {
   const text = String(value ?? '').trim();
-  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/) ?? text.match(/^(\d{4})(\d{2})(\d{2})$/);
+  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) return null;
   const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
   if (!isValidCalendarDate(year, month, day)) return null;
