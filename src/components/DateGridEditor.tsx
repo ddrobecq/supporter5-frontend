@@ -100,7 +100,7 @@ export function DateGridEditor({ value, onChange, onCommit, onCancel, onTabOut }
     void onCommit(iso);
   };
 
-  const handlePartKeyDown = (index: number) => (event: KeyboardEvent<HTMLInputElement>): void => {
+  const handlePartKeyDown = (index: number, event: KeyboardEvent<HTMLDivElement>): void => {
     if (!event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey
         && /^Digit\d$/.test(event.code) && !/^\d$/.test(event.key)) {
       event.preventDefault();
@@ -188,7 +188,7 @@ export function DateGridEditor({ value, onChange, onCommit, onCancel, onTabOut }
         onChange={(event) => updatePart('day', event.target.value)}
         onFocus={(event) => event.target.select()}
         onBlur={() => normalizePart('day')}
-        onKeyDown={handlePartKeyDown(0)}
+        onKeyDown={(event) => handlePartKeyDown(0, event)}
         autoFocus
         size="small"
         variant="outlined"
@@ -214,7 +214,7 @@ export function DateGridEditor({ value, onChange, onCommit, onCancel, onTabOut }
         onChange={(event) => updatePart('month', event.target.value)}
         onFocus={(event) => event.target.select()}
         onBlur={() => normalizePart('month')}
-        onKeyDown={handlePartKeyDown(1)}
+        onKeyDown={(event) => handlePartKeyDown(1, event)}
         size="small"
         variant="outlined"
         error={invalid}
@@ -239,7 +239,7 @@ export function DateGridEditor({ value, onChange, onCommit, onCancel, onTabOut }
         onChange={(event) => updatePart('year', event.target.value)}
         onFocus={(event) => event.target.select()}
         onBlur={() => normalizePart('year')}
-        onKeyDown={handlePartKeyDown(2)}
+        onKeyDown={(event) => handlePartKeyDown(2, event)}
         size="small"
         variant="outlined"
         error={invalid}

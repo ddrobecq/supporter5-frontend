@@ -68,7 +68,12 @@ export function DateInputField({
   const dayRef = useRef<HTMLInputElement | null>(null);
   const monthRef = useRef<HTMLInputElement | null>(null);
   const yearRef = useRef<HTMLInputElement | null>(null);
-  const [focused, setFocused] = useState(false);
+  // autoFocus must only take effect on initial mount: since the field switches between
+  // two different render trees (split day/month/year vs. collapsed) whenever `focused`
+  // toggles, passing `autoFocus` straight to the underlying inputs would re-trigger native
+  // autofocus on every remount, trapping focus in the field after each blur. It only seeds
+  // the initial state; the effect on `focused` below then focuses the day part.
+  const [focused, setFocused] = useState(autoFocus);
   const [parts, setParts] = useState<DateParts>(() => splitDisplayDate(value));
   const [invalid, setInvalid] = useState(false);
   const [syncedValue, setSyncedValue] = useState(value);
@@ -99,17 +104,6 @@ export function DateInputField({
       reportedValidRef.current = true;
       onValidityChangeRef.current?.(true);
     }
-  }, []);
-
-  // autoFocus must only take effect on initial mount: since the field switches between
-  // two different render trees (split day/month/year vs. collapsed) whenever `focused`
-  // toggles, passing `autoFocus` straight to the underlying inputs would re-trigger native
-  // autofocus on every remount, trapping focus in the field after each blur.
-  useEffect(() => {
-    if (autoFocus) {
-      setFocused(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -179,7 +173,7 @@ export function DateInputField({
     return null;
   };
 
-  const handlePartKeyDown = (index: number) => (event: KeyboardEvent<HTMLInputElement>): void => {
+  const handlePartKeyDown = (index: number, event: KeyboardEvent<HTMLDivElement>): void => {
     if (!event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey
         && /^Digit\d$/.test(event.code) && !/^\d$/.test(event.key)) {
       event.preventDefault();
@@ -267,7 +261,7 @@ export function DateInputField({
             onChange={(event) => updatePart('day', event.target.value)}
             onFocus={(event) => event.target.select()}
             onBlur={() => normalizePart('day')}
-            onKeyDown={handlePartKeyDown(0)}
+            onKeyDown={(event) => handlePartKeyDown(0, event)}
             size={size}
             disabled={disabled}
             error={fieldError}
@@ -289,7 +283,7 @@ export function DateInputField({
             onChange={(event) => updatePart('month', event.target.value)}
             onFocus={(event) => event.target.select()}
             onBlur={() => normalizePart('month')}
-            onKeyDown={handlePartKeyDown(1)}
+            onKeyDown={(event) => handlePartKeyDown(1, event)}
             size={size}
             disabled={disabled}
             error={fieldError}
@@ -311,7 +305,7 @@ export function DateInputField({
             onChange={(event) => updatePart('year', event.target.value)}
             onFocus={(event) => event.target.select()}
             onBlur={() => normalizePart('year')}
-            onKeyDown={handlePartKeyDown(2)}
+            onKeyDown={(event) => handlePartKeyDown(2, event)}
             size={size}
             disabled={disabled}
             error={fieldError}

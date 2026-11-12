@@ -131,7 +131,7 @@ export function ScoreCell({ row, isEditing, canEdit, draft, onStartEdit, onDraft
     onDraftChange({ [field]: sanitizeDigits(value) });
   };
 
-  const handleKeyDown = (field: ScoreField) => (event: KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (field: ScoreField, event: KeyboardEvent<HTMLDivElement>) => {
     // AZERTY: remap unshifted Digit keys that don't produce a digit natively
     if (!event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey
         && /^Digit\d$/.test(event.code) && !/^\d$/.test(event.key)) {
@@ -267,7 +267,7 @@ export function ScoreCell({ row, isEditing, canEdit, draft, onStartEdit, onDraft
           }}
           sx={editInputSx}
           onClick={(event) => event.stopPropagation()}
-          onKeyDown={handleKeyDown('tabDom')}
+          onKeyDown={(event) => handleKeyDown('tabDom', event)}
         />
         <TextField
           inputRef={butDomRef}
@@ -286,7 +286,7 @@ export function ScoreCell({ row, isEditing, canEdit, draft, onStartEdit, onDraft
           }}
           sx={editInputSx}
           onClick={(event) => event.stopPropagation()}
-          onKeyDown={handleKeyDown('butDom')}
+          onKeyDown={(event) => handleKeyDown('butDom', event)}
         />
         <Typography component="span" sx={{ fontSize: '0.68rem', lineHeight: 1, color: 'text.secondary' }}>-</Typography>
         <TextField
@@ -305,7 +305,7 @@ export function ScoreCell({ row, isEditing, canEdit, draft, onStartEdit, onDraft
           }}
           sx={editInputSx}
           onClick={(event) => event.stopPropagation()}
-          onKeyDown={handleKeyDown('butExt')}
+          onKeyDown={(event) => handleKeyDown('butExt', event)}
         />
         <TextField
           inputRef={tabExtRef}
@@ -323,7 +323,7 @@ export function ScoreCell({ row, isEditing, canEdit, draft, onStartEdit, onDraft
           }}
           sx={editInputSx}
           onClick={(event) => event.stopPropagation()}
-          onKeyDown={handleKeyDown('tabExt')}
+          onKeyDown={(event) => handleKeyDown('tabExt', event)}
         />
       </Stack>
     );
