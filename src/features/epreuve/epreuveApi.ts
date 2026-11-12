@@ -8,7 +8,7 @@ import type { EpreuveCreateWizardPayload, EpreuveRow, EpreuveSuggestionRow, Pagi
 
 export async function fetchEpreuve(search: string, signal?: AbortSignal): Promise<PaginatedResponse<EpreuveRow>> {
   return fetchAllPages<EpreuveRow>(env.epreuvePublicResource, {
-    limit: 200,
+    pageSize: 200,
     sort: 'EPREUVE',
     order: 'asc',
     ...(search ? { search } : {}),

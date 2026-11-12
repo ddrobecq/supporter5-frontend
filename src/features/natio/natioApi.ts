@@ -9,7 +9,7 @@ import type { NatioRow, PaginatedResponse } from './types';
 
 export async function fetchNatio(search: string, signal?: AbortSignal): Promise<PaginatedResponse<NatioRow>> {
   return fetchAllPages<NatioRow>(env.natioPublicResource, {
-    limit: 200,
+    pageSize: 200,
     sort: 'PAYS',
     order: 'asc',
     ...(search ? { search } : {}),

@@ -31,7 +31,7 @@ export async function fetchAllPages<T>(
     ...firstPage,
     data: allRows,
     page: 1,
-    limit: allRows.length,
+    pageSize: allRows.length,
     totalPages: 1,
   };
 }

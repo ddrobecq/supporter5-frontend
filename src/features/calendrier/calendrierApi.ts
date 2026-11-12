@@ -60,7 +60,7 @@ export async function fetchTourClassement(tourId: string | number, publicMode = 
 
 export async function fetchTourQualifs(tourId: string | number): Promise<TourQualifRow[]> {
   const { data } = await http.get<{ data: TourQualifRow[] }>(env.qualifPublicResource, {
-    params: { limit: 200, sort: 'CLASS_MinRang', order: 'asc', tucleunik: tourId, page: 1 },
+    params: { pageSize: 200, sort: 'CLASS_MinRang', order: 'asc', tucleunik: tourId, page: 1 },
   });
   return data.data ?? [];
 }

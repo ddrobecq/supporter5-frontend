@@ -7,7 +7,7 @@ import type { TerrainRow, PaginatedResponse } from './types';
 
 export async function fetchTerrain(search: string, signal?: AbortSignal): Promise<PaginatedResponse<TerrainRow>> {
   return fetchAllPages<TerrainRow>(env.terrainPublicResource, {
-    limit: 200,
+    pageSize: 200,
     sort: 'STADE',
     order: 'asc',
     ...(search ? { search } : {}),

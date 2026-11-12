@@ -47,7 +47,7 @@ export async function fetchJoueurPostes(signal?: AbortSignal): Promise<PosteOpti
 
 export async function fetchSaisons(signal?: AbortSignal): Promise<SaisonRow[]> {
   const { data } = await fetchAllPages<SaisonRow>(env.saisonPublicResource, {
-    limit: 200,
+    pageSize: 200,
     sort: 'SAISON',
     order: 'desc',
   }, signal);

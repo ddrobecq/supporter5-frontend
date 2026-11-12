@@ -7,7 +7,7 @@ import type { CircRow, PaginatedResponse } from './types';
 
 export async function fetchCirc(search: string, signal?: AbortSignal): Promise<PaginatedResponse<CircRow>> {
   return fetchAllPages<CircRow>(env.circPublicResource, {
-    limit: 200,
+    pageSize: 200,
     sort: 'IDCIRC',
     order: 'asc',
     ...(search ? { search } : {}),

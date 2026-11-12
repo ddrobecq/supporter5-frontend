@@ -8,7 +8,7 @@ import type { ArbitreCreateWizardPayload, ArbitreRow, ArbitreSuggestionRow, Pagi
 
 export async function fetchArbitre(search: string, signal?: AbortSignal): Promise<PaginatedResponse<ArbitreRow>> {
   return fetchAllPages<ArbitreRow>(env.arbitrePublicResource, {
-    limit: 200,
+    pageSize: 200,
     sort: 'NOM',
     order: 'asc',
     ...(search ? { search } : {}),

@@ -7,7 +7,7 @@ import type { PaginatedResponse, RssRow } from './types';
 
 export async function fetchRss(search: string, signal?: AbortSignal): Promise<PaginatedResponse<RssRow>> {
   return fetchAllPages<RssRow>(env.rssPublicResource, {
-    limit: 200,
+    pageSize: 200,
     sort: 'RSSID',
     order: 'asc',
     ...(search ? { search } : {}),

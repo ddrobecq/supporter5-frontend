@@ -7,7 +7,7 @@ import type { DeviseRow, PaginatedResponse } from './types';
 
 export async function fetchDevise(search: string, signal?: AbortSignal): Promise<PaginatedResponse<DeviseRow>> {
   return fetchAllPages<DeviseRow>(env.devisePublicResource, {
-    limit: 200,
+    pageSize: 200,
     sort: 'NOM',
     order: 'asc',
     ...(search ? { search } : {}),

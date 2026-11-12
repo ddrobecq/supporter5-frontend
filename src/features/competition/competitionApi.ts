@@ -27,7 +27,7 @@ export async function fetchCompetition(
 ): Promise<PaginatedResponse<CompetitionRow>> {
   const { data } = await http.get<PaginatedResponse<CompetitionRow>>(env.competitionPublicResource, {
     params: {
-      limit: 200,
+      pageSize: 200,
       sort: 'NOM',
       order: 'asc',
       ...(search ? { search } : {}),
@@ -49,8 +49,8 @@ export async function fetchCompetitionWizardData(signal?: AbortSignal): Promise<
   saisons: SaisonOption[];
 }> {
   const [epreuvesResponse, saisonsResponse] = await Promise.all([
-    fetchAllPages<EpreuveOption>(env.epreuvePublicResource, { limit: 200, sort: 'EPREUVE', order: 'asc' }, signal),
-    fetchAllPages<SaisonOption>(env.saisonPublicResource, { limit: 200, sort: 'SAISON', order: 'desc' }, signal),
+    fetchAllPages<EpreuveOption>(env.epreuvePublicResource, { pageSize: 200, sort: 'EPREUVE', order: 'asc' }, signal),
+    fetchAllPages<SaisonOption>(env.saisonPublicResource, { pageSize: 200, sort: 'SAISON', order: 'desc' }, signal),
   ]);
 
   return {
@@ -142,7 +142,7 @@ export async function updateCompetitionTour(tourId: string | number, payload: Co
 
 export async function fetchTourDefsByType(typeId: number): Promise<TourDefRow[]> {
   const { data } = await fetchAllPages<TourDefRow>(env.tourDefPublicResource, {
-    limit: 200,
+    pageSize: 200,
     sort: 'NOM',
     order: 'asc',
     tdtypetour: typeId,
@@ -222,7 +222,7 @@ export async function removeTourParticipants(
 
 export async function fetchCircByTourType(typeId: number, signal?: AbortSignal): Promise<CircOptionRow[]> {
   const { data } = await http.get<PaginatedResponse<CircOptionRow>>(env.circPublicResource, {
-    params: { limit: 500, sort: 'IDCIRC', order: 'asc', page: 1 },
+    params: { pageSize: 500, sort: 'IDCIRC', order: 'asc', page: 1 },
     signal,
   });
   return (data.data ?? [])
@@ -246,7 +246,7 @@ export async function fetchTourRencontres(tourId: string | number): Promise<Tour
 export async function fetchTourQualifs(tourId: string | number): Promise<QualifRow[]> {
   const { data } = await http.get<PaginatedResponse<QualifRow>>(env.qualifPublicResource, {
     params: {
-      limit: 200,
+      pageSize: 200,
       sort: 'CLASS_MinRang',
       order: 'asc',
       tucleunik: tourId,

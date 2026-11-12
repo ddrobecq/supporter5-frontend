@@ -7,7 +7,7 @@ import type { VilleRow, PaginatedResponse } from './types';
 
 export async function fetchVille(search: string, signal?: AbortSignal): Promise<PaginatedResponse<VilleRow>> {
   return fetchAllPages<VilleRow>(env.villePublicResource, {
-    limit: 200,
+    pageSize: 200,
     sort: 'NOM',
     order: 'asc',
     ...(search ? { search } : {}),

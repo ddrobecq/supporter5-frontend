@@ -16,8 +16,8 @@ interface ClubJerseyVisualProps {
 
 /** Visuel du maillot d'un club, couleurs derivees des champs FOND/TEXTE. Partage entre les fiches Admin et Public. */
 export function ClubJerseyVisual({ fond, texte, clubName, overlay, sx }: ClubJerseyVisualProps) {
-  const fondColor = normalizeColorCode(fond, '#2e7d32');
-  const texteColor = normalizeColorCode(texte, '#1f1f1f');
+  const fondColor = normalizeColorCode(fond, '#244A73');
+  const texteColor = normalizeColorCode(texte, '#000000');
   const kitVisualSrc = createJerseyVisualDataUri(fondColor, texteColor, clubName);
 
   return (

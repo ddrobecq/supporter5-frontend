@@ -7,7 +7,7 @@ import type { TourDefRow, PaginatedResponse } from './types';
 export async function fetchTourDefs(search: string, signal?: AbortSignal): Promise<PaginatedResponse<TourDefRow>> {
   const { data } = await http.get<PaginatedResponse<TourDefRow>>(env.tourDefPublicResource, {
     params: {
-      limit: 300,
+      pageSize: 300,
       sort: 'NOM',
       order: 'asc',
       ...(search ? { search } : {}),

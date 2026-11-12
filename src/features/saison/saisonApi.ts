@@ -10,7 +10,7 @@ import type {
 
 export async function fetchLastSaison(signal?: AbortSignal): Promise<SaisonRow | undefined> {
   const { data } = await http.get<{ data: SaisonRow[] }>(env.saisonPublicResource, {
-    params: { sort: 'SAISON', order: 'desc', limit: 1, page: 1 },
+    params: { sort: 'SAISON', order: 'desc', pageSize: 1, page: 1 },
     signal,
   });
   return data.data?.[0];
@@ -33,7 +33,7 @@ export async function fetchSaisonCompetitionsForWizard(
 ): Promise<SaisonWizardCompetitionRow[]> {
   const { data } = await http.get<{ data: SaisonWizardCompetitionRow[] }>(env.competitionPublicResource, {
     params: {
-      limit: 500,
+      pageSize: 500,
       sort: 'NOM',
       order: 'asc',
       saison: previousSaison,
