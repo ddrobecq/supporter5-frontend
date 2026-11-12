@@ -8,6 +8,7 @@ import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { useNatioList } from '../natio/natioStore';
 import { usePostesList } from './postesStore';
 import { readLastSelectedSeason, writeLastSelectedSeason } from '../saison/lastSelectedSeason';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import {
   canDeleteJoueur,
   createJoueurWithWizard,
@@ -126,13 +127,22 @@ export function JoueurPage({ onOpenInTab, filterPosteType, initialSeason }: Joue
     return () => observer.disconnect();
   }, []);
 
+  // Latest values for the seasons loading below, which runs once on mount only.
+  const initialSeasonRef = useRef(initialSeason);
+  const selectedSeasonRef = useRef(selectedSeason);
+  useEffect(() => {
+    initialSeasonRef.current = initialSeason;
+    selectedSeasonRef.current = selectedSeason;
+  }, [initialSeason, selectedSeason]);
+
   useEffect(() => {
     const controller = new AbortController();
 
     void fetchSaisons(controller.signal)
       .then((data) => {
         setSeasons(data);
-        if (!selectedSeason) {
+        if (!selectedSeasonRef.current) {
+          const initialSeason = initialSeasonRef.current;
           const isKnownSeason = (season: string) => data.some((s) => String(s.SAISON) === season);
           const storedSeason = readLastSelectedSeason();
           const target = initialSeason && isKnownSeason(initialSeason)
@@ -153,11 +163,14 @@ export function JoueurPage({ onOpenInTab, filterPosteType, initialSeason }: Joue
     return () => controller.abort();
   }, []);
 
+  // No season clears the grid while rendering, on the dependencies of the loading effect below.
+  const gridDepsChanged = useDepsChanged([search, selectedSeason, filterPosteType]);
+  if (gridDepsChanged && !selectedSeason) {
+    setRows([]);
+  }
+
   useEffect(() => {
-    if (!selectedSeason) {
-      setRows([]);
-      return;
-    }
+    if (!selectedSeason) return;
 
     const controller = new AbortController();
     const timeout = window.setTimeout(() => {
@@ -180,7 +193,7 @@ export function JoueurPage({ onOpenInTab, filterPosteType, initialSeason }: Joue
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [search, selectedSeason]);
+  }, [search, selectedSeason, filterPosteType]);
 
   const openCreateDialog = () => {
     setCreateDialogOpen(true);

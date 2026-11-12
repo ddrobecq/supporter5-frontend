@@ -6,6 +6,7 @@ import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
 import { Box, Card, CardContent, Stack, Tab, Tabs, Typography } from '@mui/material';
 import type { GridColDef } from '@mui/x-data-grid';
 import { useEffect, useMemo, useState } from 'react';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useParams } from 'react-router-dom';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
@@ -71,12 +72,17 @@ export function JoueurPublicPage() {
   const [loadError, setLoadError] = useState<'notFound' | 'error' | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const portrait = useEntityImage('joueurrg', joueurId);
-  const historyColumns = useMemo(buildHistoryColumns, []);
+  const historyColumns = useMemo(() => buildHistoryColumns(), []);
+
+  // Each load (new id or retry) restarts in the loading state, while rendering.
+  const loadDepsChanged = useDepsChanged([joueurId, reloadKey]);
+  if (loadDepsChanged) {
+    setLoading(true);
+    setLoadError(null);
+  }
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
-    setLoadError(null);
     void Promise.all([
       fetchJoueurById(joueurId, controller.signal),
       fetchJoueurHistory(joueurId, controller.signal),

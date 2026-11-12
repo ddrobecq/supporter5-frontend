@@ -18,6 +18,7 @@ import { useTheme } from '@mui/material/styles';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { http } from '../../lib/http';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { saveRencontreComposition } from './rencontreApi';
 import {
@@ -198,14 +199,18 @@ export function RencontreCompositionTab({
   const [showOpponentCompositionOnMobile, setShowOpponentCompositionOnMobile] = useState(false);
   const [coachPickerOpen, setCoachPickerOpen] = useState(false);
   const dragSourceRef = useRef<string>('');
-  const initialCompositionRef = useRef<CompositionMap>(_initialCompositionCache.get(rencontreId) ?? {});
+  const [initialComposition, setInitialComposition] = useState<CompositionMap>(() => _initialCompositionCache.get(rencontreId) ?? {});
   const savingRef = useRef(false);
   const hasLoadedRef = useRef(false);
+
+  const rencontreIdChanged = useDepsChanged([rencontreId]);
+  if (rencontreIdChanged) {
+    setShowOpponentCompositionOnMobile(false);
+  }
 
   // Reset load guard when rencontreId changes so fresh data is fetched for a new match.
   useEffect(() => {
     hasLoadedRef.current = !!_compositionCache.get(rencontreId);
-    setShowOpponentCompositionOnMobile(false);
   }, [rencontreId]);
 
   // Load data only once per rencontreId — never reload on tab switch to preserve unsaved changes.
@@ -218,7 +223,7 @@ export function RencontreCompositionTab({
       .then(({ squad: squadData, composition: compoData }) => {
         setSquad(squadData);
         setComposition(compoData);
-        initialCompositionRef.current = compoData;
+        setInitialComposition(compoData);
       })
       .catch((err) => setError(toErrorMessage(err)))
       .finally(() => setLoading(false));
@@ -307,7 +312,7 @@ export function RencontreCompositionTab({
   // Dirty tracking
   // ---------------------------------------------------------------------------
 
-  const isCompositionDirty = JSON.stringify(composition) !== JSON.stringify(initialCompositionRef.current);
+  const isCompositionDirty = JSON.stringify(composition) !== JSON.stringify(initialComposition);
 
   useEffect(() => {
     onDirtyChange?.(isCompositionDirty);
@@ -323,7 +328,7 @@ export function RencontreCompositionTab({
     setError(null);
     try {
       const warnings = await saveRencontreComposition(rencontreId, composition);
-      initialCompositionRef.current = { ...composition };
+      setInitialComposition({ ...composition });
       _compositionCache.set(rencontreId, { ...composition });
       _initialCompositionCache.set(rencontreId, { ...composition });
       return warnings;
@@ -337,10 +342,10 @@ export function RencontreCompositionTab({
   };
 
   const handleReset = useCallback(() => {
-    const initial = initialCompositionRef.current;
+    const initial = initialComposition;
     setComposition(initial);
     _compositionCache.set(rencontreId, initial);
-  }, [rencontreId]);
+  }, [initialComposition, rencontreId]);
 
   // Keep module cache in sync with every local change so remounts restore the latest draft.
   useEffect(() => {

@@ -19,6 +19,7 @@ import {
 import type { KeyboardEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { NumberField } from '../../components/NumberField';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { MATCH_EVENT_TYPES, MatchEventType } from './matchEventTypes';
 import { createRencontreEvent, updateRencontreEvent, type EventPayload, fetchRencontreSquad } from './rencontreApi';
@@ -129,13 +130,17 @@ export function EventFormDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const adversaireRef = useRef<HTMLInputElement>(null);
-  const initialSignatureRef = useRef('');
+  const [initialSignature, setInitialSignature] = useState('');
   const savingRef = useRef(false);
 
-  // Load squad on open
+  // Load squad on open (loader shown while rendering, on the same dependencies as the effect below)
+  const squadDepsChanged = useDepsChanged([open, rencontreId]);
+  if (squadDepsChanged && open) {
+    setSquadLoading(true);
+  }
+
   useEffect(() => {
     if (!open) return;
-    setSquadLoading(true);
     void fetchRencontreSquad(rencontreId)
       .then((data) => setSquad(data.filter((p) => p.POS_TYPE === 1)))
       .catch(() => setSquad([]))
@@ -143,15 +148,15 @@ export function EventFormDialog({
   }, [open, rencontreId]);
 
   // Populate form when editing
-  useEffect(() => {
-    if (!open) return;
+  const formDepsChanged = useDepsChanged([open, event]);
+  if (formDepsChanged && open) {
     if (event) {
       setAdversaire(event.ADVERSAIRE === 1);
       setMinute(String(event.MINUTE ?? ''));
       setPeriode(event.PERIODE ?? 1);
       setTypeEvent(event.TYPE_EVENT ?? MatchEventType.But);
       setComment(event.COMMENT ?? '');
-      initialSignatureRef.current = getEventDraftSignature({
+      setInitialSignature(getEventDraftSignature({
         adversaire: event.ADVERSAIRE === 1,
         minute: String(event.MINUTE ?? ''),
         periode: event.PERIODE ?? 1,
@@ -159,7 +164,7 @@ export function EventFormDialog({
         joueur1Id: String(event.JOUEUR1 ?? ''),
         joueur2Id: String(event.JOUEUR2 ?? ''),
         comment: String(event.COMMENT ?? ''),
-      });
+      }));
       // joueur1/2 resolved after squad loads
     } else {
       setAdversaire(false);
@@ -170,7 +175,7 @@ export function EventFormDialog({
       setJoueur2(null);
       setComment('');
       setError(null);
-      initialSignatureRef.current = getEventDraftSignature({
+      setInitialSignature(getEventDraftSignature({
         adversaire: false,
         minute: '',
         periode: 1,
@@ -178,16 +183,16 @@ export function EventFormDialog({
         joueur1Id: '',
         joueur2Id: '',
         comment: '',
-      });
+      }));
     }
-  }, [open, event]);
+  }
 
   // Resolve player objects once squad is loaded
-  useEffect(() => {
-    if (!event || squad.length === 0) return;
+  const playersDepsChanged = useDepsChanged([event, squad]);
+  if (playersDepsChanged && event && squad.length > 0) {
     setJoueur1(squad.find((p) => p.IDJOUEUR === event.JOUEUR1) ?? null);
     setJoueur2(squad.find((p) => p.IDJOUEUR === event.JOUEUR2) ?? null);
-  }, [event, squad]);
+  }
 
   const isDirty = open && getEventDraftSignature({
     adversaire,
@@ -197,29 +202,28 @@ export function EventFormDialog({
     joueur1Id: joueur1?.IDJOUEUR ?? '',
     joueur2Id: joueur2?.IDJOUEUR ?? '',
     comment,
-  }) !== initialSignatureRef.current;
+  }) !== initialSignature;
 
   useEffect(() => {
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
 
   // Le temps additionnel ne concerne ni joueur ni équipe : on nettoie ces champs à la sélection.
-  useEffect(() => {
-    if (typeEvent !== MatchEventType.TempsAdditionnel) return;
+  const typeEventChanged = useDepsChanged([typeEvent]);
+  if (typeEventChanged && typeEvent === MatchEventType.TempsAdditionnel) {
     setAdversaire(false);
     setJoueur1(null);
     setJoueur2(null);
-  }, [typeEvent]);
+  }
 
   const periodeOptions = typeEvent === MatchEventType.TempsAdditionnel
     ? PERIODE_OPTIONS.filter((o) => o.value === 1 || o.value === 2 || (matchHasExtraTime && (o.value === 3 || o.value === 4)))
     : PERIODE_OPTIONS;
 
   // Si la période sélectionnée devient indisponible (ex: passage au type 10 sans prolongation), on recadre.
-  useEffect(() => {
-    if (periodeOptions.some((o) => o.value === periode)) return;
+  if (!periodeOptions.some((o) => o.value === periode)) {
     setPeriode(periodeOptions[0]?.value ?? 1);
-  }, [periodeOptions, periode]);
+  }
 
   const playerLabel = (p: SquadPlayerRow) =>
     p.SURNOM?.trim() || `${p.NOM} ${p.PRENOM}`.trim();
@@ -254,7 +258,7 @@ export function EventFormDialog({
       const result = isEdit
         ? await updateRencontreEvent(rencontreId, event!.EVCLEUNIK, payload)
         : await createRencontreEvent(rencontreId, payload);
-      initialSignatureRef.current = getEventDraftSignature({
+      setInitialSignature(getEventDraftSignature({
         adversaire,
         minute,
         periode,
@@ -262,7 +266,7 @@ export function EventFormDialog({
         joueur1Id: joueur1?.IDJOUEUR ?? '',
         joueur2Id: joueur2?.IDJOUEUR ?? '',
         comment,
-      });
+      }));
       onSaved(result);
       onClose();
       return true;

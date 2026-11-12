@@ -30,7 +30,7 @@ import {
 } from '@mui/material';
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useMediaQuery, useTheme } from '@mui/material';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { CompletenessChip } from '../../components/CompletenessChip';
@@ -41,6 +41,7 @@ import { EntityDataGrid } from '../../components/EntityDataGrid';
 import { NatioAutocomplete } from '../../components/NatioAutocomplete';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { updateEntityImage } from '../../lib/entityImageApi';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { useEntityImage } from '../../lib/useEntityImage';
@@ -294,19 +295,19 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
   const [terrainSelectorOpen, setTerrainSelectorOpen] = useState(false);
   const [clubImageDraft, setClubImageDraft] = useState<string | null | undefined>(undefined);
   const [clubImageRefreshToken, setClubImageRefreshToken] = useState(0);
-  const profileSignatureRef = useRef('');
-  const nameDialogSignatureRef = useRef('');
-  const terrainDialogSignatureRef = useRef('');
+  const [profileSignature, setProfileSignature] = useState('');
+  const [nameDialogSignature, setNameDialogSignature] = useState('');
+  const [terrainDialogSignature, setTerrainDialogSignature] = useState('');
   const clubImage = useEntityImage('club', clubId, clubImageRefreshToken);
   const currentFondColor = profileDraft.fond;
   const currentTexteColor = profileDraft.texte;
 
   const isProfileDirty =
-    getClubProfileSignature(profileDraft) !== profileSignatureRef.current || clubImageDraft !== undefined;
+    getClubProfileSignature(profileDraft) !== profileSignature || clubImageDraft !== undefined;
   const isNameDialogDirty = nameDialogOpen
-    && getClubNameDialogSignature(nameDialogDraft) !== nameDialogSignatureRef.current;
+    && getClubNameDialogSignature(nameDialogDraft) !== nameDialogSignature;
   const isTerrainDialogDirty = terrainDialogOpen
-    && getClubTerrainDialogSignature(terrainDialogDraft) !== terrainDialogSignatureRef.current;
+    && getClubTerrainDialogSignature(terrainDialogDraft) !== terrainDialogSignature;
   const isAnyDirty = isProfileDirty || isNameDialogDirty || isTerrainDialogDirty;
 
   const hasLogo = clubImageDraft === undefined ? Boolean(clubImage.src) : clubImageDraft !== null;
@@ -380,7 +381,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       setRow(updated);
       setProfileDraft(createClubProfileDraft(updated));
       setClubImageDraft(undefined);
-      profileSignatureRef.current = getClubProfileSignature(createClubProfileDraft(updated));
+      setProfileSignature(getClubProfileSignature(createClubProfileDraft(updated)));
       setLabel(String(updated.CLUB_ABREGE ?? '').trim() || String(clubId));
       setDirty(false);
       setSnackbar({ severity: 'success', message: 'Club mis à jour.' });
@@ -445,76 +446,82 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     },
   ];
 
-  const reloadRow = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await fetchClubProfileById(clubId);
+  // Le passage a loading=true est fait pendant le rendu (voir mainLoadStarted).
+  // L'executor transforme une exception synchrone du fetch en rejet (setState jamais synchrone).
+  const reloadRow = useCallback(() => new Promise<ClubProfileRow>((resolve) => resolve(fetchClubProfileById(clubId)))
+    .then((data) => {
       setRow(data);
       setClubImageDraft(undefined);
       const nextDraft = createClubProfileDraft(data);
       setProfileDraft(nextDraft);
-      profileSignatureRef.current = getClubProfileSignature(nextDraft);
+      setProfileSignature(getClubProfileSignature(nextDraft));
       const nextLabel = String(data.CLUB_ABREGE ?? '').trim() || String(clubId);
       setLabel(nextLabel);
       setDirty(false);
       return true;
-    } catch (error) {
+    })
+    .catch((error: unknown) => {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
       return false;
-    } finally {
+    })
+    .finally(() => {
       setLoading(false);
-    }
-  }, [clubId, setDirty, setLabel]);
+    }), [clubId, setDirty, setLabel]);
 
-  const reloadHistories = useCallback(async () => {
-    setNameHistoryLoading(true);
-    setTerrainHistoryLoading(true);
-    try {
-      const [names, terrains] = await Promise.all([
-        fetchClubNameHistory(clubId),
-        fetchClubTerrainHistory(clubId),
-      ]);
+  // Les appelants passent les indicateurs de chargement a true au prealable.
+  const loadHistories = useCallback(() => new Promise<[ClubNameHistoryRow[], ClubTerrainHistoryRow[]]>((resolve) => resolve(Promise.all([
+    fetchClubNameHistory(clubId),
+    fetchClubTerrainHistory(clubId),
+  ])))
+    .then(([names, terrains]) => {
       setNameHistoryRows(names);
       setTerrainHistoryRows(terrains);
       setNameHistorySelection([]);
       setTerrainHistorySelection([]);
-    } catch (error) {
+    })
+    .catch((error: unknown) => {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
-    } finally {
+    })
+    .finally(() => {
       setNameHistoryLoading(false);
       setTerrainHistoryLoading(false);
-    }
-  }, [clubId]);
+    }), [clubId]);
 
-  const reloadMatches = useCallback(async () => {
-    setMatchesLoading(true);
-    try {
-      const matches = await fetchClubMatches(clubId);
+  const reloadHistories = useCallback(async () => {
+    setNameHistoryLoading(true);
+    setTerrainHistoryLoading(true);
+    await loadHistories();
+  }, [loadHistories]);
+
+  // Le passage a matchesLoading=true est fait pendant le rendu (voir mainLoadStarted).
+  const reloadMatches = useCallback(() => new Promise<ClubMatchRow[]>((resolve) => resolve(fetchClubMatches(clubId)))
+    .then((matches) => {
       setMatchRows(matches);
-    } catch (error) {
+    })
+    .catch((error: unknown) => {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
-    } finally {
+    })
+    .finally(() => {
       setMatchesLoading(false);
-    }
-  }, [clubId]);
+    }), [clubId]);
 
-  const reloadPalmares = useCallback(async () => {
-    setPalmareLoading(true);
-    try {
-      const rows = await fetchClubPalmares(clubId);
+  // Le passage a palmareLoading=true est fait pendant le rendu (voir palmaresLoadStarted).
+  const reloadPalmares = useCallback(() => new Promise<ClubPalmareRow[]>((resolve) => resolve(fetchClubPalmares(clubId)))
+    .then((rows) => {
       setPalmareRows(rows);
-    } catch (error) {
+    })
+    .catch((error: unknown) => {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
-    } finally {
+    })
+    .finally(() => {
       setPalmareLoading(false);
-    }
-  }, [clubId]);
+    }), [clubId]);
 
-  useEffect(() => {
-    if (!supportedClubLoaded) return;
-    setMatchFilterClubId((prev) => (prev === supportedClubStore.getState().clubId || prev === SUPPORTED_CLUB_FALLBACK_ID ? supportedClubStoreId : prev));
+  const supportedClubChanged = useDepsChanged([supportedClubLoaded, supportedClubStoreId, supportedClubStoreName]);
+  if (supportedClubChanged && supportedClubLoaded) {
+    setMatchFilterClubId((prev) => (prev === supportedClubStoreId || prev === SUPPORTED_CLUB_FALLBACK_ID ? supportedClubStoreId : prev));
     setMatchFilterClubName((prev) => (prev === SUPPORTED_CLUB_FALLBACK_NAME ? supportedClubStoreName : prev));
-  }, [supportedClubLoaded, supportedClubStoreId, supportedClubStoreName]);
+  }
 
   // ClubSelectField.onChange gives CLUB_NOM_COMPLET; fetch CLUB_ABREGE for this filter only
   const handleMatchFilterChange = ({ clubId: newId, clubName: newName }: { clubId: string; clubName: string }) => {
@@ -528,6 +535,11 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     }
   };
 
+  const palmaresLoadStarted = useDepsChanged([activeTab, reloadPalmares]);
+  if (palmaresLoadStarted && activeTab === 'palmares') {
+    setPalmareLoading(true);
+  }
+
   useEffect(() => {
     if (activeTab !== 'palmares') return;
     void reloadPalmares();
@@ -535,23 +547,32 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
 
   // Une fois monte, l'onglet Matches reste dans le DOM (juste masque) pour eviter
   // de reconstruire la grille (~4000 lignes) a chaque changement d'onglet.
-  useEffect(() => {
-    if (activeTab === 'matches') setHasOpenedMatchesTab(true);
-  }, [activeTab]);
+  if (activeTab === 'matches' && !hasOpenedMatchesTab) {
+    setHasOpenedMatchesTab(true);
+  }
+
+  const mainLoadStarted = useDepsChanged([loadHistories, reloadMatches, reloadRow, setDirty]);
+  if (mainLoadStarted) {
+    setLoading(true);
+    setNameHistoryLoading(true);
+    setTerrainHistoryLoading(true);
+    setMatchesLoading(true);
+  }
 
   useEffect(() => {
     void reloadRow();
-    void reloadHistories();
+    void loadHistories();
     void reloadMatches();
 
     return () => {
       setDirty(false);
     };
-  }, [reloadHistories, reloadMatches, reloadRow, setDirty]);
+  }, [loadHistories, reloadMatches, reloadRow, setDirty]);
 
-  useEffect(() => {
+  const clubIdChanged = useDepsChanged([clubId]);
+  if (clubIdChanged) {
     setClubImageDraft(undefined);
-  }, [clubId]);
+  }
 
   useEffect(() => {
     if (loading) return;
@@ -572,7 +593,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     setNameDialogMode('create');
     setNameDialogId(null);
     setNameDialogDraft(nextDraft);
-    nameDialogSignatureRef.current = getClubNameDialogSignature(nextDraft);
+    setNameDialogSignature(getClubNameDialogSignature(nextDraft));
     setNameDialogOpen(true);
   };
 
@@ -591,7 +612,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     setNameDialogMode('edit');
     setNameDialogId(Number(rowToEdit.IDCLUB_NOM));
     setNameDialogDraft(nextDraft);
-    nameDialogSignatureRef.current = getClubNameDialogSignature(nextDraft);
+    setNameDialogSignature(getClubNameDialogSignature(nextDraft));
     setNameDialogOpen(true);
   };
 
@@ -665,7 +686,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     setTerrainDialogMode('create');
     setTerrainDialogId(null);
     setTerrainDialogDraft(nextDraft);
-    terrainDialogSignatureRef.current = getClubTerrainDialogSignature(nextDraft);
+    setTerrainDialogSignature(getClubTerrainDialogSignature(nextDraft));
     setTerrainDialogOpen(true);
   };
 
@@ -684,7 +705,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     setTerrainDialogMode('edit');
     setTerrainDialogId(Number(rowToEdit.CT_CLEUNIK));
     setTerrainDialogDraft(nextDraft);
-    terrainDialogSignatureRef.current = getClubTerrainDialogSignature(nextDraft);
+    setTerrainDialogSignature(getClubTerrainDialogSignature(nextDraft));
     setTerrainDialogOpen(true);
   };
 
@@ -781,7 +802,9 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     }
   };
 
-  handleProfileSaveRef.current = handleGlobalSave;
+  useLayoutEffect(() => {
+    handleProfileSaveRef.current = handleGlobalSave;
+  });
 
   const handleGlobalReset = () => {
     setNameDialogOpen(false);

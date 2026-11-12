@@ -8,6 +8,7 @@ import { formatDateShort } from '../../components/dateUtils';
 import { MatchDataGrid } from '../../components/MatchDataGrid';
 import { buildMatchGridColumns } from '../../components/matchGridColumns';
 import { toErrorMessage } from '../../components/useEntityPage';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { getMatchEventVisual, MatchEventType } from '../rencontre/matchEventTypes';
 import { fetchJoueurMatches, fetchJoueurSeasonsByPlayedMatches } from './joueurApi';
@@ -132,8 +133,15 @@ export function JoueurMatchesTab({ joueurId, active }: JoueurMatchesTabProps) {
     void loadSeasons();
   }, [joueurId, active]);
 
+  // No season clears the matches while rendering, on the dependencies of the loading effect below.
+  const matchesDepsChanged = useDepsChanged([joueurId, selectedSeason]);
+  if (matchesDepsChanged && !selectedSeason) {
+    setMatches([]);
+    setMatchesError(null);
+  }
+
   useEffect(() => {
-    if (!selectedSeason) { setMatches([]); setMatchesError(null); return; }
+    if (!selectedSeason) return;
     const loadMatches = async () => {
       setLoadingMatches(true);
       setMatchesError(null);

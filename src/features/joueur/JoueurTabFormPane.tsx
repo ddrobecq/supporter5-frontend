@@ -2,6 +2,7 @@ import { Box, CircularProgress, Typography } from '@mui/material';
 import { useCallback, useEffect, useState } from 'react';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { useNatioList } from '../natio/natioStore';
@@ -30,29 +31,41 @@ export function JoueurTabFormPane({ tabPath, joueurId, active }: JoueurTabFormPa
   const { rows: posteOptions } = usePostesList();
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
 
-  const reloadRow = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await fetchJoueurById(joueurId);
+  // Loads the row; callers set `loading` to true beforehand.
+  // The executor turns a synchronous throw of fetchJoueurById into a rejection.
+  const loadRow = useCallback(() => new Promise<JoueurRow>((resolve) => resolve(fetchJoueurById(joueurId)))
+    .then((data) => {
       setRow(data);
       setLabel(resolveJoueurLabel(data, String(joueurId)));
       setDirty(false);
       return true;
-    } catch (error) {
+    })
+    .catch((error: unknown) => {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
       return false;
-    } finally {
+    })
+    .finally(() => {
       setLoading(false);
-    }
-  }, [joueurId, setDirty, setLabel]);
+    }), [joueurId, setDirty, setLabel]);
+
+  const reloadRow = useCallback(() => {
+    setLoading(true);
+    return loadRow();
+  }, [loadRow]);
+
+  // Show the loader while rendering, on the dependencies of the loading effect below.
+  const loadDepsChanged = useDepsChanged([loadRow, setDirty]);
+  if (loadDepsChanged && !loading) {
+    setLoading(true);
+  }
 
   useEffect(() => {
-    void reloadRow();
+    void loadRow();
 
     return () => {
       setDirty(false);
     };
-  }, [reloadRow, setDirty]);
+  }, [loadRow, setDirty]);
 
   return (
     <Box sx={{ display: active ? 'block' : 'none' }}>
