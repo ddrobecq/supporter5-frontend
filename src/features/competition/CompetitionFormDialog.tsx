@@ -14,6 +14,7 @@ import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { getEntityImageUrl, useEntityImage } from '../../lib/useEntityImage';
 import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useDirtySignature } from '../../lib/useDirtySignature';
+import { normalizeUrlInput } from '../../lib/safeUrl';
 import type { EpreuveOption, CompetitionRow, SaisonOption } from './types';
 
 interface CompetitionFormDialogProps {
@@ -274,6 +275,10 @@ export function CompetitionFormDialog({
               label="Site officiel"
               value={String(values.CO_WEB ?? '')}
               onChange={(e) => setValues((prev) => ({ ...prev, CO_WEB: e.target.value }))}
+              onBlur={(e) => {
+                const formatted = normalizeUrlInput(e.target.value);
+                setValues((prev) => ({ ...prev, CO_WEB: formatted }));
+              }}
               size="small"
               fullWidth
               placeholder="https://..."

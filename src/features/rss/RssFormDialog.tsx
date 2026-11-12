@@ -4,6 +4,7 @@ import { useExternalSaveTrigger } from '../../lib/useExternalSaveTrigger';
 import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useDirtySignature } from '../../lib/useDirtySignature';
+import { normalizeUrlInput } from '../../lib/safeUrl';
 import type { RssRow } from './types';
 
 interface RssFormDialogProps {
@@ -114,6 +115,10 @@ export function RssFormDialog({
         label="URL du flux"
         value={String(values.RSSURL ?? '')}
         onChange={(e) => setValues((prev) => ({ ...prev, RSSURL: e.target.value }))}
+        onBlur={(e) => {
+          const formatted = normalizeUrlInput(e.target.value);
+          setValues((prev) => ({ ...prev, RSSURL: formatted }));
+        }}
         size="small"
         fullWidth
         error={Boolean(errors.RSSURL)}

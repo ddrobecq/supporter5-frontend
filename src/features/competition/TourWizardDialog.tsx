@@ -36,6 +36,7 @@ import {
   deleteTourRencontre,
   fetchCompetitionTourById,
   fetchTourDefById,
+  fetchTourDefsByType,
   fetchTourParticipants,
   fetchTourQualifs,
   fetchTourRencontres,
@@ -51,6 +52,7 @@ import {
   createDefaultDraft,
   createDraftFromDetail,
   mapTourTypeToDb,
+  pickDefaultTourDefKey,
   type SelectionMode,
   type TourDraft,
   type TourType,
@@ -204,6 +206,7 @@ export function TourWizardDialog({
   const { dateValidityHandler, isDateInvalid } = useInvalidDateFields();
   const [finalTouched, setFinalTouched] = useState(false);
   const [initialTourType, setInitialTourType] = useState<TourType>('ligue');
+  const [initialTourDefKey, setInitialTourDefKey] = useState(0);
   const [isAllerRetour, setIsAllerRetour] = useState(false);
   const [groupNames, setGroupNames] = useState<string[]>([]);
   const [existingGroupNames, setExistingGroupNames] = useState<string[]>([]);
@@ -233,6 +236,7 @@ export function TourWizardDialog({
       const nextDraft = createDefaultDraft(proposedOrder);
       setDraft(nextDraft);
       setInitialTourType(nextDraft.type);
+      setInitialTourDefKey(0);
       setIsAllerRetour(false);
       setQualifDraftRows([]);
       setParticipantDraftRows([]);
@@ -260,6 +264,7 @@ export function TourWizardDialog({
         const nextDraft = createDraftFromDetail(detail);
         setDraft(nextDraft);
         setInitialTourType(nextDraft.type);
+        setInitialTourDefKey(nextDraft.tourDefKey);
         const loadedGroupNames = getDistinctNonEmptyGroupNames(participants)
           .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base', numeric: true }));
         setGroupNames(loadedGroupNames);
@@ -275,6 +280,37 @@ export function TourWizardDialog({
         setLoading(false);
       });
   }, [open, mode, initialTourId, proposedOrder]);
+
+  // No TOURDEF chosen yet (creation, type change, tour without definition): propose the default one
+  // for the type. The draft is only filled if still unresolved, so a choice made meanwhile wins.
+  useEffect(() => {
+    if (!open || loading || draft.tourDefKey > 0) return;
+
+    const requestedType = draft.type;
+    let cancelled = false;
+
+    void fetchTourDefsByType(mapTourTypeToDb(requestedType))
+      .then((tourDefs) => {
+        if (cancelled) return;
+        const defaultKey = pickDefaultTourDefKey(tourDefs);
+        if (defaultKey <= 0) {
+          onError('Aucune définition de tour disponible pour ce type de tour.');
+          return;
+        }
+        setDraft((prev) => (prev.type === requestedType && prev.tourDefKey <= 0
+          ? { ...prev, tourDefKey: defaultKey }
+          : prev));
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          onError(toErrorMessage(error));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, loading, draft.type, draft.tourDefKey, onError]);
 
   const selectedTourDefId = Number(draft.tourDefKey ?? 0);
   const isSelectedTourDefValid = Number.isInteger(selectedTourDefId) && selectedTourDefId > 0;
@@ -398,10 +434,8 @@ export function TourWizardDialog({
   };
 
   const buildPayload = (): CompetitionTourUpsertPayload => {
-    const typeId = mapTourTypeToDb(draft.type);
-    const mustSwitchTourDef = mode === 'create' || draft.type !== initialTourType;
     const payload: CompetitionTourUpsertPayload = {
-      TDCLEUNIK: mustSwitchTourDef ? typeId : draft.tourDefKey,
+      TDCLEUNIK: draft.tourDefKey,
       COCLEUNIK: Number(competitionId),
       NOM: String(draft.nom ?? '').trim(),
       NB_PARTICIPANTS: Number(draft.participants) || 0,
@@ -647,6 +681,11 @@ export function TourWizardDialog({
       setStepIndex(1);
       return;
     }
+    if (!isSelectedTourDefValid) {
+      setStepIndex(STEP_DEFINITION);
+      onError('Sélectionnez une définition de tour.');
+      return;
+    }
 
     setSaving(true);
     try {
@@ -757,7 +796,10 @@ export function TourWizardDialog({
                   value={draft.type}
                   onChange={(event) => {
                     const next = event.target.value === 'eliminatoire' ? 'eliminatoire' : 'ligue';
-                    setDraft((prev) => ({ ...prev, type: next }));
+                    // A type change invalidates the TOURDEF: back to the tour's own one in edit, otherwise
+                    // 0 so that the default definition of the new type is proposed.
+                    const nextTourDefKey = mode === 'edit' && next === initialTourType ? initialTourDefKey : 0;
+                    setDraft((prev) => (prev.type === next ? prev : { ...prev, type: next, tourDefKey: nextTourDefKey }));
                   }}
                 >
                   <FormControlLabel value="ligue" control={<Radio />} label="Ligue" />

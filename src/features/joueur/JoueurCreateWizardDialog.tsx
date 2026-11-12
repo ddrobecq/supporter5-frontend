@@ -169,6 +169,7 @@ export function JoueurCreateWizardDialog({ open, onClose, onCreate, onError }: J
             required
             size="small"
             autoFocus
+            slotProps={{ htmlInput: { maxLength: 30 } }}
           />
 
           {step === 1 ? (
@@ -187,6 +188,7 @@ export function JoueurCreateWizardDialog({ open, onClose, onCreate, onError }: J
                 onChange={(event) => setPrenom(event.target.value)}
                 fullWidth
                 size="small"
+                slotProps={{ htmlInput: { maxLength: 20 } }}
               />
 
               <TextField
@@ -195,6 +197,7 @@ export function JoueurCreateWizardDialog({ open, onClose, onCreate, onError }: J
                 onChange={(event) => setAlias(event.target.value)}
                 fullWidth
                 size="small"
+                slotProps={{ htmlInput: { maxLength: 20 } }}
               />
 
               <NatioAutocomplete

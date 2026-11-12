@@ -175,7 +175,8 @@ export function ClubCreateDialog({
         natioId: natioId.trim().toUpperCase(),
         isSelection,
         creationDate: toIsoDate(creationDate) || undefined,
-        villeId: villeId.trim() || undefined,
+        // The city is optional (e.g. national team): none chosen means an empty city.
+        villeId: villeId.trim(),
       });
       onClose();
     } catch (error) {
@@ -246,6 +247,7 @@ export function ClubCreateDialog({
         required
         size="small"
         autoFocus
+        slotProps={{ htmlInput: { maxLength: 100 } }}
       />
 
       {showSuggestions ? (

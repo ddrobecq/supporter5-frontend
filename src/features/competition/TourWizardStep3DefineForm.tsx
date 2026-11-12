@@ -25,6 +25,7 @@ import { useDepsChanged } from '../../lib/useDepsChanged';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { createTourDef, fetchTourDefsByType, fetchTourDefById, type CreateTourDefPayload } from './competitionApi';
 import type { TourDefRow } from './types';
+import { pickDefaultTourDefKey } from './tourWizardDialogModel';
 import {
   BONUS_TYPE_OPTIONS,
   buildSortKeyFromRules,
@@ -291,12 +292,12 @@ export function TourWizardStep3DefineForm({
         
         // Determine which TOURDEF to select:
         // 1. If initialTourDefId is provided and exists in defs, use it
-        // 2. Otherwise, use the first def in the list
+        // 2. Otherwise, use the default def of the type (lowest TDCLEUNIK, not the first by name)
         if (defs.length > 0) {
           if (initialTourDefId && defs.some(def => def.TDCLEUNIK === initialTourDefId)) {
             setSelectedTourDefId(initialTourDefId);
           } else {
-            setSelectedTourDefId(defs[0].TDCLEUNIK);
+            setSelectedTourDefId(pickDefaultTourDefKey(defs));
           }
         }
       })

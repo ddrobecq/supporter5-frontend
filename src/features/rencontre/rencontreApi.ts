@@ -1,6 +1,7 @@
 import { env } from '../../config/env';
 import { http } from '../../lib/http';
 import type { TourMatchRow, TourParticipantRow } from '../competition/types';
+import { fetchClubTerrainHistory } from '../club/clubApi';
 import type { CompositionMap, OnThisDayMatchRow, RencontreDetailRow, RencontreHighlightsRow, SquadPlayerRow, TourMatchWithNamesRow } from './types';
 
 export async function fetchOnThisDayMatch(signal?: AbortSignal): Promise<OnThisDayMatchRow | null> {
@@ -72,9 +73,57 @@ export interface RencontreMatchMetaPayload {
   IDARBITRE?: string | null;
   TECLEUNIK?: string | null;
   NBSPECT?: number;
-  LIEU?: string | null;
+  LIEU?: MatchLieu | null;
   EXTRATIME?: number;
   PENALTY?: number;
+}
+
+/** MATCH.LIEU: terrain of the supported club (D), of its opponent (E), or neutral / unknown (N). */
+export type MatchLieu = 'D' | 'E' | 'N';
+
+// Same comparison as the back: numeric ids without leading zeros, other ids case-insensitive.
+function normalizeClubIdentifier(value: string): string {
+  const raw = value.trim();
+  if (/^\d+$/.test(raw)) return String(Number(raw));
+  return raw.toUpperCase();
+}
+
+async function clubHasTerrain(clubId: string, terrainId: string): Promise<boolean> {
+  if (!clubId || !/^(0|-?[1-9]\d*)$/.test(terrainId)) return false;
+  const terrains = await fetchClubTerrainHistory(clubId);
+  return terrains.some((row) => Number(row.TECLEUNIK) === Number(terrainId));
+}
+
+/**
+ * Proposes MATCH.LIEU for a terrain (rule formerly applied by the back): 'D' if the terrain belongs
+ * to the supported club (CLUB_TERRAIN), 'E' if it belongs to its opponent, 'N' otherwise, without
+ * terrain, or when the supported club does not play the match.
+ */
+export async function resolveMatchLieuFromTerrain(params: {
+  terrainId: string;
+  domicileId: string;
+  exterieurId: string;
+  supportedClubId: string;
+}): Promise<MatchLieu> {
+  const terrainId = params.terrainId.trim();
+  const supportedClubId = params.supportedClubId.trim();
+  if (!terrainId || !supportedClubId) return 'N';
+
+  const supported = normalizeClubIdentifier(supportedClubId);
+  const domicileId = params.domicileId.trim();
+  const exterieurId = params.exterieurId.trim();
+  let opponentClubId: string;
+  if (supported === normalizeClubIdentifier(domicileId)) {
+    opponentClubId = exterieurId;
+  } else if (supported === normalizeClubIdentifier(exterieurId)) {
+    opponentClubId = domicileId;
+  } else {
+    return 'N';
+  }
+
+  if (await clubHasTerrain(supportedClubId, terrainId)) return 'D';
+  if (await clubHasTerrain(opponentClubId, terrainId)) return 'E';
+  return 'N';
 }
 
 export async function upsertRencontreMatchMeta(rencontreId: string | number, payload: RencontreMatchMetaPayload): Promise<void> {

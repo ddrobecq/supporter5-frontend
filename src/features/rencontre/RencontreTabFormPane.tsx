@@ -51,7 +51,7 @@ import {
 } from '../competition/competitionApi';
 import type { CircOptionRow, CompetitionTourRow, TourParticipantRow } from '../competition/types';
 import { parsePaSourceForLabel, useProgrammedParticipantResolver } from '../competition/useProgrammedParticipantLabels';
-import { fetchRencontreDetailById, fetchRencontreHighlightsById, fetchRencontreTourMatches, updateRencontreDetail, deleteRencontreEvent, upsertRencontreMatchMeta, recomputeRencontreStats } from './rencontreApi';
+import { fetchRencontreDetailById, fetchRencontreHighlightsById, fetchRencontreTourMatches, updateRencontreDetail, deleteRencontreEvent, upsertRencontreMatchMeta, recomputeRencontreStats, resolveMatchLieuFromTerrain } from './rencontreApi';
 import { TourClassementCard, type TourClassementCardHandle } from '../calendrier/TourClassementCard';
 import type { CompositionMap, RencontreDetailRow, RencontreHighlightsRow, TourMatchWithNamesRow } from './types';
 import { RencontreCompositionTab, type CompositionTabActions } from './RencontreCompositionTab';
@@ -713,6 +713,17 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
         setSnackbar({ severity: 'error', message: 'Les équipes domicile et extérieure doivent être différentes.' });
         return;
       }
+      const nextTerrain = String(draft.terrainId ?? '').trim();
+      // LIEU has no field of its own and is not returned by the detail: it is proposed from the chosen
+      // terrain and the clubs being saved, before any write so that a lookup error saves nothing.
+      const nextLieu = isSupportedClubMatch
+        ? await resolveMatchLieuFromTerrain({
+          terrainId: nextTerrain,
+          domicileId: nextDomicile,
+          exterieurId: nextExterieur,
+          supportedClubId: String(detail.SUPPORTED_CLUB_ID ?? ''),
+        })
+        : 'N';
 
       await updateRencontreDetail(detail.RECLEUNIK, {
         BUTDOM: Number(toNonNegativeIntegerString(draft.butDom)),
@@ -734,8 +745,9 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       if (isSupportedClubMatch) {
         await upsertRencontreMatchMeta(detail.RECLEUNIK, {
           IDARBITRE: String(draft.arbitreId ?? '').trim() || null,
-          TECLEUNIK: String(draft.terrainId ?? '').trim() || null,
+          TECLEUNIK: nextTerrain || null,
           NBSPECT: draft.houseClosed ? -1 : Number(toNonNegativeIntegerString(draft.nbSpect)),
+          LIEU: nextLieu,
           EXTRATIME: draft.extratime ? 1 : 0,
           PENALTY: draft.penalty ? 1 : 0,
         });

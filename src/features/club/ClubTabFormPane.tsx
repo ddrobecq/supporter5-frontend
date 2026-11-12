@@ -365,8 +365,9 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     try {
       const updated = await updateClubProfile(clubId, {
         name: profileDraft.name,
-        natioId: profileDraft.natioId,
-        villeId: profileDraft.villeId || null,
+        natioId: profileDraft.natioId.trim().toUpperCase(),
+        // Empty means "no city": the back no longer picks one, so never send null (kept the old city).
+        villeId: profileDraft.villeId.trim(),
         fond: cssColorToDbColor(profileDraft.fond),
         texte: cssColorToDbColor(profileDraft.texte),
       });
@@ -1054,6 +1055,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
                 size="small"
                 fullWidth
                 autoFocus
+                slotProps={{ htmlInput: { maxLength: 100 } }}
               />
 
               <VillePicker
@@ -1167,6 +1169,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
               onChange={(event) => setNameDialogDraft((prev) => ({ ...prev, name: event.target.value }))}
               size="small"
               fullWidth
+              slotProps={{ htmlInput: { maxLength: 200 } }}
             />
           </Stack>
         </DialogContent>

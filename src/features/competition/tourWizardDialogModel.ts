@@ -1,5 +1,5 @@
 import { toIsoDate } from '../../components/dateUtils';
-import type { CompetitionTourDetailRow } from './types';
+import type { CompetitionTourDetailRow, TourDefRow } from './types';
 
 export type TourType = 'ligue' | 'eliminatoire';
 export type SelectionMode = 'tirage' | 'programmation';
@@ -39,10 +39,20 @@ export function mapTourTypeToDb(type: TourType): number {
   return type === 'eliminatoire' ? 2 : 1;
 }
 
+// Default TOURDEF proposed for a tour type: the first definition of that type by ascending
+// TDCLEUNIK (0 when the type has none). The user can still pick another one at the "Définition" step.
+export function pickDefaultTourDefKey(tourDefs: TourDefRow[]): number {
+  const keys = tourDefs
+    .map((tourDef) => Number(tourDef.TDCLEUNIK))
+    .filter((key) => Number.isInteger(key) && key > 0);
+  return keys.length > 0 ? Math.min(...keys) : 0;
+}
+
+// tourDefKey 0 means "no TOURDEF chosen yet": the wizard proposes the default one for the type.
 export function createDefaultDraft(proposedOrder: number): TourDraft {
   return {
     id: 0,
-    tourDefKey: 1,
+    tourDefKey: 0,
     nom: '',
     type: 'ligue',
     participants: 2,
@@ -69,7 +79,7 @@ export function createDraftFromDetail(source: CompetitionTourDetailRow): TourDra
 
   return {
     id: Number(source.TUCLEUNIK ?? 0),
-    tourDefKey: Number(source.TDCLEUNIK ?? 1) || 1,
+    tourDefKey: Number(source.TDCLEUNIK ?? 0) || 0,
     nom: String(source.NOM ?? ''),
     type,
     participants,

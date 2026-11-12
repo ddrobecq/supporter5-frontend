@@ -40,7 +40,8 @@ export function ConfigurationPage() {
 
   const handlePickTeamColor = async (team: TeamAppearanceMode, target: 'background' | 'text') => {
     try {
-      const color = await pickScreenColor();
+      // Theme colors are stored as uppercase '#RRGGBB'.
+      const color = (await pickScreenColor()).toUpperCase();
       const colors = { ...teamThemes[team], [target]: color };
       setTeamTheme(team, colors);
       await updateTeamTheme(team, colors);
