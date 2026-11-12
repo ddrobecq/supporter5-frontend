@@ -443,7 +443,20 @@ export function ClubCreateDialog({
 
             <FormControlLabel
               label="Sélection nationale"
-              control={<Switch checked={isSelection} onChange={(_, checked) => setIsSelection(checked)} />}
+              control={(
+                <Switch
+                  checked={isSelection}
+                  onChange={(_, checked) => {
+                    setIsSelection(checked);
+                    // The city picker is hidden for a national team: clear the city so it is not sent.
+                    if (checked) {
+                      setVilleId('');
+                      setVilleName('');
+                      setVilleNatioId('');
+                    }
+                  }}
+                />
+              )}
               sx={{ ml: 0, mr: 0, mb: 0, whiteSpace: 'nowrap' }}
             />
           </Box>

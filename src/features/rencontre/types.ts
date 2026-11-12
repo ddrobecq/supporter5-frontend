@@ -39,6 +39,7 @@ export interface RencontreDetailRow {
   TERRAIN_VILLE: string;
   TERRAIN_DISPLAY: string;
   NBSPECT: number;
+  HUIS_CLOS?: number;
   EXTRATIME: number;
   PENALTY: number;
   FIN_TPS_REG: number;

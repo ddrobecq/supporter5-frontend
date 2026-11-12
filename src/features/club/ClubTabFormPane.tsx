@@ -115,8 +115,8 @@ function cssColorToDbColor(cssColor: string): number {
 }
 
 function createClubProfileDraft(row?: ClubProfileRow): ClubProfileDraft {
-  const fond = normalizeColorCode(row?.FOND, '#2e7d32');
-  const texte = normalizeColorCode(row?.TEXTE, '#1f1f1f');
+  const fond = normalizeColorCode(row?.FOND, '#244A73');
+  const texte = normalizeColorCode(row?.TEXTE, '#000000');
   return {
     name: String(row?.CLUB_ABREGE ?? '').trim(),
     natioId: String(row?.IDNATIO ?? '').trim(),
@@ -365,7 +365,7 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     setSavingProfile(true);
     try {
       const updated = await updateClubProfile(clubId, {
-        name: profileDraft.name,
+        name: profileDraft.name.trim(),
         natioId: profileDraft.natioId.trim().toUpperCase(),
         // Empty means "no city": the back no longer picks one, so never send null (kept the old city).
         villeId: profileDraft.villeId.trim(),

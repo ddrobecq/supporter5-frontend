@@ -141,7 +141,7 @@ export function CompetitionFormDialog({
         IDEPREUVE: Number(values.IDEPREUVE),
         NOM: String(values.NOM ?? '').trim(),
         SAISON: String(values.SAISON ?? '').trim(),
-        CO_ANNEE: values.CO_ANNEE ? 1 : 0,
+        CO_ANNEE: Number(values.CO_ANNEE) === 1 ? 1 : 0,
         CO_WEB: String(values.CO_WEB ?? '').trim(),
         CO_COMMENT: String(values.CO_COMMENT ?? '').trim(),
       };

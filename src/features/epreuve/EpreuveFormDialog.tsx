@@ -119,8 +119,8 @@ export function EpreuveFormDialog({
         IDEPREUVE: String(values.IDEPREUVE ?? '').trim() ? Number(values.IDEPREUVE) : values.IDEPREUVE,
         EPREUVE: String(values.EPREUVE ?? '').trim(),
         SCOPE: Number(values.SCOPE),
-        OFFICIELLE: values.OFFICIELLE ? 1 : 0,
-        EPR_PAYS: values.EPR_PAYS ? 1 : 0,
+        OFFICIELLE: Number(values.OFFICIELLE) === 1 ? 1 : 0,
+        EPR_PAYS: Number(values.EPR_PAYS) === 1 ? 1 : 0,
       };
       if (visuelDraft !== undefined) {
         payload.EPR_VISUEL = visuelDraft;

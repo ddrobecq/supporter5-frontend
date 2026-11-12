@@ -696,7 +696,7 @@ export function JoueurFormDialog({
       setContractsDeleteConfirmOpen(false);
       setErrors((prev) => ({ ...prev, contracts: '' }));
     } catch (error) {
-      setErrors((prev) => ({ ...prev, contracts: String((error as { message?: string })?.message ?? 'Erreur de suppression.') }));
+      setErrors((prev) => ({ ...prev, contracts: toErrorMessage(error) }));
     } finally {
       setContractsDeleteSaving(false);
     }

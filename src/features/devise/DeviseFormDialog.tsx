@@ -73,7 +73,7 @@ export function DeviseFormDialog({
       const payload: DeviseRow = {
         ...values,
         CONVERSION: Number(values.CONVERSION),
-        DVDEFAUT: values.DVDEFAUT ? 1 : 0,
+        DVDEFAUT: Number(values.DVDEFAUT) === 1 ? 1 : 0,
       };
       await onSubmit(payload);
       markClean();

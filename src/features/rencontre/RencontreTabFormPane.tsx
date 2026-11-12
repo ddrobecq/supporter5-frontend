@@ -51,7 +51,7 @@ import {
 } from '../competition/competitionApi';
 import type { CircOptionRow, CompetitionTourRow, TourParticipantRow } from '../competition/types';
 import { parsePaSourceForLabel, useProgrammedParticipantResolver } from '../competition/useProgrammedParticipantLabels';
-import { fetchRencontreDetailById, fetchRencontreHighlightsById, fetchRencontreTourMatches, updateRencontreDetail, deleteRencontreEvent, upsertRencontreMatchMeta, recomputeRencontreStats, resolveMatchLieuFromTerrain } from './rencontreApi';
+import { fetchRencontreDetailById, fetchRencontreHighlightsById, fetchRencontreTourMatches, updateRencontreDetail, deleteRencontreEvent, upsertRencontreMatchMeta, recomputeRencontreStats } from './rencontreApi';
 import { TourClassementCard, type TourClassementCardHandle } from '../calendrier/TourClassementCard';
 import type { CompositionMap, RencontreDetailRow, RencontreHighlightsRow, TourMatchWithNamesRow } from './types';
 import { RencontreCompositionTab, type CompositionTabActions } from './RencontreCompositionTab';
@@ -171,7 +171,7 @@ function buildDraftFromDetail(detail: RencontreDetailRow): RencontreDraft {
   const arbitreNom = String(detail.ARBITRE_NOM ?? '').trim();
   const arbitrePrenom = String(detail.ARBITRE_PRENOM ?? '').trim();
   const arbitreLabel = [arbitreNom, arbitrePrenom].filter(Boolean).join(' ').trim();
-  const houseClosed = Number(detail.NBSPECT ?? 0) === -1;
+  const houseClosed = Number(detail.HUIS_CLOS ?? 0) === 1;
   return {
     butDom: toNonNegativeIntegerString(detail.BUTDOM),
     butExt: toNonNegativeIntegerString(detail.BUTEXT),
@@ -714,16 +714,6 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
         return;
       }
       const nextTerrain = String(draft.terrainId ?? '').trim();
-      // LIEU has no field of its own and is not returned by the detail: it is proposed from the chosen
-      // terrain and the clubs being saved, before any write so that a lookup error saves nothing.
-      const nextLieu = isSupportedClubMatch
-        ? await resolveMatchLieuFromTerrain({
-          terrainId: nextTerrain,
-          domicileId: nextDomicile,
-          exterieurId: nextExterieur,
-          supportedClubId: String(detail.SUPPORTED_CLUB_ID ?? ''),
-        })
-        : 'N';
 
       await updateRencontreDetail(detail.RECLEUNIK, {
         BUTDOM: Number(toNonNegativeIntegerString(draft.butDom)),
@@ -746,8 +736,8 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
         await upsertRencontreMatchMeta(detail.RECLEUNIK, {
           IDARBITRE: String(draft.arbitreId ?? '').trim() || null,
           TECLEUNIK: nextTerrain || null,
-          NBSPECT: draft.houseClosed ? -1 : Number(toNonNegativeIntegerString(draft.nbSpect)),
-          LIEU: nextLieu,
+          NBSPECT: draft.houseClosed ? 0 : Number(toNonNegativeIntegerString(draft.nbSpect)),
+          HUIS_CLOS: draft.houseClosed ? 1 : 0,
           EXTRATIME: draft.extratime ? 1 : 0,
           PENALTY: draft.penalty ? 1 : 0,
         });
@@ -1456,22 +1446,23 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
                       control={(
                         <Switch
                           checked={draft.houseClosed}
-                          onChange={(_event, checked) => setDraft((prev) => (prev ? { ...prev, houseClosed: checked } : prev))}
+                          onChange={(_event, checked) => setDraft((prev) => (prev
+                            ? { ...prev, houseClosed: checked, nbSpect: checked ? '0' : prev.nbSpect }
+                            : prev))}
                         />
                       )}
                       label="à huis clos"
                     />
 
-                    {!draft.houseClosed ? (
-                      <NumberField
-                        label="Nombre de spectateurs"
-                        value={draft.nbSpect}
-                        onChange={(nextValue) => setDraft((prev) => (prev ? { ...prev, nbSpect: nextValue } : prev))}
-                        suffix="spect"
-                        maxLength={7}
-                        sx={{ width: 170, flex: '0 0 auto' }}
-                      />
-                    ) : null}
+                    <NumberField
+                      label="Nombre de spectateurs"
+                      value={draft.nbSpect}
+                      onChange={(nextValue) => setDraft((prev) => (prev ? { ...prev, nbSpect: nextValue } : prev))}
+                      suffix="spect"
+                      maxLength={7}
+                      disabled={draft.houseClosed}
+                      sx={{ width: 170, flex: '0 0 auto' }}
+                    />
                   </Box>
                 </Box>
             </Box>
