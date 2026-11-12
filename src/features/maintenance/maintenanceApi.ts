@@ -21,7 +21,17 @@ export interface MaintenanceMutationResult {
   durationMs: number;
 }
 
-export type MaintenanceQueryResult = MaintenanceSelectResult | MaintenanceMutationResult;
+/** Instruction de structure (ALTER TABLE, CREATE TABLE/INDEX/VIEW). */
+export interface MaintenanceSchemaResult {
+  kind: 'schema';
+  message: string;
+  durationMs: number;
+}
+
+export type MaintenanceQueryResult =
+  | MaintenanceSelectResult
+  | MaintenanceMutationResult
+  | MaintenanceSchemaResult;
 
 /** Statut renvoye par l'API quand une requete modifiante arrive sans confirmation. */
 export const MAINTENANCE_CONFIRMATION_STATUS = 428;

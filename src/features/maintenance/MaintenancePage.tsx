@@ -119,6 +119,9 @@ export function MaintenancePage() {
         <Typography variant="body2" color="text.secondary">
           Requête SQL exécutée directement sur la base. Ctrl+Entrée pour exécuter.
         </Typography>
+        <Typography variant="body2" color="text.secondary">
+          SELECT, WITH, INSERT, REPLACE, UPDATE, DELETE, ALTER TABLE, CREATE TABLE, CREATE [UNIQUE] INDEX, CREATE VIEW — une seule instruction ; DROP, TRIGGER, PRAGMA et transactions interdits.
+        </Typography>
       </Stack>
 
       <TextField
@@ -213,6 +216,12 @@ export function MaintenancePage() {
       {result?.kind === 'script' ? (
         <Alert severity="success">
           {`Script exécuté en ${result.durationMs} ms.`}
+        </Alert>
+      ) : null}
+
+      {result?.kind === 'schema' ? (
+        <Alert severity="warning">
+          {`Instruction exécutée en ${result.durationMs} ms. ${result.message}`}
         </Alert>
       ) : null}
 
