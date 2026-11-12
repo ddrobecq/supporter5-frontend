@@ -1,7 +1,8 @@
 import { Box, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { type GridColDef, type GridRowId } from '@mui/x-data-grid';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { EntityDataGrid } from '../../components/EntityDataGrid';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { NumberField } from '../../components/NumberField';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { fetchTourDefById } from './competitionApi';
@@ -21,7 +22,21 @@ interface TourWizardStep4GroupesProps {
   onNbGroupeChange: (value: number) => void;
   onNbMatchChange: (value: number) => void;
   onGroupNamesChange?: (value: string[]) => void;
+  /** Settings reported by a previous mount of this step, restored so they survive step navigation. */
+  savedSettings?: TourWizardGroupSettings | null;
+  onSettingsChange?: (settings: TourWizardGroupSettings) => void;
   onError?: (message: string) => void;
+}
+
+/** Local settings of the step, kept by the wizard because the step unmounts when leaving it. */
+export interface TourWizardGroupSettings {
+  groupNameBase: GroupNameBase;
+  groupNumbering: GroupNumbering;
+  customNames: string[];
+  initSignature: string;
+  nbMatchTouched: boolean;
+  maxPerGroupInput: string;
+  maxPerGroupTouched: boolean;
 }
 
 interface GroupRow {
@@ -47,18 +62,22 @@ export function TourWizardStep4Groupes({
   onNbGroupeChange,
   onNbMatchChange,
   onGroupNamesChange,
+  savedSettings,
+  onSettingsChange,
   onError,
 }: TourWizardStep4GroupesProps) {
-  const [groupNameBase, setGroupNameBase] = useState<GroupNameBase>('Groupe');
-  const [groupNumbering, setGroupNumbering] = useState<GroupNumbering>('numeric');
-  const [customNames, setCustomNames] = useState<string[]>([]);
+  const [groupNameBase, setGroupNameBase] = useState<GroupNameBase>(() => savedSettings?.groupNameBase ?? 'Groupe');
+  const [groupNumbering, setGroupNumbering] = useState<GroupNumbering>(() => savedSettings?.groupNumbering ?? 'numeric');
+  const [customNames, setCustomNames] = useState<string[]>(() => savedSettings?.customNames ?? []);
   const [selection, setSelection] = useState<GridRowId[]>([]);
   const [tourDef, setTourDef] = useState<TourDefRow | null>(null);
   const [tourDefLoading, setTourDefLoading] = useState(false);
-  const [nbMatchTouched, setNbMatchTouched] = useState(false);
-  const [maxPerGroupInput, setMaxPerGroupInput] = useState<string>('0');
-  const [maxPerGroupTouched, setMaxPerGroupTouched] = useState(false);
-  const initSignatureRef = useRef<string>('');
+  const [nbMatchTouched, setNbMatchTouched] = useState(() => savedSettings?.nbMatchTouched ?? false);
+  const [maxPerGroupInput, setMaxPerGroupInput] = useState<string>(() => savedSettings?.maxPerGroupInput ?? '0');
+  const [maxPerGroupTouched, setMaxPerGroupTouched] = useState(() => savedSettings?.maxPerGroupTouched ?? false);
+  // Restoring the signature prevents re-detecting the naming from the loaded names (which would
+  // override the user's choice) when the step is mounted again.
+  const [initSignature, setInitSignature] = useState<string>(() => savedSettings?.initSignature ?? '');
 
   const normalizedNbParticipants = Math.max(0, normalizeInteger(nbParticipants));
   const normalizedNbEquipe = Math.max(0, normalizeInteger(nbEquipe));
@@ -67,21 +86,14 @@ export function TourWizardStep4Groupes({
   const isCustomNaming = groupNumbering === 'custom';
   const disableGroupConfig = isSingleGroup || tourType !== 'ligue';
 
-  useEffect(() => {
-    const existingNames = initialGroupNames
-      .map((value) => String(value ?? '').trim())
-      .filter((value) => value.length > 0)
-      .slice(0, normalizedNbGroupe);
-    if (existingNames.length === 0) {
-      return;
-    }
-
-    const signature = existingNames.join('||');
-    if (initSignatureRef.current === signature) {
-      return;
-    }
-    initSignatureRef.current = signature;
-
+  // The state adjustments below run while rendering, in the order the former effects ran.
+  const existingNames = initialGroupNames
+    .map((value) => String(value ?? '').trim())
+    .filter((value) => value.length > 0)
+    .slice(0, normalizedNbGroupe);
+  const existingNamesSignature = existingNames.join('||');
+  if (existingNames.length > 0 && existingNamesSignature !== initSignature) {
+    setInitSignature(existingNamesSignature);
     const detected = detectGroupNaming(existingNames);
     setGroupNameBase(detected.base);
     setGroupNumbering(detected.numbering);
@@ -92,15 +104,10 @@ export function TourWizardStep4Groupes({
       }
       return next;
     });
-  }, [initialGroupNames, normalizedNbGroupe]);
+  }
 
-  useEffect(() => {
-    if (!Number.isInteger(nbGroupe) || nbGroupe < 1) {
-      onNbGroupeChange(1);
-    }
-  }, [nbGroupe, onNbGroupeChange]);
-
-  useEffect(() => {
+  const nbGroupeChanged = useDepsChanged([normalizedNbGroupe]);
+  if (nbGroupeChanged) {
     setCustomNames((prev) => {
       const names = [...prev];
       if (names.length < normalizedNbGroupe) {
@@ -113,15 +120,49 @@ export function TourWizardStep4Groupes({
       }
       return names;
     });
-  }, [normalizedNbGroupe]);
+  }
+
+  const tourDefDepsChanged = useDepsChanged([tourDefId, onError]);
+  const isTourDefIdValid = Number.isInteger(tourDefId) && tourDefId > 0;
+  if (tourDefDepsChanged) {
+    if (isTourDefIdValid) {
+      setTourDefLoading(true);
+    } else {
+      setTourDef(null);
+    }
+  }
+
+  // Leaving multi-group mode discards the manual "max per group" entry.
+  if (isSingleGroup && maxPerGroupTouched) {
+    setMaxPerGroupTouched(false);
+  }
+  const maxPerGroupValue = isSingleGroup || !maxPerGroupTouched ? String(normalizedNbEquipe) : maxPerGroupInput;
+
+  const autoLabelDepsChanged = useDepsChanged([groupNumbering, groupNameBase, normalizedNbGroupe]);
+  if (autoLabelDepsChanged && groupNumbering === 'custom') {
+    setCustomNames((prev) => {
+      const next = [...prev];
+      for (let i = 0; i < normalizedNbGroupe; i += 1) {
+        const current = String(next[i] ?? '').trim();
+        if (!current) {
+          next[i] = makeAutoLabel(groupNameBase, 'numeric', i);
+        }
+      }
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    if (!Number.isInteger(nbGroupe) || nbGroupe < 1) {
+      onNbGroupeChange(1);
+    }
+  }, [nbGroupe, onNbGroupeChange]);
 
   useEffect(() => {
     if (!Number.isInteger(tourDefId) || tourDefId <= 0) {
-      setTourDef(null);
       return;
     }
 
-    setTourDefLoading(true);
     void fetchTourDefById(tourDefId)
       .then((data) => setTourDef(data))
       .catch((error) => onError?.(toErrorMessage(error)))
@@ -160,35 +201,6 @@ export function TourWizardStep4Groupes({
     }
   }, [computedMaxPerGroupFromParticipants, maxPerGroupTouched, normalizedNbEquipe, onNbEquipeChange]);
 
-  useEffect(() => {
-    if (isSingleGroup) {
-      setMaxPerGroupTouched(false);
-      setMaxPerGroupInput(String(normalizedNbEquipe));
-      return;
-    }
-
-    if (!maxPerGroupTouched) {
-      setMaxPerGroupInput(String(normalizedNbEquipe));
-    }
-  }, [isSingleGroup, maxPerGroupTouched, normalizedNbEquipe]);
-
-  useEffect(() => {
-    if (groupNumbering !== 'custom') {
-      return;
-    }
-
-    setCustomNames((prev) => {
-      const next = [...prev];
-      for (let i = 0; i < normalizedNbGroupe; i += 1) {
-        const current = String(next[i] ?? '').trim();
-        if (!current) {
-          next[i] = makeAutoLabel(groupNameBase, 'numeric', i);
-        }
-      }
-      return next;
-    });
-  }, [groupNumbering, groupNameBase, normalizedNbGroupe]);
-
   const rows = useMemo<GroupRow[]>(() => {
     const nextRows: GroupRow[] = [];
     for (let i = 0; i < normalizedNbGroupe; i += 1) {
@@ -211,6 +223,27 @@ export function TourWizardStep4Groupes({
   useEffect(() => {
     onGroupNamesChange?.(rows.map((row) => String(row.NOM_GROUPE ?? '').trim()));
   }, [rows, onGroupNamesChange]);
+
+  useEffect(() => {
+    onSettingsChange?.({
+      groupNameBase,
+      groupNumbering,
+      customNames,
+      initSignature,
+      nbMatchTouched,
+      maxPerGroupInput,
+      maxPerGroupTouched,
+    });
+  }, [
+    customNames,
+    groupNameBase,
+    groupNumbering,
+    initSignature,
+    maxPerGroupInput,
+    maxPerGroupTouched,
+    nbMatchTouched,
+    onSettingsChange,
+  ]);
 
   const columns = useMemo<GridColDef<GroupRow>[]>(
     () => [
@@ -237,7 +270,7 @@ export function TourWizardStep4Groupes({
 
         <NumberField
           label="Nombre d'équipes par groupe (max)"
-          value={maxPerGroupInput}
+          value={maxPerGroupValue}
           onChange={(v) => {
             setMaxPerGroupTouched(true);
             const parsed = Math.max(1, Math.min(99, v === '' ? 1 : Number(v)));

@@ -2,7 +2,8 @@ import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, FormCon
 import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import { type GridRowId } from '@mui/x-data-grid';
-import { type Dispatch, type SetStateAction, useEffect, useMemo, useState } from 'react';
+import { type Dispatch, type SetStateAction, useMemo, useState } from 'react';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { buildEffectiveGroupNames, getDistinctNonEmptyGroupNames } from './tourWizardGroups';
 import {
   getDistinctSourceGroups,
@@ -68,20 +69,15 @@ export function TourWizardStep5Participants({ competitionId, currentTourOrder, c
     return buildEffectiveGroupNames(normalizedNbGroupe, groupNames, existingGroupNames);
   }, [groupNames, existingGroupNames, hasMultipleGroups, normalizedNbGroupe]);
 
-  useEffect(() => {
-    if (!hasMultipleGroups) {
-      setSelectedGroupId('');
-      return;
-    }
+  // Drop a group that no longer exists (or any group once there is a single one).
+  if (selectedGroupId && (!hasMultipleGroups || !effectiveGroupNames.includes(selectedGroupId))) {
+    setSelectedGroupId('');
+  }
 
-    if (selectedGroupId && !effectiveGroupNames.includes(selectedGroupId)) {
-      setSelectedGroupId('');
-    }
-  }, [hasMultipleGroups, selectedGroupId, effectiveGroupNames]);
-
-  useEffect(() => {
+  const selectedGroupChanged = useDepsChanged([selectedGroupId]);
+  if (selectedGroupChanged) {
     setSelection([]);
-  }, [selectedGroupId]);
+  }
 
   const participantsHeaderLabel = useMemo(
     () => (hasMultipleGroups

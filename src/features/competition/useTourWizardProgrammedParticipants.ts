@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { fetchCompetition, fetchCompetitionTours, fetchCompetitionWizardData, fetchTourParticipants } from './competitionApi';
 import {
@@ -32,6 +33,11 @@ interface UseTourWizardProgrammedParticipantsResult {
   sourceRankSelectOptions: Array<{ value: string; label: string }>;
   isSelectedProgramTourEliminatoire: boolean;
   possibleProgrammedClubsByGroup: Array<{ group: string; clubs: string[] }>;
+}
+
+function isPositiveIntegerId(value: string): boolean {
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0;
 }
 
 export function useTourWizardProgrammedParticipants({
@@ -69,6 +75,37 @@ export function useTourWizardProgrammedParticipants({
     return buildPossibleProgrammedClubsByGroup(programSourceParticipants, selectedRanks);
   }, [programSourceParticipants, programSourceRanks]);
 
+  // Synchronous resets run while rendering, on the same dependencies as the matching loading effects below.
+  const competitionsDepsChanged = useDepsChanged([competitionId, onError, programDialogOpen, programSeason]);
+  if (competitionsDepsChanged && programDialogOpen && !programSeason) {
+    setProgramCompetitions([]);
+    setProgramCompetitionId('');
+  }
+
+  const toursDepsChanged = useDepsChanged([currentTourOrder, onError, programCompetitionId, programDialogOpen]);
+  if (toursDepsChanged && programDialogOpen && !isPositiveIntegerId(programCompetitionId)) {
+    setProgramTours([]);
+    setProgramTourId('');
+  }
+
+  const sourceParticipantsDepsChanged = useDepsChanged([onError, programDialogOpen, programTourId]);
+  if (sourceParticipantsDepsChanged && programDialogOpen && !isPositiveIntegerId(programTourId)) {
+    setProgramSourceParticipants([]);
+    setProgramSourceRanks([]);
+  }
+
+  const sourceRankOptionsChanged = useDepsChanged([sourceRankSelectOptions]);
+  if (sourceRankOptionsChanged) {
+    if (sourceRankSelectOptions.length === 0) {
+      setProgramSourceRanks([]);
+    } else {
+      setProgramSourceRanks((current) => {
+        const valid = current.filter((value) => sourceRankSelectOptions.some((option) => option.value === value));
+        return valid.length > 0 ? Array.from(new Set(valid)) : [sourceRankSelectOptions[0].value];
+      });
+    }
+  }
+
   useEffect(() => {
     if (!programDialogOpen) {
       return;
@@ -98,8 +135,6 @@ export function useTourWizardProgrammedParticipants({
       return;
     }
     if (!programSeason) {
-      setProgramCompetitions([]);
-      setProgramCompetitionId('');
       return;
     }
 
@@ -133,12 +168,10 @@ export function useTourWizardProgrammedParticipants({
     if (!programDialogOpen) {
       return;
     }
-    const compId = Number(programCompetitionId);
-    if (!Number.isInteger(compId) || compId <= 0) {
-      setProgramTours([]);
-      setProgramTourId('');
+    if (!isPositiveIntegerId(programCompetitionId)) {
       return;
     }
+    const compId = Number(programCompetitionId);
 
     let cancelled = false;
     void fetchCompetitionTours(compId)
@@ -169,12 +202,10 @@ export function useTourWizardProgrammedParticipants({
     if (!programDialogOpen) {
       return;
     }
-    const sourceTourId = Number(programTourId);
-    if (!Number.isInteger(sourceTourId) || sourceTourId <= 0) {
-      setProgramSourceParticipants([]);
-      setProgramSourceRanks([]);
+    if (!isPositiveIntegerId(programTourId)) {
       return;
     }
+    const sourceTourId = Number(programTourId);
 
     let cancelled = false;
     void fetchTourParticipants(sourceTourId)
@@ -193,17 +224,6 @@ export function useTourWizardProgrammedParticipants({
       cancelled = true;
     };
   }, [onError, programDialogOpen, programTourId]);
-
-  useEffect(() => {
-    if (sourceRankSelectOptions.length === 0) {
-      setProgramSourceRanks([]);
-      return;
-    }
-    setProgramSourceRanks((current) => {
-      const valid = current.filter((value) => sourceRankSelectOptions.some((option) => option.value === value));
-      return valid.length > 0 ? Array.from(new Set(valid)) : [sourceRankSelectOptions[0].value];
-    });
-  }, [sourceRankSelectOptions]);
 
   return {
     seasonOptions,

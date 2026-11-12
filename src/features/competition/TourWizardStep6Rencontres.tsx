@@ -62,6 +62,7 @@ import { useProgrammedParticipantResolver } from './useProgrammedParticipantLabe
 import { TourParticipantGrid } from './TourParticipantGrid';
 import type { CircOptionRow, TourMatchRow, TourParticipantRow } from './types';
 import { MatchEtat } from '../../lib/matchStatus';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 
 interface TourWizardStep6RencontresProps {
   tourId: number;
@@ -159,6 +160,7 @@ export function TourWizardStep6Rencontres({
   const [loading, setLoading] = useState(false);
   const [retourConfirmOpen, setRetourConfirmOpen] = useState(false);
   const [pendingAutoSelectIndex, setPendingAutoSelectIndex] = useState<number | null>(null);
+  const [participantsFocusRequest, setParticipantsFocusRequest] = useState(0);
   const participantsGridRef = useRef<HTMLDivElement | null>(null);
 
   const typeId = tourType === 'eliminatoire' ? 2 : 1;
@@ -175,10 +177,15 @@ export function TourWizardStep6Rencontres({
     return buildEffectiveGroupNames(normalizedNbGroupe, groupNames, existingGroupNames);
   }, [groupNames, existingGroupNames, hasMultipleGroups, normalizedNbGroupe]);
 
+  // The state adjustments below run while rendering, in the order the former effects ran.
+  const circDepsChanged = useDepsChanged([typeId, tourType, normalizedNbMatch, onError]);
+  if (circDepsChanged) {
+    setLoading(true);
+  }
+
   useEffect(() => {
     let cancelled = false;
 
-    setLoading(true);
     void fetchCircByTourType(typeId)
       .then((circRows) => {
         if (cancelled) {
@@ -203,23 +210,18 @@ export function TourWizardStep6Rencontres({
     };
   }, [typeId, tourType, normalizedNbMatch, onError]);
 
-  useEffect(() => {
+  const tourIdChanged = useDepsChanged([tourId]);
+  if (tourIdChanged) {
     setSelectedParticipantId('');
     setParticipantSelection([]);
     setPending(null);
     setSelectedGroup('');
-  }, [tourId]);
+  }
 
-  useEffect(() => {
-    if (!hasMultipleGroups) {
-      setSelectedGroup('');
-      return;
-    }
-
-    if (selectedGroup && !effectiveGroupNames.includes(selectedGroup)) {
-      setSelectedGroup('');
-    }
-  }, [hasMultipleGroups, selectedGroup, effectiveGroupNames]);
+  // Drop a group that no longer exists (or any group once there is a single one).
+  if (selectedGroup && (!hasMultipleGroups || !effectiveGroupNames.includes(selectedGroup))) {
+    setSelectedGroup('');
+  }
 
   const groupSelectionState = useMemo(
     () => buildAdjacentSelectionState(effectiveGroupNames, selectedGroup),
@@ -247,13 +249,14 @@ export function TourWizardStep6Rencontres({
     setSelectedGroup(nextGroup);
   };
 
-  useEffect(() => {
-    // A pending draft is tied to one circumstance; clear it when the selected circumstance changes.
+  // A pending draft is tied to one circumstance; clear it when the selected circumstance changes.
+  const selectedCircChanged = useDepsChanged([selectedCircId]);
+  if (selectedCircChanged) {
     setSelectedParticipantId('');
     setParticipantSelection([]);
     setPending(null);
     setSelectedRencontre([]);
-  }, [selectedCircId]);
+  }
 
   const availableCircOptions = useMemo(() => {
     const knownIds = new Set(circOptions.map((circ) => normalizeCircId(circ.IDCIRC)));
@@ -266,15 +269,9 @@ export function TourWizardStep6Rencontres({
     return [...circOptions, ...missingExistingOptions];
   }, [circOptions, rencontres, typeId]);
 
-  useEffect(() => {
-    if (!selectedCircId) {
-      return;
-    }
-    const exists = availableCircOptions.some((circ) => normalizeCircId(circ.IDCIRC) === selectedCircId);
-    if (!exists) {
-      setSelectedCircId('');
-    }
-  }, [availableCircOptions, selectedCircId]);
+  if (selectedCircId && !availableCircOptions.some((circ) => normalizeCircId(circ.IDCIRC) === selectedCircId)) {
+    setSelectedCircId('');
+  }
 
   const circOptionIds = useMemo(
     () => availableCircOptions.map((circ) => normalizeCircId(circ.IDCIRC)).filter((value) => value.length > 0),
@@ -332,57 +329,52 @@ export function TourWizardStep6Rencontres({
     ));
   }, [participants, lockedParticipantKeys, pending, hasMultipleGroups, selectedGroup]);
 
-  useEffect(() => {
+  const selectedGroupChanged = useDepsChanged([selectedGroup]);
+  if (selectedGroupChanged) {
     setSelectedParticipantId('');
     setParticipantSelection([]);
     setPending(null);
-  }, [selectedGroup]);
+  }
 
-  useEffect(() => {
-    if (!selectedParticipantId) return;
-    const exists = availableClubRows.some((row) => String(row.PACLEUNIK) === selectedParticipantId);
-    if (!exists) {
-      setSelectedParticipantId('');
-      setParticipantSelection([]);
-    }
-  }, [availableClubRows, selectedParticipantId]);
+  if (selectedParticipantId && !availableClubRows.some((row) => String(row.PACLEUNIK) === selectedParticipantId)) {
+    setSelectedParticipantId('');
+    setParticipantSelection([]);
+  }
 
-  useEffect(() => {
-    if (pendingAutoSelectIndex === null) {
-      return;
-    }
-
+  // After a Space commit, select the participant now at the same index; focus is moved in the effect below.
+  if (pendingAutoSelectIndex !== null) {
+    setPendingAutoSelectIndex(null);
     if (availableClubRows.length === 0) {
       setSelectedParticipantId('');
       setParticipantSelection([]);
-      setPendingAutoSelectIndex(null);
+    } else {
+      const maxIndex = availableClubRows.length - 1;
+      const nextIndex = Math.min(Math.max(0, pendingAutoSelectIndex), maxIndex);
+      const nextRow = availableClubRows[nextIndex];
+      const nextId = String(nextRow.PACLEUNIK);
+
+      setSelectedParticipantId(nextId);
+      setParticipantSelection([nextId]);
+      setParticipantsFocusRequest((current) => current + 1);
+    }
+  }
+
+  useEffect(() => {
+    if (participantsFocusRequest === 0) {
       return;
     }
 
-    const maxIndex = availableClubRows.length - 1;
-    const nextIndex = Math.min(Math.max(0, pendingAutoSelectIndex), maxIndex);
-    const nextRow = availableClubRows[nextIndex];
-    const nextId = String(nextRow.PACLEUNIK);
-
-    setSelectedParticipantId(nextId);
-    setParticipantSelection([nextId]);
-
     const focusTarget = participantsGridRef.current?.querySelector('[role="grid"]') as HTMLElement | null;
     focusTarget?.focus({ preventScroll: true });
-
-    setPendingAutoSelectIndex(null);
-  }, [availableClubRows, pendingAutoSelectIndex]);
+  }, [participantsFocusRequest]);
 
   const rencontreRows = useMemo(
     () => [...rencontres].sort(compareDateHeure),
     [rencontres],
   );
 
-  useEffect(() => {
-    if (selectedCircId || rencontreRows.length === 0) {
-      return;
-    }
-
+  // Without a selected circumstance, default to the first one already used by a rencontre.
+  if (!selectedCircId && rencontreRows.length > 0) {
     const firstExistingCircId = rencontreRows
       .map((row) => normalizeCircId(row.IDCIRC))
       .find((circId) => circId.length > 0 && circOptionIds.includes(circId));
@@ -390,7 +382,7 @@ export function TourWizardStep6Rencontres({
     if (firstExistingCircId) {
       setSelectedCircId(firstExistingCircId);
     }
-  }, [circOptionIds, rencontreRows, selectedCircId]);
+  }
 
   const filteredRencontreRows = useMemo(() => {
     return buildFilteredRencontreRows(rencontreRows, selectedCircId, normalizeCircId);

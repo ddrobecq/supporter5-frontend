@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { NumberField } from '../../components/NumberField';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { createTourDef, fetchTourDefsByType, fetchTourDefById, type CreateTourDefPayload } from './competitionApi';
 import type { TourDefRow } from './types';
@@ -258,17 +259,32 @@ export function TourWizardStep3DefineForm({
 
   const typeId = tourType === 'eliminatoire' ? 2 : 1;
 
-  useEffect(() => {
+  // Synchronous state adjustments run while rendering, on the dependencies of the effects below.
+  const typeIdChanged = useDepsChanged([typeId]);
+  if (typeIdChanged) {
     setCreateDraft(createTourDefCreateDraft());
     setCreateSortRules([]);
     setSelectedAvailableSortField(null);
     setSelectedChosenSortField(null);
     setCreateError(null);
-  }, [typeId]);
+  }
+
+  const tourDefsRequestChanged = useDepsChanged([typeId, initialTourDefId]);
+  if (tourDefsRequestChanged) {
+    setLoading(true);
+  }
+
+  const tourDefDetailRequestChanged = useDepsChanged([selectedTourDefId, tourDefs.length]);
+  if (tourDefDetailRequestChanged) {
+    if (!selectedTourDefId || tourDefs.length === 0) {
+      setSelectedSortRules([]);
+    } else {
+      setLoading(true);
+    }
+  }
 
   // Fetch tour definitions when type changes
   useEffect(() => {
-    setLoading(true);
     void fetchTourDefsByType(typeId)
       .then((defs) => {
         setTourDefs(defs);
@@ -295,11 +311,9 @@ export function TourWizardStep3DefineForm({
   // Load tour def form data when selectedTourDefId changes or when tourDefs are loaded
   useEffect(() => {
     if (!selectedTourDefId || tourDefs.length === 0) {
-      setSelectedSortRules([]);
       return;
     }
 
-    setLoading(true);
     void fetchTourDefById(selectedTourDefId)
       .then((tourDef) => {
         const nextForm = createFormStateFromTourDef(tourDef);

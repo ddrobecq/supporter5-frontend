@@ -19,9 +19,10 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { DateInputField } from '../../components/DateInputField';
 import { isoDateOrNull } from '../../components/dateUtils';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useInvalidDateFields } from '../../components/useInvalidDateFields';
 import { NumberField } from '../../components/NumberField';
 import { TimeInputField } from '../../components/TimeInputField';
@@ -55,7 +56,7 @@ import {
   type TourType,
 } from './tourWizardDialogModel';
 import { TourWizardStep3DefineForm } from './TourWizardStep3DefineForm';
-import { TourWizardStep4Groupes } from './TourWizardStep4Groupes';
+import { TourWizardStep4Groupes, type TourWizardGroupSettings } from './TourWizardStep4Groupes';
 import { TourWizardStep4Classement } from './TourWizardStep4Classement';
 import { TourWizardStep5Participants } from './TourWizardStep5Participants';
 import { TourWizardStep6Rencontres } from './TourWizardStep6Rencontres';
@@ -206,18 +207,27 @@ export function TourWizardDialog({
   const [isAllerRetour, setIsAllerRetour] = useState(false);
   const [groupNames, setGroupNames] = useState<string[]>([]);
   const [existingGroupNames, setExistingGroupNames] = useState<string[]>([]);
+  const [groupSettings, setGroupSettings] = useState<TourWizardGroupSettings | null>(null);
   const [qualifDraftRows, setQualifDraftRows] = useState<QualifRow[]>([]);
   const [participantDraftRows, setParticipantDraftRows] = useState<TourParticipantRow[]>([]);
   const [rencontreDraftRows, setRencontreDraftRows] = useState<TourMatchRow[]>([]);
 
+  // Latest onError for the load effect, which must not re-run (and reload the tour) when only the
+  // callback identity changes.
+  const onErrorRef = useRef(onError);
   useEffect(() => {
-    if (!open) return;
+    onErrorRef.current = onError;
+  }, [onError]);
 
+  // (Re)initialisation of the wizard runs while rendering, on the dependencies of the load effect below.
+  const openDepsChanged = useDepsChanged([open, mode, initialTourId, proposedOrder]);
+  if (openDepsChanged && open) {
     setStepIndex(0);
     setErrors({});
     setFinalTouched(false);
     setGroupNames([]);
     setExistingGroupNames([]);
+    setGroupSettings(null);
 
     if (mode === 'create') {
       const nextDraft = createDefaultDraft(proposedOrder);
@@ -227,15 +237,19 @@ export function TourWizardDialog({
       setQualifDraftRows([]);
       setParticipantDraftRows([]);
       setRencontreDraftRows([]);
-      return;
+    } else if (initialTourId) {
+      setLoading(true);
     }
+  }
+
+  useEffect(() => {
+    if (!open || mode === 'create') return;
 
     if (!initialTourId) {
-      onError('Tour invalide.');
+      onErrorRef.current('Tour invalide.');
       return;
     }
 
-    setLoading(true);
     void Promise.all([
       fetchCompetitionTourById(initialTourId),
       fetchTourParticipants(initialTourId),
@@ -255,12 +269,19 @@ export function TourWizardDialog({
         setRencontreDraftRows(rencontres);
       })
       .catch((error) => {
-        onError(toErrorMessage(error));
+        onErrorRef.current(toErrorMessage(error));
       })
       .finally(() => {
         setLoading(false);
       });
   }, [open, mode, initialTourId, proposedOrder]);
+
+  const selectedTourDefId = Number(draft.tourDefKey ?? 0);
+  const isSelectedTourDefValid = Number.isInteger(selectedTourDefId) && selectedTourDefId > 0;
+  // Without a valid TourDef the tour is never aller/retour (no fetch is pending in that case).
+  if (open && !isSelectedTourDefValid && isAllerRetour) {
+    setIsAllerRetour(false);
+  }
 
   useEffect(() => {
     if (!open) {
@@ -269,7 +290,6 @@ export function TourWizardDialog({
 
     const tourDefId = Number(draft.tourDefKey ?? 0);
     if (!Number.isInteger(tourDefId) || tourDefId <= 0) {
-      setIsAllerRetour(false);
       return;
     }
 
@@ -293,31 +313,25 @@ export function TourWizardDialog({
     };
   }, [open, draft.tourDefKey, onError]);
 
-  useEffect(() => {
-    if (finalTouched) return;
+  const finalDepsChanged = useDepsChanged([draft.participants, draft.type, finalTouched]);
+  if (finalDepsChanged && !finalTouched) {
     const shouldBeFinal = draft.type === 'eliminatoire' && Number(draft.participants) === 2;
     setDraft((prev) => ({ ...prev, final: shouldBeFinal }));
-  }, [draft.participants, draft.type, finalTouched]);
+  }
 
   const title = mode === 'create' ? 'Ajouter un tour' : 'Modifier un tour';
   const activeTourId = mode === 'edit' && Number(initialTourId) > 0
     ? Number(initialTourId)
     : 0;
 
-  useEffect(() => {
-    if (!isStepSkippedForType(stepIndex, draft.type)) {
-      return;
+  // Never stay on a step skipped for the current tour type.
+  if (isStepSkippedForType(stepIndex, draft.type)) {
+    const replacementStep = getNextAvailableStep(stepIndex, draft.type)
+      ?? getPreviousAvailableStep(stepIndex, draft.type);
+    if (replacementStep !== null) {
+      setStepIndex(replacementStep);
     }
-    const nextStep = getNextAvailableStep(stepIndex, draft.type);
-    if (nextStep !== null) {
-      setStepIndex(nextStep);
-      return;
-    }
-    const previousStep = getPreviousAvailableStep(stepIndex, draft.type);
-    if (previousStep !== null) {
-      setStepIndex(previousStep);
-    }
-  }, [draft.type, stepIndex]);
+  }
 
   const previousStep = getPreviousAvailableStep(stepIndex, draft.type);
   const nextStep = getNextAvailableStep(stepIndex, draft.type);
@@ -898,6 +912,8 @@ export function TourWizardDialog({
                   setDraft((prev) => ({ ...prev, nbMatch: value }));
                 }}
                 onGroupNamesChange={setGroupNames}
+                savedSettings={groupSettings}
+                onSettingsChange={setGroupSettings}
                 onError={onError}
               />
             </Box>

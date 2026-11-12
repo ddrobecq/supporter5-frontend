@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { fetchCompetitionById, fetchCompetitionTourById, fetchTourParticipants } from './competitionApi';
 import { toErrorMessage } from '../../components/useEntityPage';
 import type { CompetitionRow, CompetitionTourRow, TourParticipantRow } from './types';
@@ -95,6 +96,144 @@ function buildInitialFromCache(tourIds: number[]): {
   return { details, competitions, participants };
 }
 
+interface ResolveContext {
+  competitionId: number;
+  competitionSeason: string;
+  sourceTourDetailsById: Record<string, SourceTourMeta>;
+  sourceCompetitionById: Record<string, CompetitionRow>;
+  sourceTourParticipantsById: Record<string, TourParticipantRow[]>;
+}
+
+function resolveDynamicNamesFromSource(
+  sourceValue: string,
+  visited: Set<string>,
+  sourceTourParticipantsById: Record<string, TourParticipantRow[]>,
+): string[] {
+  const normalizedSource = String(sourceValue ?? '').trim();
+  if (!normalizedSource || visited.has(normalizedSource)) {
+    return [];
+  }
+
+  const parsed = parsePaSourceForLabel(normalizedSource);
+  if (!parsed) {
+    return [];
+  }
+
+  visited.add(normalizedSource);
+  const duel = parseEliminatoireGroupPair(parsed.groupName);
+  const sourceRows = sourceTourParticipantsById[String(parsed.tourId)] ?? [];
+  const candidates = duel
+    ? sourceRows.filter((candidate) => (
+      Number(candidate.PACLEUNIK) === duel.leftParticipantId
+      || Number(candidate.PACLEUNIK) === duel.rightParticipantId
+    ))
+    : sourceRows.filter(
+      (candidate) => String(candidate.GROUPE ?? '').trim() === parsed.groupName
+        && Number(candidate.PAClassement ?? 0) === parsed.rank,
+    );
+
+  const names = new Set<string>();
+  candidates.forEach((candidate) => {
+    const clubName = String(candidate.CLUB ?? '').trim();
+    if (clubName) {
+      names.add(clubName);
+    }
+
+    const nestedSource = String(candidate.PASource ?? '').trim();
+    if (nestedSource) {
+      resolveDynamicNamesFromSource(nestedSource, visited, sourceTourParticipantsById).forEach((name) => names.add(name));
+    }
+  });
+
+  visited.delete(normalizedSource);
+  return Array.from(names).sort((left, right) => left.localeCompare(right, 'fr', { sensitivity: 'base' }));
+}
+
+function resolveProgrammedParticipantNameWith(
+  context: ResolveContext,
+  args: ProgrammedParticipantResolveArgs,
+  visited: Set<string>,
+): string {
+  const {
+    competitionId,
+    competitionSeason,
+    sourceTourDetailsById,
+    sourceCompetitionById,
+    sourceTourParticipantsById,
+  } = context;
+  const clubName = String(args.participant?.CLUB ?? args.fallbackClubName ?? '').trim();
+  if (clubName) {
+    return clubName;
+  }
+
+  const sourceValue = String(args.participant?.PASource ?? args.source ?? '').trim();
+  if (!sourceValue) {
+    return '(Participant programme)';
+  }
+
+  if (args.mode === 'dynamic') {
+    const names = resolveDynamicNamesFromSource(sourceValue, visited, sourceTourParticipantsById);
+    if (names.length > 0) {
+      return names.join('/');
+    }
+  }
+
+  if (visited.has(sourceValue)) {
+    return `Programme (${sourceValue})`;
+  }
+
+  const parsed = parsePaSourceForLabel(sourceValue);
+  if (!parsed) {
+    return `Programme (${sourceValue})`;
+  }
+
+  const sourceTour = sourceTourDetailsById[String(parsed.tourId)];
+  const sourceTourName = String(sourceTour?.NOM ?? sourceTour?.TOUR ?? '').trim() || `Tour ${parsed.tourId}`;
+  const sourceCompetitionId = Number(sourceTour?.COCLEUNIK ?? 0);
+  const sourceCompetition = sourceCompetitionById[String(sourceCompetitionId)];
+  const sourceCompetitionName = String(sourceCompetition?.NOM ?? '').trim();
+  const sourceSeason = String(sourceCompetition?.SAISON ?? '').trim();
+  const isEliminatoireSource = Number(sourceTour?.TYPE_ID ?? 0) === 2;
+  const groupLabel = formatGroupLabel(parsed.groupName);
+  visited.add(sourceValue);
+
+  if (isEliminatoireSource) {
+    const outcomeLabel = formatEliminatoireOutcomeLabel(parsed.rank);
+    const duel = parseEliminatoireGroupPair(parsed.groupName);
+    if (duel) {
+      const sourceRows = sourceTourParticipantsById[String(parsed.tourId)] ?? [];
+      const leftParticipant = sourceRows.find((candidate) => Number(candidate.PACLEUNIK) === duel.leftParticipantId);
+      const rightParticipant = sourceRows.find((candidate) => Number(candidate.PACLEUNIK) === duel.rightParticipantId);
+      const leftLabel = leftParticipant
+        ? resolveProgrammedParticipantNameWith(context, { participant: leftParticipant, mode: 'stable' }, visited)
+        : `Participant ${duel.leftParticipantId}`;
+      const rightLabel = rightParticipant
+        ? resolveProgrammedParticipantNameWith(context, { participant: rightParticipant, mode: 'stable' }, visited)
+        : `Participant ${duel.rightParticipantId}`;
+      visited.delete(sourceValue);
+      return `${outcomeLabel} de ${leftLabel} vs ${rightLabel}`;
+    }
+
+    visited.delete(sourceValue);
+    return groupLabel ? `${outcomeLabel} du ${groupLabel}` : outcomeLabel;
+  }
+
+  const rankLabel = formatRankLabel(parsed.rank);
+  const parts: string[] = groupLabel ? [`${rankLabel} du ${groupLabel}`] : [`${rankLabel} de ${sourceTourName}`];
+  if (groupLabel) {
+    parts.push(`de ${sourceTourName}`);
+  }
+  if (sourceCompetitionName && sourceCompetitionId > 0 && sourceCompetitionId !== Number(competitionId ?? 0)) {
+    parts.push(`de ${sourceCompetitionName}`);
+  }
+  if (sourceSeason && sourceSeason !== String(competitionSeason ?? '').trim()) {
+    parts.push(sourceSeason);
+  }
+
+  visited.delete(sourceValue);
+  return parts.join(' ');
+}
+
 export function useProgrammedParticipantLabels(
   participants: TourParticipantRow[],
   competitionId: number,
@@ -149,21 +288,29 @@ export function useProgrammedParticipantResolver(
   // sinon un appelant qui ne memoise pas ses arguments declenche une boucle de rendu infinie.
   const sourceTourIdsKey = sourceTourIds.join(',');
 
+  // Resynchronise from the module caches while rendering whenever the set of ids changes.
+  const sourceTourIdsChanged = useDepsChanged([sourceTourIdsKey]);
+  if (sourceTourIdsChanged) {
+    if (sourceTourIds.length === 0) {
+      setSourceTourDetailsById((current) => (Object.keys(current).length === 0 ? current : {}));
+      setSourceCompetitionById((current) => (Object.keys(current).length === 0 ? current : {}));
+      setSourceTourParticipantsById((current) => (Object.keys(current).length === 0 ? current : {}));
+    } else {
+      const fromCache = buildInitialFromCache(sourceTourIds);
+      setSourceTourDetailsById(fromCache.details);
+      setSourceCompetitionById(fromCache.competitions);
+      setSourceTourParticipantsById(fromCache.participants);
+    }
+  }
+
   useEffect(() => {
     const tourIds = sourceTourIdsKey ? sourceTourIdsKey.split(',').map(Number) : [];
 
     if (tourIds.length === 0) {
-      setSourceTourDetailsById((current) => (Object.keys(current).length === 0 ? current : {}));
-      setSourceCompetitionById((current) => (Object.keys(current).length === 0 ? current : {}));
-      setSourceTourParticipantsById((current) => (Object.keys(current).length === 0 ? current : {}));
       return;
     }
 
     const fromCache = buildInitialFromCache(tourIds);
-    setSourceTourDetailsById(fromCache.details);
-    setSourceCompetitionById(fromCache.competitions);
-    setSourceTourParticipantsById(fromCache.participants);
-
     const missingTourIds = tourIds.filter((id) => !tourMetaCache.has(id) || !participantsCache.has(id));
     if (missingTourIds.length === 0) {
       return;
@@ -260,120 +407,15 @@ export function useProgrammedParticipantResolver(
     };
   }, [sourceTourIdsKey]);
 
-  const resolveDynamicNamesFromSource = useCallback((sourceValue: string, visited: Set<string>): string[] => {
-    const normalizedSource = String(sourceValue ?? '').trim();
-    if (!normalizedSource || visited.has(normalizedSource)) {
-      return [];
-    }
-
-    const parsed = parsePaSourceForLabel(normalizedSource);
-    if (!parsed) {
-      return [];
-    }
-
-    visited.add(normalizedSource);
-    const duel = parseEliminatoireGroupPair(parsed.groupName);
-    const sourceRows = sourceTourParticipantsById[String(parsed.tourId)] ?? [];
-    const candidates = duel
-      ? sourceRows.filter((candidate) => (
-        Number(candidate.PACLEUNIK) === duel.leftParticipantId
-        || Number(candidate.PACLEUNIK) === duel.rightParticipantId
-      ))
-      : sourceRows.filter(
-        (candidate) => String(candidate.GROUPE ?? '').trim() === parsed.groupName
-          && Number(candidate.PAClassement ?? 0) === parsed.rank,
-      );
-
-    const names = new Set<string>();
-    candidates.forEach((candidate) => {
-      const clubName = String(candidate.CLUB ?? '').trim();
-      if (clubName) {
-        names.add(clubName);
-      }
-
-      const nestedSource = String(candidate.PASource ?? '').trim();
-      if (nestedSource) {
-        resolveDynamicNamesFromSource(nestedSource, visited).forEach((name) => names.add(name));
-      }
-    });
-
-    visited.delete(normalizedSource);
-    return Array.from(names).sort((left, right) => left.localeCompare(right, 'fr', { sensitivity: 'base' }));
-  }, [sourceTourDetailsById, sourceTourParticipantsById]);
-
-  const resolveProgrammedParticipantName = useCallback((args: ProgrammedParticipantResolveArgs, visited: Set<string> = new Set()): string => {
-    const clubName = String(args.participant?.CLUB ?? args.fallbackClubName ?? '').trim();
-    if (clubName) {
-      return clubName;
-    }
-
-    const sourceValue = String(args.participant?.PASource ?? args.source ?? '').trim();
-    if (!sourceValue) {
-      return '(Participant programme)';
-    }
-
-    if (args.mode === 'dynamic') {
-      const names = resolveDynamicNamesFromSource(sourceValue, visited);
-      if (names.length > 0) {
-        return names.join('/');
-      }
-    }
-
-    if (visited.has(sourceValue)) {
-      return `Programme (${sourceValue})`;
-    }
-
-    const parsed = parsePaSourceForLabel(sourceValue);
-    if (!parsed) {
-      return `Programme (${sourceValue})`;
-    }
-
-    const sourceTour = sourceTourDetailsById[String(parsed.tourId)];
-    const sourceTourName = String(sourceTour?.NOM ?? sourceTour?.TOUR ?? '').trim() || `Tour ${parsed.tourId}`;
-    const sourceCompetitionId = Number(sourceTour?.COCLEUNIK ?? 0);
-    const sourceCompetition = sourceCompetitionById[String(sourceCompetitionId)];
-    const sourceCompetitionName = String(sourceCompetition?.NOM ?? '').trim();
-    const sourceSeason = String(sourceCompetition?.SAISON ?? '').trim();
-    const isEliminatoireSource = Number(sourceTour?.TYPE_ID ?? 0) === 2;
-    const groupLabel = formatGroupLabel(parsed.groupName);
-    visited.add(sourceValue);
-
-    if (isEliminatoireSource) {
-      const outcomeLabel = formatEliminatoireOutcomeLabel(parsed.rank);
-      const duel = parseEliminatoireGroupPair(parsed.groupName);
-      if (duel) {
-        const sourceRows = sourceTourParticipantsById[String(parsed.tourId)] ?? [];
-        const leftParticipant = sourceRows.find((candidate) => Number(candidate.PACLEUNIK) === duel.leftParticipantId);
-        const rightParticipant = sourceRows.find((candidate) => Number(candidate.PACLEUNIK) === duel.rightParticipantId);
-        const leftLabel = leftParticipant
-          ? resolveProgrammedParticipantName({ participant: leftParticipant, mode: 'stable' }, visited)
-          : `Participant ${duel.leftParticipantId}`;
-        const rightLabel = rightParticipant
-          ? resolveProgrammedParticipantName({ participant: rightParticipant, mode: 'stable' }, visited)
-          : `Participant ${duel.rightParticipantId}`;
-        visited.delete(sourceValue);
-        return `${outcomeLabel} de ${leftLabel} vs ${rightLabel}`;
-      }
-
-      visited.delete(sourceValue);
-      return groupLabel ? `${outcomeLabel} du ${groupLabel}` : outcomeLabel;
-    }
-
-    const rankLabel = formatRankLabel(parsed.rank);
-    const parts: string[] = groupLabel ? [`${rankLabel} du ${groupLabel}`] : [`${rankLabel} de ${sourceTourName}`];
-    if (groupLabel) {
-      parts.push(`de ${sourceTourName}`);
-    }
-    if (sourceCompetitionName && sourceCompetitionId > 0 && sourceCompetitionId !== Number(competitionId ?? 0)) {
-      parts.push(`de ${sourceCompetitionName}`);
-    }
-    if (sourceSeason && sourceSeason !== String(competitionSeason ?? '').trim()) {
-      parts.push(sourceSeason);
-    }
-
-    visited.delete(sourceValue);
-    return parts.join(' ');
-  }, [competitionId, competitionSeason, resolveDynamicNamesFromSource, sourceCompetitionById, sourceTourDetailsById, sourceTourParticipantsById]);
+  const resolveProgrammedParticipantName = useCallback((args: ProgrammedParticipantResolveArgs, visited: Set<string> = new Set()): string => (
+    resolveProgrammedParticipantNameWith({
+      competitionId,
+      competitionSeason,
+      sourceTourDetailsById,
+      sourceCompetitionById,
+      sourceTourParticipantsById,
+    }, args, visited)
+  ), [competitionId, competitionSeason, sourceCompetitionById, sourceTourDetailsById, sourceTourParticipantsById]);
 
   return resolveProgrammedParticipantName;
 }
