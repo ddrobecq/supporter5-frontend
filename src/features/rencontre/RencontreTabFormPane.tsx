@@ -26,7 +26,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
@@ -38,6 +38,7 @@ import { formatDateShort, isoDateOrNull, toIsoDate } from '../../components/date
 import { useInvalidDateFields } from '../../components/useInvalidDateFields';
 import { TimeInputField } from '../../components/TimeInputField';
 import { NumberField } from '../../components/NumberField';
+import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { useEntityImage } from '../../lib/useEntityImage';
@@ -449,7 +450,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     tabPath,
     onSaveRequest: () => handleSaveRef.current?.(),
   });
-  const initialSignatureRef = useRef<string>('');
+  const [initialSignature, setInitialSignature] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -509,11 +510,10 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     return fetchCircByTourType(tourType);
   }, []);
 
-  const reloadAll = useCallback(async () => {
-    setLoading(true);
-    setInitialLoadError(null);
-    try {
-      const loadedDetail = await fetchRencontreDetailById(rencontreId);
+  // Les appelants passent loading=true et initialLoadError=null au prealable (voir reloadAll et loadDepsChanged).
+  // L'executor transforme une exception synchrone du fetch en rejet (setState jamais synchrone).
+  const loadAll = useCallback(() => new Promise<RencontreDetailRow>((resolve) => resolve(fetchRencontreDetailById(rencontreId)))
+    .then(async (loadedDetail) => {
       const nextDraft = buildDraftFromDetail(loadedDetail);
       const readmin = Number(loadedDetail.READMIN ?? 0) || 0;
       const initialAdminEnabled = readmin > 0;
@@ -524,7 +524,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       setAdminDecisionEnabled(initialAdminEnabled);
 
       const signature = getDraftSignature(nextDraft, initialAdminEnabled);
-      initialSignatureRef.current = signature;
+      setInitialSignature(signature);
       setDirty(false);
       setIsEventsChanged(false);
       const domLabel = String(loadedDetail.DOMICILE_ABREGE ?? '').trim() || String(loadedDetail.DOMICILE_NOM_EFFECTIF ?? '').trim();
@@ -549,19 +549,53 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       } finally {
         setOptionsLoading(false);
       }
-    } catch (error) {
+    })
+    .catch((error: unknown) => {
       const message = toErrorMessage(error);
       setInitialLoadError(message);
       setSnackbar({ severity: 'error', message });
-    } finally {
+    })
+    .finally(() => {
       setLoading(false);
-    }
-  }, [loadCircsForTour, loadCompetitionsForSeason, loadToursForCompetition, rencontreId, setDirty, setLabel]);
+    }), [loadCircsForTour, loadCompetitionsForSeason, loadToursForCompetition, rencontreId, setDirty, setLabel]);
+
+  const reloadAll = useCallback(() => {
+    setLoading(true);
+    setInitialLoadError(null);
+    return loadAll();
+  }, [loadAll]);
+
+  // Etat de chargement pose pendant le rendu, sur les memes dependances que l'effet de chargement.
+  const loadDepsChanged = useDepsChanged([loadAll, setDirty]);
+  if (loadDepsChanged) {
+    setLoading(true);
+    setInitialLoadError(null);
+  }
 
   useEffect(() => {
-    void reloadAll();
+    void loadAll();
     return () => setDirty(false);
-  }, [reloadAll, setDirty]);
+  }, [loadAll, setDirty]);
+
+  // Mises a jour synchrones de l'effet ci-dessous, appliquees pendant le rendu sur les memes dependances.
+  const secondaryDepsChanged = useDepsChanged([active, detail]);
+  if (secondaryDepsChanged && detail && active) {
+    if (Number(detail.IS_SUPPORTED_CLUB_MATCH ?? 0) !== 1) {
+      setHighlights(null);
+      setComposition(null);
+      setActiveTab((current) => (current === 'classement' ? current : 'info'));
+    } else {
+      setHighlightsLoading(true);
+      const secondaryTourId = Number(detail.TUCLEUNIK ?? 0);
+      if (!Number.isInteger(secondaryTourId) || secondaryTourId <= 0) {
+        setTourMatches([]);
+        setTourParticipants([]);
+        setTourMatchesLoading(false);
+      } else {
+        setTourMatchesLoading(true);
+      }
+    }
+  }
 
   useEffect(() => {
     if (!detail || !active) {
@@ -570,13 +604,9 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
 
     const isSupportedClubMatch = Number(detail.IS_SUPPORTED_CLUB_MATCH ?? 0) === 1;
     if (!isSupportedClubMatch) {
-      setHighlights(null);
-      setComposition(null);
-      setActiveTab((current) => (current === 'classement' ? current : 'info'));
       return;
     }
 
-    setHighlightsLoading(true);
     void fetchRencontreHighlightsById(detail.RECLEUNIK)
       .then((data) => setHighlights(data))
       .catch((error) => setSnackbar({ severity: 'error', message: toErrorMessage(error) }))
@@ -591,13 +621,9 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
 
     const tourId = Number(detail.TUCLEUNIK ?? 0);
     if (!Number.isInteger(tourId) || tourId <= 0) {
-      setTourMatches([]);
-      setTourParticipants([]);
-      setTourMatchesLoading(false);
       return;
     }
 
-    setTourMatchesLoading(true);
     void Promise.all([
       fetchRencontreTourMatches(detail.RECLEUNIK),
       fetchTourParticipants(tourId),
@@ -610,8 +636,8 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       .finally(() => setTourMatchesLoading(false));
   }, [active, detail]);
 
-  useEffect(() => {
-    if (!detail) return;
+  // Recadre l'onglet actif s'il n'est pas disponible pour ce match (idempotent, applique pendant le rendu).
+  if (detail) {
     const isSupportedClubMatch = Number(detail.IS_SUPPORTED_CLUB_MATCH ?? 0) === 1;
     const isLigueTour = Number(detail.TUCLEUNIK ?? 0) > 0 && Number(detail.TYPE_TOUR ?? 1) !== 2;
     const allowedTabs: RencontreTabKey[] = ['info'];
@@ -620,12 +646,12 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     if (!allowedTabs.includes(activeTab)) {
       setActiveTab('info');
     }
-  }, [activeTab, detail]);
+  }
 
   const isDirty = useMemo(() => {
     if (!draft) return false;
-    return getDraftSignature(draft, adminDecisionEnabled) !== initialSignatureRef.current;
-  }, [draft, adminDecisionEnabled]);
+    return getDraftSignature(draft, adminDecisionEnabled) !== initialSignature;
+  }, [draft, adminDecisionEnabled, initialSignature]);
 
   useEffect(() => {
     setDirty(isDirty || isCompositionDirty || isEventDialogDirty || isEventsChanged);
@@ -689,7 +715,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     const nextAdminEnabled = readmin > 0;
     setDraft(nextDraft);
     setAdminDecisionEnabled(nextAdminEnabled);
-    initialSignatureRef.current = getDraftSignature(nextDraft, nextAdminEnabled);
+    setInitialSignature(getDraftSignature(nextDraft, nextAdminEnabled));
     setDirty(false);
     setIsEventsChanged(false);
   };
@@ -912,7 +938,9 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     resetDraft();
   };
 
-  handleSaveRef.current = handleGlobalSave;
+  useLayoutEffect(() => {
+    handleSaveRef.current = handleGlobalSave;
+  });
 
   const domicileClubId = String(detail?.DOMICILE ?? '').trim();
   const exterieurClubId = String(detail?.EXTERIEUR ?? '').trim();
