@@ -14,76 +14,8 @@ import { EntityFormDialog } from '../../components/EntityFormDialog';
 import { EntityImageFrame } from '../../components/EntityImageFrame';
 import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useDirtySignature } from '../../lib/useDirtySignature';
-import { useEntityImage } from '../../lib/useEntityImage';
-import { checkImageSize, measureTextBytes } from '../../config/uploadLimits';
+import { getEntityImageUrl, useEntityImage } from '../../lib/useEntityImage';
 import type { NatioRow } from './types';
-
-function svgToDataUrl(svg: string): string {
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-}
-
-function extractSvgMarkup(text: string): string {
-  const lower = text.toLowerCase();
-  const svgStart = lower.indexOf('<svg');
-  if (svgStart < 0) return '';
-  return text.slice(svgStart).trim();
-}
-
-function decodeBase64Utf8(base64: string): string {
-  const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
-}
-
-function asSvgText(value: unknown): string {
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    if (!trimmed) return '';
-
-    if (trimmed.toLowerCase().startsWith('data:image/svg+xml')) {
-      const commaIndex = trimmed.indexOf(',');
-      if (commaIndex < 0) return '';
-
-      const meta = trimmed.substring(0, commaIndex).toLowerCase();
-      const payload = trimmed.substring(commaIndex + 1);
-
-      if (meta.includes(';base64')) {
-        const decoded = decodeBase64Utf8(payload);
-        return extractSvgMarkup(decoded);
-      }
-
-      const decoded = decodeURIComponent(payload);
-      return extractSvgMarkup(decoded);
-    }
-
-    return extractSvgMarkup(trimmed);
-  }
-
-  if (Array.isArray(value) && value.every((item) => typeof item === 'number')) {
-    const bytes = new Uint8Array(value);
-    const text = new TextDecoder().decode(bytes).trim();
-    return extractSvgMarkup(text);
-  }
-
-  if (value && typeof value === 'object' && 'buffer' in (value as Record<string, unknown>)) {
-    const candidate = (value as { buffer?: unknown }).buffer;
-    if (Array.isArray(candidate) && candidate.every((item) => typeof item === 'number')) {
-      const bytes = new Uint8Array(candidate);
-      const text = new TextDecoder().decode(bytes).trim();
-      return extractSvgMarkup(text);
-    }
-  }
-
-  if (value && typeof value === 'object' && 'data' in (value as Record<string, unknown>)) {
-    const candidate = (value as { data?: unknown }).data;
-    if (Array.isArray(candidate) && candidate.every((item) => typeof item === 'number')) {
-      const bytes = new Uint8Array(candidate);
-      const text = new TextDecoder().decode(bytes).trim();
-      return extractSvgMarkup(text);
-    }
-  }
-
-  return '';
-}
 
 interface NatioFormDialogProps {
   open: boolean;
@@ -112,15 +44,22 @@ export function NatioFormDialog({
 }: NatioFormDialogProps) {
   const [values, setValues] = useState<NatioRow>({});
   const [saving, setSaving] = useState(false);
-  const [flagPreview, setFlagPreview] = useState('');
-  const [flagSvgContent, setFlagSvgContent] = useState('');
-  const [flagCleared, setFlagCleared] = useState(false);
+  const [flagDraft, setFlagDraft] = useState<string | null | undefined>(undefined);
   const [flagError, setFlagError] = useState<string | null>(null);
   const [imageRefreshToken, setImageRefreshToken] = useState(0);
   const editId = mode === 'edit' && primaryKey ? (initialData?.[primaryKey] as string | number | undefined) : undefined;
   const existingFlagImage = useEntityImage('natio', editId, imageRefreshToken);
-  const displayFlagSrc = flagSvgContent.trim() ? flagPreview : flagCleared ? '' : (existingFlagImage.src ?? '');
   const { setInitialSignature, syncDirty, markClean } = useDirtySignature(open, onDirtyChange);
+
+  const directFlagUrl = useMemo(() => {
+    const hasId = editId !== null && editId !== undefined && String(editId).trim() !== '';
+    return hasId ? getEntityImageUrl('natio', editId as string | number) : '';
+  }, [editId]);
+
+  const flagPreview = useMemo(
+    () => (flagDraft === undefined ? (existingFlagImage.src ?? directFlagUrl) : flagDraft),
+    [flagDraft, existingFlagImage.src, directFlagUrl],
+  );
 
   const labelsByField: Record<string, string> = {
     IDNATIO: 'Identifiant',
@@ -131,7 +70,7 @@ export function NatioFormDialog({
     NALOCAL: 'Pays local',
     CODE_ISO: 'Code ISO',
     NAT_ISO: 'Code ISO',
-    NAT_DRAPEAU: 'Drapeau (SVG)',
+    NAT_DRAPEAU: 'Drapeau',
   };
 
   const resolvedFields = useMemo(() => {
@@ -171,72 +110,40 @@ export function NatioFormDialog({
 
   // Initialize the form while rendering, on the dependencies of the former effect.
   const initDepsChanged = useDepsChanged([open, resolvedFields, initialData, setInitialSignature]);
-  if (initDepsChanged && open) {
+  if (initDepsChanged && !open) {
+    setFlagDraft(undefined);
+  } else if (initDepsChanged) {
     const initial: NatioRow = {};
     for (const field of resolvedFields) {
       initial[field] = (initialData?.[field] as string | number | null | undefined) ?? '';
     }
 
-    const rawFlagValue = initial.NAT_DRAPEAU;
-    const resolvedSvg = asSvgText(rawFlagValue);
     setValues(initial);
-    setFlagSvgContent('');
-    setFlagPreview('');
-    setFlagCleared(false);
+    setFlagDraft(undefined);
     setFlagError(null);
-
-    const signature = JSON.stringify({ ...initial, NAT_DRAPEAU: resolvedSvg.trim() || '' });
-    setInitialSignature(signature);
+    // The flag is tracked through flagDraft, not in the signature.
+    setInitialSignature(JSON.stringify({ ...initial, NAT_DRAPEAU: '' }));
   }
 
   useEffect(() => {
-    const currentSignature = JSON.stringify({ ...values, NAT_DRAPEAU: flagSvgContent.trim() || (flagCleared ? '_cleared_' : '') });
+    const currentSignature = JSON.stringify({ ...values, NAT_DRAPEAU: flagDraft === undefined ? '' : flagDraft });
     syncDirty(currentSignature);
-  }, [flagCleared, flagSvgContent, syncDirty, values]);
-
-  const handleFlagImageChange = (nextValue: string | null) => {
-    setFlagError(null);
-    if (nextValue === null) {
-      setFlagSvgContent('');
-      setFlagPreview('');
-      setFlagCleared(true);
-      return;
-    }
-    const svgText = asSvgText(nextValue);
-    if (svgText) {
-      const sizeError = checkImageSize('image/svg+xml', measureTextBytes(svgText));
-      if (sizeError) {
-        setFlagError(sizeError);
-        return;
-      }
-      setFlagSvgContent(svgText);
-      setFlagPreview(svgToDataUrl(svgText));
-    } else {
-      // Non-SVG image (e.g. pasted PNG) — store data URL directly
-      setFlagSvgContent(nextValue);
-      setFlagPreview(nextValue);
-    }
-    setFlagCleared(false);
-  };
+  }, [flagDraft, syncDirty, values]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
       const payload: NatioRow = { ...values };
       if (flagField) {
-        if (flagSvgContent.trim()) {
-          payload[flagField] = flagSvgContent.trim();
-        } else if (flagCleared) {
-          payload[flagField] = null;
-        } else {
+        if (flagDraft === undefined) {
           delete payload[flagField];
+        } else {
+          payload[flagField] = flagDraft;
         }
       }
       await onSubmit(payload);
-      if (mode === 'edit') {
-        setFlagSvgContent('');
-        setFlagPreview('');
-        setFlagCleared(false);
+      if (mode === 'edit' && flagDraft !== undefined) {
+        setFlagDraft(undefined);
         setImageRefreshToken((prev) => prev + 1);
       }
       markClean();
@@ -262,16 +169,19 @@ export function NatioFormDialog({
             <EntityImageFrame
               width={180}
               height={120}
-              loading={!flagSvgContent && !flagCleared && existingFlagImage.loading}
-              src={displayFlagSrc || null}
+              loading={flagDraft === undefined && existingFlagImage.loading}
+              src={flagPreview}
               alt="Aperçu du drapeau"
               objectFit="contain"
               editable
-              accept=".svg,image/svg+xml,image/*"
-              onChangeImage={handleFlagImageChange}
+              accept="image/*"
+              onChangeImage={(nextValue) => {
+                setFlagDraft(nextValue);
+                setFlagError(null);
+              }}
               onActionError={setFlagError}
               actionLabels={{
-                upload: 'Importer un drapeau SVG',
+                upload: 'Importer un drapeau',
                 paste: 'Coller un drapeau depuis le presse-papiers',
                 clear: 'Supprimer le drapeau',
               }}
