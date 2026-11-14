@@ -260,6 +260,7 @@ export function JoueurFormDialog({
   });
   const [contractsDeleteConfirmOpen, setContractsDeleteConfirmOpen] = useState(false);
   const [contractsDeleteSaving, setContractsDeleteSaving] = useState(false);
+  const [contractsNoClubConfirmResolver, setContractsNoClubConfirmResolver] = useState<((confirmed: boolean) => void) | null>(null);
   const [indemnitesFieldFocused, setIndemnitesFieldFocused] = useState(false);
   const [saisonOptions, setSaisonOptions] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<JoueurFormTabKey>('identite');
@@ -583,6 +584,16 @@ export function JoueurFormDialog({
     setContractsDeleteConfirmOpen(true);
   };
 
+  const askContractsNoClubConfirmation = () =>
+    new Promise<boolean>((resolve) => {
+      setContractsNoClubConfirmResolver(() => resolve);
+    });
+
+  const closeContractsNoClubConfirm = (confirmed: boolean) => {
+    contractsNoClubConfirmResolver?.(confirmed);
+    setContractsNoClubConfirmResolver(null);
+  };
+
   const handleContractsDialogSave = async (): Promise<boolean> => {
     const idJoueur = normalizeNullableText(values.IDJOUEUR);
     if (!idJoueur) {
@@ -616,11 +627,6 @@ export function JoueurFormDialog({
       : fallbackDeviseId;
     if (!Number.isInteger(deviseId) || deviseId <= 0) {
       setErrors((prev) => ({ ...prev, contracts: 'La devise est requise.' }));
-      return false;
-    }
-
-    if (transactionRequiresClub && !contractsDialogDraft.idClub) {
-      setErrors((prev) => ({ ...prev, contracts: 'Le club est requis pour ce type de transaction.' }));
       return false;
     }
 
@@ -663,13 +669,19 @@ export function JoueurFormDialog({
       return false;
     }
 
+    const clubId = transactionRequiresClub ? contractsDialogDraft.idClub.trim() : '';
+    if (transactionRequiresClub && !clubId) {
+      const confirmed = await askContractsNoClubConfirmation();
+      if (!confirmed) return false;
+    }
+
     setContractsDialogSaving(true);
     try {
       const payload = {
         date: dateIso,
         type: typeId,
         statut: statutValue,
-        idClub: transactionRequiresClub ? contractsDialogDraft.idClub : null,
+        idClub: clubId || null,
         salaire: salaireValue,
         indemnites: indemnitesValue,
         deviseId,
@@ -1425,6 +1437,19 @@ export function JoueurFormDialog({
         <DialogActions>
           <Button onClick={() => setContractsDialogOpen(false)} disabled={contractsDialogSaving}>Annuler</Button>
           <Button variant="contained" onClick={() => void handleContractsDialogSave()} disabled={contractsDialogSaving}>OK</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={contractsNoClubConfirmResolver != null} onClose={() => closeContractsNoClubConfirm(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Confirmer l'enregistrement</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Aucun club n'est renseigné pour cette transaction. Êtes-vous sûr de vouloir l'enregistrer sans club ?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => closeContractsNoClubConfirm(false)}>Annuler</Button>
+          <Button variant="contained" onClick={() => closeContractsNoClubConfirm(true)} autoFocus>Enregistrer quand même</Button>
         </DialogActions>
       </Dialog>
 
