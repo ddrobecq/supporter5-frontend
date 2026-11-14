@@ -1321,47 +1321,66 @@ export function JoueurFormDialog({
                   />
                 ) : null}
 
-                <ToggleButtonGroup
-                  color="primary"
-                  exclusive
-                  fullWidth
-                  value={contractsDialogDraft.indemnitesMode}
-                  onChange={(_event, value: IndemnitesMode | null) => {
-                    if (!value) return;
-                    setContractsDialogDraft((prev) => ({ ...prev, indemnitesMode: value }));
+                <Box
+                  component="fieldset"
+                  sx={{
+                    m: 0,
+                    px: 1.5,
+                    pt: 1,
+                    pb: 1.5,
+                    minWidth: 0,
+                    border: 1,
+                    borderColor: 'divider',
+                    borderRadius: 1,
                   }}
-                  size="small"
-                  aria-label="Indemnites"
                 >
-                  <ToggleButton value="montant">Montant</ToggleButton>
-                  <ToggleButton value="sans">Sans indemnité</ToggleButton>
-                  <ToggleButton value="inconnu">Inconnu</ToggleButton>
-                </ToggleButtonGroup>
-
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} sx={{ alignItems: { sm: 'flex-start' } }}>
-                  {contractsDialogDraft.indemnitesMode === 'montant' ? (
-                    <TextField
-                      label="Montant des indemnites"
-                      value={indemnitesFieldFocused ? contractsDialogDraft.indemnites : formatMoneyWithThousands(contractsDialogDraft.indemnites)}
-                      onChange={(event) => setContractsDialogDraft((prev) => ({ ...prev, indemnites: event.target.value }))}
-                      onFocus={() => setIndemnitesFieldFocused(true)}
-                      onBlur={() => setIndemnitesFieldFocused(false)}
-                      size="small"
+                  <Box component="legend" sx={{ px: 0.5, typography: 'caption', color: 'text.secondary' }}>
+                    Indemnités
+                  </Box>
+                  <Stack spacing={1.25}>
+                    <ToggleButtonGroup
+                      color="primary"
+                      exclusive
                       fullWidth
-                      slotProps={{ htmlInput: { inputMode: 'decimal' } }}
-                    />
-                  ) : null}
+                      value={contractsDialogDraft.indemnitesMode}
+                      onChange={(_event, value: IndemnitesMode | null) => {
+                        if (!value) return;
+                        setContractsDialogDraft((prev) => ({ ...prev, indemnitesMode: value }));
+                      }}
+                      size="small"
+                      aria-label="Indemnites"
+                    >
+                      <ToggleButton value="montant">Montant</ToggleButton>
+                      <ToggleButton value="sans">Sans indemnité</ToggleButton>
+                      <ToggleButton value="inconnu">Inconnu</ToggleButton>
+                    </ToggleButtonGroup>
 
-                  <Autocomplete
-                    options={contractsDevises}
-                    getOptionLabel={(option) => `${option.NOM} (${option.SYMBOLE})`}
-                    value={contractsDevises.find((option) => String(option.DVCLEUNIK) === contractsDialogDraft.deviseId) ?? null}
-                    onChange={(_event, option) => setContractsDialogDraft((prev) => ({ ...prev, deviseId: option ? String(option.DVCLEUNIK) : '' }))}
-                    renderInput={(params) => <TextField {...params} label="Devise" size="small" />}
-                    size="small"
-                    sx={{ width: { xs: '100%', sm: 170 }, flexShrink: 0 }}
-                  />
-                </Stack>
+                    {contractsDialogDraft.indemnitesMode === 'montant' ? (
+                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} sx={{ alignItems: { sm: 'flex-start' } }}>
+                        <TextField
+                          label="Montant des indemnites"
+                          value={indemnitesFieldFocused ? contractsDialogDraft.indemnites : formatMoneyWithThousands(contractsDialogDraft.indemnites)}
+                          onChange={(event) => setContractsDialogDraft((prev) => ({ ...prev, indemnites: event.target.value }))}
+                          onFocus={() => setIndemnitesFieldFocused(true)}
+                          onBlur={() => setIndemnitesFieldFocused(false)}
+                          size="small"
+                          fullWidth
+                          slotProps={{ htmlInput: { inputMode: 'decimal' } }}
+                        />
+
+                        <Autocomplete
+                          options={contractsDevises}
+                          getOptionLabel={(option) => `${option.NOM} (${option.SYMBOLE})`}
+                          value={contractsDevises.find((option) => String(option.DVCLEUNIK) === contractsDialogDraft.deviseId) ?? null}
+                          onChange={(_event, option) => setContractsDialogDraft((prev) => ({ ...prev, deviseId: option ? String(option.DVCLEUNIK) : '' }))}
+                          renderInput={(params) => <TextField {...params} label="Devise" size="small" />}
+                          size="small"
+                          sx={{ width: { xs: '100%', sm: 170 }, flexShrink: 0 }}
+                        />
+                      </Stack>
+                    ) : null}
+                  </Stack>
+                </Box>
               </>
             ) : (
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} sx={{ alignItems: { sm: 'flex-start' } }}>
