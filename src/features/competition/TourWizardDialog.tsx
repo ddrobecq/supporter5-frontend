@@ -569,7 +569,13 @@ export function TourWizardDialog({
             && normalizeText(existing.PASource) === paSource;
           if (onlyGroupChanged) {
             // Mise a jour en place cote serveur : conserve le PACLEUNIK.
-            await addTourParticipant(tourId, clubId, groupe, paSource);
+            // N'envoie que la cle d'identification (clubId ou paSource) : un participant
+            // qualifie resolu a les deux en base, et le serveur refuse les deux a la fois.
+            if (clubId) {
+              await addTourParticipant(tourId, clubId, groupe, '');
+            } else {
+              await addTourParticipant(tourId, '', groupe, paSource);
+            }
           } else {
             await removeTourParticipants(tourId, [], [participantId]);
             await addTourParticipant(tourId, clubId, groupe, paSource);
