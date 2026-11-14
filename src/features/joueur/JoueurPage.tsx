@@ -84,7 +84,7 @@ export function JoueurPage({ onOpenInTab, filterPosteType, initialSeason }: Joue
       minWidth: 260,
       sortable: true,
       renderCell: (params) => (
-        <EntityImageLabelCell entityType="joueurrg" entityId={params.row.IDJOUEUR} label={String(params.value ?? '')} />
+        <EntityImageLabelCell entityType="joueurrg" entityId={params.row.IDJOUEUR} label={String(params.value ?? '')} variant="avatar" />
       ),
     },
     {

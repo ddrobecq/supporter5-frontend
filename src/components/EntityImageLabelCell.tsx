@@ -9,17 +9,37 @@ interface EntityImageLabelCellProps {
   label: ReactNode;
   /** Optional content rendered after the label (e.g. a flag). */
   children?: ReactNode;
+  /** 'logo' (default): whole image, square box. 'avatar': portrait cropped into a circle. */
+  variant?: 'logo' | 'avatar';
 }
 
 // Grid cell with a decorative image left of the label. The 22px box (same size as ClubCell)
 // fits inside a compact row without growing it; it stays empty when there is no image.
-export function EntityImageLabelCell({ entityType, entityId, label, children }: EntityImageLabelCellProps) {
+export function EntityImageLabelCell({ entityType, entityId, label, children, variant = 'logo' }: EntityImageLabelCellProps) {
   const { src } = useEntityImage(entityType, entityId);
+  const isAvatar = variant === 'avatar';
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '100%', minWidth: 0 }}>
-      <Box sx={{ width: 22, height: 22, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Box
+        sx={{
+          width: 22,
+          height: 22,
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          ...(isAvatar && { borderRadius: '50%', overflow: 'hidden' }),
+        }}
+      >
         {src && (
-          <Box component="img" src={src} alt="" sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+          <Box
+            component="img"
+            src={src}
+            alt=""
+            sx={isAvatar
+              ? { width: '100%', height: '100%', objectFit: 'cover' }
+              : { maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+          />
         )}
       </Box>
       <Box sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</Box>

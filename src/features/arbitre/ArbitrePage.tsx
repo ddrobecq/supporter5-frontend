@@ -63,7 +63,7 @@ export function ArbitrePage({ onOpenInTab }: ArbitrePageProps) {
       const showFlag = idnatio && (!country || Number(country.NALOCAL ?? 0) !== 1);
 
       return (
-        <EntityImageLabelCell entityType="arbitre" entityId={params.row.IDARBITRE} label={`${nom} ${prenom}`}>
+        <EntityImageLabelCell entityType="arbitre" entityId={params.row.IDARBITRE} label={`${nom} ${prenom}`} variant="avatar">
           {showFlag && (
             <span style={{ display: 'inline-flex', alignItems: 'center' }}>
               <NatioFlag idnatio={String(idnatio)} />
