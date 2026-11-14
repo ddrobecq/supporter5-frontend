@@ -108,6 +108,7 @@ function resolveDynamicNamesFromSource(
   sourceValue: string,
   visited: Set<string>,
   sourceTourParticipantsById: Record<string, TourParticipantRow[]>,
+  sourceTourDetailsById: Record<string, SourceTourMeta>,
 ): string[] {
   const normalizedSource = String(sourceValue ?? '').trim();
   if (!normalizedSource || visited.has(normalizedSource)) {
@@ -122,15 +123,16 @@ function resolveDynamicNamesFromSource(
   visited.add(normalizedSource);
   const duel = parseEliminatoireGroupPair(parsed.groupName);
   const sourceRows = sourceTourParticipantsById[String(parsed.tourId)] ?? [];
+  const isEliminatoireSource = Number(sourceTourDetailsById[String(parsed.tourId)]?.TYPE_ID ?? 0) === 2;
+  const groupRows = sourceRows.filter((candidate) => String(candidate.GROUPE ?? '').trim() === parsed.groupName);
+  const rankedGroupRows = groupRows.filter((candidate) => Number(candidate.PAClassement ?? 0) === parsed.rank);
+  // Eliminatoire source not played yet (no ranking): every participant of the match remains a potential candidate.
   const candidates = duel
     ? sourceRows.filter((candidate) => (
       Number(candidate.PACLEUNIK) === duel.leftParticipantId
       || Number(candidate.PACLEUNIK) === duel.rightParticipantId
     ))
-    : sourceRows.filter(
-      (candidate) => String(candidate.GROUPE ?? '').trim() === parsed.groupName
-        && Number(candidate.PAClassement ?? 0) === parsed.rank,
-    );
+    : (rankedGroupRows.length === 0 && isEliminatoireSource ? groupRows : rankedGroupRows);
 
   const names = new Set<string>();
   candidates.forEach((candidate) => {
@@ -141,7 +143,7 @@ function resolveDynamicNamesFromSource(
 
     const nestedSource = String(candidate.PASource ?? '').trim();
     if (nestedSource) {
-      resolveDynamicNamesFromSource(nestedSource, visited, sourceTourParticipantsById).forEach((name) => names.add(name));
+      resolveDynamicNamesFromSource(nestedSource, visited, sourceTourParticipantsById, sourceTourDetailsById).forEach((name) => names.add(name));
     }
   });
 
@@ -172,7 +174,7 @@ function resolveProgrammedParticipantNameWith(
   }
 
   if (args.mode === 'dynamic') {
-    const names = resolveDynamicNamesFromSource(sourceValue, visited, sourceTourParticipantsById);
+    const names = resolveDynamicNamesFromSource(sourceValue, visited, sourceTourParticipantsById, sourceTourDetailsById);
     if (names.length > 0) {
       return names.join('/');
     }

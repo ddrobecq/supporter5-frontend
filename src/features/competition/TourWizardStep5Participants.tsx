@@ -2,18 +2,21 @@ import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, FormCon
 import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import { type GridRowId } from '@mui/x-data-grid';
-import { type Dispatch, type SetStateAction, useMemo, useState } from 'react';
+import { type Dispatch, type SetStateAction, useCallback, useMemo, useState } from 'react';
 import { useDepsChanged } from '../../lib/useDepsChanged';
 import { buildEffectiveGroupNames, getDistinctNonEmptyGroupNames } from './tourWizardGroups';
 import {
   getDistinctSourceGroups,
 } from './tourWizardProgrammedParticipants';
 import { useTourWizardProgrammedParticipants } from './useTourWizardProgrammedParticipants';
-import { useProgrammedParticipantLabels } from './useProgrammedParticipantLabels';
+import { useProgrammedParticipantResolver } from './useProgrammedParticipantLabels';
 import { TourParticipantGrid } from './TourParticipantGrid';
 import { ClubSelectionDialog } from './ClubSelectionDialog';
 import type { TourParticipantRow } from './types';
 import type { ClubGridRow } from '../club/types';
+
+/** Stable reference so the resolver memos are not invalidated on every render. */
+const NO_EXTRA_SOURCES: unknown[] = [];
 
 interface TourWizardStep5ParticipantsProps {
   competitionId: number;
@@ -31,7 +34,12 @@ export function TourWizardStep5Participants({ competitionId, currentTourOrder, c
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const [programDialogOpen, setProgramDialogOpen] = useState(false);
-  const getLabel = useProgrammedParticipantLabels(rows, competitionId, competitionSeason, onError);
+  const resolveProgrammedParticipantName = useProgrammedParticipantResolver(rows, competitionId, competitionSeason, NO_EXTRA_SOURCES, onError);
+  // Dynamic mode: shows the potential clubs (or the actual qualified club) instead of a generic "Vainqueur du Groupe ..." label.
+  const getLabel = useCallback(
+    (row: TourParticipantRow) => resolveProgrammedParticipantName({ participant: row, mode: 'dynamic' }),
+    [resolveProgrammedParticipantName],
+  );
 
   const {
     seasonOptions,
