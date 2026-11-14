@@ -3,6 +3,8 @@ import { Box, Stack, Tooltip, Typography } from '@mui/material';
 export interface CompletenessChipItem {
   key: string;
   label: string;
+  /** Lignes de detail affichees sous le libelle dans l'infobulle. */
+  details?: string[];
 }
 
 interface CompletenessChipProps {
@@ -18,7 +20,16 @@ export function CompletenessChip({ missing }: CompletenessChipProps) {
       title={(
         <Stack spacing={0.25}>
           {missing.map((item) => (
-            <Typography key={item.key} variant="caption" sx={{ display: 'block' }}>{item.label}</Typography>
+            <Box key={item.key}>
+              <Typography variant="caption" sx={{ display: 'block' }}>{item.label}</Typography>
+              {item.details && item.details.length > 0 && (
+                <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                  {item.details.map((detail, index) => (
+                    <Typography key={index} component="li" variant="caption" sx={{ display: 'list-item' }}>{detail}</Typography>
+                  ))}
+                </Box>
+              )}
+            </Box>
           ))}
         </Stack>
       )}
