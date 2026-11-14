@@ -1,4 +1,4 @@
-import type { GridRowId } from '@mui/x-data-grid';
+import type { GridRenderCellParams, GridRowId } from '@mui/x-data-grid';
 import { MenuItem, TextField } from '@mui/material';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
@@ -17,6 +17,7 @@ import { createCompetitionColumns } from './competitionColumnsHelper';
 import { CompetitionFormDialog } from './CompetitionFormDialog';
 import type { CompetitionRow, EpreuveOption, SaisonOption } from './types';
 import { readLastSelectedSeason, writeLastSelectedSeason } from '../saison/lastSelectedSeason';
+import { EntityImageLabelCell } from '../../components/EntityImageLabelCell';
 
 interface CompetitionPageProps {
   onOpenInTab?: (payload: { rowId: GridRowId; label: string }) => void;
@@ -26,7 +27,23 @@ type CompetitionListRow = CompetitionRow & {
   __isFinishedCompetition?: boolean;
 };
 
-const COMPETITION_COLUMNS = createCompetitionColumns().filter((col) => col.field !== 'IDEPREUVE');
+const COMPETITION_COLUMNS = createCompetitionColumns()
+  .filter((col) => col.field !== 'IDEPREUVE')
+  .map((col) => (col.field === 'NOM'
+    ? {
+      ...col,
+      renderCell: (params: GridRenderCellParams<CompetitionRow>) => {
+        const id = params.row.COCLEUNIK;
+        return (
+          <EntityImageLabelCell
+            entityType="competition"
+            entityId={typeof id === 'string' || typeof id === 'number' ? id : null}
+            label={String(params.value ?? '')}
+          />
+        );
+      },
+    }
+    : col));
 
 const getCompetitionRowId = (row: CompetitionRow): GridRowId =>
   (typeof row.COCLEUNIK === 'string' || typeof row.COCLEUNIK === 'number')

@@ -1,9 +1,9 @@
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useMemo } from 'react';
-import { Box } from '@mui/material';
 import { createArbitreWithWizard, deleteArbitre, fetchArbitre, fetchArbitreById, updateArbitre, canDeleteArbitre } from './arbitreApi';
 import { useNatioIndex, useNatioList } from '../natio/natioStore';
 import { NatioFlag } from '../../components/NatioFlag';
+import { EntityImageLabelCell } from '../../components/EntityImageLabelCell';
 import { ArbitreFormDialog } from './ArbitreFormDialog';
 import { ArbitreCreateWizardDialog } from './ArbitreCreateWizardDialog';
 import { EntityListPage } from '../../components/EntityListPage';
@@ -63,14 +63,13 @@ export function ArbitrePage({ onOpenInTab }: ArbitrePageProps) {
       const showFlag = idnatio && (!country || Number(country.NALOCAL ?? 0) !== 1);
 
       return (
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <span>{nom} {prenom}</span>
+        <EntityImageLabelCell entityType="arbitre" entityId={params.row.IDARBITRE} label={`${nom} ${prenom}`}>
           {showFlag && (
-            <span style={{ marginLeft: '0.25rem', display: 'inline-flex', alignItems: 'center' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center' }}>
               <NatioFlag idnatio={String(idnatio)} />
             </span>
           )}
-        </Box>
+        </EntityImageLabelCell>
       );
     },
   }], [natioById]);

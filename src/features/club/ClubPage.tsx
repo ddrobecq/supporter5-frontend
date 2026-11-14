@@ -1,6 +1,7 @@
 import type { GridColDef, GridRowId } from '@mui/x-data-grid';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { EntityImageLabelCell } from '../../components/EntityImageLabelCell';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
 import { toErrorMessage, useEntityPage } from '../../components/useEntityPage';
 import { canDeleteClub, createClubWithWizard, deleteClub, fetchClubGridById, fetchClubsGrid } from './clubApi';
@@ -46,6 +47,9 @@ export function ClubPage({ onOpenInTab, onSelectClub }: ClubPageProps) {
       minWidth: 170,
       flex: 0.55,
       sortable: true,
+      renderCell: (params) => (
+        <EntityImageLabelCell entityType="club" entityId={params.row.IDCLUB} label={String(params.value ?? '')} />
+      ),
     },
     {
       field: 'CLUB_NOM_COMPLET',

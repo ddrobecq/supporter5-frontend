@@ -2,6 +2,7 @@ import { Alert, FormControl, InputLabel, MenuItem, Select } from '@mui/material'
 import type { GridColDef, GridRowClassNameParams, GridRowId } from '@mui/x-data-grid';
 import axios from 'axios';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { EntityImageLabelCell } from '../../components/EntityImageLabelCell';
 import { EntityPageLayout } from '../../components/EntityPageLayout';
 import { toErrorMessage } from '../../components/useEntityPage';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
@@ -82,6 +83,9 @@ export function JoueurPage({ onOpenInTab, filterPosteType, initialSeason }: Joue
       flex: 1,
       minWidth: 260,
       sortable: true,
+      renderCell: (params) => (
+        <EntityImageLabelCell entityType="joueurrg" entityId={params.row.IDJOUEUR} label={String(params.value ?? '')} />
+      ),
     },
     {
       field: 'POSTE_NOM',
