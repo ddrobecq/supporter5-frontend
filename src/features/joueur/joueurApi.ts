@@ -27,7 +27,7 @@ export async function fetchJoueursGrid(
 ): Promise<JoueurGridRow[]> {
   const { data } = await http.get<GridResponse<JoueurGridRow>>(`${env.joueurPublicResource}/grid`, {
     params: {
-      season,
+      ...(season ? { season } : {}),
       ...(search ? { search } : {}),
       ...(posType != null ? { posType } : {}),
     },

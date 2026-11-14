@@ -1,4 +1,5 @@
-import { Alert, FormControl, InputLabel, MenuItem, Select } from '@mui/material';
+import ClearRoundedIcon from '@mui/icons-material/ClearRounded';
+import { Alert, FormControl, IconButton, InputAdornment, InputLabel, MenuItem, Select, Tooltip } from '@mui/material';
 import type { GridColDef, GridRowClassNameParams, GridRowId } from '@mui/x-data-grid';
 import axios from 'axios';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -9,7 +10,6 @@ import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { useNatioList } from '../natio/natioStore';
 import { usePostesList } from './postesStore';
 import { readLastSelectedSeason, writeLastSelectedSeason } from '../saison/lastSelectedSeason';
-import { useDepsChanged } from '../../lib/useDepsChanged';
 import {
   canDeleteJoueur,
   createJoueurWithWizard,
@@ -48,7 +48,9 @@ export function JoueurPage({ onOpenInTab, filterPosteType, initialSeason }: Joue
   const [seasons, setSeasons] = useState<SaisonRow[]>([]);
   const { rows: natioDatas } = useNatioList();
   const { rows: posteOptions } = usePostesList();
+  // '' means all seasons.
   const [selectedSeason, setSelectedSeason] = useState('');
+  const [seasonsInitialized, setSeasonsInitialized] = useState(false);
   const [search, setSearch] = useState('');
   const [selection, setSelection] = useState<GridRowId[]>([]);
   const [loading, setLoading] = useState(false);
@@ -156,25 +158,22 @@ export function JoueurPage({ onOpenInTab, filterPosteType, initialSeason }: Joue
               : data.length > 0 ? String(data[0].SAISON ?? '') : '';
           setSelectedSeason(target);
         }
+        setSeasonsInitialized(true);
       })
       .catch((error: unknown) => {
         if (axios.isAxiosError(error) && error.code === 'ERR_CANCELED') {
           return;
         }
         setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+        setSeasonsInitialized(true);
       });
 
     return () => controller.abort();
   }, []);
 
-  // No season clears the grid while rendering, on the dependencies of the loading effect below.
-  const gridDepsChanged = useDepsChanged([search, selectedSeason, filterPosteType]);
-  if (gridDepsChanged && !selectedSeason) {
-    setRows([]);
-  }
-
   useEffect(() => {
-    if (!selectedSeason) return;
+    // Wait for the initial season, to avoid an all-seasons fetch on mount.
+    if (!seasonsInitialized) return;
 
     const controller = new AbortController();
     const timeout = window.setTimeout(() => {
@@ -197,7 +196,7 @@ export function JoueurPage({ onOpenInTab, filterPosteType, initialSeason }: Joue
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [search, selectedSeason, filterPosteType]);
+  }, [search, selectedSeason, filterPosteType, seasonsInitialized]);
 
   const openCreateDialog = () => {
     setCreateDialogOpen(true);
@@ -238,7 +237,7 @@ export function JoueurPage({ onOpenInTab, filterPosteType, initialSeason }: Joue
   };
 
   const reloadGrid = async () => {
-    if (!selectedSeason) return;
+    if (!seasonsInitialized) return;
     setLoading(true);
     try {
       const data = await fetchJoueursGrid(selectedSeason, search.trim(), undefined, filterPosteType);
@@ -324,16 +323,37 @@ export function JoueurPage({ onOpenInTab, filterPosteType, initialSeason }: Joue
 
   const headerExtra = (
     <FormControl size="small" sx={{ width: { xs: 132, md: 170 }, flexShrink: 0 }}>
-      <InputLabel id="joueurs-saison-label">Saison</InputLabel>
+      <InputLabel id="joueurs-saison-label" shrink>Saison</InputLabel>
       <Select
         labelId="joueurs-saison-label"
         label="Saison"
+        notched
+        displayEmpty
         value={selectedSeason}
+        renderValue={(value) => value || 'Toutes saisons'}
         onChange={(event) => {
           const nextSeason = String(event.target.value);
           setSelectedSeason(nextSeason);
           writeLastSelectedSeason(nextSeason);
         }}
+        endAdornment={selectedSeason ? (
+          <InputAdornment position="end" sx={{ mr: 2 }}>
+            <Tooltip title="Toutes saisons">
+              <IconButton
+                size="small"
+                edge="end"
+                aria-label="Toutes saisons"
+                onMouseDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setSelectedSeason('');
+                }}
+              >
+                <ClearRoundedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </InputAdornment>
+        ) : null}
       >
         {seasons.map((season) => (
           <MenuItem key={season.SAISON} value={season.SAISON}>
@@ -399,7 +419,7 @@ export function JoueurPage({ onOpenInTab, filterPosteType, initialSeason }: Joue
         snackbar={snackbar}
         onCloseSnackbar={() => setSnackbar(null)}
       />
-      {!selectedSeason && seasons.length === 0 ? <Alert severity="info">Aucune saison disponible.</Alert> : null}
+      {seasonsInitialized && seasons.length === 0 ? <Alert severity="info">Aucune saison disponible.</Alert> : null}
       <style>
         {`
           .MuiDataGrid-row.joueur-sortie .MuiDataGrid-cell {
