@@ -1,4 +1,5 @@
 import {
+  Alert,
   Autocomplete,
   Box,
   Button,
@@ -63,10 +64,16 @@ function showPlayers(typeEvent: number): boolean {
   return typeEvent !== MatchEventType.TempsAdditionnel && typeEvent !== MatchEventType.PenaltySiffle;
 }
 
-/** Types pour lesquels JOUEUR1 est obligatoire sur un événement du club supporté. */
+/**
+ * Types pour lesquels JOUEUR1 est obligatoire sur un événement du club supporté.
+ * Remplacement : sortant et entrant sont facultatifs, mais au moins l'un des deux est requis (contrôlé au save).
+ */
 function requiresJoueur1(typeEvent: number): boolean {
-  return showPlayers(typeEvent);
+  return showPlayers(typeEvent) && typeEvent !== MatchEventType.Remplacement;
 }
+
+const MISSING_JOUEUR1_SUBSTITUTION_WARNING = "Joueur sortant inconnu : seule l'entrée du joueur sera enregistrée.";
+const MISSING_JOUEUR2_SUBSTITUTION_WARNING = 'Joueur entrant non renseigné : seule la sortie du joueur sera enregistrée.';
 
 function isOwnGoalCode(joueur1: string | null | undefined): boolean {
   return String(joueur1 ?? '').trim() === OWN_GOAL_PLAYER_CODE;
@@ -147,6 +154,7 @@ export function EventFormDialog({
   const savingRef = useRef(false);
   const [joueur1Missing, setJoueur1Missing] = useState(false);
   const [confirmResolver, setConfirmResolver] = useState<((confirmed: boolean) => void) | null>(null);
+  const [confirmMessage, setConfirmMessage] = useState('');
 
   // Load squad on open (loader shown while rendering, on the same dependencies as the effect below)
   const squadDepsChanged = useDepsChanged([open, rencontreId]);
@@ -255,10 +263,17 @@ export function EventFormDialog({
     p.SURNOM?.trim() || `${p.NOM} ${p.PRENOM}`.trim();
 
   const joueur1Required = !adversaire && !ownGoal && requiresJoueur1(typeEvent);
-  const joueur1InError = joueur1Missing && joueur1Required && joueur1 == null;
+  const isSupportedSubstitution = !adversaire && typeEvent === MatchEventType.Remplacement;
+  // Remplacement : joueur1Missing signale aussi « ni sortant ni entrant » (les deux champs passent en erreur).
+  const substitutionPlayersInError = joueur1Missing && isSupportedSubstitution && joueur1 == null && joueur2 == null;
+  const joueur1InError = (joueur1Missing && joueur1Required && joueur1 == null) || substitutionPlayersInError;
+  const substitutionWarning = isSupportedSubstitution && (joueur1 == null) !== (joueur2 == null)
+    ? (joueur1 == null ? MISSING_JOUEUR1_SUBSTITUTION_WARNING : MISSING_JOUEUR2_SUBSTITUTION_WARNING)
+    : null;
 
-  const askMissingJoueur2Confirmation = () =>
+  const askMissingPlayerConfirmation = (message: string) =>
     new Promise<boolean>((resolve) => {
+      setConfirmMessage(message);
       setConfirmResolver(() => resolve);
     });
 
@@ -286,10 +301,15 @@ export function EventFormDialog({
       setError('Le joueur est requis.');
       return false;
     }
+    if (isSupportedSubstitution && joueur1 == null && joueur2 == null) {
+      setJoueur1Missing(true);
+      setError('Indiquez au moins le joueur sortant ou le joueur entrant.');
+      return false;
+    }
     setJoueur1Missing(false);
-    if (!adversaire && typeEvent === MatchEventType.Remplacement && joueur2 == null) {
+    if (substitutionWarning) {
       setError(null);
-      const confirmed = await askMissingJoueur2Confirmation();
+      const confirmed = await askMissingPlayerConfirmation(substitutionWarning);
       if (!confirmed) return false;
     }
     const payload: EventPayload = {
@@ -496,14 +516,21 @@ export function EventFormDialog({
                   options={squad}
                   loading={squadLoading}
                   value={joueur2}
-                  onChange={(_, v) => setJoueur2(v)}
+                  onChange={(_, v) => {
+                    setJoueur2(v);
+                    if (v && joueur1Missing) {
+                      setJoueur1Missing(false);
+                      setError(null);
+                    }
+                  }}
                   getOptionLabel={playerLabel}
                   isOptionEqualToValue={(a, b) => a.IDJOUEUR === b.IDJOUEUR}
                   renderInput={(params) => (
-                    <TextField {...params} label={joueur2Label(typeEvent)} />
+                    <TextField {...params} label={joueur2Label(typeEvent)} error={substitutionPlayersInError} />
                   )}
                 />
               ) : null}
+              {substitutionWarning ? <Alert severity="warning">{substitutionWarning}</Alert> : null}
             </>
           ) : null}
 
@@ -542,7 +569,7 @@ export function EventFormDialog({
       <DialogTitle>Confirmer l'enregistrement</DialogTitle>
       <DialogContent dividers>
         <Typography variant="body2">
-          Le joueur entrant n'est pas renseigné. Êtes-vous sûr de vouloir enregistrer ?
+          {confirmMessage} Êtes-vous sûr de vouloir enregistrer ?
         </Typography>
       </DialogContent>
       <DialogActions>
