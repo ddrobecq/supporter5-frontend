@@ -147,8 +147,15 @@ export function StatsRecomputeDialog({ open, onClose }: StatsRecomputeDialogProp
     setErrorMessage('');
     setSuccessMessage('');
     try {
-      await http.post('/api/admin/stats/recompute', { saisons: selected });
-      setSuccessMessage(`Statistiques recalculées pour ${selected.length} saison(s).`);
+      const { data } = await http.post<{ saisons?: string[]; transactionsReaffectees?: number }>(
+        '/api/admin/stats/recompute',
+        { saisons: selected },
+      );
+      const reassigned = data?.transactionsReaffectees;
+      const reassignedSuffix = typeof reassigned === 'number'
+        ? ` — ${reassigned} transaction(s) réaffectée(s) à une autre saison`
+        : '';
+      setSuccessMessage(`Statistiques recalculées pour ${selected.length} saison(s)${reassignedSuffix}.`);
     } catch (error) {
       setErrorMessage(toErrorMessage(error));
     } finally {

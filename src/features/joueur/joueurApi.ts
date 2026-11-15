@@ -54,6 +54,15 @@ export async function fetchSaisons(signal?: AbortSignal): Promise<SaisonRow[]> {
   return data ?? [];
 }
 
+/** Season a transaction dated `date` (ISO) belongs to, deduced by the back from the last official match of each season. */
+export async function fetchTransactionSeason(date: string, signal?: AbortSignal): Promise<string> {
+  const { data } = await http.get<{ saison: string }>(`${env.saisonAdminResource}/transaction-season`, {
+    params: { date },
+    signal,
+  });
+  return String(data.saison ?? '').trim();
+}
+
 export async function fetchJoueurById(id: string | number, signal?: AbortSignal): Promise<JoueurRow> {
   const { data } = await http.get<JoueurRow>(`${env.joueurPublicResource}/${encodePathSegment(id)}`, { signal });
   return data;

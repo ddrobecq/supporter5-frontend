@@ -51,6 +51,7 @@ import {
   fetchJoueurTransactionOptions,
   fetchJoueurTransactions,
   fetchSaisons,
+  fetchTransactionSeason,
   updateJoueurHistory,
   updateJoueurTransaction,
 } from './joueurApi';
@@ -121,14 +122,6 @@ function toIndemnitesMode(value: number | null): IndemnitesMode {
   return Number(value) === 0 ? 'sans' : 'montant';
 }
 
-// Same rule as seasonFromDate in back/src/services/joueurs.service.ts: before July -> previous season.
-function seasonFromIsoDate(isoDate: string): string {
-  const year = Number(isoDate.slice(0, 4));
-  const month = Number(isoDate.slice(5, 7));
-  const startYear = month >= 7 ? year : year - 1;
-  return `${startYear}-${startYear + 1}`;
-}
-
 interface SensOption {
   value: '1' | '2' | '3';
   label: string;
@@ -197,7 +190,7 @@ function getContractsDialogSignature(draft: JoueurTransactionDialogDraft): strin
     indemnites: String(draft.indemnites ?? '').trim(),
     indemnitesMode: draft.indemnitesMode,
     echeance: String(draft.echeance ?? '').trim(),
-    saison: String(draft.saison ?? '').trim(),
+    // saison is left out: it is derived from the date by the back, not entered by the user.
   });
 }
 
@@ -263,6 +256,8 @@ export function JoueurFormDialog({
   const [contractsNoClubConfirmResolver, setContractsNoClubConfirmResolver] = useState<((confirmed: boolean) => void) | null>(null);
   const [indemnitesFieldFocused, setIndemnitesFieldFocused] = useState(false);
   const [saisonOptions, setSaisonOptions] = useState<string[]>([]);
+  const [contractsSeasonLoading, setContractsSeasonLoading] = useState(false);
+  const [contractsSeasonError, setContractsSeasonError] = useState('');
   const [activeTab, setActiveTab] = useState<JoueurFormTabKey>('identite');
   const [isIdentityDirty, setIsIdentityDirty] = useState(false);
   const historyDialogInitialSignatureRef = useRef('');
@@ -291,12 +286,11 @@ export function JoueurFormDialog({
   const transactionUsesSalaire = Number(selectedContractType?.TYT_SALAIRE ?? 0) !== 0;
   const transactionUsesIndemnites = Number(selectedContractType?.TYT_INDEMNITES ?? 0) !== 0;
   const transactionUsesMoney = transactionUsesSalaire || transactionUsesIndemnites;
-  const contractsSaisonOptions = useMemo(
-    () => (contractsDialogDraft.saison && !saisonOptions.includes(contractsDialogDraft.saison)
-      ? [contractsDialogDraft.saison, ...saisonOptions]
-      : saisonOptions),
-    [contractsDialogDraft.saison, saisonOptions],
-  );
+  const contractsDateIso = toIsoDate(contractsDialogDraft.date);
+  const contractsSeasonReady = Boolean(contractsDateIso)
+    && !contractsSeasonLoading
+    && !contractsSeasonError
+    && Boolean(contractsDialogDraft.saison);
   const isHistoryDialogDirty = historyDialogOpen
     && getHistoryDialogSignature(historyDialogDraft) !== historyDialogInitialSignatureRef.current;
   const isContractsDialogDirty = contractsDialogOpen
@@ -480,6 +474,33 @@ export function JoueurFormDialog({
     }));
   }, [contractsDialogOpen, selectedContractType, selectedContractSensOptions]);
 
+  // TRANSAC.SAISON is deduced from the date by the back; aborting the previous request on each
+  // date change guarantees that only the response for the latest date is applied.
+  useEffect(() => {
+    if (!contractsDialogOpen) return;
+    setContractsDialogDraft((prev) => (prev.saison ? { ...prev, saison: '' } : prev));
+    setContractsSeasonError('');
+    if (!contractsDateIso) {
+      setContractsSeasonLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setContractsSeasonLoading(true);
+    void fetchTransactionSeason(contractsDateIso, controller.signal)
+      .then((saison) => {
+        if (controller.signal.aborted) return;
+        setContractsDialogDraft((prev) => ({ ...prev, saison }));
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        setContractsSeasonError(toErrorMessage(error));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setContractsSeasonLoading(false);
+      });
+    return () => controller.abort();
+  }, [contractsDialogOpen, contractsDateIso]);
+
   const reloadHistory = async () => {
     const idJoueur = normalizeNullableText(values.IDJOUEUR);
     if (!idJoueur) {
@@ -540,7 +561,7 @@ export function JoueurFormDialog({
       indemnites: '',
       indemnitesMode: 'inconnu' as IndemnitesMode,
       echeance: '',
-      saison: seasonFromIsoDate(defaultDate),
+      saison: '',
     };
     setContractsDialogMode('create');
     setContractsDialogId(null);
@@ -613,6 +634,10 @@ export function JoueurFormDialog({
     const dateIso = toIsoDate(contractsDialogDraft.date);
     if (!dateIso) {
       setErrors((prev) => ({ ...prev, contracts: 'La date de transaction est requise.' }));
+      return false;
+    }
+    if (contractsSeasonLoading || contractsSeasonError) {
+      setErrors((prev) => ({ ...prev, contracts: contractsSeasonError || 'La saison de la transaction est en cours de calcul.' }));
       return false;
     }
     const saison = contractsDialogDraft.saison.trim();
@@ -1284,24 +1309,22 @@ export function JoueurFormDialog({
             <DateInputField
               label="Date"
               value={contractsDialogDraft.date}
-              onChange={(nextDate) => setContractsDialogDraft((prev) => {
-                if (nextDate === prev.date) return prev;
-                const nextIso = toIsoDate(nextDate);
-                return { ...prev, date: nextDate, saison: nextIso ? seasonFromIsoDate(nextIso) : prev.saison };
-              })}
+              onChange={(nextDate) => setContractsDialogDraft((prev) => (nextDate === prev.date ? prev : { ...prev, date: nextDate }))}
               onValidityChange={dateValidityHandler('contractDate')}
               size="small"
               fullWidth
               calendarAriaLabel="Calendrier transaction"
             />
 
-            <Autocomplete
-              options={contractsSaisonOptions}
-              getOptionLabel={(option) => option}
-              value={contractsDialogDraft.saison || null}
-              onChange={(_event, option) => setContractsDialogDraft((prev) => ({ ...prev, saison: String(option ?? '') }))}
-              renderInput={(params) => <TextField {...params} label="Saison" size="small" />}
+            <TextField
+              label="Saison"
+              value={contractsSeasonLoading ? '' : contractsDialogDraft.saison}
+              error={Boolean(contractsSeasonError)}
+              helperText={contractsSeasonError
+                || (contractsSeasonLoading ? 'Calcul de la saison...' : 'Déduite de la date de la transaction.')}
               size="small"
+              fullWidth
+              slotProps={{ input: { readOnly: true }, htmlInput: { tabIndex: -1 } }}
             />
 
             {transactionRequiresClub ? (
@@ -1437,7 +1460,7 @@ export function JoueurFormDialog({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setContractsDialogOpen(false)} disabled={contractsDialogSaving}>Annuler</Button>
-          <Button variant="contained" onClick={() => void handleContractsDialogSave()} disabled={contractsDialogSaving}>OK</Button>
+          <Button variant="contained" onClick={() => void handleContractsDialogSave()} disabled={contractsDialogSaving || !contractsSeasonReady}>OK</Button>
         </DialogActions>
       </Dialog>
 
