@@ -12,6 +12,8 @@ export const INCOMPLETS_SCREEN_BY_PATH: Record<string, IncompletsScreenKey> = {
 
 export interface IncompletsViewState {
   category: string;
+  /** Inclut les matchs amicaux (Rencontres incompletes). */
+  includeAmicaux: boolean;
   paginationModel: GridPaginationModel;
   sortModel: GridSortModel;
   filterModel: GridFilterModel;
@@ -23,6 +25,7 @@ export interface IncompletsViewState {
 
 export const DEFAULT_INCOMPLETS_VIEW_STATE: IncompletsViewState = {
   category: 'all',
+  includeAmicaux: false,
   paginationModel: { page: 0, pageSize: 25 },
   sortModel: [],
   filterModel: { items: [] },

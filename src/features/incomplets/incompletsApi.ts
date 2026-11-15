@@ -87,6 +87,7 @@ export interface RencontreIncompleteRow {
   BUTDOM: number | null;
   BUTEXT: number | null;
   COMPET_NOM: string | null;
+  OFFICIEL: number;
   SANS_ARBITRE: number;
   SANS_TERRAIN: number;
   SANS_ENTRAINEUR: number;

@@ -1,4 +1,4 @@
-import { Stack, Typography } from '@mui/material';
+import { FormControlLabel, Stack, Switch, Typography } from '@mui/material';
 import type { GridColDef } from '@mui/x-data-grid';
 import { useEffect, useMemo, useState } from 'react';
 import { ClubCell } from '../../components/ClubCell';
@@ -12,6 +12,7 @@ import {
   fetchRencontresIncompletes,
   type RencontreIncompleteRow,
 } from './incompletsApi';
+import { DEFAULT_INCOMPLETS_VIEW_STATE, incompletsViewStore } from './incompletsViewStore';
 
 function matchLabel(row: RencontreIncompleteRow): string {
   const domicile = row.DOMICILE_NOM?.trim() || row.DOMICILE || '?';
@@ -29,6 +30,14 @@ export function RencontresIncompletesPage() {
   const [rows, setRows] = useState<RencontreIncompleteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const includeAmicaux = incompletsViewStore(
+    (state) => (state.views.rencontres ?? DEFAULT_INCOMPLETS_VIEW_STATE).includeAmicaux,
+  );
+
+  const visibleRows = useMemo(
+    () => (includeAmicaux ? rows : rows.filter((row) => Number(row.OFFICIEL) === 1)),
+    [rows, includeAmicaux],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -79,7 +88,7 @@ export function RencontresIncompletesPage() {
     <IncompletsView<RencontreIncompleteRow>
       stateKey="rencontres"
       title="Rencontres incomplètes"
-      rows={rows}
+      rows={visibleRows}
       loading={loading}
       errorMessage={errorMessage}
       categories={RENCONTRE_INCOMPLETE_CATEGORIES}
@@ -87,6 +96,18 @@ export function RencontresIncompletesPage() {
       leadingColumns={leadingColumns}
       onRowOpen={openRencontreTab}
       countLabel={(count) => `${count} rencontre(s)`}
+      toolbarExtra={(
+        <FormControlLabel
+          control={(
+            <Switch
+              size="small"
+              checked={includeAmicaux}
+              onChange={(event) => incompletsViewStore.getState().update('rencontres', { includeAmicaux: event.target.checked })}
+            />
+          )}
+          label="Matchs amicaux"
+        />
+      )}
     />
   );
 }

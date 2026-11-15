@@ -19,7 +19,7 @@ import {
   type GridSortModel,
   type GridValidRowModel,
 } from '@mui/x-data-grid';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import {
   DEFAULT_INCOMPLETS_VIEW_STATE,
   incompletsViewStore,
@@ -47,6 +47,8 @@ interface IncompletsViewProps<R extends GridValidRowModel> {
   countLabel: (count: number) => string;
   /** Permet d'enrichir le libelle d'un chip avec des valeurs de la ligne. */
   chipLabel?: (category: IncompletCategory<R>, row: R) => string;
+  /** Controles supplementaires affiches dans l'en-tete, avant le compteur. */
+  toolbarExtra?: ReactNode;
 }
 
 /** Socle commun aux pages Outils > Fiches incompletes: filtre par categorie + grille cliquable. */
@@ -62,6 +64,7 @@ export function IncompletsView<R extends GridValidRowModel>({
   onRowOpen,
   countLabel,
   chipLabel,
+  toolbarExtra,
 }: IncompletsViewProps<R>) {
   const apiRef = useGridApiRef();
   const view = incompletsViewStore((state) => state.views[stateKey]) ?? DEFAULT_INCOMPLETS_VIEW_STATE;
@@ -187,6 +190,7 @@ export function IncompletsView<R extends GridValidRowModel>({
             <MenuItem key={item.key} value={item.key}>{item.label}</MenuItem>
           ))}
         </TextField>
+        {toolbarExtra}
         <Typography variant="body2" color="text.secondary">{countLabel(filteredRows.length)}</Typography>
       </Stack>
 
