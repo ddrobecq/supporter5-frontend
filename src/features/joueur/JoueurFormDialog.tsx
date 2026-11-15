@@ -876,8 +876,9 @@ export function JoueurFormDialog({
       const payload: JoueurRow = { ...values };
       payload.NAISSANCE = normalizeNullableText(payload.NAISSANCE);
       payload.DECES = normalizeNullableText(payload.DECES);
-      payload.IDVILLE = normalizeNullableCityId(payload.IDVILLE);
-      payload.VILLE_DECES = normalizeNullableCityId(payload.VILLE_DECES);
+      // DB convention for "no city" is 0 (JOUEURRG.IDVILLE is NOT NULL INTEGER).
+      payload.IDVILLE = normalizeNullableCityId(payload.IDVILLE) || 0;
+      payload.VILLE_DECES = normalizeNullableCityId(payload.VILLE_DECES) || 0;
       delete payload.VILLE_NOM;
       delete payload.VILLE_DECES_NOM;
       if (photoDraft === undefined) {
@@ -1014,7 +1015,7 @@ export function JoueurFormDialog({
             villeNatioId={birthVilleNatioId}
             entityNatioId={String(values.IDNATIO ?? '')}
             onChange={(id, name, natioId) => {
-              setValues((prev) => ({ ...prev, IDVILLE: id || null }));
+              setValues((prev) => ({ ...prev, IDVILLE: id || '' }));
               setBirthVilleName(name);
               setBirthVilleNatioId(natioId);
             }}
@@ -1038,7 +1039,7 @@ export function JoueurFormDialog({
             villeNatioId={deathVilleNatioId}
             entityNatioId={String(values.IDNATIO ?? '')}
             onChange={(id, name, natioId) => {
-              setValues((prev) => ({ ...prev, VILLE_DECES: id || null }));
+              setValues((prev) => ({ ...prev, VILLE_DECES: id || '' }));
               setDeathVilleName(name);
               setDeathVilleNatioId(natioId);
             }}
