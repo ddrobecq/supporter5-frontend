@@ -132,9 +132,7 @@ function toDisplayHeure(value: string | null | undefined): string {
 }
 
 function buildCompetitionLabel(row: Record<string, unknown>): string {
-  const nom = String(row.NOM ?? '').trim();
-  const saison = String(row.SAISON ?? '').trim();
-  return [nom, saison].filter(Boolean).join(' ');
+  return String(row.NOM ?? '').trim();
 }
 
 function buildDraftFromDetail(detail: RencontreDetailRow): RencontreDraft {
