@@ -108,7 +108,7 @@ export function CalendrierPage({ readOnly = false }: { readOnly?: boolean }) {
   const editing = useCalendrierRowEditing({
     orderedRows,
     setRows,
-    setError,
+    onError: (message) => setError(message),
     setSelectedRowId,
     onResultSaved: refreshClassementIfActive,
   });

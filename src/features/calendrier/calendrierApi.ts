@@ -41,6 +41,17 @@ export async function updateCalendarHeure(
   await http.put(`${env.rencontreAdminResource}/${encodeURIComponent(String(id))}`, payload);
 }
 
+interface UpdateDatePayload {
+  DATE: string;
+}
+
+export async function updateCalendarDate(
+  id: string | number,
+  payload: UpdateDatePayload,
+): Promise<void> {
+  await http.put(`${env.rencontreAdminResource}/${encodeURIComponent(String(id))}`, payload);
+}
+
 interface UpdateStatusPayload {
   ETAT: number;
 }

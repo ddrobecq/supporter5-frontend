@@ -5,9 +5,10 @@ import {
   normalizeHeureDigits,
   sanitizeHeureDigits,
 } from '../../components/heureUtils';
+import { toIsoDate } from '../../components/dateUtils';
 import { canEditScore, parseScoreInputValue, scoreToInputValue } from '../../lib/matchStatus';
 import { useLatestHandlers } from '../../lib/useLatestHandlers';
-import { updateCalendarHeure, updateCalendarScore, updateCalendarStatus } from './calendrierApi';
+import { updateCalendarDate, updateCalendarHeure, updateCalendarScore, updateCalendarStatus } from './calendrierApi';
 import { getStatusAfterScoreEdit } from './calendrierUtils';
 import type { ScoreDraft } from './ScoreCell';
 import type { CalendrierRow } from './types';
@@ -18,30 +19,36 @@ export interface CalendrierRowEditingOptions {
   /** Rows in display order, used to move the editor to the adjacent row. */
   orderedRows: CalendrierRow[];
   setRows: Dispatch<SetStateAction<CalendrierRow[]>>;
-  setError: Dispatch<SetStateAction<string | null>>;
+  /** Error sink: `message` is the user-facing fallback, `cause` the caught API error when there is one. */
+  onError: (message: string, cause?: unknown) => void;
   setSelectedRowId: Dispatch<SetStateAction<string | number | null>>;
   /** Called after a saved status or score change (the tour ranking may have changed). */
   onResultSaved: (row: CalendrierRow) => void;
+  /** Enables the inline date editor, inserted in the Tab cycle: status -> date -> heure -> score. */
+  withDate?: boolean;
 }
 
 /**
- * Inline editing of status / time / score in the calendar grid: one editor at a time, drafts,
+ * Inline editing of status / (date) / time / score in a match grid: one editor at a time, drafts,
  * save to the API, keyboard moves (Tab between fields, up/down between rows) and per-row save status.
  * Returned `handlers` are stable (see useLatestHandlers).
  */
 export function useCalendrierRowEditing({
   orderedRows,
   setRows,
-  setError,
+  onError,
   setSelectedRowId,
   onResultSaved,
+  withDate = false,
 }: CalendrierRowEditingOptions) {
   const [rowSaveStatus, setRowSaveStatus] = useState<Record<string, RowSaveStatus>>({});
   const [editingScoreRowId, setEditingScoreRowId] = useState<string | number | null>(null);
   const [editingHeureRowId, setEditingHeureRowId] = useState<string | number | null>(null);
   const [editingStatusRowId, setEditingStatusRowId] = useState<string | number | null>(null);
+  const [editingDateRowId, setEditingDateRowId] = useState<string | number | null>(null);
   const [scoreDraft, setScoreDraft] = useState<ScoreDraft>({ tabDom: '', butDom: '', butExt: '', tabExt: '' });
   const [heureDraftDigits, setHeureDraftDigits] = useState<string>('');
+  const [dateDraft, setDateDraft] = useState<string>('');
   const [statusDraft, setStatusDraft] = useState<number>(5);
   const [rowModified, setRowModified] = useState<Record<string, boolean>>({});
   const rowModifiedRef = useRef<Record<string, boolean>>({});
@@ -102,6 +109,7 @@ export function useCalendrierRowEditing({
 
     setSelectedRowId(row.RECLEUNIK);
     setEditingStatusRowId(null);
+    setEditingDateRowId(null);
     setEditingHeureRowId(null);
     setEditingScoreRowId(row.RECLEUNIK);
     const initialDraft = {
@@ -130,6 +138,7 @@ export function useCalendrierRowEditing({
   const startHeureEdit = (row: CalendrierRow): void => {
     setSelectedRowId(row.RECLEUNIK);
     setEditingStatusRowId(null);
+    setEditingDateRowId(null);
     setEditingScoreRowId(null);
     setEditingHeureRowId(row.RECLEUNIK);
     const initialDigits = sanitizeHeureDigits(normalizeHeureDigits(row.HEURE));
@@ -162,6 +171,7 @@ export function useCalendrierRowEditing({
 
   const startStatusEdit = (row: CalendrierRow): void => {
     setSelectedRowId(row.RECLEUNIK);
+    setEditingDateRowId(null);
     setEditingScoreRowId(null);
     setEditingHeureRowId(null);
     setEditingStatusRowId(row.RECLEUNIK);
@@ -211,8 +221,8 @@ export function useCalendrierRowEditing({
       onResultSaved(row);
       setRowStatusWithAutoHide(rowId, 'saved');
       return true;
-    } catch {
-      setError('Impossible d\'enregistrer le statut.');
+    } catch (error) {
+      onError('Impossible d\'enregistrer le statut.', error);
       setRowStatusWithAutoHide(rowId, 'failed');
       return false;
     } finally {
@@ -253,8 +263,8 @@ export function useCalendrierRowEditing({
       )));
       setRowStatusWithAutoHide(rowId, 'saved');
       return true;
-    } catch {
-      setError('Impossible d\'enregistrer l\'heure.');
+    } catch (error) {
+      onError('Impossible d\'enregistrer l\'heure.', error);
       setRowStatusWithAutoHide(rowId, 'failed');
       return false;
     } finally {
@@ -262,6 +272,64 @@ export function useCalendrierRowEditing({
       heureInitialDraftRef.current = '';
       setRowModifiedFlag(rowId, false);
       setEditingHeureRowId((current) => (current === rowId ? null : current));
+    }
+  };
+
+  const startDateEdit = (row: CalendrierRow): void => {
+    setSelectedRowId(row.RECLEUNIK);
+    setEditingStatusRowId(null);
+    setEditingHeureRowId(null);
+    setEditingScoreRowId(null);
+    setEditingDateRowId(row.RECLEUNIK);
+    setDateDraft(String(row.DATE ?? ''));
+  };
+
+  const updateDateDraft = (nextValue: string): void => {
+    setDateDraft(nextValue);
+  };
+
+  const cancelDateEdit = (row: CalendrierRow): void => {
+    setDateDraft('');
+    setEditingDateRowId((current) => (current === row.RECLEUNIK ? null : current));
+  };
+
+  const commitDateEdit = async (row: CalendrierRow, nextIsoDate?: string): Promise<boolean> => {
+    const rowId = row.RECLEUNIK;
+    if (editingDateRowId !== rowId) return false;
+    if (savingScoreRowIdRef.current === rowId) return false;
+
+    const isoDate = toIsoDate(typeof nextIsoDate === 'string' ? nextIsoDate : dateDraft);
+    if (!isoDate) {
+      onError('Date invalide.');
+      return false;
+    }
+
+    if (isoDate === String(row.DATE ?? '')) {
+      setDateDraft('');
+      setEditingDateRowId((current) => (current === rowId ? null : current));
+      return true;
+    }
+
+    savingScoreRowIdRef.current = rowId;
+    setRowStatusWithAutoHide(rowId, 'saving');
+
+    try {
+      await updateCalendarDate(rowId, { DATE: isoDate });
+      setRows((prev) => prev.map((item) => (
+        item.RECLEUNIK === rowId
+          ? { ...item, DATE: isoDate }
+          : item
+      )));
+      setRowStatusWithAutoHide(rowId, 'saved');
+      return true;
+    } catch (error) {
+      onError('Impossible d\'enregistrer la date.', error);
+      setRowStatusWithAutoHide(rowId, 'failed');
+      return false;
+    } finally {
+      savingScoreRowIdRef.current = null;
+      setDateDraft('');
+      setEditingDateRowId((current) => (current === rowId ? null : current));
     }
   };
 
@@ -339,8 +407,8 @@ export function useCalendrierRowEditing({
       onResultSaved(row);
       setRowStatusWithAutoHide(rowId, 'saved');
       return true;
-    } catch {
-      setError('Impossible d\'enregistrer le score.');
+    } catch (error) {
+      onError('Impossible d\'enregistrer le score.', error);
       setRowStatusWithAutoHide(rowId, 'failed');
       return false;
     } finally {
@@ -374,7 +442,7 @@ export function useCalendrierRowEditing({
     return orderedRowsRef.current.find((item) => String(item.RECLEUNIK) === String(rowId));
   };
 
-  const openFieldForRowId = (rowId: string | number, field: 'status' | 'heure' | 'score'): void => {
+  const openFieldForRowId = (rowId: string | number, field: 'status' | 'date' | 'heure' | 'score'): void => {
     window.requestAnimationFrame(() => {
       const latestRow = findLatestOrderedRowById(rowId);
       if (!latestRow) {
@@ -383,6 +451,11 @@ export function useCalendrierRowEditing({
 
       if (field === 'status') {
         startStatusEdit(latestRow);
+        return;
+      }
+
+      if (field === 'date') {
+        startDateEdit(latestRow);
         return;
       }
 
@@ -407,11 +480,26 @@ export function useCalendrierRowEditing({
     }
 
     if (direction === 'next') {
-      openFieldForRowId(rowId, 'heure');
+      openFieldForRowId(rowId, withDate ? 'date' : 'heure');
       return;
     }
 
     openFieldForRowId(rowId, 'score');
+  };
+
+  const handleDateTabOut = async (row: CalendrierRow, direction: 'next' | 'prev') => {
+    const rowId = row.RECLEUNIK;
+    const committed = await commitDateEdit(row);
+    if (!committed) {
+      return;
+    }
+
+    if (direction === 'next') {
+      openFieldForRowId(rowId, 'heure');
+      return;
+    }
+
+    openFieldForRowId(rowId, 'status');
   };
 
   const handleHeureTabOut = async (row: CalendrierRow, direction: 'next' | 'prev') => {
@@ -426,7 +514,7 @@ export function useCalendrierRowEditing({
       return;
     }
 
-    openFieldForRowId(rowId, 'status');
+    openFieldForRowId(rowId, withDate ? 'date' : 'status');
   };
 
   const handleScoreTabOut = async (row: CalendrierRow, direction: 'next' | 'prev') => {
@@ -450,6 +538,11 @@ export function useCalendrierRowEditing({
     commitStatusEdit,
     cancelStatusEdit,
     handleStatusTabOut,
+    startDateEdit,
+    updateDateDraft,
+    commitDateEdit,
+    cancelDateEdit,
+    handleDateTabOut,
     startHeureEdit,
     updateHeureDraft,
     commitHeureEdit,
@@ -469,6 +562,8 @@ export function useCalendrierRowEditing({
     rowSaveStatus,
     editingStatusRowId,
     statusDraft,
+    editingDateRowId,
+    dateDraft,
     editingHeureRowId,
     heureDraftDigits,
     editingScoreRowId,
