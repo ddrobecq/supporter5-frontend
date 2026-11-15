@@ -23,7 +23,7 @@ const EVENT_TYPES_WITHOUT_PLAYER = new Set<number>([MatchEventType.PenaltySiffle
 /** Buts et penaltys marques: JOUEUR2 designe le passeur. */
 const EVENT_TYPES_WITH_ASSIST = new Set<number>([MatchEventType.But, MatchEventType.PenaltyMarque]);
 /** Code joueur reserve au but contre son camp. */
-const OWN_GOAL_PLAYER_CODE = '0000';
+export const OWN_GOAL_PLAYER_CODE = '0000';
 
 function readPlayerCode(value: string | null | undefined): string {
   return String(value ?? '').trim();

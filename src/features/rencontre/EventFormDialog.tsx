@@ -23,6 +23,7 @@ import { useDepsChanged } from '../../lib/useDepsChanged';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { MATCH_EVENT_TYPES, MatchEventType } from './matchEventTypes';
 import { createRencontreEvent, updateRencontreEvent, type EventPayload, fetchRencontreSquad } from './rencontreApi';
+import { OWN_GOAL_PLAYER_CODE } from './rencontreCompleteness';
 import type { RencontreHighlightEventRow, SquadPlayerRow } from './types';
 
 const PERIODE_OPTIONS = [
@@ -67,8 +68,13 @@ function requiresJoueur1(typeEvent: number): boolean {
   return showPlayers(typeEvent);
 }
 
+function isOwnGoalCode(joueur1: string | null | undefined): boolean {
+  return String(joueur1 ?? '').trim() === OWN_GOAL_PLAYER_CODE;
+}
+
 function getEventDraftSignature(values: {
   adversaire: boolean;
+  ownGoal: boolean;
   minute: string;
   periode: number;
   typeEvent: number;
@@ -78,6 +84,7 @@ function getEventDraftSignature(values: {
 }): string {
   return JSON.stringify({
     adversaire: values.adversaire,
+    ownGoal: values.ownGoal,
     minute: String(values.minute ?? '').trim(),
     periode: Number(values.periode ?? 0),
     typeEvent: Number(values.typeEvent ?? 0),
@@ -124,6 +131,7 @@ export function EventFormDialog({
   const isEdit = event != null;
 
   const [adversaire, setAdversaire] = useState(false);
+  const [ownGoal, setOwnGoal] = useState(false);
   const [minute, setMinute] = useState('');
   const [periode, setPeriode] = useState(1);
   const [typeEvent, setTypeEvent] = useState<number>(MatchEventType.But);
@@ -159,12 +167,14 @@ export function EventFormDialog({
   if (formDepsChanged && open) {
     if (event) {
       setAdversaire(event.ADVERSAIRE === 1);
+      setOwnGoal(isOwnGoalCode(event.JOUEUR1));
       setMinute(String(event.MINUTE ?? ''));
       setPeriode(event.PERIODE ?? 1);
       setTypeEvent(event.TYPE_EVENT ?? MatchEventType.But);
       setComment(event.COMMENT ?? '');
       setInitialSignature(getEventDraftSignature({
         adversaire: event.ADVERSAIRE === 1,
+        ownGoal: isOwnGoalCode(event.JOUEUR1),
         minute: String(event.MINUTE ?? ''),
         periode: event.PERIODE ?? 1,
         typeEvent: event.TYPE_EVENT ?? MatchEventType.But,
@@ -175,6 +185,7 @@ export function EventFormDialog({
       // joueur1/2 resolved after squad loads
     } else {
       setAdversaire(false);
+      setOwnGoal(false);
       setMinute('');
       setPeriode(1);
       setTypeEvent(MatchEventType.But);
@@ -185,6 +196,7 @@ export function EventFormDialog({
       setJoueur1Missing(false);
       setInitialSignature(getEventDraftSignature({
         adversaire: false,
+        ownGoal: false,
         minute: '',
         periode: 1,
         typeEvent: MatchEventType.But,
@@ -202,12 +214,18 @@ export function EventFormDialog({
     setJoueur2(squad.find((p) => p.IDJOUEUR === event.JOUEUR2) ?? null);
   }
 
+  // Le CSC ne concerne qu'un but du club supporté : on décoche dès que ce n'est plus le cas.
+  if (ownGoal && (typeEvent !== MatchEventType.But || adversaire)) {
+    setOwnGoal(false);
+  }
+
   const isDirty = open && getEventDraftSignature({
     adversaire,
+    ownGoal,
     minute,
     periode,
     typeEvent,
-    joueur1Id: joueur1?.IDJOUEUR ?? '',
+    joueur1Id: ownGoal ? OWN_GOAL_PLAYER_CODE : (joueur1?.IDJOUEUR ?? ''),
     joueur2Id: joueur2?.IDJOUEUR ?? '',
     comment,
   }) !== initialSignature;
@@ -236,7 +254,7 @@ export function EventFormDialog({
   const playerLabel = (p: SquadPlayerRow) =>
     p.SURNOM?.trim() || `${p.NOM} ${p.PRENOM}`.trim();
 
-  const joueur1Required = !adversaire && requiresJoueur1(typeEvent);
+  const joueur1Required = !adversaire && !ownGoal && requiresJoueur1(typeEvent);
   const joueur1InError = joueur1Missing && joueur1Required && joueur1 == null;
 
   const askMissingJoueur2Confirmation = () =>
@@ -279,7 +297,9 @@ export function EventFormDialog({
       minute: min,
       periode,
       typeEvent,
-      joueur1: !showPlayers(typeEvent) || adversaire ? null : (joueur1?.IDJOUEUR ?? null),
+      joueur1: !showPlayers(typeEvent) || adversaire
+        ? null
+        : (ownGoal ? OWN_GOAL_PLAYER_CODE : (joueur1?.IDJOUEUR ?? null)),
       joueur2: !showPlayers(typeEvent) || !showJoueur2(typeEvent) || adversaire ? null : (joueur2?.IDJOUEUR ?? null),
       comment: comment.trim() || null,
     };
@@ -292,10 +312,11 @@ export function EventFormDialog({
         : await createRencontreEvent(rencontreId, payload);
       setInitialSignature(getEventDraftSignature({
         adversaire,
+        ownGoal,
         minute,
         periode,
         typeEvent,
-        joueur1Id: joueur1?.IDJOUEUR ?? '',
+        joueur1Id: ownGoal ? OWN_GOAL_PLAYER_CODE : (joueur1?.IDJOUEUR ?? ''),
         joueur2Id: joueur2?.IDJOUEUR ?? '',
         comment,
       }));
@@ -314,6 +335,7 @@ export function EventFormDialog({
   const handleReset = () => {
     if (event) {
       setAdversaire(event.ADVERSAIRE === 1);
+      setOwnGoal(isOwnGoalCode(event.JOUEUR1));
       setMinute(String(event.MINUTE ?? ''));
       setPeriode(event.PERIODE ?? 1);
       setTypeEvent(event.TYPE_EVENT ?? MatchEventType.But);
@@ -324,6 +346,7 @@ export function EventFormDialog({
     }
 
     setAdversaire(false);
+    setOwnGoal(false);
     setMinute('');
     setPeriode(1);
     setTypeEvent(MatchEventType.But);
@@ -421,30 +444,53 @@ export function EventFormDialog({
             </Select>
           </FormControl>
 
+          {typeEvent === MatchEventType.But && !adversaire ? (
+            <FormControlLabel
+              control={(
+                <Checkbox
+                  checked={ownGoal}
+                  onChange={(e) => {
+                    setOwnGoal(e.target.checked);
+                    if (e.target.checked) {
+                      setJoueur1(null);
+                      if (joueur1Missing) {
+                        setJoueur1Missing(false);
+                        setError(null);
+                      }
+                    }
+                  }}
+                />
+              )}
+              label="But contre son camp"
+            />
+          ) : null}
+
           {!adversaire && showPlayers(typeEvent) ? (
             <>
-              <Autocomplete
-                options={squad}
-                loading={squadLoading}
-                value={joueur1}
-                onChange={(_, v) => {
-                  setJoueur1(v);
-                  if (v && joueur1Missing) {
-                    setJoueur1Missing(false);
-                    setError(null);
-                  }
-                }}
-                getOptionLabel={playerLabel}
-                isOptionEqualToValue={(a, b) => a.IDJOUEUR === b.IDJOUEUR}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label={joueur1Label(typeEvent)}
-                    required={joueur1Required}
-                    error={joueur1InError}
-                  />
-                )}
-              />
+              {!ownGoal ? (
+                <Autocomplete
+                  options={squad}
+                  loading={squadLoading}
+                  value={joueur1}
+                  onChange={(_, v) => {
+                    setJoueur1(v);
+                    if (v && joueur1Missing) {
+                      setJoueur1Missing(false);
+                      setError(null);
+                    }
+                  }}
+                  getOptionLabel={playerLabel}
+                  isOptionEqualToValue={(a, b) => a.IDJOUEUR === b.IDJOUEUR}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={joueur1Label(typeEvent)}
+                      required={joueur1Required}
+                      error={joueur1InError}
+                    />
+                  )}
+                />
+              ) : null}
               {showJoueur2(typeEvent) ? (
                 <Autocomplete
                   options={squad}
