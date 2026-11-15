@@ -2,13 +2,13 @@ import AutorenewRoundedIcon from '@mui/icons-material/AutorenewRounded';
 import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
 import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
 import HealingRoundedIcon from '@mui/icons-material/HealingRounded';
-import ReportRoundedIcon from '@mui/icons-material/ReportRounded';
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded';
 import SquareRoundedIcon from '@mui/icons-material/SquareRounded';
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
 import TimerRoundedIcon from '@mui/icons-material/TimerRounded';
 import type { SvgIconComponent } from '@mui/icons-material';
 import { alpha } from '@mui/material/styles';
+import SecondYellowCardIcon from './SecondYellowCardIcon';
 
 /** Valeurs de EVENT.TYPE_EVENT. */
 export const MatchEventType = {
@@ -37,7 +37,7 @@ export const MATCH_EVENT_TYPES: readonly MatchEventTypeDef[] = [
   { value: MatchEventType.But,              label: 'But',                    Icon: SportsSoccerRoundedIcon, color: '#0f766e' },
   { value: MatchEventType.Remplacement,     label: 'Remplacement',           Icon: AutorenewRoundedIcon,    color: '#1d4ed8' },
   { value: MatchEventType.CartonJaune,      label: 'Carton Jaune',           Icon: SquareRoundedIcon,       color: '#eab308' },
-  { value: MatchEventType.SecondJaune,      label: '2ème Jaune / Expulsion', Icon: ReportRoundedIcon,       color: '#ea580c' },
+  { value: MatchEventType.SecondJaune,      label: '2ème Jaune / Expulsion', Icon: SecondYellowCardIcon,    color: '#ea580c' },
   { value: MatchEventType.CartonRouge,      label: 'Carton Rouge',           Icon: SquareRoundedIcon,       color: '#dc2626' },
   { value: MatchEventType.PenaltySiffle,    label: 'Penalty sifflé',         Icon: FlagRoundedIcon,         color: '#7c3aed' },
   { value: MatchEventType.PenaltyMarque,    label: 'Penalty marqué',         Icon: TaskAltRoundedIcon,      color: '#16a34a' },
@@ -48,11 +48,20 @@ export const MATCH_EVENT_TYPES: readonly MatchEventTypeDef[] = [
 
 const MATCH_EVENT_TYPE_BY_VALUE = new Map<number, MatchEventTypeDef>(MATCH_EVENT_TYPES.map((def) => [def.value, def]));
 
-/** Rendu d'un type d'événement ; fallback neutre pour un type inconnu. */
-export function getMatchEventVisual(typeEvent: number): { Icon: SvgIconComponent; color: string; backgroundColor: string } {
+/** Couleur du but contre son camp (CSC) en faveur du club suivi. */
+const OWN_GOAL_COLOR = '#0284c7';
+
+/** Rendu d'un type d'événement ; fallback neutre pour un type inconnu. `ownGoal` : but CSC, même icône que le but, en bleu. */
+export function getMatchEventVisual(
+  typeEvent: number,
+  options?: { ownGoal?: boolean },
+): { Icon: SvgIconComponent; color: string; backgroundColor: string } {
   const def = MATCH_EVENT_TYPE_BY_VALUE.get(typeEvent);
   if (!def) {
     return { Icon: FlagRoundedIcon, color: '#4b5563', backgroundColor: 'action.hover' };
+  }
+  if (options?.ownGoal && def.value === MatchEventType.But) {
+    return { Icon: def.Icon, color: OWN_GOAL_COLOR, backgroundColor: alpha(OWN_GOAL_COLOR, 0.15) };
   }
   return { Icon: def.Icon, color: def.color, backgroundColor: alpha(def.color, 0.15) };
 }

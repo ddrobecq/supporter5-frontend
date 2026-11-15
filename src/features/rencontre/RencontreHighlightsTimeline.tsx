@@ -5,6 +5,7 @@ import type { ReactElement } from 'react';
 import { MatchEventType, getMatchEventVisual } from './matchEventTypes';
 import type { RencontreHighlightEventRow } from './types';
 import { sortHighlightEvents } from './highlightEvents';
+import { OWN_GOAL_PLAYER_CODE } from './rencontreCompleteness';
 import { containerButtonResetSx } from '../../theme/buttonResetSx';
 
 function formatEventMinute(eventRow: RencontreHighlightEventRow): string {
@@ -164,7 +165,9 @@ export function RencontreHighlightsTimeline({
 
         const eventRow = node.row;
         const eventText = eventRow.TEXT || String(eventRow.COMMENT ?? '');
-        const visual = getMatchEventVisual(Number(eventRow.TYPE_EVENT ?? 0));
+        const isOwnGoal = Number(eventRow.ADVERSAIRE ?? 0) === 0
+          && String(eventRow.JOUEUR1 ?? '').trim() === OWN_GOAL_PLAYER_CODE;
+        const visual = getMatchEventVisual(Number(eventRow.TYPE_EVENT ?? 0), { ownGoal: isOwnGoal });
         const eventIcon = <visual.Icon fontSize="inherit" />;
         const minuteText = formatEventMinute(eventRow) || '-';
         const isSelected = selectedEventId === eventRow.EVCLEUNIK;
