@@ -1,5 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useEffect, useRef, useState } from 'react';
 import { emitTabSaveDone, emitTabSaveFailed, TAB_EVENTS, useTabMetaEvents } from './useTabMetaEvents';
+
+/**
+ * Fourni par les panes qui passent `saveRequestCount` au formulaire: le formulaire appelle
+ * `settle(saved)` quand une sauvegarde declenchee par saveCount se termine. Si `notifySaveDone`
+ * n'a pas ete appele entre-temps, la confirmation de fermeture recoit saveDone quand `saved`
+ * vaut true (ex: seul un sous-formulaire a ete enregistre), saveFailed sinon.
+ * `null` hors d'un onglet: aucun effet.
+ */
+export const TabSaveSettleContext = createContext<((saved: boolean) => void) | null>(null);
 
 interface UseTabFormPaneBridgeArgs {
   tabPath: string;
@@ -13,12 +22,15 @@ interface UseTabFormPaneBridgeResult {
   setLabelStyle: (italic: boolean) => void;
   saveRequestCount: number;
   notifySaveDone: () => void;
+  settleSave: (saved: boolean) => void;
 }
 
 export function useTabFormPaneBridge({ tabPath, onSaveRequest }: UseTabFormPaneBridgeArgs): UseTabFormPaneBridgeResult {
   const { setDirty, setLabel, setLabelStyle } = useTabMetaEvents(tabPath);
   const [saveRequestCount, setSaveRequestCount] = useState(0);
   const onSaveRequestRef = useRef(onSaveRequest);
+  // Requete recue par le chemin saveRequestCount, sans saveDone ni saveFailed envoye.
+  const pendingRequestRef = useRef(false);
 
   useEffect(() => {
     onSaveRequestRef.current = onSaveRequest;
@@ -46,6 +58,7 @@ export function useTabFormPaneBridge({ tabPath, onSaveRequest }: UseTabFormPaneB
         return;
       }
 
+      pendingRequestRef.current = true;
       setSaveRequestCount((current) => current + 1);
     };
 
@@ -53,11 +66,24 @@ export function useTabFormPaneBridge({ tabPath, onSaveRequest }: UseTabFormPaneB
     return () => window.removeEventListener(TAB_EVENTS.saveRequest, handler);
   }, [tabPath]);
 
+  const notifySaveDone = useCallback(() => {
+    pendingRequestRef.current = false;
+    emitTabSaveDone(tabPath);
+  }, [tabPath]);
+
+  const settleSave = useCallback((saved: boolean) => {
+    if (!pendingRequestRef.current) return;
+    pendingRequestRef.current = false;
+    if (saved) emitTabSaveDone(tabPath);
+    else emitTabSaveFailed(tabPath);
+  }, [tabPath]);
+
   return {
     setDirty,
     setLabel,
     setLabelStyle,
     saveRequestCount,
-    notifySaveDone: () => emitTabSaveDone(tabPath),
+    notifySaveDone,
+    settleSave,
   };
 }

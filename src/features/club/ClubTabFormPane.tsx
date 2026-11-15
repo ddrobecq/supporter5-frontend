@@ -232,8 +232,8 @@ function PalmareListItem({ row }: { row: ClubPalmareRow }) {
 }
 
 export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProps) {
-  const handleProfileSaveRef = useRef<(() => Promise<void>) | null>(null);
-  const { setDirty, setLabel, notifySaveDone } = useTabFormPaneBridge({
+  const handleProfileSaveRef = useRef<(() => Promise<boolean>) | null>(null);
+  const { setDirty, setLabel } = useTabFormPaneBridge({
     tabPath,
     onSaveRequest: () => handleProfileSaveRef.current?.(),
   });
@@ -347,9 +347,9 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     }
   };
 
-  const handleProfileSave = async () => {
+  const handleProfileSave = async (): Promise<boolean> => {
     if (!row || savingProfile) {
-      return;
+      return false;
     }
 
     setSavingProfile(true);
@@ -375,9 +375,10 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
       setLabel(String(updated.CLUB_ABREGE ?? '').trim() || String(clubId));
       setDirty(false);
       setSnackbar({ severity: 'success', message: 'Club mis à jour.' });
-      notifySaveDone();
+      return true;
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+      return false;
     } finally {
       setSavingProfile(false);
     }
@@ -772,24 +773,26 @@ export function ClubTabFormPane({ tabPath, clubId, active }: ClubTabFormPaneProp
     setTerrainSelectorOpen(false);
   };
 
-  const handleGlobalSave = async (): Promise<void> => {
+  const handleGlobalSave = async (): Promise<boolean> => {
     if (nameDialogOpen) {
       const saved = await handleNameDialogSave();
       if (!saved) {
-        return;
+        return false;
       }
     }
 
     if (terrainDialogOpen) {
       const saved = await handleTerrainDialogSave();
       if (!saved) {
-        return;
+        return false;
       }
     }
 
     if (isProfileDirty) {
-      await handleProfileSave();
+      return handleProfileSave();
     }
+
+    return true;
   };
 
   useLayoutEffect(() => {

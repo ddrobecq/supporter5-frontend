@@ -5,7 +5,7 @@ import { AppFeedbackSnackbar } from './AppFeedbackSnackbar';
 import type { FeedbackMessage } from './AppFeedbackSnackbar';
 import { toErrorMessage } from './useEntityPage';
 import { useDepsChanged } from '../lib/useDepsChanged';
-import { useTabFormPaneBridge } from '../lib/useTabFormPaneBridge';
+import { TabSaveSettleContext, useTabFormPaneBridge } from '../lib/useTabFormPaneBridge';
 
 /** Props injected by EntityTabFormPane into the embedded `*FormDialog`. */
 export interface EntityTabFormRenderProps<Row> {
@@ -56,7 +56,7 @@ export function EntityTabFormPane<Row, Id, Derived = undefined>({
   successMessage,
   renderForm,
 }: EntityTabFormPaneProps<Row, Id, Derived>) {
-  const { setDirty, setLabel, saveRequestCount, notifySaveDone } = useTabFormPaneBridge({ tabPath });
+  const { setDirty, setLabel, saveRequestCount, notifySaveDone, settleSave } = useTabFormPaneBridge({ tabPath });
   const [loading, setLoading] = useState(true);
   const [row, setRow] = useState<Row | undefined>(undefined);
   const [snackbar, setSnackbar] = useState<FeedbackMessage | null>(null);
@@ -121,21 +121,23 @@ export function EntityTabFormPane<Row, Id, Derived = undefined>({
           <Typography variant="body2" color="text.secondary">{loadingLabel}</Typography>
         </Box>
       ) : row !== undefined ? (
-        renderForm(
-          {
-            open: true,
-            mode: 'edit',
-            embedded: true,
-            primaryKey: typeof primaryKey === 'function' ? primaryKey(row) : primaryKey,
-            initialData: row,
-            onDirtyChange: (dirty) => setDirty(dirty),
-            onClose: () => { void reloadRow(); },
-            onSubmit: handleSubmit,
-            saveCount: saveRequestCount,
-          },
-          // Defined whenever deriveFromRow is provided, since row is loaded here.
-          derived as Derived,
-        )
+        <TabSaveSettleContext.Provider value={settleSave}>
+          {renderForm(
+            {
+              open: true,
+              mode: 'edit',
+              embedded: true,
+              primaryKey: typeof primaryKey === 'function' ? primaryKey(row) : primaryKey,
+              initialData: row,
+              onDirtyChange: (dirty) => setDirty(dirty),
+              onClose: () => { void reloadRow(); },
+              onSubmit: handleSubmit,
+              saveCount: saveRequestCount,
+            },
+            // Defined whenever deriveFromRow is provided, since row is loaded here.
+            derived as Derived,
+          )}
+        </TabSaveSettleContext.Provider>
       ) : null}
 
       <AppFeedbackSnackbar value={snackbar} onClose={() => setSnackbar(null)} />

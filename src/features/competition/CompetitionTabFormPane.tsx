@@ -30,7 +30,7 @@ import { MatchDataGrid } from '../../components/MatchDataGrid';
 import { buildMatchGridColumns } from '../../components/matchGridColumns';
 import { formatDateShort, toIsoDate } from '../../components/dateUtils';
 import { useDepsChanged } from '../../lib/useDepsChanged';
-import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
+import { TabSaveSettleContext, useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { CompetitionFormDialog } from './CompetitionFormDialog';
 import { TourWizardDialog } from './TourWizardDialog';
@@ -92,7 +92,7 @@ function resolveCompetitionLabel(row: CompetitionRow, fallback: string): string 
 }
 
 export function CompetitionTabFormPane({ tabPath, competitionId, active }: CompetitionTabFormPaneProps) {
-  const { setDirty, setLabel, saveRequestCount, notifySaveDone } = useTabFormPaneBridge({ tabPath });
+  const { setDirty, setLabel, saveRequestCount, notifySaveDone, settleSave } = useTabFormPaneBridge({ tabPath });
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [loading, setLoading] = useState(true);
@@ -963,38 +963,43 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
             <Tab value="deroules" label="Deroules" />
           </Tabs>
 
-          {activeTab === 'info' ? (
-            <CompetitionFormDialog
-              open
-              mode="edit"
-              embedded
-              primaryKey="COCLEUNIK"
-              initialData={row}
-              epreuveOptions={epreuveOptions}
-              saisonOptions={saisonOptions}
-              onClose={() => { void reloadRow(); }}
-              onSubmit={async (payload) => {
-                try {
-                  await updateCompetition(competitionId, payload);
-                  const refreshed = await fetchCompetitionById(competitionId);
-                  setRow(refreshed);
-                  const label = resolveCompetitionLabel(refreshed, String(competitionId));
-                  setLabel(label);
-                  setDirty(false);
-                  setInfoDirty(false);
-                  setSnackbar({ severity: 'success', message: 'Compétition mise à jour.' });
-                  notifySaveDone();
-                } catch (error) {
-                  setSnackbar({ severity: 'error', message: toErrorMessage(error) });
-                }
-              }}
-              onDirtyChange={(dirty) => {
-                setDirty(dirty);
-                setInfoDirty(dirty);
-              }}
-              saveCount={saveRequestCount}
-            />
-          ) : (
+          {/* Toujours monte (masque hors sous-onglet Infos) pour garder le brouillon et traiter les demandes de sauvegarde. */}
+          <Box sx={{ display: activeTab === 'info' ? 'block' : 'none' }}>
+            <TabSaveSettleContext.Provider value={settleSave}>
+              <CompetitionFormDialog
+                open
+                mode="edit"
+                embedded
+                primaryKey="COCLEUNIK"
+                initialData={row}
+                epreuveOptions={epreuveOptions}
+                saisonOptions={saisonOptions}
+                onClose={() => { void reloadRow(); }}
+                onSubmit={async (payload) => {
+                  try {
+                    await updateCompetition(competitionId, payload);
+                    const refreshed = await fetchCompetitionById(competitionId);
+                    setRow(refreshed);
+                    const label = resolveCompetitionLabel(refreshed, String(competitionId));
+                    setLabel(label);
+                    setDirty(false);
+                    setInfoDirty(false);
+                    setSnackbar({ severity: 'success', message: 'Compétition mise à jour.' });
+                    notifySaveDone();
+                  } catch (error) {
+                    setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+                  }
+                }}
+                onDirtyChange={(dirty) => {
+                  setDirty(dirty);
+                  setInfoDirty(dirty);
+                }}
+                saveCount={saveRequestCount}
+              />
+            </TabSaveSettleContext.Provider>
+          </Box>
+
+          {activeTab !== 'info' ? (
             <Stack spacing={2}>
               <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
                 <Stack spacing={0.75}>
@@ -1049,7 +1054,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
                 </Stack>
               </Box>
             </Stack>
-          )}
+          ) : null}
 
           {infoDirty ? (
             <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>

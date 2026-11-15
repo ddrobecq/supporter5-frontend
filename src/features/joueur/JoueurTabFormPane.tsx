@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppFeedbackSnackbar } from '../../components/AppFeedbackSnackbar';
 import type { FeedbackMessage } from '../../components/AppFeedbackSnackbar';
 import { useDepsChanged } from '../../lib/useDepsChanged';
-import { useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
+import { TabSaveSettleContext, useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { useNatioList } from '../natio/natioStore';
 import { usePostesList } from './postesStore';
@@ -24,7 +24,7 @@ function resolveJoueurLabel(row: JoueurRow, fallback: string): string {
 }
 
 export function JoueurTabFormPane({ tabPath, joueurId, active }: JoueurTabFormPaneProps) {
-  const { setDirty, setLabel, saveRequestCount, notifySaveDone } = useTabFormPaneBridge({ tabPath });
+  const { setDirty, setLabel, saveRequestCount, notifySaveDone, settleSave } = useTabFormPaneBridge({ tabPath });
   const [loading, setLoading] = useState(true);
   const [row, setRow] = useState<JoueurRow | undefined>(undefined);
   const { rows: natioDatas } = useNatioList();
@@ -75,31 +75,33 @@ export function JoueurTabFormPane({ tabPath, joueurId, active }: JoueurTabFormPa
           <Typography variant="body2" color="text.secondary">Chargement du joueur...</Typography>
         </Box>
       ) : row ? (
-        <JoueurFormDialog
-          open
-          mode="edit"
-          embedded
-          initialData={row}
-          natioDatas={natioDatas}
-          posteOptions={posteOptions}
-          onDirtyChange={(dirty) => setDirty(dirty)}
-          onClose={() => { void reloadRow(); }}
-          onSubmit={async (payload) => {
-            try {
-              await updateJoueur(joueurId, payload);
-              const refreshed = await fetchJoueurById(joueurId);
-              setRow(refreshed);
-              setLabel(resolveJoueurLabel(refreshed, String(joueurId)));
-              setDirty(false);
-              setSnackbar({ severity: 'success', message: 'Joueur mis à jour.' });
-              notifySaveDone();
-            } catch (error) {
-              setSnackbar({ severity: 'error', message: toErrorMessage(error) });
-              throw error;
-            }
-          }}
-          saveCount={saveRequestCount}
-        />
+        <TabSaveSettleContext.Provider value={settleSave}>
+          <JoueurFormDialog
+            open
+            mode="edit"
+            embedded
+            initialData={row}
+            natioDatas={natioDatas}
+            posteOptions={posteOptions}
+            onDirtyChange={(dirty) => setDirty(dirty)}
+            onClose={() => { void reloadRow(); }}
+            onSubmit={async (payload) => {
+              try {
+                await updateJoueur(joueurId, payload);
+                const refreshed = await fetchJoueurById(joueurId);
+                setRow(refreshed);
+                setLabel(resolveJoueurLabel(refreshed, String(joueurId)));
+                setDirty(false);
+                setSnackbar({ severity: 'success', message: 'Joueur mis à jour.' });
+                notifySaveDone();
+              } catch (error) {
+                setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+                throw error;
+              }
+            }}
+            saveCount={saveRequestCount}
+          />
+        </TabSaveSettleContext.Provider>
       ) : null}
 
       <AppFeedbackSnackbar value={snackbar} onClose={() => setSnackbar(null)} />
