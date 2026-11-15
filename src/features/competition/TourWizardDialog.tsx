@@ -79,6 +79,8 @@ const STEP_CLASSEMENT = 4;
 const STEP_PARTICIPANTS = 5;
 const STEP_RENCONTRES = 6;
 
+const DATES_FROM_RENCONTRES_HELPER = 'Calculées à partir des dates des rencontres du tour.';
+
 interface TourWizardDialogProps {
   open: boolean;
   mode: 'create' | 'edit';
@@ -904,6 +906,8 @@ export function TourWizardDialog({
                       }}
                       onValidityChange={dateValidityHandler('dateDebut')}
                       fullWidth
+                      disabled={draft.datesFromRencontres}
+                      helperText={draft.datesFromRencontres ? DATES_FROM_RENCONTRES_HELPER : undefined}
                     />
 
                     <DateInputField
@@ -915,8 +919,9 @@ export function TourWizardDialog({
                       }}
                       onValidityChange={dateValidityHandler('dateFin')}
                       fullWidth
+                      disabled={draft.datesFromRencontres}
                       error={Boolean(errors.dateFin)}
-                      helperText={errors.dateFin}
+                      helperText={errors.dateFin || (draft.datesFromRencontres ? DATES_FROM_RENCONTRES_HELPER : undefined)}
                     />
                   </Stack>
 

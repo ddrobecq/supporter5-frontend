@@ -15,6 +15,8 @@ export interface TourDraft {
   heureTirage: string;
   dateDebut: string;
   dateFin: string;
+  // True when the back computes DATE_DEBUT / DATE_FIN from the tour's dated matches (read-only dates).
+  datesFromRencontres: boolean;
   heureMatches: string;
   ordre: number;
   nbEquipe: number;
@@ -61,6 +63,7 @@ export function createDefaultDraft(proposedOrder: number): TourDraft {
     heureTirage: '',
     dateDebut: '',
     dateFin: '',
+    datesFromRencontres: false,
     heureMatches: '',
     ordre: proposedOrder,
     nbEquipe: 0,
@@ -88,6 +91,7 @@ export function createDraftFromDetail(source: CompetitionTourDetailRow): TourDra
     heureTirage: toDisplayTime(source.TU_HEURETIRAGE as string | null | undefined),
     dateDebut: source.DATE_DEBUT ?? '',
     dateFin: source.DATE_FIN ?? '',
+    datesFromRencontres: Number(source.HAS_RENCONTRES_DATEES ?? 0) === 1,
     heureMatches: toDisplayTime(source.TUHEURE as string | null | undefined),
     ordre: Number(source.TU_ORDRE ?? 1) || 1,
     nbEquipe: Number(source.NB_EQUIPE ?? 0) || 0,

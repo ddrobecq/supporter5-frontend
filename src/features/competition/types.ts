@@ -57,6 +57,7 @@ export interface CompetitionTourDetailRow {
   TU_COMMENT?: string | null;
   NB_MATCH?: number;
   TDTYPETOUR?: number;
+  HAS_RENCONTRES_DATEES?: number | null;
 }
 
 export interface CompetitionTourUpsertPayload {
