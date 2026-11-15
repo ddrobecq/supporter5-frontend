@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { emitTabSaveDone, TAB_EVENTS, useTabMetaEvents } from './useTabMetaEvents';
+import { emitTabSaveDone, emitTabSaveFailed, TAB_EVENTS, useTabMetaEvents } from './useTabMetaEvents';
 
 interface UseTabFormPaneBridgeArgs {
   tabPath: string;
-  onSaveRequest?: () => void | Promise<void>;
+  // true/false: le pont signale lui-meme saveDone/saveFailed; undefined: le composant le fait (notifySaveDone).
+  onSaveRequest?: () => boolean | Promise<boolean> | void | Promise<void>;
 }
 
 interface UseTabFormPaneBridgeResult {
@@ -30,8 +31,18 @@ export function useTabFormPaneBridge({ tabPath, onSaveRequest }: UseTabFormPaneB
         return;
       }
 
-      if (onSaveRequestRef.current) {
-        void onSaveRequestRef.current();
+      const onSave = onSaveRequestRef.current;
+      if (onSave) {
+        void (async () => {
+          try {
+            const result = await onSave();
+            if (result === true) emitTabSaveDone(tabPath);
+            else if (result === false) emitTabSaveFailed(tabPath);
+          } catch {
+            // L'erreur est affichee par le composant; on debloque la confirmation de fermeture.
+            emitTabSaveFailed(tabPath);
+          }
+        })();
         return;
       }
 

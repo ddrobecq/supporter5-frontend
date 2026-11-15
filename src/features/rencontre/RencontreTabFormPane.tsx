@@ -415,8 +415,8 @@ function ClubInlineLine({
 
 export function RencontreTabFormPane({ tabPath, rencontreId, active }: RencontreTabFormPaneProps) {
   const navigate = useNavigate();
-  const handleSaveRef = useRef<(() => Promise<void>) | null>(null);
-  const { setDirty, setLabel, setLabelStyle, notifySaveDone } = useTabFormPaneBridge({
+  const handleSaveRef = useRef<(() => Promise<boolean>) | null>(null);
+  const { setDirty, setLabel, setLabelStyle } = useTabFormPaneBridge({
     tabPath,
     onSaveRequest: () => handleSaveRef.current?.(),
   });
@@ -690,8 +690,8 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     setIsEventsChanged(false);
   };
 
-  const handleSave = async () => {
-    if (!detail || !draft) return;
+  const handleSave = async (): Promise<boolean> => {
+    if (!detail || !draft) return false;
 
     setSaving(true);
     try {
@@ -707,7 +707,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       const nextExterieur = String(draft.exterieurId ?? '').trim();
       if (nextDomicile && nextDomicile === nextExterieur) {
         setSnackbar({ severity: 'error', message: 'Les équipes domicile et extérieure doivent être différentes.' });
-        return;
+        return false;
       }
       const nextTerrain = String(draft.terrainId ?? '').trim();
 
@@ -744,9 +744,10 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
         classementCardRef.current?.refresh();
       }
       setSnackbar({ severity: 'success', message: 'Rencontre enregistrée.' });
-      notifySaveDone();
+      return true;
     } catch (error) {
       setSnackbar({ severity: 'error', message: toErrorMessage(error) });
+      return false;
     } finally {
       setSaving(false);
     }
@@ -834,10 +835,10 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     };
   }), [participantById, resolveProgrammedParticipantName, tourMatches]);
 
-  const handleGlobalSave = async () => {
+  const handleGlobalSave = async (): Promise<boolean> => {
     if (isDateInvalid('date')) {
       setSnackbar({ severity: 'error', message: 'La date de la rencontre est invalide.' });
-      return;
+      return false;
     }
     const saveCompo = isCompositionDirty && compositionActionsRef.current;
     const saveEvent = isEventDialogDirty && eventDialogActionsRef.current;
@@ -855,10 +856,11 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
     }
 
     let compositionWarnings: string[] = [];
+    let success: boolean;
     try {
       // Run both saves concurrently when both are dirty.
-      await Promise.all([
-        isDirty ? handleSave() : Promise.resolve(),
+      const [infoSaved] = await Promise.all([
+        isDirty ? handleSave() : Promise.resolve(true),
         saveCompo
           ? compositionActionsRef.current!.save().then((warnings) => { compositionWarnings = warnings; })
           : Promise.resolve(),
@@ -869,13 +871,16 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
           })
           : Promise.resolve(),
       ]);
+      success = infoSaved;
       if (compositionWarnings.length > 0) {
         const message = compositionWarnings.join(' ');
         // Une erreur d'une autre section (ex: handleSave) reste prioritaire sur l'avertissement.
         setSnackbar((prev) => (prev?.severity === 'error' ? prev : { severity: 'warning', message }));
       }
-    } catch { /* errors shown inline by each section */ }
-    finally {
+    } catch {
+      // Errors shown inline by each section.
+      success = false;
+    } finally {
       if (saveCompo) setIsCompositionSaving(false);
       if (saveEvent) setIsEventDialogSaving(false);
       if (saveCompo && detail) {
@@ -888,6 +893,7 @@ export function RencontreTabFormPane({ tabPath, rencontreId, active }: Rencontre
       }
       setIsEventsChanged(false);
     }
+    return success;
   };
 
   const handleGlobalCancel = () => {

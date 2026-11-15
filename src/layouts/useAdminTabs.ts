@@ -301,8 +301,22 @@ export function useAdminTabs(): AdminTabsResult {
       doCloseTab(closeConfirmTabKey);
     };
 
+    // Echec de sauvegarde : on debloque la pop-up sans fermer l'onglet (l'erreur est affichee par l'onglet).
+    const failedHandler = (event: Event) => {
+      const customEvent = event as CustomEvent<{ path?: string }>;
+      const path = customEvent.detail?.path;
+      if (!path) return;
+      const confirmTab = stateRef.current.tabs.find((item) => item.key === closeConfirmTabKey);
+      if (!confirmTab || normalizeRoutePath(confirmTab.path) !== normalizeRoutePath(path)) return;
+      setSavingBeforeClose(false);
+    };
+
     window.addEventListener(TAB_EVENTS.saveDone, handler);
-    return () => window.removeEventListener(TAB_EVENTS.saveDone, handler);
+    window.addEventListener(TAB_EVENTS.saveFailed, failedHandler);
+    return () => {
+      window.removeEventListener(TAB_EVENTS.saveDone, handler);
+      window.removeEventListener(TAB_EVENTS.saveFailed, failedHandler);
+    };
   }, [closeConfirmTabKey, doCloseTab]);
 
   const selectTab = (tabKey: string) => {
@@ -325,7 +339,10 @@ export function useAdminTabs(): AdminTabsResult {
   const closeConfirm: TabCloseConfirmState = {
     open: Boolean(closeConfirmTabKey),
     saving: savingBeforeClose,
-    cancel: () => setCloseConfirmTabKey(null),
+    cancel: () => {
+      setSavingBeforeClose(false);
+      setCloseConfirmTabKey(null);
+    },
     closeWithoutSaving: () => {
       if (!closeConfirmTabKey) return;
       doCloseTab(closeConfirmTabKey);

@@ -7,6 +7,7 @@ export const TAB_EVENTS = {
   labelStyle: 'supporter:tab-label-style',
   saveRequest: 'supporter:tab-save-request',
   saveDone: 'supporter:tab-save-done',
+  saveFailed: 'supporter:tab-save-failed',
 } as const;
 
 export interface TabOpenEventDetail {
@@ -38,6 +39,10 @@ export function emitTabSaveRequest(path: string): void {
 
 export function emitTabSaveDone(path: string): void {
   window.dispatchEvent(new CustomEvent(TAB_EVENTS.saveDone, { detail: { path } }));
+}
+
+export function emitTabSaveFailed(path: string): void {
+  window.dispatchEvent(new CustomEvent(TAB_EVENTS.saveFailed, { detail: { path } }));
 }
 
 export function useTabMetaEvents(tabPath: string) {
