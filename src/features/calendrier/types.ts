@@ -45,6 +45,7 @@ export interface TourClassementRow {
   PADiff?: number;
   PARatio?: number;
   TDCalculDiffBut?: number;
+  TOUR_TERMINE?: number;
   LOCKED_QUALIF_ABREGE?: string | null;
   LOCKED_QUALIF_LIBELLE?: string | null;
   LOCKED_QUALIF_COULEUR?: string | null;

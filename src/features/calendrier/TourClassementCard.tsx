@@ -259,6 +259,11 @@ export const TourClassementCard = forwardRef<TourClassementCardHandle, TourClass
       [classementRows],
     );
 
+    const tourTermine = useMemo(
+      () => Number(classementRows[0]?.TOUR_TERMINE ?? 0) === 1,
+      [classementRows],
+    );
+
     const classementColumns = useMemo<GridColDef<TourClassementRow>[]>(() => {
       const columns: GridColDef<TourClassementRow>[] = [
         {
@@ -275,6 +280,9 @@ export const TourClassementCard = forwardRef<TourClassementCardHandle, TourClass
               && rank <= Number(row.CLASS_MaxRang ?? 0)
             ));
             const label = String(qualif?.CLASS_Libelle ?? '').trim();
+            const qualifColor = qualif ? hexColorOrDefault(qualif.CLASS_Couleur, '#64748b') : null;
+            const filled = tourTermine && qualifColor !== null;
+            const isWhiteFill = filled && qualifColor?.toLowerCase() === '#ffffff';
             const rankCircle = (
               <Box
                 component="span"
@@ -282,8 +290,10 @@ export const TourClassementCard = forwardRef<TourClassementCardHandle, TourClass
                   width: 26,
                   height: 26,
                   borderRadius: '50%',
-                  border: qualif ? '2px solid' : 'none',
-                  borderColor: qualif ? hexColorOrDefault(qualif.CLASS_Couleur, '#64748b') : 'transparent',
+                  border: qualifColor ? '2px solid' : 'none',
+                  borderColor: isWhiteFill ? 'text.disabled' : (qualifColor ?? 'transparent'),
+                  bgcolor: filled ? qualifColor : undefined,
+                  color: filled && !isWhiteFill ? '#fff' : undefined,
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -405,7 +415,7 @@ export const TourClassementCard = forwardRef<TourClassementCardHandle, TourClass
         if (column.field === 'PARatio') return useRatioGoalAverage;
         return true;
       });
-    }, [classementQualifRows, useRatioGoalAverage, onOpenClub]);
+    }, [classementQualifRows, useRatioGoalAverage, tourTermine, onOpenClub]);
 
     if (!Number.isInteger(tourId) || Number(tourId) <= 0) {
       return null;
