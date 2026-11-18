@@ -115,6 +115,12 @@ export function JoueurMatchesTab({ joueurId, active }: JoueurMatchesTabProps) {
     },
   ], []);
 
+  // Chronological order (oldest first); ISO dates compare as strings, empty dates go last.
+  const sortedMatches = useMemo(() => [...matches].sort((a, b) => {
+    if (!a.DATE || !b.DATE) return (a.DATE ? 0 : 1) - (b.DATE ? 0 : 1);
+    return a.DATE.localeCompare(b.DATE);
+  }), [matches]);
+
   useEffect(() => {
     if (!active) return;
     const loadSeasons = async () => {
@@ -186,7 +192,7 @@ export function JoueurMatchesTab({ joueurId, active }: JoueurMatchesTabProps) {
         ) : (
           <Box sx={{ height: 400, width: '100%' }}>
             <MatchDataGrid
-              rows={matches}
+              rows={sortedMatches}
               columns={columns}
               getRowId={(row) => row.RECLEUNIK}
               loading={loadingMatches}
