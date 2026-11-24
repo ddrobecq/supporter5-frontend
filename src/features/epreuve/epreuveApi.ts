@@ -4,7 +4,7 @@ import type { CanDeleteResponse } from '../../lib/apiTypes';
 import { fetchAllPages } from '../../lib/fetchAllPages';
 import { http } from '../../lib/http';
 import { encodePathSegment } from '../../lib/urlPath';
-import type { EpreuveCreateWizardPayload, EpreuveRow, EpreuveSuggestionRow, PaginatedResponse } from './types';
+import type { EpreuveCreateWizardPayload, EpreuvePalmaresRow, EpreuveRow, EpreuveSuggestionRow, PaginatedResponse } from './types';
 
 export async function fetchEpreuve(search: string, signal?: AbortSignal): Promise<PaginatedResponse<EpreuveRow>> {
   return fetchAllPages<EpreuveRow>(env.epreuvePublicResource, {
@@ -18,6 +18,11 @@ export async function fetchEpreuve(search: string, signal?: AbortSignal): Promis
 export async function fetchEpreuveById(id: string | number): Promise<EpreuveRow> {
   const { data } = await http.get<EpreuveRow>(`${env.epreuvePublicResource}/${encodePathSegment(id)}`);
   return data;
+}
+
+export async function fetchEpreuvePalmares(id: string | number, signal?: AbortSignal): Promise<EpreuvePalmaresRow[]> {
+  const { data } = await http.get<{ data: EpreuvePalmaresRow[] }>(`${env.epreuvePublicResource}/${encodePathSegment(id)}/palmares`, { signal });
+  return data.data ?? [];
 }
 
 export async function fetchEpreuveSuggestions(search: string, signal?: AbortSignal): Promise<{ data: EpreuveSuggestionRow[] }> {

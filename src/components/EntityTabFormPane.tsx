@@ -28,6 +28,8 @@ interface EntityTabFormPaneProps<Row, Id, Derived> {
   tabPath: string;
   id: Id;
   active: boolean;
+  /** Hides the form (kept mounted) while the pane stays active, so its feedback snackbar remains visible. */
+  formVisible?: boolean;
   fetchById: (id: Id) => Promise<Row>;
   update: (id: Id, payload: Row) => Promise<unknown>;
   resolveLabel: (row: Row, id: Id) => string;
@@ -46,6 +48,7 @@ export function EntityTabFormPane<Row, Id, Derived = undefined>({
   tabPath,
   id,
   active,
+  formVisible = true,
   fetchById,
   update,
   resolveLabel,
@@ -115,30 +118,32 @@ export function EntityTabFormPane<Row, Id, Derived = undefined>({
 
   return (
     <Box sx={{ display: active ? 'block' : 'none' }}>
-      {loading ? (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
-          <CircularProgress size={16} />
-          <Typography variant="body2" color="text.secondary">{loadingLabel}</Typography>
-        </Box>
-      ) : row !== undefined ? (
-        <TabSaveSettleContext.Provider value={settleSave}>
-          {renderForm(
-            {
-              open: true,
-              mode: 'edit',
-              embedded: true,
-              primaryKey: typeof primaryKey === 'function' ? primaryKey(row) : primaryKey,
-              initialData: row,
-              onDirtyChange: (dirty) => setDirty(dirty),
-              onClose: () => { void reloadRow(); },
-              onSubmit: handleSubmit,
-              saveCount: saveRequestCount,
-            },
-            // Defined whenever deriveFromRow is provided, since row is loaded here.
-            derived as Derived,
-          )}
-        </TabSaveSettleContext.Provider>
-      ) : null}
+      <Box sx={{ display: formVisible ? 'block' : 'none' }}>
+        {loading ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+            <CircularProgress size={16} />
+            <Typography variant="body2" color="text.secondary">{loadingLabel}</Typography>
+          </Box>
+        ) : row !== undefined ? (
+          <TabSaveSettleContext.Provider value={settleSave}>
+            {renderForm(
+              {
+                open: true,
+                mode: 'edit',
+                embedded: true,
+                primaryKey: typeof primaryKey === 'function' ? primaryKey(row) : primaryKey,
+                initialData: row,
+                onDirtyChange: (dirty) => setDirty(dirty),
+                onClose: () => { void reloadRow(); },
+                onSubmit: handleSubmit,
+                saveCount: saveRequestCount,
+              },
+              // Defined whenever deriveFromRow is provided, since row is loaded here.
+              derived as Derived,
+            )}
+          </TabSaveSettleContext.Provider>
+        ) : null}
+      </Box>
 
       <AppFeedbackSnackbar value={snackbar} onClose={() => setSnackbar(null)} />
     </Box>

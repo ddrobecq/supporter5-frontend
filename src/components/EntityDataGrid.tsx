@@ -4,6 +4,8 @@ import {
   type GridColDef,
   type GridPaginationModel,
   type GridRowClassNameParams,
+  type GridRowHeightParams,
+  type GridRowHeightReturnValue,
   type GridRowId,
   type GridValidRowModel,
 } from '@mui/x-data-grid';
@@ -21,6 +23,7 @@ interface EntityDataGridProps<RowModel extends GridValidRowModel> {
   pageSizeOptions?: number[];
   density?: 'comfortable' | 'standard' | 'compact';
   getRowClassName?: (params: GridRowClassNameParams<RowModel>) => string;
+  getRowHeight?: (params: GridRowHeightParams) => GridRowHeightReturnValue;
   label?: string;
   showToolbar?: boolean;
   paginationMode?: 'client' | 'server';
@@ -49,6 +52,7 @@ export function EntityDataGrid<RowModel extends GridValidRowModel>({
   pageSizeOptions = [25, 50, 100],
   density = 'compact',
   getRowClassName,
+  getRowHeight,
   label,
   showToolbar = false,
   paginationMode = 'client',
@@ -145,6 +149,7 @@ export function EntityDataGrid<RowModel extends GridValidRowModel>({
         onRowDoubleClick?.(params.id);
       }}
       getRowClassName={getRowClassName}
+      getRowHeight={getRowHeight}
       density={density}
       label={label}
       showToolbar={showToolbar}

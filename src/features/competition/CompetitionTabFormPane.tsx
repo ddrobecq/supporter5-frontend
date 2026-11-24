@@ -49,6 +49,7 @@ import {
 import type { CompetitionRow, CompetitionTourRow, EpreuveOption, SaisonOption } from './types';
 import type { CalendrierRow } from '../calendrier/types';
 import { useCalendrierRowEditing } from '../calendrier/useCalendrierRowEditing';
+import { EpreuvePalmaresGrid } from '../epreuve/EpreuvePalmaresGrid';
 import { useProgrammedParticipantResolver } from './useProgrammedParticipantLabels';
 import { normalizeCircId } from './tourWizardRencontresUtils';
 import { canEditScore, rowStatusClass } from '../../lib/matchStatus';
@@ -59,7 +60,7 @@ interface CompetitionTabFormPaneProps {
   active: boolean;
 }
 
-type CompetitionTabKey = 'info' | 'deroules';
+type CompetitionTabKey = 'info' | 'deroules' | 'palmares';
 function resolveCompetitionLabel(row: CompetitionRow, fallback: string): string {
   const nom = String(row.NOM ?? '').trim();
   const saison = String(row.SAISON ?? '').trim();
@@ -84,6 +85,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
   const [epreuveOptions, setEpreuveOptions] = useState<EpreuveOption[]>([]);
   const [saisonOptions, setSaisonOptions] = useState<SaisonOption[]>([]);
   const [activeTab, setActiveTab] = useState<CompetitionTabKey>('info');
+  const [hasOpenedPalmaresTab, setHasOpenedPalmaresTab] = useState(false);
   const [tourMatchRows, setTourMatchRows] = useState<CalendrierRow[]>([]);
   const [tourMatchesLoading, setTourMatchesLoading] = useState(false);
   const [selectedMatchId, setSelectedMatchId] = useState<string | number | null>(null);
@@ -620,11 +622,15 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
         <Stack spacing={2}>
           <Tabs
             value={activeTab}
-            onChange={(_event, value: CompetitionTabKey) => setActiveTab(value)}
+            onChange={(_event, value: CompetitionTabKey) => {
+              setActiveTab(value);
+              if (value === 'palmares') setHasOpenedPalmaresTab(true);
+            }}
             sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36 } }}
           >
             <Tab value="info" label="Informations" />
             <Tab value="deroules" label="Deroules" />
+            <Tab value="palmares" label="Palmarès" />
           </Tabs>
 
           {/* Toujours monte (masque hors sous-onglet Infos) pour garder le brouillon et traiter les demandes de sauvegarde. */}
@@ -663,7 +669,7 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
             </TabSaveSettleContext.Provider>
           </Box>
 
-          {activeTab !== 'info' ? (
+          {activeTab === 'deroules' ? (
             <Stack spacing={2}>
               <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
                 <Stack spacing={0.75}>
@@ -718,6 +724,13 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
                 </Stack>
               </Box>
             </Stack>
+          ) : null}
+
+          {/* Monte au premier affichage du sous-onglet puis conserve (masque) pour ne pas recharger. */}
+          {hasOpenedPalmaresTab && row.IDEPREUVE != null && String(row.IDEPREUVE) !== '' ? (
+            <Box sx={{ display: activeTab === 'palmares' ? 'block' : 'none' }}>
+              <EpreuvePalmaresGrid epreuveId={row.IDEPREUVE} highlightCompetitionId={row.COCLEUNIK ?? competitionId} />
+            </Box>
           ) : null}
 
           {infoDirty ? (
