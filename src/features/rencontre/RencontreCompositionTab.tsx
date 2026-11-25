@@ -38,8 +38,12 @@ import {
 } from '../../components/PitchField';
 import { PITCH_AVATAR_SIZE, PITCH_SLOTS, pitchPlayerLabel as playerLabel } from '../../components/pitchSlots';
 import { JoueurPage } from '../joueur/JoueurPage';
+import { fetchJoueurById } from '../joueur/joueurApi';
 
 const REMP_CODES = ['REMP1','REMP2','REMP3','REMP4','REMP5','REMP6','REMP7','REMP8','REMP9','REMP10','REMP11'] as const;
+/** Postes de la feuille de match portant un IDJOUEUR (titulaires, remplaçants, entraîneur). */
+const PLAYER_SLOT_CODES = [...PITCH_SLOTS.map((slot) => slot.code), ...REMP_CODES, 'ENTRAINEUR'];
+const UNAVAILABLE_PLAYER_MESSAGE = "Joueur non disponible à la date du match (absent de l'effectif de la saison ou transfert)";
 
 // ---------------------------------------------------------------------------
 
@@ -51,20 +55,31 @@ interface PitchSlotProps {
   player: SquadPlayerRow | null;
   /** Joueur également placé sur une autre case (doublon à corriger). */
   duplicate?: boolean;
+  /** Joueur absent de l'effectif sélectionnable à la date du match (incohérence à corriger). */
+  unavailable?: boolean;
   onDrop: (code: string, playerId: string, source: string) => void;
   onRemove: (code: string) => void;
   setDragSource: (src: string) => void;
 }
 
-function PitchSlot({ code, label, x, y, player, duplicate = false, onDrop, onRemove, setDragSource }: PitchSlotProps) {
+function PitchSlot({ code, label, x, y, player, duplicate = false, unavailable = false, onDrop, onRemove, setDragSource }: PitchSlotProps) {
   const [over, setOver] = useState(false);
+  const issues = [
+    ...(duplicate ? ['joueur placé sur plusieurs cases'] : []),
+    ...(unavailable ? [UNAVAILABLE_PLAYER_MESSAGE] : []),
+  ];
+  const issueBorder = duplicate
+    ? { border: '2px solid', borderColor: 'error.main' }
+    : unavailable
+      ? { border: '2px dashed', borderColor: 'error.main' }
+      : {};
 
   return (
     <PitchSlotShell
       x={x}
       y={y}
       sx={{ cursor: player ? 'default' : 'pointer' }}
-      title={duplicate ? `${label} : joueur placé sur plusieurs cases` : label}
+      title={issues.length > 0 ? `${label} : ${issues.join(' ; ')}` : label}
       onDragOver={(e) => { e.preventDefault(); setOver(true); }}
       onDragLeave={() => setOver(false)}
       onDrop={(e) => {
@@ -86,7 +101,7 @@ function PitchSlot({ code, label, x, y, player, duplicate = false, onDrop, onRem
             e.dataTransfer.setData('source', code);
             setDragSource(code);
           }}
-          avatarSx={{ cursor: 'grab', ...(duplicate && !over ? { border: '2px solid', borderColor: 'error.main' } : {}) }}
+          avatarSx={{ cursor: 'grab', ...(!over ? issueBorder : {}) }}
         />
       ) : (
         <Box
@@ -253,6 +268,49 @@ export function RencontreCompositionTab({
     [squad, assignedIds],
   );
 
+  // Joueurs de la feuille de match absents de l'effectif sélectionnable (hors saison ou transférés à la date du match)
+  const unavailableIds = useMemo<Set<string>>(() => {
+    const ids = new Set<string>();
+    for (const code of PLAYER_SLOT_CODES) {
+      const pid = composition[code];
+      if (pid && !playerById.has(pid)) ids.add(pid);
+    }
+    return ids;
+  }, [composition, playerById]);
+
+  // Identité (nom, surnom, nationalité) des joueurs hors effectif, chargée à la demande
+  const [offSquadPlayers, setOffSquadPlayers] = useState<Map<string, SquadPlayerRow>>(() => new Map());
+  const requestedOffSquadIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    for (const id of unavailableIds) {
+      if (requestedOffSquadIdsRef.current.has(id)) continue;
+      requestedOffSquadIdsRef.current.add(id);
+      void fetchJoueurById(id)
+        .then((data) => {
+          const surnom = String(data.SURNOM ?? '').trim();
+          setOffSquadPlayers((prev) => new Map(prev).set(id, {
+            IDJOUEUR: id,
+            NOM: String(data.NOM ?? ''),
+            PRENOM: String(data.PRENOM ?? ''),
+            SURNOM: surnom || null,
+            POSTE: null,
+            POS_TYPE: null,
+            IDNATIO: String(data.IDNATIO ?? '').trim() || null,
+          }));
+        })
+        // Echec : la case affiche l'IDJOUEUR brut ; l'ID est retiré des demandes pour être retenté au prochain changement.
+        .catch(() => { requestedOffSquadIdsRef.current.delete(id); });
+    }
+  }, [unavailableIds]);
+
+  // Joueur d'un poste : effectif, sinon identité hors effectif chargée, sinon IDJOUEUR brut
+  const resolvePlayer = (pid: string): SquadPlayerRow => (
+    playerById.get(pid)
+    ?? offSquadPlayers.get(pid)
+    ?? { IDJOUEUR: pid, NOM: '', PRENOM: '', SURNOM: null, POSTE: null, POS_TYPE: null }
+  );
+
   // Slots (titulaires + remplaçants, hors entraîneur) dont le joueur est placé sur plusieurs cases
   const duplicateSlotCodes = useMemo<Set<string>>(() => {
     const codesByPlayer = new Map<string, string[]>();
@@ -303,7 +361,8 @@ export function RencontreCompositionTab({
   // ---------------------------------------------------------------------------
 
   const coachId = (composition['ENTRAINEUR'] as string | null | undefined) ?? null;
-  const coachPlayer = coachId ? playerById.get(coachId) : null;
+  const coachPlayer = coachId ? resolvePlayer(coachId) : null;
+  const coachUnavailable = coachId ? unavailableIds.has(coachId) : false;
   const opponentComposition = String(composition['MACOMPOADVERSAIRE'] ?? '');
   const normalizedSupportedClubName = String(supportedClubName ?? '').trim() || 'le club supporté';
   const normalizedOpponentClubName = String(opponentClubName ?? '').trim() || "l'adversaire";
@@ -395,6 +454,12 @@ export function RencontreCompositionTab({
       {duplicateSlotCodes.size > 0 ? (
         <Typography variant="body2" color="error.main">
           Un même joueur est placé sur plusieurs cases : corrigez les cases signalées en rouge.
+        </Typography>
+      ) : null}
+      {unavailableIds.size > 0 ? (
+        <Typography variant="body2" color="error.main">
+          Joueur(s) non disponible(s) à la date du match (absent de l'effectif de la saison ou transfert) :{' '}
+          {[...unavailableIds].map((pid) => playerLabel(resolvePlayer(pid))).join(', ')}. Cases signalées en pointillés rouges.
         </Typography>
       ) : null}
 
@@ -502,8 +567,9 @@ export function RencontreCompositionTab({
               <PitchSlot
                 key={slot.code}
                 {...slot}
-                player={composition[slot.code] ? (playerById.get(composition[slot.code] as string) ?? null) : null}
+                player={composition[slot.code] ? resolvePlayer(composition[slot.code] as string) : null}
                 duplicate={duplicateSlotCodes.has(slot.code)}
+                unavailable={unavailableIds.has(composition[slot.code] ?? '')}
                 onDrop={handleDrop}
                 onRemove={handleRemoveFromSlot}
                 setDragSource={(src) => { dragSourceRef.current = src; }}
@@ -523,13 +589,13 @@ export function RencontreCompositionTab({
           {/* Coach slot */}
           <Box sx={{ mt: 1 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Entraîneur</Typography>
-            <Tooltip title="Cliquer pour sélectionner l'entraîneur">
+            <Tooltip title={coachUnavailable ? `${UNAVAILABLE_PLAYER_MESSAGE}. Cliquer pour sélectionner l'entraîneur` : "Cliquer pour sélectionner l'entraîneur"}>
               <Box
                 onClick={() => setCoachPickerOpen(true)}
                 sx={{
                   display: 'flex', alignItems: 'center', gap: 0.75,
                   height: 44, px: 1, borderRadius: 1,
-                  border: '1.5px dashed', borderColor: coachPlayer ? 'primary.main' : 'divider',
+                  border: '1.5px dashed', borderColor: coachUnavailable ? 'error.main' : coachPlayer ? 'primary.main' : 'divider',
                   bgcolor: coachPlayer ? 'primary.50' : 'background.default',
                   cursor: 'pointer',
                   '&:hover': { bgcolor: 'action.hover' },
@@ -551,15 +617,21 @@ export function RencontreCompositionTab({
           <Stack spacing={0.5}>
             {REMP_CODES.map((code) => {
               const pid = (composition[code] as string | null | undefined) ?? null;
-              const player = pid ? (playerById.get(pid) ?? null) : null;
+              const player = pid ? resolvePlayer(pid) : null;
               const duplicate = duplicateSlotCodes.has(code);
+              const unavailable = pid ? unavailableIds.has(pid) : false;
+              const issues = [
+                ...(duplicate ? ['Joueur placé sur plusieurs cases'] : []),
+                ...(unavailable ? [UNAVAILABLE_PLAYER_MESSAGE] : []),
+              ];
               return (
                 <Box
                   key={code}
-                  title={duplicate ? 'Joueur placé sur plusieurs cases' : undefined}
+                  title={issues.length > 0 ? issues.join(' ; ') : undefined}
                   sx={{
                     ...BENCH_SLOT_SX,
                     bgcolor: player ? 'action.hover' : 'background.default',
+                    ...(unavailable ? { borderColor: 'error.main' } : {}),
                     ...(duplicate ? { borderStyle: 'solid', borderColor: 'error.main' } : {}),
                   }}
                   onDragOver={(e) => e.preventDefault()}
