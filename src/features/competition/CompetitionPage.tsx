@@ -61,7 +61,7 @@ export function CompetitionPage({ onOpenInTab }: CompetitionPageProps) {
 
   const resolveCompetitionLabel = (row: CompetitionRow, fallback: string): string => {
     const nom = String(row.NOM ?? '').trim();
-    const saison = String(row.SAISON ?? '').trim();
+    const saison = String(row.SAISON_LABEL ?? '').trim() || String(row.SAISON ?? '').trim();
     const combined = [nom, saison].filter((part) => part.length > 0).join(' ');
     return combined || fallback;
   };

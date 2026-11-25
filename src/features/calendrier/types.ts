@@ -12,6 +12,7 @@ export interface CalendrierRow {
   COCLEUNIK?: number | null;
   CO_WEB?: string | null;
   SAISON: string;
+  SAISON_LABEL: string;
   CO_ANNEE: number;
   DOMICILE: string;
   EXTERIEUR: string;

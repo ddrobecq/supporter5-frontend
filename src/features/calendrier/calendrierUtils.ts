@@ -73,23 +73,13 @@ export function getInitialCalendrierDate(): string {
   return fallback;
 }
 
-function resolveCompetitionSeasonLabel(saison: unknown, coAnnee: unknown): string {
-  const season = String(saison ?? '').trim();
-  if (!season) return '';
-  if (Number(coAnnee) === 1) {
-    const match = season.match(/^(\d{4})-(\d{4})$/);
-    if (match) return match[1];
-  }
-  return season;
-}
-
 export function buildClassementBlockLabel(row: CalendrierRow | null): string {
   if (!row) return '';
 
   const circ = String(row.CIRC ?? '').trim();
   const tour = String(row.TOUR_NOM ?? '').trim();
   const competition = String(row.COMPET_NOM ?? '').trim();
-  const season = resolveCompetitionSeasonLabel(row.SAISON, row.CO_ANNEE);
+  const season = String(row.SAISON_LABEL ?? '').trim();
   const competitionWithSeason = [competition, season].filter((part) => part.length > 0).join(' ');
 
   const core = [tour, competitionWithSeason].filter((part) => part.length > 0).join(' de ');

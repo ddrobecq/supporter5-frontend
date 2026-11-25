@@ -67,7 +67,7 @@ interface CompetitionTabFormPaneProps {
 type CompetitionTabKey = 'info' | 'deroules' | 'palmares';
 function resolveCompetitionLabel(row: CompetitionRow, fallback: string): string {
   const nom = String(row.NOM ?? '').trim();
-  const saison = String(row.SAISON ?? '').trim();
+  const saison = String(row.SAISON_LABEL ?? '').trim() || String(row.SAISON ?? '').trim();
   return [nom, saison].filter((part) => part.length > 0).join(' ') || fallback;
 }
 
@@ -304,6 +304,8 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
           TOUR_NOM: String(selectedTourRow.TOUR ?? ''),
           COMPET_NOM: String(row?.NOM ?? ''),
           SAISON: String(row?.SAISON ?? ''),
+          // Season label is computed by GET /api/rencontres/calendar only; not displayed in this grid.
+          SAISON_LABEL: '',
           CO_ANNEE: Number(row?.CO_ANNEE ?? 0) || 0,
           DOMICILE: domId,
           EXTERIEUR: extId,
@@ -344,8 +346,6 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
     selectedTourIdRef.current = selectedTourId;
   }, [selectedTourId]);
 
-  // A saved status/score may change the tour participants (ranking, resolved programmed participants).
-  const refreshTourParticipants = (savedRow: CalendrierRow): void => {
   const classementCardRef = useRef<TourClassementCardHandle | null>(null);
 
   const selectedMatchRow = selectedMatchId != null
@@ -363,12 +363,14 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
     emitTabOpen(`/admin/clubs/${encodeURIComponent(clubId)}`, clubName.trim() || clubId);
   }, []);
 
+  // A saved status/score may change the tour participants (ranking, resolved programmed participants).
+  const refreshTourParticipants = (savedRow: CalendrierRow): void => {
     const tourId = Number(savedRow.TUCLEUNIK);
-    void fetchTourParticipants(tourId).then((participants) => {
-      if (selectedTourIdRef.current === tourId) {
     if (selectedTourIdRef.current === tourId) {
       classementCardRef.current?.refresh();
     }
+    void fetchTourParticipants(tourId).then((participants) => {
+      if (selectedTourIdRef.current === tourId) {
         setTourParticipants(participants);
       }
     }).catch((error: unknown) => {
@@ -747,8 +749,6 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
                   </Box>
                 </Stack>
               </Box>
-            </Stack>
-          ) : null}
 
               {selectedTourRow && Number(selectedTourRow.TYPE_ID) === 1 ? (
                 <TourClassementCard
@@ -768,6 +768,8 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
                   onOpenClub={handleOpenClub}
                 />
               ) : null}
+            </Stack>
+          ) : null}
 
           {/* Monte au premier affichage du sous-onglet puis conserve (masque) pour ne pas recharger. */}
           {hasOpenedPalmaresTab && row.IDEPREUVE != null && String(row.IDEPREUVE) !== '' ? (

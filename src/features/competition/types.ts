@@ -1,6 +1,8 @@
 export interface CompetitionRow {
   COCLEUNIK?: string | number;
   SAISON?: string | number;
+  /** Display label: final year for calendar-year competitions (CO_ANNEE = 1), else SAISON. */
+  SAISON_LABEL?: string;
   IDEPREUVE?: string | number;
   NOM?: string | number;
   CO_ANNEE?: string | number | boolean;

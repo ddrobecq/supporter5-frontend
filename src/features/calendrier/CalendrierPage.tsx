@@ -88,7 +88,7 @@ export function CalendrierPage({ readOnly = false }: { readOnly?: boolean }) {
       navigate(path);
       return;
     }
-    emitTabOpen(path, `${String(selectedRow?.COMPET_NOM ?? '').trim()} ${String(selectedRow?.SAISON ?? '').trim()}`.trim() || 'Compétition');
+    emitTabOpen(path, `${String(selectedRow?.COMPET_NOM ?? '').trim()} ${String(selectedRow?.SAISON_LABEL ?? '').trim()}`.trim() || 'Compétition');
   };
 
   const openCompetitionWeb = () => {
