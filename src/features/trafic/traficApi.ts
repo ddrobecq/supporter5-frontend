@@ -117,6 +117,25 @@ export const fetchTraficPages = pagedFetcher<TraficPageRow>('pages');
 export const fetchTraficReferents = pagedFetcher<TraficReferentRow>('referents');
 export const fetchTraficPays = pagedFetcher<TraficPaysRow>('pays');
 
+/** Adresse du visiteur telle que resolue par le serveur, avec les en-tetes de relais bruts. */
+export interface TraficDiagnostic {
+  ip: string;
+  /** ISO 3166 alpha-2, '' si inconnu. */
+  pays: string;
+  reqIp: string;
+  headers: {
+    xForwardedFor: string | null;
+    cfConnectingIp: string | null;
+    trueClientIp: string | null;
+    xRealIp: string | null;
+  };
+}
+
+export async function fetchTraficDiagnostic(signal?: AbortSignal): Promise<TraficDiagnostic> {
+  const { data } = await http.get<TraficDiagnostic>(`${BASE_PATH}/diagnostic`, { signal });
+  return data;
+}
+
 export async function fetchTraficTempsReel(signal: AbortSignal): Promise<TraficTempsReel> {
   const { data } = await http.get<TraficTempsReel>(`${BASE_PATH}/temps-reel`, { signal });
   return data;

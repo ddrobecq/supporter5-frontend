@@ -1,12 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { env } from '../config/env';
+import { getTrafficVisitorId, isTrafficOptedOut } from './trafficVisitor';
 
 const HIT_PATH = '/api/trafic/hit';
 
 interface PageHitBody {
   path: string;
   referrer?: string;
+  visitorId?: string;
 }
 
 // Module-level so the referrer is only sent once per SPA session, even if the layout remounts.
@@ -50,6 +52,10 @@ export function usePageTracking(): void {
       referrerConsumed = true;
       if (document.referrer) body.referrer = document.referrer;
     }
+    // Opted-out visitors send nothing; the referrer is still consumed so it is not attached to a later internal page.
+    if (isTrafficOptedOut()) return;
+    const visitorId = getTrafficVisitorId();
+    if (visitorId) body.visitorId = visitorId;
     sendPageHit(body);
   }, [pathname]);
 }

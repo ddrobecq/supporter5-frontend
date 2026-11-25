@@ -3,6 +3,7 @@ import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import AutorenewRoundedIcon from '@mui/icons-material/AutorenewRounded';
 import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
+import TravelExploreRoundedIcon from '@mui/icons-material/TravelExploreRounded';
 import {
   Alert,
   Box,
@@ -22,7 +23,7 @@ import {
   Typography,
 } from '@mui/material';
 import axios from 'axios';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
 import { http } from '../../lib/http';
 import { toErrorMessage } from '../../components/useEntityPage';
@@ -32,6 +33,7 @@ import { todayIso } from '../../components/dateUtils';
 import { getStoredDirectoryHandle } from './backupDirectoryStore';
 import { forceBackupNow, isFileSystemAccessSupported, pickBackupDirectory } from './backupRunner';
 import { getBackupSettings, saveBackupSettings, type BackupFrequency, type BackupSettings } from './backupSettings';
+import { fetchTraficDiagnostic, type TraficDiagnostic } from '../trafic/traficApi';
 
 interface UploadDatabaseResponse {
   message?: string;
@@ -77,6 +79,34 @@ const FREQUENCY_OPTIONS: Array<{ value: BackupFrequency; label: string }> = [
   { value: 'weekly', label: 'Hebdomadaire' },
 ];
 
+const regionNames = new Intl.DisplayNames(['fr'], { type: 'region' });
+
+function countryName(code: string): string {
+  const normalized = code.trim().toUpperCase();
+  if (!normalized) return 'Inconnu';
+  try {
+    return regionNames.of(normalized) ?? normalized;
+  } catch (error) {
+    // Code hors norme ISO 3166: on affiche le code brut.
+    if (error instanceof RangeError) return normalized;
+    throw error;
+  }
+}
+
+function diagnosticLines(diagnostic: TraficDiagnostic): string {
+  const { headers } = diagnostic;
+  const rows: Array<[string, string | null]> = [
+    ['req.ip', diagnostic.reqIp],
+    ['X-Forwarded-For', headers.xForwardedFor],
+    ['CF-Connecting-IP', headers.cfConnectingIp],
+    ['True-Client-IP', headers.trueClientIp],
+    ['X-Real-IP', headers.xRealIp],
+  ];
+  return rows
+    .map(([label, value]) => `${label.padEnd(17)}: ${value ?? 'absent'}`)
+    .join('\n');
+}
+
 export function BackendMaintenancePage() {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -90,6 +120,33 @@ export function BackendMaintenancePage() {
   const [backupDirHandle, setBackupDirHandle] = useState<FileSystemDirectoryHandle | null>(null);
   const [backupNowLoading, setBackupNowLoading] = useState(false);
   const fsSupported = isFileSystemAccessSupported();
+
+  const [diagnostic, setDiagnostic] = useState<TraficDiagnostic | null>(null);
+  const [diagnosticLoading, setDiagnosticLoading] = useState(false);
+  const [diagnosticError, setDiagnosticError] = useState<string | null>(null);
+  const diagnosticAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => () => diagnosticAbortRef.current?.abort(), []);
+
+  const handleCheckDiagnostic = useCallback(async () => {
+    diagnosticAbortRef.current?.abort();
+    const controller = new AbortController();
+    diagnosticAbortRef.current = controller;
+    setDiagnosticLoading(true);
+    setDiagnosticError(null);
+    try {
+      setDiagnostic(await fetchTraficDiagnostic(controller.signal));
+    } catch (error) {
+      if (axios.isCancel(error)) return;
+      setDiagnostic(null);
+      setDiagnosticError(toErrorMessage(error));
+    } finally {
+      if (diagnosticAbortRef.current === controller) {
+        diagnosticAbortRef.current = null;
+        setDiagnosticLoading(false);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -502,6 +559,62 @@ export function BackendMaintenancePage() {
               sx={{ width: { xs: '100%', md: 280 } }}
             >
               {restartLoading ? 'Redémarrage...' : 'Redémarrer le backend'}
+            </Button>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <Stack spacing={1.5}>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>Adresse vue par le serveur</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Ouvrez cette page depuis l'appareil à tester : l'adresse retenue doit correspondre à votre connexion (et le pays à votre localisation).
+              </Typography>
+            </Box>
+
+            {diagnosticError ? <Alert severity="error">{diagnosticError}</Alert> : null}
+            {diagnosticLoading ? <LinearProgress aria-label="Vérification de l'adresse en cours" /> : null}
+
+            {diagnostic ? (
+              <Stack spacing={1}>
+                <Typography variant="body1">
+                  Adresse retenue :{' '}
+                  <Box component="span" sx={{ fontFamily: 'monospace', fontWeight: 700, userSelect: 'all' }}>
+                    {diagnostic.ip || 'inconnue'}
+                  </Box>
+                  {' '}— Pays : <strong>{countryName(diagnostic.pays)}</strong>
+                </Typography>
+                <Box
+                  component="pre"
+                  aria-label="Détail technique de l'adresse"
+                  sx={{
+                    m: 0,
+                    p: 1.5,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1.5,
+                    fontFamily: 'monospace',
+                    fontSize: '0.8125rem',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-all',
+                    userSelect: 'text',
+                  }}
+                >
+                  {diagnosticLines(diagnostic)}
+                </Box>
+              </Stack>
+            ) : null}
+
+            <Button
+              variant="outlined"
+              startIcon={<TravelExploreRoundedIcon />}
+              onClick={() => void handleCheckDiagnostic()}
+              disabled={diagnosticLoading}
+              sx={{ width: { xs: '100%', md: 280 } }}
+            >
+              {diagnosticLoading ? 'Vérification...' : 'Vérifier'}
             </Button>
           </Stack>
         </CardContent>
