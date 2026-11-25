@@ -9,6 +9,7 @@ import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import EuroRoundedIcon from '@mui/icons-material/EuroRounded';
 import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
+import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
 import LocationCityRoundedIcon from '@mui/icons-material/LocationCityRounded';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
 import MergeRoundedIcon from '@mui/icons-material/MergeRounded';
@@ -153,7 +154,8 @@ export type ToolsMenuAction =
   | 'incomplets-clubs'
   | 'incomplets-rencontres'
   | 'maintenance'
-  | 'maintenance-backend';
+  | 'maintenance-backend'
+  | 'trafic';
 
 export interface ToolsMenuGroup {
   label: string;
@@ -169,6 +171,7 @@ export const TOOLBAR_TOOLS_GROUPS: ToolsMenuGroup[] = [
       { label: 'Calculer statistiques...', icon: <CalculateRoundedIcon />, action: 'stats-recompute' },
       { label: 'Requêter la BdD...', icon: <StorageRoundedIcon />, action: 'maintenance' },
       { label: 'Maintenance...', icon: <BuildRoundedIcon />, action: 'maintenance-backend' },
+      { label: 'Trafic', icon: <InsightsRoundedIcon />, action: 'trafic' },
     ],
   },
   {
@@ -204,6 +207,7 @@ export const TAB_META: Record<string, TabMeta> = {
   '/admin/import-rencontres': { label: 'Import de rencontres', icon: <UploadFileRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/maintenance': { label: 'Requête', icon: <StorageRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/maintenance-backend': { label: 'Maintenance', icon: <BuildRoundedIcon sx={{ fontSize: 14 }} /> },
+  '/admin/trafic': { label: 'Trafic', icon: <InsightsRoundedIcon sx={{ fontSize: 14 }} /> },
   '/admin/rencontres': { label: 'Rencontres', icon: <SportsSoccerRoundedIcon sx={{ fontSize: 14 }} /> },
 };
 

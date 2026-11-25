@@ -16,6 +16,7 @@ const RencontresIncompletesPage = lazy(() => import('./features/incomplets/Renco
 const RencontreImportPage = lazy(() => import('./features/import/RencontreImportPage').then((module) => ({ default: module.RencontreImportPage })));
 const MaintenancePage = lazy(() => import('./features/maintenance/MaintenancePage').then((module) => ({ default: module.MaintenancePage })));
 const BackendMaintenancePage = lazy(() => import('./features/maintenance/BackendMaintenancePage').then((module) => ({ default: module.BackendMaintenancePage })));
+const TraficPage = lazy(() => import('./features/trafic/TraficPage').then((module) => ({ default: module.TraficPage })));
 const ClubPublicPage = lazy(() => import('./features/club/ClubPublicPage').then((module) => ({ default: module.ClubPublicPage })));
 const ConfigurationPage = lazy(() => import('./features/configuration/ConfigurationPage').then((module) => ({ default: module.ConfigurationPage })));
 const AdminLayout = lazy(() => import('./layouts/AdminLayout').then((module) => ({ default: module.AdminLayout })));
@@ -95,6 +96,7 @@ function App() {
             <Route path="/maintenance" element={<Navigate to="/admin/maintenance" replace />} />
             <Route path="/admin/maintenance" element={<MaintenancePage />} />
             <Route path="/admin/maintenance-backend" element={<BackendMaintenancePage />} />
+            <Route path="/admin/trafic" element={<TraficPage />} />
             <Route path="/admin/rencontres/:rencontreId" element={<EmptyRoute />} />
             {ENTITY_ROUTES.map(({ shortPath, adminPath, paramName }) => (
               <Route key={adminPath}>

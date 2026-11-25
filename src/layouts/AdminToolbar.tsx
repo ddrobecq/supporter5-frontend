@@ -48,6 +48,7 @@ const TOOLS_MENU_TABS: Partial<Record<ToolsMenuAction, { path: string; label: st
   'incomplets-rencontres': { path: '/admin/rencontres-incompletes', label: 'Rencontres incomplètes' },
   maintenance: { path: '/admin/maintenance', label: 'Requête' },
   'maintenance-backend': { path: '/admin/maintenance-backend', label: 'Maintenance' },
+  trafic: { path: '/admin/trafic', label: 'Trafic' },
 };
 
 const TOOLS_MENU_DIALOGS: Partial<Record<ToolsMenuAction, AdminToolDialogFlag>> = {

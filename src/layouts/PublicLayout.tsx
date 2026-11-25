@@ -12,6 +12,7 @@ import { supportedClubStore } from '../features/system/supportedClubStore';
 import { PublicSearchDialog } from '../features/public/PublicSearchDialog';
 import { useState } from 'react';
 import { adminPathFromPublicPath, publicPathFromAdminPath } from '../lib/entityNavigation';
+import { usePageTracking } from '../lib/usePageTracking';
 import { useSeoMeta } from '../lib/useSeoMeta';
 import { TAB_EVENTS, type TabOpenEventDetail } from '../lib/useTabMetaEvents';
 
@@ -35,6 +36,7 @@ export function PublicLayout() {
       : 'Résultats, calendriers, statistiques, clubs et joueurs de football.';
 
   useSeoMeta(pageTitle, pageDescription);
+  usePageTracking();
 
   useEffect(() => {
     void loadSupportedClub();
