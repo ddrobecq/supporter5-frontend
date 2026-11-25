@@ -1,14 +1,114 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
-import { Box, Card, CardContent, Stack, Tooltip, Typography } from '@mui/material';
+import { Box, Card, ClickAwayListener, CardContent, Stack, Tooltip, Typography } from '@mui/material';
 import { type GridColDef } from '@mui/x-data-grid';
 import { MatchDataGrid } from '../../components/MatchDataGrid';
 import { useDepsChanged } from '../../lib/useDepsChanged';
 import { useEntityImage } from '../../lib/useEntityImage';
 import { hexColorOrDefault } from '../../lib/color';
+import { formatDateLong } from '../../lib/formatDate';
 import { fetchTourClassement, fetchTourQualifs } from './calendrierApi';
-import type { TourClassementRow, TourQualifRow } from './types';
+import type { TourClassementMalus, TourClassementRow, TourQualifRow } from './types';
 import { hasMultipleGroups, normalizeGroupName, resolveMatchGroup, type ClassementGroupMatch } from './tourClassementUtils';
+
+function getRowMalus(row: TourClassementRow): TourClassementMalus[] {
+  return Array.isArray(row.MALUS) ? row.MALUS : [];
+}
+
+function formatMalusPoints(malus: TourClassementMalus): string {
+  return `−${Number(malus.MLPoints ?? 0)} pts`;
+}
+
+function getMalusDetails(malus: TourClassementMalus): string[] {
+  const motif = String(malus.MLMotif ?? '').trim();
+  const date = formatDateLong(malus.MLDate);
+  return [motif, date].filter(Boolean);
+}
+
+/** "−3 pts · motif · date" (motif and date omitted when missing). */
+function formatMalusTooltipLine(malus: TourClassementMalus): string {
+  return [formatMalusPoints(malus), ...getMalusDetails(malus)].join(' · ');
+}
+
+/** "−3 pts (motif, date)" (parenthesis omitted when no detail). */
+function formatMalusNoteItem(malus: TourClassementMalus): string {
+  const details = getMalusDetails(malus);
+  return details.length > 0 ? `${formatMalusPoints(malus)} (${details.join(', ')})` : formatMalusPoints(malus);
+}
+
+interface MalusNoteGroup {
+  group: string;
+  items: string[];
+}
+
+function ClassementPointsCell({ row }: { row: TourClassementRow }) {
+  const [open, setOpen] = useState(false);
+  const points = Number(row.PANbPoints ?? 0);
+  const malus = getRowMalus(row);
+  if (malus.length === 0) {
+    return <>{points}</>;
+  }
+  const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    setOpen((previous) => !previous);
+  };
+  // Keep Enter/Space (native button activation) and Escape away from the grid keyboard navigation.
+  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      setOpen(false);
+      return;
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.stopPropagation();
+    }
+  };
+  return (
+    <ClickAwayListener onClickAway={() => setOpen(false)}>
+      <Tooltip
+        open={open}
+        onClose={() => setOpen(false)}
+        disableHoverListener
+        disableFocusListener
+        disableTouchListener
+        title={(
+          <Box component="span" sx={{ display: 'block' }}>
+            {malus.map((item) => (
+              <Box component="span" key={item.MLCLEUNIK} sx={{ display: 'block' }}>
+                {formatMalusTooltipLine(item)}
+              </Box>
+            ))}
+          </Box>
+        )}
+      >
+        <Box
+          component="button"
+          type="button"
+          onClick={handleClick}
+          onKeyDown={handleKeyDown}
+          aria-expanded={open}
+          aria-label={`${points} points, malus : ${malus.map(formatMalusTooltipLine).join(' ; ')}`}
+          sx={{
+            border: 0,
+            p: 0,
+            m: 0,
+            bgcolor: 'transparent',
+            color: 'inherit',
+            font: 'inherit',
+            cursor: 'pointer',
+            textDecorationLine: 'underline',
+            textDecorationStyle: 'dotted',
+            textDecorationThickness: '1.5px',
+            textUnderlineOffset: '3px',
+            textDecorationColor: (theme) => theme.palette.warning.main,
+          }}
+        >
+          {points}
+        </Box>
+      </Tooltip>
+    </ClickAwayListener>
+  );
+}
 
 function ClassementClubCell({
   clubId,
@@ -246,6 +346,21 @@ export const TourClassementCard = forwardRef<TourClassementCardHandle, TourClass
       return classementRows.filter((row) => normalizeGroupName(row.GROUPE) === classementGroup);
     }, [classementHasMultipleGroups, classementGroup, classementRows]);
 
+    const malusNoteGroups = useMemo<MalusNoteGroup[]>(() => {
+      const byGroup = new Map<string, string[]>();
+      displayedClassementRows.forEach((row) => {
+        const malus = getRowMalus(row);
+        const group = normalizeGroupName(row.GROUPE);
+        if (!byGroup.has(group)) byGroup.set(group, []);
+        if (malus.length === 0) return;
+        byGroup.get(group)?.push(`${String(row.CLUB ?? '')} ${malus.map(formatMalusNoteItem).join(', ')}`);
+      });
+      const showGroupName = byGroup.size > 1;
+      return Array.from(byGroup.entries())
+        .filter(([, items]) => items.length > 0)
+        .map(([group, items]) => ({ group: showGroupName ? group : '', items }));
+    }, [displayedClassementRows]);
+
     const classementGridHeight = useMemo(() => {
       const visibleRows = Math.max(displayedClassementRows.length, 1);
       const headerHeight = 56;
@@ -332,6 +447,7 @@ export const TourClassementCard = forwardRef<TourClassementCardHandle, TourClass
           align: 'center',
           headerAlign: 'center',
           valueGetter: (_value, row) => Number(row.PANbPoints ?? 0),
+          renderCell: (params) => <ClassementPointsCell row={params.row} />,
         },
         {
           field: 'PANbMatch',
@@ -451,6 +567,20 @@ export const TourClassementCard = forwardRef<TourClassementCardHandle, TourClass
                 sx={{ width: '100%' }}
               />
             </Box>
+
+            {malusNoteGroups.length > 0 ? (
+              <Stack spacing={0.25}>
+                {malusNoteGroups.map(({ group, items }) => (
+                  <Typography
+                    key={group || 'default'}
+                    variant="caption"
+                    sx={{ color: 'text.secondary', display: 'block', overflowWrap: 'anywhere' }}
+                  >
+                    {`Malus${group ? ` (${group})` : ''} : ${items.join(' ; ')}`}
+                  </Typography>
+                ))}
+              </Stack>
+            ) : null}
           </Stack>
         </CardContent>
       </Card>

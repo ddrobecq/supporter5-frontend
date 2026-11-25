@@ -1,4 +1,20 @@
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, Stack, TextField, Tooltip, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  DialogContentText,
+  InputLabel,
+  MenuItem,
+  Select,
+  Stack,
+  TextField,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import { type GridRowId } from '@mui/x-data-grid';
@@ -10,13 +26,24 @@ import {
 } from './tourWizardProgrammedParticipants';
 import { useTourWizardProgrammedParticipants } from './useTourWizardProgrammedParticipants';
 import { useProgrammedParticipantResolver } from './useProgrammedParticipantLabels';
-import { TourParticipantGrid } from './TourParticipantGrid';
+import { TourParticipantGrid, type TourParticipantMalusColumn } from './TourParticipantGrid';
 import { ClubSelectionDialog } from './ClubSelectionDialog';
-import type { TourParticipantRow } from './types';
+import { TourMalusDialog, type TourMalusFormValues } from './TourMalusDialog';
+import { TourMalusListDialog } from './TourMalusListDialog';
+import type { TourMalusRow, TourParticipantRow } from './types';
 import type { ClubGridRow } from '../club/types';
 
 /** Stable reference so the resolver memos are not invalidated on every render. */
 const NO_EXTRA_SOURCES: unknown[] = [];
+const NO_MALUS: TourMalusRow[] = [];
+
+interface MalusFormState {
+  /** Remounts the dialog on every opening so that its state is reinitialised. */
+  key: number;
+  participantId: number;
+  /** MLCLEUNIK of the edited malus; null in creation mode. */
+  editingId: number | null;
+}
 
 interface TourWizardStep5ParticipantsProps {
   competitionId: number;
@@ -26,14 +53,33 @@ interface TourWizardStep5ParticipantsProps {
   groupNames: string[];
   rows: TourParticipantRow[];
   onRowsChange: Dispatch<SetStateAction<TourParticipantRow[]>>;
+  /** Points penalties management, only for Ligue tours. */
+  malusEnabled?: boolean;
+  malusRows?: TourMalusRow[];
+  onMalusRowsChange?: Dispatch<SetStateAction<TourMalusRow[]>>;
   onError?: (message: string) => void;
 }
 
-export function TourWizardStep5Participants({ competitionId, currentTourOrder, competitionSeason, nbGroupe, groupNames, rows, onRowsChange, onError }: TourWizardStep5ParticipantsProps) {
+export function TourWizardStep5Participants({
+  competitionId,
+  currentTourOrder,
+  competitionSeason,
+  nbGroupe,
+  groupNames,
+  rows,
+  onRowsChange,
+  malusEnabled = false,
+  malusRows = NO_MALUS,
+  onMalusRowsChange,
+  onError,
+}: TourWizardStep5ParticipantsProps) {
   const [selection, setSelection] = useState<GridRowId[]>([]);
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const [programDialogOpen, setProgramDialogOpen] = useState(false);
+  const [malusForm, setMalusForm] = useState<MalusFormState | null>(null);
+  const [malusListParticipantId, setMalusListParticipantId] = useState<number | null>(null);
+  const [malusClearParticipantId, setMalusClearParticipantId] = useState<number | null>(null);
   const resolveProgrammedParticipantName = useProgrammedParticipantResolver(rows, competitionId, competitionSeason, NO_EXTRA_SOURCES, onError);
   // Dynamic mode: shows the potential clubs (or the actual qualified club) instead of a generic "Vainqueur du Groupe ..." label.
   const getLabel = useCallback(
@@ -108,6 +154,84 @@ export function TourWizardStep5Participants({ competitionId, currentTourOrder, c
     ));
   }, [rows, hasMultipleGroups, selectedGroupId, getLabel]);
 
+  const participantById = useMemo(
+    () => new Map(rows.map((row) => [Number(row.PACLEUNIK), row] as const)),
+    [rows],
+  );
+
+  const malusTotalByParticipantId = useMemo(() => {
+    const totals = new Map<number, number>();
+    malusRows.forEach((row) => {
+      const participantId = Number(row.PACLEUNIK);
+      totals.set(participantId, (totals.get(participantId) ?? 0) + (Number(row.MLPoints) || 0));
+    });
+    return totals;
+  }, [malusRows]);
+
+  const malusColumn = useMemo<TourParticipantMalusColumn | undefined>(
+    () => (malusEnabled
+      ? {
+        getTotal: (row) => malusTotalByParticipantId.get(Number(row.PACLEUNIK)) ?? 0,
+        onOpenList: (row) => setMalusListParticipantId(Number(row.PACLEUNIK)),
+        onAdd: (row) => setMalusForm((prev) => ({ key: (prev?.key ?? 0) + 1, participantId: Number(row.PACLEUNIK), editingId: null })),
+        onClearAll: (row) => setMalusClearParticipantId(Number(row.PACLEUNIK)),
+      }
+      : undefined),
+    [malusEnabled, malusTotalByParticipantId],
+  );
+
+  const getParticipantMalus = (participantId: number | null): TourMalusRow[] => (participantId === null
+    ? []
+    : malusRows
+      .filter((row) => Number(row.PACLEUNIK) === participantId)
+      .sort((left, right) => String(left.MLDate ?? '').localeCompare(String(right.MLDate ?? ''))));
+
+  const getParticipantLabel = (participantId: number | null): string => {
+    const participant = participantId === null ? undefined : participantById.get(participantId);
+    return participant ? getLabel(participant) : '';
+  };
+
+  const editedMalus = malusForm?.editingId != null
+    ? malusRows.find((row) => Number(row.MLCLEUNIK) === malusForm.editingId) ?? null
+    : null;
+
+  const handleMalusSubmit = (values: TourMalusFormValues) => {
+    const participant = malusForm ? participantById.get(malusForm.participantId) : undefined;
+    if (!malusForm || !participant || !onMalusRowsChange) {
+      onError?.('Participant invalide.');
+      return;
+    }
+    const malusFields = {
+      PACLEUNIK: malusForm.participantId,
+      IDCLUB: String(participant.IDCLUB ?? '').trim(),
+      CLUB: String(participant.CLUB ?? '').trim(),
+      GROUPE: String(participant.GROUPE ?? '').trim(),
+      PASource: String(participant.PASource ?? '').trim(),
+      ...values,
+    };
+    const { editingId } = malusForm;
+
+    onMalusRowsChange((prev) => {
+      if (editingId !== null) {
+        return prev.map((row) => (Number(row.MLCLEUNIK) === editingId ? { ...row, ...malusFields } : row));
+      }
+      // Local (negative) identifier until the wizard is completed.
+      const localId = Math.min(0, ...prev.map((row) => Number(row.MLCLEUNIK) || 0)) - 1;
+      return [...prev, { MLCLEUNIK: localId, TUCLEUNIK: 0, ...malusFields }];
+    });
+    setMalusForm(null);
+  };
+
+  const handleRemoveMalus = (malusId: number) => {
+    onMalusRowsChange?.((prev) => prev.filter((row) => Number(row.MLCLEUNIK) !== malusId));
+  };
+
+  const handleClearParticipantMalus = () => {
+    const participantId = malusClearParticipantId;
+    onMalusRowsChange?.((prev) => prev.filter((row) => Number(row.PACLEUNIK) !== participantId));
+    setMalusClearParticipantId(null);
+  };
+
   const getNextLocalId = (): number => Math.min(0, ...rows.map((row) => Number(row.PACLEUNIK) || 0)) - 1;
 
   const handleAddClub = (clubId: string, club?: ClubGridRow) => {
@@ -150,6 +274,14 @@ export function TourWizardStep5Participants({ competitionId, currentTourOrder, c
     }
 
     const selected = new Set(participantIds);
+    if (malusEnabled) {
+      const participantIdsWithMalus = new Set(malusRows.map((row) => Number(row.PACLEUNIK)));
+      const blocked = rows.filter((row) => selected.has(Number(row.PACLEUNIK)) && participantIdsWithMalus.has(Number(row.PACLEUNIK)));
+      if (blocked.length > 0) {
+        onError?.(`Supprimez d'abord les malus de : ${blocked.map(getLabel).join(', ')}.`);
+        return;
+      }
+    }
     onRowsChange((prev) => prev.filter((row) => !selected.has(Number(row.PACLEUNIK))));
     setSelection([]);
   };
@@ -289,6 +421,7 @@ export function TourWizardStep5Participants({ competitionId, currentTourOrder, c
           multiSelection
           checkboxSelection
           hideCheckboxSelectionColumn
+          malusColumn={malusColumn}
         />
       </Box>
 
@@ -299,6 +432,47 @@ export function TourWizardStep5Participants({ competitionId, currentTourOrder, c
           handleAddClub(clubId, club);
         }}
       />
+
+      {malusListParticipantId !== null ? (
+        <TourMalusListDialog
+          open
+          participantLabel={getParticipantLabel(malusListParticipantId)}
+          rows={getParticipantMalus(malusListParticipantId)}
+          onClose={() => setMalusListParticipantId(null)}
+          onAdd={() => setMalusForm((prev) => ({ key: (prev?.key ?? 0) + 1, participantId: malusListParticipantId, editingId: null }))}
+          onEdit={(malusId) => setMalusForm((prev) => ({ key: (prev?.key ?? 0) + 1, participantId: malusListParticipantId, editingId: malusId }))}
+          onRemove={handleRemoveMalus}
+        />
+      ) : null}
+
+      {malusForm ? (
+        <TourMalusDialog
+          key={malusForm.key}
+          open
+          participantLabel={getParticipantLabel(malusForm.participantId)}
+          initialValues={editedMalus}
+          onClose={() => setMalusForm(null)}
+          onSubmit={handleMalusSubmit}
+        />
+      ) : null}
+
+      <Dialog
+        open={malusClearParticipantId !== null}
+        onClose={() => setMalusClearParticipantId(null)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Supprimer les malus</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {`Voulez-vous vraiment supprimer tous les malus de ${getParticipantLabel(malusClearParticipantId)} (−${malusClearParticipantId === null ? 0 : malusTotalByParticipantId.get(malusClearParticipantId) ?? 0} points) ?`}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMalusClearParticipantId(null)} color="inherit">Annuler</Button>
+          <Button color="error" variant="contained" onClick={handleClearParticipantMalus}>Supprimer</Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog
         open={programDialogOpen}

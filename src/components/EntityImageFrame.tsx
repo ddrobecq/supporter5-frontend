@@ -1,12 +1,13 @@
 import UploadRoundedIcon from '@mui/icons-material/UploadRounded';
 import ContentPasteRoundedIcon from '@mui/icons-material/ContentPasteRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
-import { Box, CircularProgress, IconButton, Stack, Tooltip } from '@mui/material';
+import { Box, CircularProgress } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
 import { checkImageSize, isAllowedImageType, measureTextBytes } from '../config/uploadLimits';
 import { useDepsChanged } from '../lib/useDepsChanged';
+import { MiniActionBar } from './MiniActionBar';
 
 interface EntityImageFrameProps {
   src?: string | null;
@@ -434,37 +435,29 @@ export function EntityImageFrame({
             },
           }}
         >
-          <Stack
-            direction="row"
-            spacing={0.25}
-            sx={{
-              justifyContent: 'center',
-              bgcolor: 'background.paper',
-              backdropFilter: 'blur(2px)',
-              borderRadius: 999,
-              px: 0.5,
-              py: 0.25,
-              boxShadow: 2,
-            }}
-          >
-            <Tooltip title={actionLabels?.upload ?? 'Importer une image'}>
-              <IconButton size="small" onClick={handleUploadClick} aria-label={actionLabels?.upload ?? 'Importer une image'}>
-                <UploadRoundedIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title={actionLabels?.paste ?? 'Coller une image du presse-papiers'}>
-              <IconButton size="small" onClick={() => void handlePasteFromClipboard()} aria-label={actionLabels?.paste ?? 'Coller une image'}>
-                <ContentPasteRoundedIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title={actionLabels?.clear ?? "Supprimer l'image"}>
-              <IconButton size="small" onClick={handleClearImage} aria-label={actionLabels?.clear ?? "Supprimer l'image"}>
-                <DeleteOutlineRoundedIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Stack>
+          <MiniActionBar
+            actions={[
+              {
+                key: 'upload',
+                label: actionLabels?.upload ?? 'Importer une image',
+                icon: <UploadRoundedIcon fontSize="small" />,
+                onClick: handleUploadClick,
+              },
+              {
+                key: 'paste',
+                label: actionLabels?.paste ?? 'Coller une image',
+                tooltip: actionLabels?.paste ?? 'Coller une image du presse-papiers',
+                icon: <ContentPasteRoundedIcon fontSize="small" />,
+                onClick: () => void handlePasteFromClipboard(),
+              },
+              {
+                key: 'clear',
+                label: actionLabels?.clear ?? "Supprimer l'image",
+                icon: <DeleteOutlineRoundedIcon fontSize="small" />,
+                onClick: handleClearImage,
+              },
+            ]}
+          />
           <input ref={fileInputRef} type="file" hidden accept={accept} onChange={(event) => void handleFileChange(event)} />
         </Box>
       ) : null}

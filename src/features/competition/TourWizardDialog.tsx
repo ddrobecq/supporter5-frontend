@@ -30,18 +30,22 @@ import { toErrorMessage } from '../../components/useEntityPage';
 import {
   addTourParticipant,
   createCompetitionTour,
+  createTourMalus,
   createTourQualif,
   createTourRencontre,
+  deleteTourMalus,
   deleteTourQualif,
   deleteTourRencontre,
   fetchCompetitionTourById,
   fetchTourDefById,
   fetchTourDefsByType,
+  fetchTourMalus,
   fetchTourParticipants,
   fetchTourQualifs,
   fetchTourRencontres,
   recomputeTour,
   removeTourParticipants,
+  updateTourMalus,
   updateTourQualif,
   updateTourRencontre,
   updateCompetitionTour,
@@ -64,7 +68,14 @@ import { TourWizardStep5Participants } from './TourWizardStep5Participants';
 import { TourWizardStep6Rencontres } from './TourWizardStep6Rencontres';
 import { getDistinctNonEmptyGroupNames } from './tourWizardGroups';
 import { assignEliminatoireMatchGroups } from './tourWizardEliminatoireGroups';
-import type { CompetitionTourUpsertPayload, QualifRow, TourMatchRow, TourParticipantRow } from './types';
+import type {
+  CompetitionTourUpsertPayload,
+  QualifRow,
+  TourMalusPayload,
+  TourMalusRow,
+  TourMatchRow,
+  TourParticipantRow,
+} from './types';
 import { MatchEtat } from '../../lib/matchStatus';
 import { normalizeText } from '../../lib/text';
 import { normalizeHexColor } from '../../lib/color';
@@ -189,6 +200,59 @@ function buildRencontreBlockingIssues(
   return issues;
 }
 
+function formatMalusParticipantForDisplay(row: Pick<TourParticipantRow, 'CLUB' | 'IDCLUB' | 'PASource'>): string {
+  return formatParticipantForDisplay(normalizeText(row.CLUB) || normalizeText(row.IDCLUB), row.PASource);
+}
+
+/**
+ * A participant holding draft malus must keep its PACLEUNIK: removing it, or changing its club or
+ * source (saved as remove + add), would orphan its malus.
+ */
+function buildMalusBlockingIssues(
+  existingParticipants: TourParticipantRow[],
+  draftParticipants: TourParticipantRow[],
+  draftMalus: TourMalusRow[],
+): string[] {
+  const issues: string[] = [];
+  const existingById = new Map(existingParticipants.map((row) => [Number(row.PACLEUNIK), row] as const));
+  const draftById = new Map(draftParticipants.map((row) => [Number(row.PACLEUNIK), row] as const));
+  const checkedIds = new Set<number>();
+
+  for (const malus of draftMalus) {
+    const participantId = Number(malus.PACLEUNIK);
+    if (checkedIds.has(participantId)) continue;
+    checkedIds.add(participantId);
+
+    const draftParticipant = draftById.get(participantId);
+    if (!draftParticipant) {
+      issues.push(`Participant supprimé : ${formatMalusParticipantForDisplay(malus)}`);
+      continue;
+    }
+    if (participantId <= 0) continue;
+
+    const existing = existingById.get(participantId);
+    if (!existing) {
+      issues.push(`Participant introuvable en base : ${formatMalusParticipantForDisplay(draftParticipant)}`);
+      continue;
+    }
+    if (normalizeText(existing.IDCLUB) !== normalizeText(draftParticipant.IDCLUB)
+      || normalizeText(existing.PASource) !== normalizeText(draftParticipant.PASource)) {
+      issues.push(`Changement de club : ${formatMalusParticipantForDisplay(existing)}`);
+    }
+  }
+
+  return issues;
+}
+
+function toMalusPayload(row: TourMalusRow, participantId: number): TourMalusPayload {
+  return {
+    PACLEUNIK: participantId,
+    MLPoints: Number(row.MLPoints) || 0,
+    MLMotif: normalizeText(row.MLMotif) || null,
+    MLDate: normalizeText(row.MLDate),
+  };
+}
+
 export function TourWizardDialog({
   open,
   mode,
@@ -217,6 +281,7 @@ export function TourWizardDialog({
   const [qualifDraftRows, setQualifDraftRows] = useState<QualifRow[]>([]);
   const [participantDraftRows, setParticipantDraftRows] = useState<TourParticipantRow[]>([]);
   const [rencontreDraftRows, setRencontreDraftRows] = useState<TourMatchRow[]>([]);
+  const [malusDraftRows, setMalusDraftRows] = useState<TourMalusRow[]>([]);
 
   // Latest onError for the load effect, which must not re-run (and reload the tour) when only the
   // callback identity changes.
@@ -244,6 +309,7 @@ export function TourWizardDialog({
       setQualifDraftRows([]);
       setParticipantDraftRows([]);
       setRencontreDraftRows([]);
+      setMalusDraftRows([]);
     } else if (initialTourId) {
       setLoading(true);
     }
@@ -263,8 +329,10 @@ export function TourWizardDialog({
       fetchTourQualifs(initialTourId),
       fetchTourRencontres(initialTourId),
     ])
-      .then(([detail, participants, qualifs, rencontres]) => {
+      .then(async ([detail, participants, qualifs, rencontres]) => {
         const nextDraft = createDraftFromDetail(detail);
+        // Points penalties only exist for Ligue tours.
+        const malus = nextDraft.type === 'ligue' ? await fetchTourMalus(initialTourId) : [];
         setDraft(nextDraft);
         setInitialTourType(nextDraft.type);
         setInitialTourDefKey(nextDraft.tourDefKey);
@@ -275,6 +343,7 @@ export function TourWizardDialog({
         setParticipantDraftRows(participants);
         setQualifDraftRows(qualifs);
         setRencontreDraftRows(rencontres);
+        setMalusDraftRows(malus);
       })
       .catch((error) => {
         onErrorRef.current(toErrorMessage(error));
@@ -463,10 +532,13 @@ export function TourWizardDialog({
   };
 
   const persistTourDependants = async (tourId: number) => {
-    const [existingQualifs, existingParticipants, existingRencontres] = await Promise.all([
+    // Existing malus only for a tour that was a Ligue when opened (a new tour has none).
+    const hasExistingMalus = mode === 'edit' && initialTourType === 'ligue';
+    const [existingQualifs, existingParticipants, existingRencontres, existingMalus] = await Promise.all([
       fetchTourQualifs(tourId),
       fetchTourParticipants(tourId),
       fetchTourRencontres(tourId),
+      hasExistingMalus ? fetchTourMalus(tourId) : Promise.resolve<TourMalusRow[]>([]),
     ]);
 
     // Preflight global before any mutation to avoid partial saves.
@@ -474,6 +546,46 @@ export function TourWizardDialog({
     if (rencontreBlockingIssues.length > 0) {
       const details = rencontreBlockingIssues.join(' | ');
       throw new Error(`Enregistrement bloqué: certaines rencontres protégées seraient supprimées ou modifiées. ${details}`);
+    }
+
+    const malusBlockingIssues = buildMalusBlockingIssues(existingParticipants, participantDraftRows, malusDraftRows);
+    if (malusBlockingIssues.length > 0) {
+      const details = malusBlockingIssues.join(' | ');
+      throw new Error(`Enregistrement bloqué: des participants ayant des malus seraient supprimés ou changeraient de club. Supprimez d'abord leurs malus. ${details}`);
+    }
+
+    // Malus removed from the draft, or moved off a participant about to be removed (or re-created
+    // after a club change), are deleted before the participants are saved: the server refuses to
+    // remove a participant holding malus.
+    const draftParticipantByIdForMalus = new Map(participantDraftRows.map((row) => [Number(row.PACLEUNIK), row] as const));
+    const removedParticipantIds = new Set(
+      existingParticipants
+        .filter((row) => {
+          const draftParticipant = draftParticipantByIdForMalus.get(Number(row.PACLEUNIK));
+          return !draftParticipant
+            || normalizeText(draftParticipant.IDCLUB) !== normalizeText(row.IDCLUB)
+            || normalizeText(draftParticipant.PASource) !== normalizeText(row.PASource);
+        })
+        .map((row) => Number(row.PACLEUNIK)),
+    );
+    const draftMalusById = new Map(
+      malusDraftRows
+        .filter((row) => Number(row.MLCLEUNIK) > 0)
+        .map((row) => [Number(row.MLCLEUNIK), row] as const),
+    );
+    const malusIdsToRecreate = new Set<number>();
+    for (const existing of existingMalus) {
+      const malusId = Number(existing.MLCLEUNIK);
+      const draftMalus = draftMalusById.get(malusId);
+      if (!draftMalus) {
+        await deleteTourMalus(tourId, malusId);
+        continue;
+      }
+      const previousParticipantId = Number(existing.PACLEUNIK);
+      if (Number(draftMalus.PACLEUNIK) !== previousParticipantId && removedParticipantIds.has(previousParticipantId)) {
+        await deleteTourMalus(tourId, malusId);
+        malusIdsToRecreate.add(malusId);
+      }
     }
 
     const existingQualifById = new Map(
@@ -589,6 +701,46 @@ export function TourWizardDialog({
       await addTourParticipant(tourId, clubId, groupe, paSource);
     }
 
+    if (malusDraftRows.length > 0) {
+      // Participants added in the draft (negative ids) now have their server PACLEUNIK: resolve it
+      // by club, or by source for a scheduled qualifier.
+      const savedParticipants = await fetchTourParticipants(tourId);
+      const draftParticipantById = new Map(participantDraftRows.map((row) => [Number(row.PACLEUNIK), row] as const));
+      const resolveParticipantId = (malus: TourMalusRow): number => {
+        const participantId = Number(malus.PACLEUNIK);
+        if (participantId > 0) return participantId;
+        const local = draftParticipantById.get(participantId);
+        const clubId = normalizeText(local?.IDCLUB);
+        const paSource = normalizeText(local?.PASource);
+        const saved = savedParticipants.find((row) => (clubId
+          ? normalizeText(row.IDCLUB) === clubId
+          : Boolean(paSource) && normalizeText(row.PASource) === paSource));
+        if (!saved) {
+          throw new Error(`Impossible de rattacher le malus au participant enregistré : ${formatMalusParticipantForDisplay(local ?? malus)}`);
+        }
+        return Number(saved.PACLEUNIK);
+      };
+
+      const existingMalusById = new Map(existingMalus.map((row) => [Number(row.MLCLEUNIK), row] as const));
+      for (const row of malusDraftRows) {
+        const payload = toMalusPayload(row, resolveParticipantId(row));
+        const malusId = Number(row.MLCLEUNIK);
+        const existing = existingMalusById.get(malusId);
+        if (malusId > 0 && existing && !malusIdsToRecreate.has(malusId)) {
+          const previous = toMalusPayload(existing, Number(existing.PACLEUNIK));
+          const hasChange = previous.PACLEUNIK !== payload.PACLEUNIK
+            || previous.MLPoints !== payload.MLPoints
+            || previous.MLMotif !== payload.MLMotif
+            || previous.MLDate !== payload.MLDate;
+          if (hasChange) {
+            await updateTourMalus(tourId, malusId, payload);
+          }
+          continue;
+        }
+        await createTourMalus(tourId, payload);
+      }
+    }
+
     const existingRencontreById = new Map(
       existingRencontres.map((row) => [Number(row.RECLEUNIK), row] as const),
     );
@@ -693,6 +845,11 @@ export function TourWizardDialog({
     if (!isSelectedTourDefValid) {
       setStepIndex(STEP_DEFINITION);
       onError('Sélectionnez une définition de tour.');
+      return;
+    }
+    if (draft.type !== 'ligue' && malusDraftRows.length > 0) {
+      setStepIndex(STEP_DESCRIPTION);
+      onError('Les malus de points ne concernent que les tours de type Ligue : repassez le tour en Ligue et supprimez ses malus (étape Participants) avant de changer de type.');
       return;
     }
 
@@ -994,6 +1151,9 @@ export function TourWizardDialog({
                 groupNames={groupNames}
                 rows={participantDraftRows}
                 onRowsChange={setParticipantDraftRows}
+                malusEnabled={draft.type === 'ligue'}
+                malusRows={malusDraftRows}
+                onMalusRowsChange={setMalusDraftRows}
                 onError={onError}
               />
             </Box>

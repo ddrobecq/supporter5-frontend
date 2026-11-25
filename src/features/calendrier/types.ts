@@ -50,6 +50,17 @@ export interface TourClassementRow {
   LOCKED_QUALIF_LIBELLE?: string | null;
   LOCKED_QUALIF_COULEUR?: string | null;
   LOCKED_QUALIF_TYPE?: number | null;
+  /** Point penalties already deducted from PANbPoints (empty when none). */
+  MALUS?: TourClassementMalus[];
+}
+
+export interface TourClassementMalus {
+  MLCLEUNIK: number;
+  /** Points removed (> 0). */
+  MLPoints: number;
+  MLMotif: string | null;
+  /** 'YYYY-MM-DD', or '' when unknown. */
+  MLDate: string;
 }
 
 export interface TourQualifRow {

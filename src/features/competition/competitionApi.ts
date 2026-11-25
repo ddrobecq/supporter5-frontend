@@ -17,6 +17,8 @@ import type {
   QualifRow,
   TourMatchRow,
   TourDefRow,
+  TourMalusPayload,
+  TourMalusRow,
   TourParticipantRow,
 } from './types';
 
@@ -218,6 +220,35 @@ export async function removeTourParticipants(
     data: { clubIds, participantIds },
   });
   return Number(data.removed ?? 0);
+}
+
+export async function fetchTourMalus(tourId: string | number, signal?: AbortSignal): Promise<TourMalusRow[]> {
+  const { data } = await http.get<{ data: TourMalusRow[] }>(
+    `${env.tourAdminResource}/${encodePathSegment(tourId)}/malus`,
+    { signal },
+  );
+  return data.data ?? [];
+}
+
+export async function createTourMalus(tourId: string | number, payload: TourMalusPayload): Promise<TourMalusRow> {
+  const { data } = await http.post<TourMalusRow>(`${env.tourAdminResource}/${encodePathSegment(tourId)}/malus`, payload);
+  return data;
+}
+
+export async function updateTourMalus(
+  tourId: string | number,
+  malusId: string | number,
+  payload: TourMalusPayload,
+): Promise<TourMalusRow> {
+  const { data } = await http.put<TourMalusRow>(
+    `${env.tourAdminResource}/${encodePathSegment(tourId)}/malus/${encodePathSegment(malusId)}`,
+    payload,
+  );
+  return data;
+}
+
+export async function deleteTourMalus(tourId: string | number, malusId: string | number): Promise<void> {
+  await http.delete(`${env.tourAdminResource}/${encodePathSegment(tourId)}/malus/${encodePathSegment(malusId)}`);
 }
 
 export async function fetchCircByTourType(typeId: number, signal?: AbortSignal): Promise<CircOptionRow[]> {

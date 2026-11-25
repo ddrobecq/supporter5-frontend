@@ -89,6 +89,25 @@ export interface TourParticipantRow {
   PAClassement?: number;
 }
 
+/** Points penalty granted to a participant of a Ligue tour (table MALUS). */
+export interface TourMalusRow {
+  MLCLEUNIK: number;
+  PACLEUNIK: number;
+  TUCLEUNIK: number;
+  IDCLUB: string;
+  CLUB: string;
+  GROUPE: string;
+  PASource: string;
+  /** Points withdrawn, always > 0. */
+  MLPoints: number;
+  /** null = no reason given (never ''). */
+  MLMotif: string | null;
+  /** ISO `YYYY-MM-DD`, or '' when unknown. */
+  MLDate: string;
+}
+
+export type TourMalusPayload = Pick<TourMalusRow, 'PACLEUNIK' | 'MLPoints' | 'MLMotif' | 'MLDate'>;
+
 export interface CircOptionRow {
   IDCIRC: string;
   CIRC: string;
