@@ -1,6 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
-import { Box, Card, ClickAwayListener, CardContent, Stack, Tooltip, Typography } from '@mui/material';
+import { Box, Card, ClickAwayListener, CardContent, MenuItem, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import { type GridColDef } from '@mui/x-data-grid';
 import { MatchDataGrid } from '../../components/MatchDataGrid';
 import { useDepsChanged } from '../../lib/useDepsChanged';
@@ -110,7 +110,7 @@ function ClassementPointsCell({ row }: { row: TourClassementRow }) {
   );
 }
 
-function ClassementClubCell({
+export function ClassementClubCell({
   clubId,
   clubName,
   lockedQualifAbrege,
@@ -231,14 +231,17 @@ export interface TourClassementCardProps {
   /** Optional header actions (e.g. buttons to open the competition), rendered on the right of the title. */
   actions?: ReactNode;
   onOpenClub?: (clubId: string, clubName: string) => void;
+  /** Show a group selector in the header when the tour has several groups (default group: the one of `matchForGroup`, else the first). */
+  groupSelectable?: boolean;
 }
 
 export const TourClassementCard = forwardRef<TourClassementCardHandle, TourClassementCardProps>(
-  function TourClassementCard({ tourId, publicMode = false, matchForGroup = null, title, actions, onOpenClub }, ref) {
+  function TourClassementCard({ tourId, publicMode = false, matchForGroup = null, title, actions, onOpenClub, groupSelectable = false }, ref) {
     const [classementRows, setClassementRows] = useState<TourClassementRow[]>([]);
     const [classementQualifRows, setClassementQualifRows] = useState<TourQualifRow[]>([]);
     const [classementLoading, setClassementLoading] = useState(false);
     const [loadedTourId, setLoadedTourId] = useState<number | null>(null);
+    const [userSelectedGroup, setUserSelectedGroup] = useState<string | null>(null);
 
     const classementCacheRef = useRef<Map<number, TourClassementRow[]>>(new Map());
     const classementQualifCacheRef = useRef<Map<number, TourQualifRow[]>>(new Map());
@@ -318,7 +321,33 @@ export const TourClassementCard = forwardRef<TourClassementCardHandle, TourClass
       [classementRows, matchForGroup],
     );
 
-    const classementGroup = hasValidTour && classementHasMultipleGroups ? resolvedMatchGroup : null;
+    const groupOptions = useMemo(
+      () => Array.from(new Set(
+        classementRows
+          .map((row) => normalizeGroupName(row.GROUPE))
+          .filter((group) => group.length > 0),
+      )).sort((a, b) => a.localeCompare(b, 'fr', { numeric: true })),
+      [classementRows],
+    );
+
+    // A group chosen by the user is kept until the tour or the match used for the default group changes.
+    const groupDefaultChanged = useDepsChanged([
+      tourId,
+      String(matchForGroup?.DOMICILE ?? '').trim(),
+      String(matchForGroup?.EXTERIEUR ?? '').trim(),
+    ]);
+    if (groupDefaultChanged && userSelectedGroup !== null) {
+      setUserSelectedGroup(null);
+    }
+
+    const showGroupSelector = groupSelectable && hasValidTour && classementHasMultipleGroups;
+    const selectedGroup = groupSelectable
+      ? (userSelectedGroup !== null && groupOptions.includes(userSelectedGroup)
+        ? userSelectedGroup
+        : (resolvedMatchGroup ?? groupOptions[0] ?? null))
+      : resolvedMatchGroup;
+
+    const classementGroup = hasValidTour && classementHasMultipleGroups ? selectedGroup : null;
 
     useEffect(() => {
       if (!Number.isInteger(tourId) || Number(tourId) <= 0) {
@@ -547,8 +576,22 @@ export const TourClassementCard = forwardRef<TourClassementCardHandle, TourClass
               <Typography variant="body2" sx={{ fontWeight: 600 }}>
                 {displayedTitle}
               </Typography>
-              {actions ? (
-                <Stack direction="row" spacing={0.25}>
+              {showGroupSelector || actions ? (
+                <Stack direction="row" spacing={0.25} sx={showGroupSelector ? { alignItems: 'center' } : undefined}>
+                  {showGroupSelector ? (
+                    <TextField
+                      select
+                      label="Groupe"
+                      size="small"
+                      value={classementGroup ?? ''}
+                      onChange={(event) => setUserSelectedGroup(event.target.value)}
+                      sx={{ minWidth: 140 }}
+                    >
+                      {groupOptions.map((group) => (
+                        <MenuItem key={group} value={group}>{group}</MenuItem>
+                      ))}
+                    </TextField>
+                  ) : null}
                   {actions}
                 </Stack>
               ) : null}

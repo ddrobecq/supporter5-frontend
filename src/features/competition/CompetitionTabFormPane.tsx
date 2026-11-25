@@ -30,6 +30,7 @@ import { MatchDataGrid } from '../../components/MatchDataGrid';
 import { buildMatchGridColumns } from '../../components/matchGridColumns';
 import { formatDateShort } from '../../components/dateUtils';
 import { useDepsChanged } from '../../lib/useDepsChanged';
+import { emitTabOpen } from '../../lib/useTabMetaEvents';
 import { TabSaveSettleContext, useTabFormPaneBridge } from '../../lib/useTabFormPaneBridge';
 import { toErrorMessage } from '../../components/useEntityPage';
 import { CompetitionFormDialog } from './CompetitionFormDialog';
@@ -49,6 +50,9 @@ import {
 import type { CompetitionRow, CompetitionTourRow, EpreuveOption, SaisonOption } from './types';
 import type { CalendrierRow } from '../calendrier/types';
 import { useCalendrierRowEditing } from '../calendrier/useCalendrierRowEditing';
+import { TourClassementCard, type TourClassementCardHandle } from '../calendrier/TourClassementCard';
+import { TourQualifiesCard } from '../calendrier/TourQualifiesCard';
+import type { ClassementGroupMatch } from '../calendrier/tourClassementUtils';
 import { EpreuvePalmaresGrid } from '../epreuve/EpreuvePalmaresGrid';
 import { useProgrammedParticipantResolver } from './useProgrammedParticipantLabels';
 import { normalizeCircId } from './tourWizardRencontresUtils';
@@ -342,9 +346,29 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
 
   // A saved status/score may change the tour participants (ranking, resolved programmed participants).
   const refreshTourParticipants = (savedRow: CalendrierRow): void => {
+  const classementCardRef = useRef<TourClassementCardHandle | null>(null);
+
+  const selectedMatchRow = selectedMatchId != null
+    ? orderedMatchRows.find((match) => String(match.RECLEUNIK) === String(selectedMatchId))
+    : undefined;
+  const selectedMatchDomicile = String(selectedMatchRow?.DOMICILE ?? '');
+  const selectedMatchExterieur = String(selectedMatchRow?.EXTERIEUR ?? '');
+  const hasSelectedMatch = selectedMatchRow !== undefined;
+  const classementMatchForGroup = useMemo<ClassementGroupMatch | null>(
+    () => (hasSelectedMatch ? { DOMICILE: selectedMatchDomicile, EXTERIEUR: selectedMatchExterieur } : null),
+    [hasSelectedMatch, selectedMatchDomicile, selectedMatchExterieur],
+  );
+
+  const handleOpenClub = useCallback((clubId: string, clubName: string) => {
+    emitTabOpen(`/admin/clubs/${encodeURIComponent(clubId)}`, clubName.trim() || clubId);
+  }, []);
+
     const tourId = Number(savedRow.TUCLEUNIK);
     void fetchTourParticipants(tourId).then((participants) => {
       if (selectedTourIdRef.current === tourId) {
+    if (selectedTourIdRef.current === tourId) {
+      classementCardRef.current?.refresh();
+    }
         setTourParticipants(participants);
       }
     }).catch((error: unknown) => {
@@ -725,6 +749,25 @@ export function CompetitionTabFormPane({ tabPath, competitionId, active }: Compe
               </Box>
             </Stack>
           ) : null}
+
+              {selectedTourRow && Number(selectedTourRow.TYPE_ID) === 1 ? (
+                <TourClassementCard
+                  ref={classementCardRef}
+                  tourId={Number(selectedTourRow.TUCLEUNIK)}
+                  groupSelectable
+                  matchForGroup={classementMatchForGroup}
+                  title={`Classement - ${selectedTourRow.TOUR}`}
+                  onOpenClub={handleOpenClub}
+                />
+              ) : null}
+              {selectedTourRow && Number(selectedTourRow.TYPE_ID) === 2 ? (
+                <TourQualifiesCard
+                  ref={classementCardRef}
+                  tourId={Number(selectedTourRow.TUCLEUNIK)}
+                  title={`Qualifiés à date - ${selectedTourRow.TOUR}`}
+                  onOpenClub={handleOpenClub}
+                />
+              ) : null}
 
           {/* Monte au premier affichage du sous-onglet puis conserve (masque) pour ne pas recharger. */}
           {hasOpenedPalmaresTab && row.IDEPREUVE != null && String(row.IDEPREUVE) !== '' ? (
